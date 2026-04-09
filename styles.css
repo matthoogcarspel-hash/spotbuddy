@@ -37,12 +37,6 @@ button,
 select,
 input {
   font: inherit;
-}
-
-.tab,
-button,
-select,
-input {
   border-radius: 10px;
   border: 1px solid #ccd2d9;
   padding: 10px 12px;
