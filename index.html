@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="nl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SpotBuddy</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header>
+        <h1>SpotBuddy</h1>
+      </header>
+
+      <nav class="tabs" aria-label="Navigatie">
+        <button class="tab active" data-tab="new-session">Nieuwe sessie</button>
+        <button class="tab" data-tab="profile">Profiel</button>
+      </nav>
+
+      <section id="new-session" class="panel active" aria-labelledby="Nieuwe sessie">
+        <h2>Nieuwe sessie</h2>
+
+        <label for="spot-select">Spot</label>
+        <select id="spot-select" name="spot"></select>
+
+        <div id="add-spot-form" class="add-spot hidden" aria-live="polite">
+          <label for="new-spot-name">Spotnaam</label>
+          <input id="new-spot-name" type="text" maxlength="80" placeholder="Bijv. Downtown Plein" />
+          <button id="add-spot-btn" type="button">Toevoegen</button>
+          <p id="add-spot-error" class="error hidden"></p>
+        </div>
+
+        <button id="place-session-btn" class="primary" type="button">Sessie plaatsen</button>
+        <p id="session-feedback" class="feedback" aria-live="polite"></p>
+      </section>
+
+      <section id="profile" class="panel" aria-labelledby="Profiel">
+        <h2>Profiel</h2>
+        <h3>Mijn spots</h3>
+        <ul id="profile-spot-list" class="spot-list"></ul>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>
