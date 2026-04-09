@@ -109,11 +109,18 @@ button {
   margin: 0;
 }
 
-.spot-list {
-  margin: 0;
+.spot-list,
+.session-list {
+  margin: 0 0 16px;
   padding-left: 20px;
 }
 
-.spot-list li {
-  padding: 2px 0;
+.spot-list li,
+.session-list li {
+  padding: 4px 0;
+  line-height: 1.35;
+}
+
+.session-empty {
+  color: #5f6b7a;
 }
