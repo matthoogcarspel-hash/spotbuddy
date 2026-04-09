@@ -18,6 +18,9 @@
       </nav>
 
       <section id="new-session" class="panel active" aria-labelledby="Nieuwe sessie">
+        <h2>Geplande sessies</h2>
+        <ul id="session-list" class="session-list" aria-live="polite"></ul>
+
         <h2>Nieuwe sessie</h2>
 
         <label for="spot-select">Spot</label>
@@ -29,6 +32,26 @@
           <button id="add-spot-btn" type="button">Toevoegen</button>
           <p id="add-spot-error" class="error hidden"></p>
         </div>
+
+        <label for="session-date">Datum</label>
+        <input id="session-date" name="date" type="date" />
+
+        <label for="session-time">Tijd</label>
+        <input id="session-time" name="time" type="time" />
+
+        <label for="session-name">Naam</label>
+        <input id="session-name" name="name" type="text" maxlength="60" placeholder="Bijv. Tim" />
+
+        <label for="session-level">Niveau</label>
+        <select id="session-level" name="level">
+          <option value="">Kies niveau</option>
+          <option value="Beginner">Beginner</option>
+          <option value="Intermediate">Intermediate</option>
+          <option value="Advanced">Advanced</option>
+        </select>
+
+        <label for="session-note">Opmerking</label>
+        <input id="session-note" name="note" type="text" maxlength="120" placeholder="Bijv. Neem extra wax mee" />
 
         <button id="place-session-btn" class="primary" type="button">Sessie plaatsen</button>
         <p id="session-feedback" class="feedback" aria-live="polite"></p>
