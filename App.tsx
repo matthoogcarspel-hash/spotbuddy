@@ -650,9 +650,15 @@ export default function App() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
       <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View>
-          <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-          <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={{ width: 40, height: 40, borderWidth: 1, borderColor: 'red' }}
+          />
+          <View style={{ marginLeft: 10 }}>
+            <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
+            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
+          </View>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}>
           <Avatar uri={profile.avatar_url} size={24} />
