@@ -365,11 +365,15 @@ export default function App() {
       updates.checked_out_at = nowIso;
     }
 
-    const { error } = await supabase
+    const nextStatus = status;
+    console.log('SESSION_STATUS_UPDATE', { sessionId: sessionItem.id, nextStatus });
+    const result = await supabase
       .from('sessions')
       .update(updates)
       .eq('id', sessionItem.id)
       .eq('user_id', authUserId);
+    console.log('SESSION_STATUS_RESULT', result);
+    const { error } = result;
 
     if (error) {
       console.error('Status bijwerken mislukt:', error);
