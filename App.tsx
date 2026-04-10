@@ -1,4 +1,4 @@
-import { SafeAreaView, View, Text, Pressable, TextInput } from 'react-native';
+import { SafeAreaView, View, Text, Pressable, TextInput, ScrollView } from 'react-native';
 import { useState } from 'react';
 
 const spots = [
@@ -21,8 +21,19 @@ export default function App() {
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, Session>>({});
+  const [messagesBySpot, setMessagesBySpot] = useState<Record<string, string[]>>({});
+  const [messageInput, setMessageInput] = useState('');
 
   const currentSession = selectedSpot ? sessionsBySpot[selectedSpot] : undefined;
+  const currentMessages = selectedSpot ? messagesBySpot[selectedSpot] ?? [] : [];
+
+  const getKiterText = (count: number) => {
+    if (count === 1) {
+      return '1 kiter vandaag';
+    }
+
+    return `${count} kiters vandaag`;
+  };
 
   const handleSave = () => {
     if (!selectedSpot) {
@@ -45,6 +56,24 @@ export default function App() {
     setEndTime('');
   };
 
+  const handleSendMessage = () => {
+    if (!selectedSpot) {
+      return;
+    }
+
+    const text = messageInput.trim();
+
+    if (!text) {
+      return;
+    }
+
+    setMessagesBySpot((prev) => ({
+      ...prev,
+      [selectedSpot]: [...(prev[selectedSpot] ?? []), text],
+    }));
+    setMessageInput('');
+  };
+
   return (
     <SafeAreaView
       style={{
@@ -64,37 +93,45 @@ export default function App() {
           </View>
 
           <View>
-            {spots.map((spot) => (
-              <Pressable
-                key={spot}
-                onPress={() => {
-                  setSelectedSpot(spot);
-                  setShowForm(false);
-                  setStartTime('');
-                  setEndTime('');
-                }}
-                style={{
-                  backgroundColor: '#121821',
-                  borderRadius: 12,
-                  paddingHorizontal: 14,
-                  paddingVertical: 12,
-                  marginBottom: 10,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-                <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>0 kiters vandaag</Text>
-              </Pressable>
-            ))}
+            {spots.map((spot) => {
+              const kiterCount = sessionsBySpot[spot] ? 1 : 0;
+
+              return (
+                <Pressable
+                  key={spot}
+                  onPress={() => {
+                    setSelectedSpot(spot);
+                    setShowForm(false);
+                    setStartTime('');
+                    setEndTime('');
+                    setMessageInput('');
+                  }}
+                  style={{
+                    backgroundColor: '#121821',
+                    borderRadius: 12,
+                    paddingHorizontal: 14,
+                    paddingVertical: 12,
+                    marginBottom: 10,
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>
+                    {getKiterText(kiterCount)}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
       ) : (
-        <View>
+        <ScrollView>
           <Pressable
             onPress={() => {
               setSelectedSpot(null);
               setShowForm(false);
               setStartTime('');
               setEndTime('');
+              setMessageInput('');
             }}
             style={{ marginBottom: 18 }}
           >
@@ -174,6 +211,7 @@ export default function App() {
               backgroundColor: '#121821',
               borderRadius: 12,
               padding: 16,
+              marginBottom: 12,
             }}
           >
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
@@ -192,7 +230,58 @@ export default function App() {
               </View>
             )}
           </View>
-        </View>
+
+          <View
+            style={{
+              backgroundColor: '#121821',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 12,
+            }}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
+              Chat
+            </Text>
+
+            {currentMessages.length > 0 ? (
+              <View style={{ marginBottom: 10 }}>
+                {currentMessages.map((message, index) => (
+                  <Text key={`${message}-${index}`} style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}>
+                    Jij: {message}
+                  </Text>
+                ))}
+              </View>
+            ) : (
+              <Text style={{ color: '#9db0c7', fontSize: 15, marginBottom: 10 }}>Nog geen berichten</Text>
+            )}
+
+            <TextInput
+              value={messageInput}
+              onChangeText={setMessageInput}
+              placeholder="Typ een bericht"
+              placeholderTextColor="#9db0c7"
+              style={{
+                backgroundColor: '#0b0f14',
+                color: '#ffffff',
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                marginBottom: 10,
+              }}
+            />
+            <Pressable
+              onPress={handleSendMessage}
+              style={{
+                backgroundColor: '#0b0f14',
+                borderRadius: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
