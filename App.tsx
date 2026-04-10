@@ -611,6 +611,12 @@ export default function App() {
   }
 
   if (selectedSpot) {
+    const hasActiveSessionOnSpot = sessions.some(
+      (sessionItem) =>
+        sessionItem.userId === session.user.id &&
+        (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'),
+    );
+
     const handleSave = async () => {
       if (startHour === null || endHour === null) {
         setFormError('Kies eerst een start- en eindtijd.');
@@ -619,8 +625,58 @@ export default function App() {
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
+      const now = new Date();
+      const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+      if (startTotalMinutes < nowTotalMinutes) {
+        setFormError('Starttijd kan niet eerder zijn dan nu.');
+        return;
+      }
+
       if (endTotalMinutes <= startTotalMinutes) {
         setFormError('Eindtijd moet later zijn dan starttijd.');
+        return;
+      }
+
+      const startTime = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
+      const endTime = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
+
+      const [activeSessionResponse, duplicateSessionResponse] = await Promise.all([
+        supabase
+          .from('sessions')
+          .select('id, status')
+          .eq('spot_name', selectedSpot)
+          .eq('user_id', session.user.id)
+          .in('status', ['Gaat', 'Is er al'])
+          .limit(1),
+        supabase
+          .from('sessions')
+          .select('id')
+          .eq('spot_name', selectedSpot)
+          .eq('user_id', session.user.id)
+          .eq('start_time', startTime)
+          .eq('end_time', endTime)
+          .not('status', 'in', '("Uitchecken","Ik ben geweest")')
+          .limit(1),
+      ]);
+
+      if (activeSessionResponse.error) {
+        setFormError(activeSessionResponse.error.message);
+        return;
+      }
+
+      if (activeSessionResponse.data.length > 0) {
+        setFormError('Je hebt hier al een actieve sessie. Check eerst uit.');
+        return;
+      }
+
+      if (duplicateSessionResponse.error) {
+        setFormError(duplicateSessionResponse.error.message);
+        return;
+      }
+
+      if (duplicateSessionResponse.data.length > 0) {
+        setFormError('Deze sessie bestaat al');
         return;
       }
 
@@ -629,8 +685,8 @@ export default function App() {
         user_id: session.user.id,
         user_name: profile.display_name,
         user_avatar_url: profile.avatar_url,
-        start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
-        end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
+        start_time: startTime,
+        end_time: endTime,
         status: 'Gaat',
       };
       console.log('SESSION_SAVE_PAYLOAD', payload);
@@ -701,6 +757,9 @@ export default function App() {
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
+          {hasActiveSessionOnSpot ? (
+            <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie op deze spot</Text>
+          ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
