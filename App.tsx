@@ -1,5 +1,12 @@
-import { SafeAreaView, View, Text, Pressable, TextInput, ScrollView } from 'react-native';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, SafeAreaView, Text } from 'react-native';
+import { Session } from '@supabase/supabase-js';
+
+import AuthScreen from './src/screens/AuthScreen';
+import HomeScreen from './src/screens/HomeScreen';
+import ProfileSetupScreen from './src/screens/ProfileSetupScreen';
+import SpotDetailScreen, { Session as SpotSession, SessionStatus } from './src/screens/SpotDetailScreen';
+import { Profile, supabase } from './src/lib/supabase';
 
 const spots = [
   'Scheveningen KZVS',
@@ -10,61 +17,65 @@ const spots = [
   'Maasvlakte 2 Slufter',
 ];
 
-type SessionStatus = 'Is er al' | 'Gaat' | 'Ik ben geweest';
-
-type Session = {
-  start: string;
-  end: string;
-  status: SessionStatus;
+type SpotMessage = {
+  text: string;
+  userName: string;
 };
 
-type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
-
-const hours = Array.from({ length: 24 }, (_, index) => index);
-const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Ik ben geweest'];
-const activeStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
-
-const formatTimePart = (value: number) => String(value).padStart(2, '0');
-
 export default function App() {
+  const [session, setSession] = useState<Session | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
-  const [showForm, setShowForm] = useState(false);
-  const [activePicker, setActivePicker] = useState<PickerKey>(null);
-  const [startHour, setStartHour] = useState<number | null>(null);
-  const [startMinute, setStartMinute] = useState<number>(0);
-  const [endHour, setEndHour] = useState<number | null>(null);
-  const [endMinute, setEndMinute] = useState<number>(0);
-  const [formError, setFormError] = useState('');
-  const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, Session[]>>({});
-  const [messagesBySpot, setMessagesBySpot] = useState<Record<string, string[]>>({});
-  const [messageInput, setMessageInput] = useState('');
+  const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, SpotSession[]>>({});
+  const [messagesBySpot, setMessagesBySpot] = useState<Record<string, SpotMessage[]>>({});
 
-  const currentSessions = selectedSpot ? sessionsBySpot[selectedSpot] ?? [] : [];
-  const currentMessages = selectedSpot ? messagesBySpot[selectedSpot] ?? [] : [];
+  const loadProfile = async (userId: string) => {
+    const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
 
-  const getKiterText = (count: number) => {
-    if (count === 1) {
-      return '1 kiter vandaag';
+    if (error) {
+      console.warn('Could not fetch profile:', error.message);
+      setProfile(null);
+      return;
     }
 
-    return `${count} kiters vandaag`;
+    setProfile(data ?? null);
   };
 
-  const getSessionsByStatus = (sessions: Session[]) => ({
-    'Is er al': sessions.filter((session) => session.status === 'Is er al'),
-    Gaat: sessions.filter((session) => session.status === 'Gaat'),
-    'Ik ben geweest': sessions.filter((session) => session.status === 'Ik ben geweest'),
-  });
+  useEffect(() => {
+    const bootstrap = async () => {
+      const { data } = await supabase.auth.getSession();
+      setSession(data.session ?? null);
 
-  const resetForm = () => {
-    setShowForm(false);
-    setActivePicker(null);
-    setStartHour(null);
-    setStartMinute(0);
-    setEndHour(null);
-    setEndMinute(0);
-    setFormError('');
+      if (data.session?.user.id) {
+        await loadProfile(data.session.user.id);
+      }
+
+      setIsLoading(false);
+    };
+
+    void bootstrap();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+      if (!nextSession?.user.id) {
+        setProfile(null);
+        return;
+      }
+
+      void loadProfile(nextSession.user.id);
+    });
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setSelectedSpot(null);
+    setSessionsBySpot({});
+    setMessagesBySpot({});
   };
 
   const updateSessionStatus = (spot: string, sessionIndex: number, status: SessionStatus) => {
@@ -76,533 +87,61 @@ export default function App() {
       }
 
       const nextSessions = [...spotSessions];
-      nextSessions[sessionIndex] = {
-        ...nextSessions[sessionIndex],
-        status,
-      };
+      nextSessions[sessionIndex] = { ...nextSessions[sessionIndex], status };
 
-      return {
-        ...prev,
-        [spot]: nextSessions,
-      };
+      return { ...prev, [spot]: nextSessions };
     });
   };
 
-  const handleCheckIn = () => {
-    if (!selectedSpot) {
-      return;
-    }
+  if (isLoading) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator color="#ffffff" />
+        <Text style={{ color: '#9db0c7', marginTop: 12 }}>SpotBuddy laden...</Text>
+      </SafeAreaView>
+    );
+  }
 
-    const sessions = sessionsBySpot[selectedSpot] ?? [];
+  if (!session) {
+    return <AuthScreen onSignedUp={() => setProfile(null)} />;
+  }
 
-    if (sessions.length === 0) {
-      return;
-    }
+  if (!profile) {
+    return <ProfileSetupScreen userId={session.user.id} onSaved={() => loadProfile(session.user.id)} />;
+  }
 
-    updateSessionStatus(selectedSpot, sessions.length - 1, 'Is er al');
-  };
-
-  const handleDone = () => {
-    if (!selectedSpot) {
-      return;
-    }
-
-    const sessions = sessionsBySpot[selectedSpot] ?? [];
-
-    if (sessions.length === 0) {
-      return;
-    }
-
-    updateSessionStatus(selectedSpot, sessions.length - 1, 'Ik ben geweest');
-  };
-
-  const handleSave = () => {
-    if (!selectedSpot) {
-      return;
-    }
-
-    if (startHour === null || startMinute === null || endHour === null || endMinute === null) {
-      setFormError('Kies eerst een start- en eindtijd.');
-      return;
-    }
-
-    const startTotalMinutes = startHour * 60 + startMinute;
-    const endTotalMinutes = endHour * 60 + endMinute;
-    const now = new Date();
-    const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
-
-    if (startTotalMinutes < nowTotalMinutes) {
-      setFormError('Starttijd kan niet eerder zijn dan nu.');
-      return;
-    }
-
-    if (endTotalMinutes <= startTotalMinutes) {
-      setFormError('Eindtijd moet later zijn dan starttijd.');
-      return;
-    }
-
-    const start = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
-    const end = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
-
-    setSessionsBySpot((prev) => ({
-      ...prev,
-      [selectedSpot]: [...(prev[selectedSpot] ?? []), { start, end, status: 'Gaat' }],
-    }));
-
-    resetForm();
-  };
-
-  const handleSendMessage = () => {
-    if (!selectedSpot) {
-      return;
-    }
-
-    const text = messageInput.trim();
-
-    if (!text) {
-      return;
-    }
-
-    setMessagesBySpot((prev) => ({
-      ...prev,
-      [selectedSpot]: [...(prev[selectedSpot] ?? []), text],
-    }));
-    setMessageInput('');
-  };
-
-  const PickerField = ({
-    label,
-    value,
-    onPress,
-  }: {
-    label: string;
-    value: string;
-    onPress: () => void;
-  }) => (
-    <Pressable
-      onPress={() => {
-        onPress();
-        setFormError('');
-      }}
-      style={{
-        backgroundColor: '#0b0f14',
-        borderRadius: 10,
-        paddingHorizontal: 12,
-        paddingVertical: 10,
-        marginBottom: 6,
-      }}
-    >
-      <Text style={{ color: '#ffffff', fontSize: 15 }}>
-        {label}: {value}
-      </Text>
-    </Pressable>
-  );
-
-  const sessionsByStatus = getSessionsByStatus(currentSessions);
+  if (selectedSpot) {
+    return (
+      <SpotDetailScreen
+        selectedSpot={selectedSpot}
+        userName={profile.name}
+        sessions={sessionsBySpot[selectedSpot] ?? []}
+        messages={messagesBySpot[selectedSpot] ?? []}
+        onBack={() => setSelectedSpot(null)}
+        onAddSession={(sessionData) => {
+          setSessionsBySpot((prev) => ({
+            ...prev,
+            [selectedSpot]: [...(prev[selectedSpot] ?? []), sessionData],
+          }));
+        }}
+        onUpdateSessionStatus={(sessionIndex, status) => updateSessionStatus(selectedSpot, sessionIndex, status)}
+        onSendMessage={(message) => {
+          setMessagesBySpot((prev) => ({
+            ...prev,
+            [selectedSpot]: [...(prev[selectedSpot] ?? []), message],
+          }));
+        }}
+      />
+    );
+  }
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        backgroundColor: '#0b0f14',
-        paddingHorizontal: 20,
-        paddingTop: 20,
-      }}
-    >
-      {!selectedSpot ? (
-        <View>
-          <View style={{ marginBottom: 20 }}>
-            <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
-          </View>
-
-          <View>
-            {spots.map((spot) => {
-              const todayCount =
-                sessionsBySpot[spot]?.filter((session) => activeStatuses.includes(session.status)).length ?? 0;
-              const liveCount =
-                sessionsBySpot[spot]?.filter((session) => session.status === 'Is er al').length ?? 0;
-
-              return (
-                <Pressable
-                  key={spot}
-                  onPress={() => {
-                    setSelectedSpot(spot);
-                    resetForm();
-                    setMessageInput('');
-                  }}
-                  style={{
-                    backgroundColor: '#121821',
-                    borderRadius: 12,
-                    paddingHorizontal: 14,
-                    paddingVertical: 12,
-                    marginBottom: 10,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(todayCount)}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-      ) : (
-        <ScrollView>
-          <Pressable
-            onPress={() => {
-              setSelectedSpot(null);
-              resetForm();
-              setMessageInput('');
-            }}
-            style={{ marginBottom: 18 }}
-          >
-            <Text style={{ color: '#9db0c7', fontSize: 15 }}>← Terug</Text>
-          </Pressable>
-
-          <View
-            style={{
-              backgroundColor: '#121821',
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{selectedSpot}</Text>
-
-            <Pressable
-              onPress={() => {
-                setShowForm(true);
-                setActivePicker(null);
-                setFormError('');
-              }}
-              style={{
-                marginTop: 14,
-                backgroundColor: '#0b0f14',
-                borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ga vandaag</Text>
-            </Pressable>
-
-            {currentSessions.length > 0 ? (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                <Pressable
-                  onPress={handleCheckIn}
-                  style={{
-                    marginTop: 10,
-                    marginRight: 8,
-                    backgroundColor: '#0b0f14',
-                    borderRadius: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
-                </Pressable>
-                <Pressable
-                  onPress={handleDone}
-                  style={{
-                    marginTop: 10,
-                    backgroundColor: '#0b0f14',
-                    borderRadius: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
-                </Pressable>
-              </View>
-            ) : null}
-
-            {showForm ? (
-              <View style={{ marginTop: 14 }}>
-                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
-                <PickerField
-                  label="Uur"
-                  value={startHour === null ? '--' : formatTimePart(startHour)}
-                  onPress={() => setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour'))}
-                />
-                {activePicker === 'startHour' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                    {hours.map((hour) => (
-                      <Pressable
-                        key={`start-hour-${hour}`}
-                        onPress={() => {
-                          setStartHour(hour);
-                          setFormError('');
-                        }}
-                        style={{
-                          backgroundColor: startHour === hour ? '#9db0c7' : '#0b0f14',
-                          borderRadius: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          marginRight: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text style={{ color: startHour === hour ? '#0b0f14' : '#ffffff' }}>
-                          {formatTimePart(hour)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-
-                <PickerField
-                  label="Minuut"
-                  value={formatTimePart(startMinute)}
-                  onPress={() =>
-                    setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute'))
-                  }
-                />
-                {activePicker === 'startMinute' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                    {minuteOptions.map((minute) => (
-                      <Pressable
-                        key={`start-minute-${minute}`}
-                        onPress={() => {
-                          setStartMinute(minute);
-                          setFormError('');
-                        }}
-                        style={{
-                          backgroundColor: startMinute === minute ? '#9db0c7' : '#0b0f14',
-                          borderRadius: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          marginRight: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text style={{ color: startMinute === minute ? '#0b0f14' : '#ffffff' }}>
-                          {formatTimePart(minute)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-
-                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
-                <PickerField
-                  label="Uur"
-                  value={endHour === null ? '--' : formatTimePart(endHour)}
-                  onPress={() => setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour'))}
-                />
-                {activePicker === 'endHour' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                    {hours.map((hour) => (
-                      <Pressable
-                        key={`end-hour-${hour}`}
-                        onPress={() => {
-                          setEndHour(hour);
-                          setFormError('');
-                        }}
-                        style={{
-                          backgroundColor: endHour === hour ? '#9db0c7' : '#0b0f14',
-                          borderRadius: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          marginRight: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text style={{ color: endHour === hour ? '#0b0f14' : '#ffffff' }}>
-                          {formatTimePart(hour)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-
-                <PickerField
-                  label="Minuut"
-                  value={formatTimePart(endMinute)}
-                  onPress={() => setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute'))}
-                />
-                {activePicker === 'endMinute' ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                    {minuteOptions.map((minute) => (
-                      <Pressable
-                        key={`end-minute-${minute}`}
-                        onPress={() => {
-                          setEndMinute(minute);
-                          setFormError('');
-                        }}
-                        style={{
-                          backgroundColor: endMinute === minute ? '#9db0c7' : '#0b0f14',
-                          borderRadius: 8,
-                          paddingVertical: 8,
-                          paddingHorizontal: 10,
-                          marginRight: 8,
-                          marginBottom: 8,
-                        }}
-                      >
-                        <Text style={{ color: endMinute === minute ? '#0b0f14' : '#ffffff' }}>
-                          {formatTimePart(minute)}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
-
-                {formError ? (
-                  <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text>
-                ) : null}
-
-                <Pressable
-                  onPress={handleSave}
-                  style={{
-                    backgroundColor: '#0b0f14',
-                    borderRadius: 10,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Opslaan</Text>
-                </Pressable>
-              </View>
-            ) : null}
-          </View>
-
-          <View
-            style={{
-              backgroundColor: '#121821',
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
-              Sessies
-            </Text>
-            {currentSessions.length > 0 ? (
-              <View>
-                {statusOrder.map((status) => {
-                  const sessionsForStatus = sessionsByStatus[status];
-
-                  return (
-                    <View key={status} style={{ marginBottom: 10 }}>
-                      <Text
-                        style={{
-                          color: '#9db0c7',
-                          fontSize: 14,
-                          marginBottom: 6,
-                          fontWeight: '600',
-                        }}
-                      >
-                        {status}
-                      </Text>
-                      {sessionsForStatus.length > 0 ? (
-                        sessionsForStatus.map((session) => {
-                          const sessionIndex = currentSessions.findIndex((item) => item === session);
-
-                          return (
-                            <View key={`${session.start}-${session.end}-${sessionIndex}`} style={{ marginBottom: 8 }}>
-                              <Text style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}>
-                                Jij: {session.start} - {session.end}
-                              </Text>
-                              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                                {statusOrder.map((nextStatus) => (
-                                  <Pressable
-                                    key={`${session.start}-${session.end}-${sessionIndex}-${nextStatus}`}
-                                    onPress={() => updateSessionStatus(selectedSpot, sessionIndex, nextStatus)}
-                                    style={{
-                                      backgroundColor:
-                                        session.status === nextStatus ? '#9db0c7' : '#0b0f14',
-                                      borderRadius: 8,
-                                      paddingVertical: 6,
-                                      paddingHorizontal: 8,
-                                      marginRight: 6,
-                                      marginBottom: 6,
-                                    }}
-                                  >
-                                    <Text
-                                      style={{
-                                        color: session.status === nextStatus ? '#0b0f14' : '#ffffff',
-                                        fontSize: 12,
-                                      }}
-                                    >
-                                      {nextStatus}
-                                    </Text>
-                                  </Pressable>
-                                ))}
-                              </View>
-                            </View>
-                          );
-                        })
-                      ) : (
-                        <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 4 }}>
-                          Nog niemand
-                        </Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <View>
-                <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
-                <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>
-                  Jij kunt de eerste zijn
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View
-            style={{
-              backgroundColor: '#121821',
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 12,
-            }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
-              Chat
-            </Text>
-
-            {currentMessages.length > 0 ? (
-              <View style={{ marginBottom: 10 }}>
-                {currentMessages.map((message, index) => (
-                  <Text key={`${message}-${index}`} style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}>
-                    Jij: {message}
-                  </Text>
-                ))}
-              </View>
-            ) : (
-              <Text style={{ color: '#9db0c7', fontSize: 15, marginBottom: 10 }}>Nog geen berichten</Text>
-            )}
-
-            <TextInput
-              value={messageInput}
-              onChangeText={setMessageInput}
-              placeholder="Typ een bericht"
-              placeholderTextColor="#9db0c7"
-              style={{
-                backgroundColor: '#0b0f14',
-                color: '#ffffff',
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                marginBottom: 10,
-              }}
-            />
-            <Pressable
-              onPress={handleSendMessage}
-              style={{
-                backgroundColor: '#0b0f14',
-                borderRadius: 10,
-                paddingVertical: 10,
-                paddingHorizontal: 12,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
-            </Pressable>
-          </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+    <HomeScreen
+      spots={spots}
+      sessionsBySpot={sessionsBySpot}
+      onSelectSpot={setSelectedSpot}
+      profile={profile}
+      onLogout={handleLogout}
+    />
   );
 }
