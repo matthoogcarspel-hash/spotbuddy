@@ -64,6 +64,10 @@ export default function App() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+  const [profileNameInput, setProfileNameInput] = useState('');
+  const [profileNameError, setProfileNameError] = useState('');
+  const [isSavingProfileName, setIsSavingProfileName] = useState(false);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
 
@@ -79,6 +83,10 @@ export default function App() {
   const resetFlow = () => {
     setSelectedSpot(null);
     setShowProfile(false);
+    setIsEditingProfileName(false);
+    setProfileNameInput('');
+    setProfileNameError('');
+    setIsSavingProfileName(false);
     setSessionsBySpot(createSpotRecord(() => []));
     setMessagesBySpot(createSpotRecord(() => []));
   };
@@ -201,11 +209,83 @@ export default function App() {
   }
 
   if (showProfile) {
+    const handleStartEditName = () => {
+      setProfileNameInput(profile.display_name);
+      setProfileNameError('');
+      setIsEditingProfileName(true);
+    };
+
+    const handleSaveDisplayName = async () => {
+      const trimmedName = profileNameInput.trim();
+
+      if (!trimmedName) {
+        setProfileNameError('Naam is verplicht');
+        return;
+      }
+
+      if (trimmedName.length < 2) {
+        setProfileNameError('Naam moet minimaal 2 tekens zijn');
+        return;
+      }
+
+      if (trimmedName.length > 20) {
+        setProfileNameError('Naam mag maximaal 20 tekens zijn');
+        return;
+      }
+
+      setProfileNameError('');
+      setIsSavingProfileName(true);
+
+      const { data: existingProfile, error: existingProfileError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('display_name', trimmedName)
+        .neq('id', session.user.id)
+        .maybeSingle();
+
+      if (existingProfileError) {
+        setIsSavingProfileName(false);
+        setProfileNameError('Er ging iets mis. Probeer het opnieuw.');
+        return;
+      }
+
+      if (existingProfile) {
+        setIsSavingProfileName(false);
+        setProfileNameError('Deze naam is al bezet');
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ display_name: trimmedName })
+        .eq('id', session.user.id);
+
+      if (updateError) {
+        setIsSavingProfileName(false);
+        if (updateError.code === '23505') {
+          setProfileNameError('Deze naam is al bezet');
+          return;
+        }
+        setProfileNameError('Er ging iets mis. Probeer het opnieuw.');
+        return;
+      }
+
+      setProfile((currentProfile) =>
+        currentProfile
+          ? {
+              ...currentProfile,
+              display_name: trimmedName,
+            }
+          : currentProfile,
+      );
+      await fetchProfile(session.user.id, { showLoader: false });
+      setIsSavingProfileName(false);
+      setIsEditingProfileName(false);
+      setProfileNameError('');
+    };
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-        <Pressable onPress={() => setShowProfile(false)} style={{ marginBottom: 16 }}>
-          <Text style={{ color: '#9db0c7' }}>← Terug</Text>
-        </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profile.avatar_url} size={42} />
@@ -215,11 +295,56 @@ export default function App() {
             </View>
           </View>
 
+          {isEditingProfileName ? (
+            <View style={{ marginTop: 16 }}>
+              <TextInput
+                value={profileNameInput}
+                onChangeText={setProfileNameInput}
+                placeholder="Display name"
+                placeholderTextColor="#9db0c7"
+                autoCapitalize="none"
+                style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
+              />
+
+              {profileNameError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileNameError}</Text> : null}
+
+              <Pressable
+                disabled={isSavingProfileName}
+                onPress={handleSaveDisplayName}
+                style={{
+                  backgroundColor: '#0b0f14',
+                  borderRadius: 10,
+                  padding: 12,
+                  opacity: isSavingProfileName ? 0.6 : 1,
+                }}
+              >
+                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+                  {isSavingProfileName ? 'Opslaan...' : 'Opslaan'}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={handleStartEditName}
+              style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
+            >
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Naam wijzigen</Text>
+            </Pressable>
+          )}
+
           <Pressable onPress={() => {
             resetFlow();
             void supabase.auth.signOut();
           }} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
             <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
+          </Pressable>
+
+          <Pressable onPress={() => {
+            setShowProfile(false);
+            setIsEditingProfileName(false);
+            setProfileNameError('');
+          }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Terug</Text>
           </Pressable>
         </View>
       </SafeAreaView>
