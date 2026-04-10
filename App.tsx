@@ -111,10 +111,25 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
     return result;
   }, {} as Record<SpotName, T>);
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
+const isSessionStillActive = (sessionItem: SpotSession, nowMinutes: number) => {
+  if (sessionItem.status === 'Uitchecken') {
+    return false;
+  }
+
+  if (sessionItem.status === 'Gaat') {
+    return nowMinutes < toMinutes(sessionItem.end);
+  }
+
+  if (sessionItem.status === 'Is er al') {
+    return nowMinutes < toMinutes(sessionItem.end);
+  }
+
+  return false;
+};
 const isPlannedSessionStillFuture = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Gaat' && nowMinutes < toMinutes(sessionItem.start);
+  sessionItem.status === 'Gaat' && isSessionStillActive(sessionItem, nowMinutes);
 const isLiveSessionStillActive = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
+  sessionItem.status === 'Is er al' && isSessionStillActive(sessionItem, nowMinutes);
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -371,18 +386,17 @@ export default function App() {
       return bTime - aTime;
     })[0] ?? null;
   }, [session?.user.id, todaysSessionsBySpot]);
-  const latestPlannedFuture = latestOwnSession ? isPlannedSessionStillFuture(latestOwnSession, currentLocalMinutes) : false;
-  const latestLiveActive = latestOwnSession ? isLiveSessionStillActive(latestOwnSession, currentLocalMinutes) : false;
-  const latestIsOpenBlocking = latestOwnSession
-    ? latestPlannedFuture || latestLiveActive
-    : false;
-  const canPlanSession = !latestOwnSession || latestOwnSession.status === 'Uitchecken' || !latestIsOpenBlocking;
+  const latestSessionIsActive = latestOwnSession ? isSessionStillActive(latestOwnSession, currentLocalMinutes) : false;
+  const canPlanSession = !latestOwnSession || !latestSessionIsActive;
   const canCheckIn = Boolean(
     latestOwnSession
     && latestOwnSession.status === 'Gaat'
     && currentLocalMinutes >= toMinutes(latestOwnSession.start),
+  ) && Boolean(
+    latestOwnSession
+    && currentLocalMinutes < toMinutes(latestOwnSession.end),
   );
-  const canCheckOut = Boolean(latestOwnSession && latestOwnSession.status === 'Is er al' && latestLiveActive);
+  const canCheckOut = Boolean(latestOwnSession && latestOwnSession.status === 'Is er al');
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -431,7 +445,12 @@ export default function App() {
       return;
     }
 
-    if (status === 'Uitchecken' && (latestOwnSession.status !== 'Is er al' || !isLiveSessionStillActive(latestOwnSession, currentLocalMinutes))) {
+    if (status === 'Is er al' && currentLocalMinutes >= toMinutes(latestOwnSession.end)) {
+      setSessionActionError('Deze sessie is verlopen. Plan een nieuwe sessie');
+      return;
+    }
+
+    if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
       setSessionActionError('Check eerst in');
       return;
     }
@@ -799,6 +818,7 @@ export default function App() {
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
+          {!canPlanSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
