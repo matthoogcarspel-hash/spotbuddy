@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 
-import * as ImagePicker from 'expo-image-picker';
 import { Session as AuthSession } from '@supabase/supabase-js';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Profile, supabase } from './src/lib/supabase';
+import AuthScreen from './src/screens/AuthScreen';
+import NameSetupScreen from './src/screens/NameSetupScreen';
 
 const V1_SPOTS = [
   'Scheveningen KZVS',
@@ -45,176 +46,6 @@ function Avatar({ uri, size = 28 }: { uri: string; size?: number }) {
       source={{ uri }}
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#223247' }}
     />
-  );
-}
-
-function SignupScreen() {
-  const [displayName, setDisplayName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [avatarUri, setAvatarUri] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const pickAvatar = async () => {
-    setError('');
-
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      setError('Geef toegang tot je foto\'s om een profielfoto te kiezen.');
-      return;
-    }
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
-
-    if (!result.canceled) {
-      setAvatarUri(result.assets[0].uri);
-    }
-  };
-
-  const handleSignup = async () => {
-    const trimmedDisplayName = displayName.trim();
-    const trimmedEmail = email.trim().toLowerCase();
-
-    if (!trimmedDisplayName || !trimmedEmail || !password || !avatarUri) {
-      setError('Vul display name, email, password en profielfoto in.');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    const { data: existingProfile, error: existingProfileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('display_name', trimmedDisplayName)
-      .maybeSingle();
-
-    if (existingProfileError) {
-      setLoading(false);
-      setError(existingProfileError.message);
-      return;
-    }
-
-    if (existingProfile) {
-      setLoading(false);
-      setError('Deze display name is al bezet.');
-      return;
-    }
-
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: trimmedEmail,
-      password,
-    });
-
-    if (signUpError || !signUpData.user) {
-      setLoading(false);
-      setError(signUpError?.message ?? 'Kon account niet aanmaken.');
-      return;
-    }
-
-    const userId = signUpData.user.id;
-    const avatarPath = `${userId}.jpg`;
-
-    const imageResponse = await fetch(avatarUri);
-    const imageBlob = await imageResponse.blob();
-
-    const { error: uploadError } = await supabase.storage.from('avatars').upload(avatarPath, imageBlob, {
-      upsert: true,
-      contentType: 'image/jpeg',
-    });
-
-    if (uploadError) {
-      setLoading(false);
-      setError(uploadError.message);
-      return;
-    }
-
-    const { data: avatarPublicUrlData } = supabase.storage.from('avatars').getPublicUrl(avatarPath);
-
-    const { error: profileInsertError } = await supabase.from('profiles').insert({
-      id: userId,
-      display_name: trimmedDisplayName,
-      avatar_url: avatarPublicUrlData.publicUrl,
-    });
-
-    setLoading(false);
-
-    if (profileInsertError) {
-      if (profileInsertError.code === '23505') {
-        setError('Deze display name is al bezet.');
-        return;
-      }
-
-      setError(profileInsertError.message);
-      return;
-    }
-  };
-
-  return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-      <View style={{ marginTop: 40 }}>
-        <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-      </View>
-
-      <View style={{ marginTop: 30, backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
-        <TextInput
-          value={displayName}
-          onChangeText={setDisplayName}
-          placeholder="Display name"
-          placeholderTextColor="#9db0c7"
-          autoCapitalize="none"
-          style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
-        />
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          autoCapitalize="none"
-          keyboardType="email-address"
-          placeholder="Email"
-          placeholderTextColor="#9db0c7"
-          style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
-        />
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="Password"
-          placeholderTextColor="#9db0c7"
-          style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 12 }}
-        />
-
-        <Pressable
-          onPress={pickAvatar}
-          style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 12 }}
-        >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Upload profile photo</Text>
-        </Pressable>
-
-        {avatarUri ? (
-          <View style={{ alignItems: 'center', marginBottom: 12 }}>
-            <Avatar uri={avatarUri} size={72} />
-          </View>
-        ) : null}
-
-        {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
-
-        <Pressable
-          disabled={loading}
-          onPress={handleSignup}
-          style={{ backgroundColor: '#1c9bf0', borderRadius: 10, padding: 12, opacity: loading ? 0.6 : 1 }}
-        >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>
-            {loading ? 'Bezig...' : 'Account aanmaken'}
-          </Text>
-        </Pressable>
-      </View>
-    </SafeAreaView>
   );
 }
 
@@ -339,11 +170,17 @@ export default function App() {
   }
 
   if (!session) {
-    return <SignupScreen />;
+    return <AuthScreen onSignupSuccess={() => {
+      void supabase.auth.getSession().then(({ data }) => {
+        if (data.session) {
+          void fetchProfile(data.session.user.id);
+        }
+      });
+    }} />;
   }
 
   if (!profile) {
-    return <SignupScreen />;
+    return <NameSetupScreen userId={session.user.id} onSaved={setProfile} />;
   }
 
   if (showProfile) {
