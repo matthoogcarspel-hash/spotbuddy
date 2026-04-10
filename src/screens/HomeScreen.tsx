@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Image, Pressable, SafeAreaView, Text, View } from 'react-native';
+import { Pressable, SafeAreaView, Text, View } from 'react-native';
 
 import { Profile } from '../lib/supabase';
 
@@ -25,10 +25,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
           <Text style={{ color: '#9db0c7' }}>← Terug</Text>
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
-          {profile.avatar_url ? (
-            <Image source={{ uri: profile.avatar_url }} style={{ width: 72, height: 72, borderRadius: 36, marginBottom: 12 }} />
-          ) : null}
-          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.name}</Text>
+          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
           <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
 
           <Pressable onPress={onLogout} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
@@ -47,7 +44,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
           <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 10, padding: 10 }}>
-          <Text style={{ color: '#ffffff', fontWeight: '600' }}>{profile.name}</Text>
+          <Text style={{ color: '#ffffff', fontWeight: '600' }}>{profile.display_name}</Text>
         </Pressable>
       </View>
 

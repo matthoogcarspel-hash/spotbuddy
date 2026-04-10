@@ -10,8 +10,7 @@ if (!supabaseUrl || !supabaseAnonKey) {
 
 export type Profile = {
   id: string;
-  name: string;
-  avatar_url: string | null;
+  display_name: string;
   created_at: string;
 };
 

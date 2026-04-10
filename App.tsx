@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
 import { SafeAreaView, Text } from 'react-native';
 
-import { supabase } from './src/lib/supabase';
+import { Profile, supabase } from './src/lib/supabase';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import NameSetupScreen from './src/screens/NameSetupScreen';
 import SpotDetailScreen, { Session, SessionStatus } from './src/screens/SpotDetailScreen';
 
 const V1_SPOTS = [
@@ -28,42 +29,68 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
 
 export default function App() {
   const [session, setSession] = useState<AuthSession | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
+  const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, Session[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setLoadingSession(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  const userEmail = session?.user.email ?? '';
-  const profileName = useMemo(() => {
-    if (!userEmail) {
-      return 'Kiter';
-    }
-
-    return userEmail.split('@')[0] || 'Kiter';
-  }, [userEmail]);
 
   const resetFlow = () => {
     setSelectedSpot(null);
     setSessionsBySpot(createSpotRecord(() => []));
     setMessagesBySpot(createSpotRecord(() => []));
   };
+
+  const fetchProfile = async (userId: string) => {
+    setLoadingProfile(true);
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, created_at')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (error) {
+      setProfile(null);
+    } else {
+      setProfile(data ?? null);
+    }
+
+    setLoadingProfile(false);
+  };
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => {
+      const nextSession = data.session;
+      setSession(nextSession);
+      setLoadingSession(false);
+
+      if (nextSession) {
+        void fetchProfile(nextSession.user.id);
+      } else {
+        setProfile(null);
+      }
+    });
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      setSession(nextSession);
+
+      if (!nextSession) {
+        setProfile(null);
+        resetFlow();
+        return;
+      }
+
+      void fetchProfile(nextSession.user.id);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleUpdateSessionStatus = (spot: SpotName, sessionIndex: number, status: SessionStatus) => {
     setSessionsBySpot((prev) => ({
@@ -79,7 +106,7 @@ export default function App() {
     }));
   };
 
-  if (loadingSession) {
+  if (loadingSession || loadingProfile) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#ffffff' }}>Laden...</Text>
@@ -91,11 +118,26 @@ export default function App() {
     return <AuthScreen />;
   }
 
+  if (!profile) {
+    return (
+      <NameSetupScreen
+        userId={session.user.id}
+        onSaved={(displayName) => {
+          setProfile({
+            id: session.user.id,
+            display_name: displayName,
+            created_at: new Date().toISOString(),
+          });
+        }}
+      />
+    );
+  }
+
   if (selectedSpot) {
     return (
       <SpotDetailScreen
         selectedSpot={selectedSpot}
-        userName={profileName}
+        userName={profile.display_name}
         sessions={sessionsBySpot[selectedSpot]}
         messages={messagesBySpot[selectedSpot]}
         onBack={() => setSelectedSpot(null)}
@@ -123,12 +165,7 @@ export default function App() {
       spots={[...V1_SPOTS]}
       sessionsBySpot={sessionsBySpot}
       onSelectSpot={(spot) => setSelectedSpot(spot as SpotName)}
-      profile={{
-        id: session.user.id,
-        name: profileName,
-        avatar_url: null,
-        created_at: new Date().toISOString(),
-      }}
+      profile={profile}
       onLogout={() => {
         resetFlow();
         void supabase.auth.signOut();
