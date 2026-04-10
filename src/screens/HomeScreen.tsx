@@ -11,12 +11,8 @@ type HomeScreenProps = {
   onLogout: () => void;
 };
 
-const activeStatuses: Array<'Gaat' | 'Is er al'> = ['Gaat', 'Is er al'];
-
 export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profile, onLogout }: HomeScreenProps) {
   const [showProfile, setShowProfile] = useState(false);
-
-  const getKiterText = (count: number) => (count === 1 ? '1 kiter vandaag' : `${count} kiters vandaag`);
 
   if (showProfile) {
     return (
@@ -53,7 +49,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
 
       <View>
         {spots.map((spot) => {
-          const todayCount = sessionsBySpot[spot]?.filter((session) => activeStatuses.includes(session.status)).length ?? 0;
+          const plannedCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Gaat').length ?? 0;
           const liveCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Is er al').length ?? 0;
 
           return (
@@ -69,7 +65,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
               }}
             >
               <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(todayCount)}</Text>
+              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>Gepland: {plannedCount}</Text>
               <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
             </Pressable>
           );
