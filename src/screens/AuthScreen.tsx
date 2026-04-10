@@ -3,50 +3,86 @@ import { Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '../lib/supabase';
 
-export default function AuthScreen() {
+type AuthScreenProps = {
+  onSignupSuccess: () => void;
+};
+
+const toDutchAuthError = (message: string) => {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('invalid login credentials')) {
+    return 'Onjuiste e-mail of wachtwoord';
+  }
+
+  if (lower.includes('password should be at least')) {
+    return 'Wachtwoord is te kort';
+  }
+
+  if (lower.includes('already registered') || lower.includes('user already registered')) {
+    return 'Dit e-mailadres is al geregistreerd';
+  }
+
+  return 'Er ging iets mis. Probeer het opnieuw.';
+};
+
+export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loadingAction, setLoadingAction] = useState<'login' | 'signup' | null>(null);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+
+  const normalizedEmail = email.trim().toLowerCase();
+
+  const validateInputs = () => {
+    if (!normalizedEmail || !password) {
+      setError('Vul je e-mail en wachtwoord in');
+      return false;
+    }
+
+    return true;
+  };
 
   const handleLogin = async () => {
-    setLoading(true);
+    if (!validateInputs()) {
+      return;
+    }
+
+    setLoadingAction('login');
     setError('');
-    setSuccess('');
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email: normalizedEmail,
       password,
     });
 
-    setLoading(false);
+    setLoadingAction(null);
 
     if (signInError) {
-      setError(signInError.message);
+      setError(toDutchAuthError(signInError.message));
     }
   };
 
   const handleSignup = async () => {
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    const { data, error: signUpError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-    });
-
-    setLoading(false);
-
-    if (signUpError) {
-      setError(signUpError.message);
+    if (!validateInputs()) {
       return;
     }
 
-    if (!data.session) {
-      setSuccess('Account aangemaakt');
+    setLoadingAction('signup');
+    setError('');
+
+    const { error: signUpError } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password,
+    });
+
+    setLoadingAction(null);
+
+    if (signUpError) {
+      setError(toDutchAuthError(signUpError.message));
+      return;
     }
+
+    onSignupSuccess();
   };
 
   return (
@@ -75,28 +111,31 @@ export default function AuthScreen() {
         />
 
         {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
-        {success ? <Text style={{ color: '#9db0c7', marginBottom: 10 }}>{success}</Text> : null}
 
         <Pressable
-          disabled={loading}
+          disabled={loadingAction !== null}
           onPress={handleLogin}
           style={{
             backgroundColor: '#0b0f14',
             borderRadius: 10,
             padding: 12,
             marginBottom: 10,
-            opacity: loading ? 0.6 : 1,
+            opacity: loadingAction !== null ? 0.6 : 1,
           }}
         >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>{loading ? 'Bezig...' : 'Login'}</Text>
+          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+            {loadingAction === 'login' ? 'Bezig...' : 'Inloggen'}
+          </Text>
         </Pressable>
 
         <Pressable
-          disabled={loading}
+          disabled={loadingAction !== null}
           onPress={handleSignup}
-          style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, opacity: loading ? 0.6 : 1 }}
+          style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, opacity: loadingAction !== null ? 0.6 : 1 }}
         >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Account aanmaken</Text>
+          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+            {loadingAction === 'signup' ? 'Bezig...' : 'Account aanmaken'}
+          </Text>
         </Pressable>
       </View>
     </SafeAreaView>
