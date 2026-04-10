@@ -292,6 +292,15 @@ export default function App() {
 
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  const newestFirstMessages = useMemo(
+    () =>
+      [...messages].sort((a, b) => {
+        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bTime - aTime;
+      }),
+    [messages],
+  );
 
   const sessionsByStatus = useMemo(
     () => ({
@@ -601,20 +610,20 @@ export default function App() {
       resetForm();
     };
     const primaryButtonStyle = {
-      backgroundColor: theme.primary,
-      borderRadius: 14,
-      paddingVertical: 12,
-      paddingHorizontal: 16,
-      minHeight: 46,
+      backgroundColor: '#1d4ed8',
+      borderRadius: 8,
+      paddingVertical: 8,
+      paddingHorizontal: 12,
+      minHeight: 38,
       width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
     } as const;
     const sessionActionButtonBaseStyle = {
       flex: 1,
-      borderRadius: 10,
-      minHeight: 42,
-      paddingVertical: 10,
+      borderRadius: 8,
+      minHeight: 38,
+      paddingVertical: 8,
       paddingHorizontal: 12,
       justifyContent: 'center',
       alignItems: 'center',
@@ -643,10 +652,10 @@ export default function App() {
             }}
             style={{ marginTop: 14, ...primaryButtonStyle }}
           >
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Sessie plannen</Text>
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
                   .reverse()
@@ -657,8 +666,8 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: theme.live, borderRadius: 14 }}>
-                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
               </Pressable>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
@@ -670,8 +679,8 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: theme.warm, borderRadius: 14 }}>
-                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12' }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
               </Pressable>
             </View>
 
@@ -812,24 +821,6 @@ export default function App() {
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
 
-          {messages.length > 0 ? (
-            <View style={{ marginBottom: 10 }}>
-              {messages.map((message) => (
-                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <Avatar uri={message.userAvatarUrl} size={24} />
-                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                      {message.userName} · {formatToHourMinute(message.createdAt)}
-                    </Text>
-                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 15, marginBottom: 10 }}>Nog geen berichten</Text>
-          )}
-
           <TextInput
             value={messageInput}
             onChangeText={setMessageInput}
@@ -866,6 +857,24 @@ export default function App() {
           >
             <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
           </Pressable>
+
+          {newestFirstMessages.length > 0 ? (
+            <View style={{ marginTop: 12 }}>
+              {newestFirstMessages.map((message) => (
+                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <Avatar uri={message.userAvatarUrl} size={24} />
+                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
+                      {message.userName} · {formatToHourMinute(message.createdAt)}
+                    </Text>
+                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>Nog geen berichten</Text>
+          )}
         </View>
       </ScrollView>
     );
