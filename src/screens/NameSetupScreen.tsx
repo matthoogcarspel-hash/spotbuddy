@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import * as ImagePicker from 'expo-image-picker';
-import { Image, Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { Profile, supabase } from '../lib/supabase';
 
@@ -24,6 +24,8 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [saveButtonClicked, setSaveButtonClicked] = useState(false);
+  const [saveStatusText, setSaveStatusText] = useState('');
 
   const pickAvatar = async () => {
     setError('');
@@ -47,6 +49,14 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   };
 
   const handleSave = async () => {
+    console.log('SAVE_BUTTON_CLICKED');
+    setSaveStatusText('Opslaan knop werkt');
+    setSaveButtonClicked(true);
+
+    setTimeout(() => {
+      setSaveButtonClicked(false);
+    }, 1200);
+
     const trimmedName = displayName.trim();
 
     if (!trimmedName) {
@@ -154,20 +164,25 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
         {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
 
-        <Pressable
+        <TouchableOpacity
           disabled={isLoading}
           onPress={handleSave}
+          activeOpacity={0.7}
           style={{
             backgroundColor: '#0b0f14',
             borderRadius: 10,
-            padding: 12,
+            minHeight: 48,
+            paddingHorizontal: 12,
+            justifyContent: 'center',
             opacity: isLoading ? 0.6 : 1,
           }}
         >
           <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {isLoading ? 'Opslaan...' : 'Profiel opslaan'}
+            {saveButtonClicked ? 'Geklikt' : isLoading ? 'Opslaan...' : 'Opslaan'}
           </Text>
-        </Pressable>
+        </TouchableOpacity>
+
+        {saveStatusText ? <Text style={{ color: '#9db0c7', marginTop: 10, textAlign: 'center' }}>{saveStatusText}</Text> : null}
       </View>
     </SafeAreaView>
   );
