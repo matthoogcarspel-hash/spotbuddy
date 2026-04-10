@@ -86,8 +86,12 @@ export default function App() {
     setMessagesBySpot(createSpotRecord(() => []));
   };
 
-  const fetchProfile = async (userId: string) => {
-    setLoadingProfile(true);
+  const fetchProfile = async (userId: string, options?: { showLoader?: boolean }) => {
+    const showLoader = options?.showLoader ?? true;
+
+    if (showLoader) {
+      setLoadingProfile(true);
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -97,11 +101,16 @@ export default function App() {
 
     if (error) {
       setProfile(null);
+      console.error('Profiel ophalen mislukt:', error);
     } else {
       setProfile(data ?? null);
     }
 
-    setLoadingProfile(false);
+    if (showLoader) {
+      setLoadingProfile(false);
+    }
+
+    return data ?? null;
   };
 
   useEffect(() => {
@@ -224,6 +233,17 @@ export default function App() {
     const handleSaveProfile = async () => {
       const trimmedDisplayName = editDisplayName.trim();
       if (!trimmedDisplayName) {
+        setSaveProfileError('Naam is verplicht');
+        return;
+      }
+
+      if (trimmedDisplayName.length < 2) {
+        setSaveProfileError('Naam moet minimaal 2 tekens zijn');
+        return;
+      }
+
+      if (trimmedDisplayName.length > 20) {
+        setSaveProfileError('Naam mag maximaal 20 tekens zijn');
         return;
       }
 
@@ -231,74 +251,119 @@ export default function App() {
       setSaveProfileError('');
 
       const isDisplayNameChanged = trimmedDisplayName !== profile.display_name;
-      const isAvatarChanged = editAvatarUrl !== profile.avatar_url;
+      const isNewAvatarSelected =
+        editAvatarUrl !== profile.avatar_url &&
+        (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
+
+      const getProfileSaveErrorMessage = (message: string) => {
+        const normalizedMessage = message.toLowerCase();
+
+        if (normalizedMessage.includes('duplicate') || normalizedMessage.includes('unique')) {
+          return 'Deze naam is al bezet';
+        }
+
+        if (normalizedMessage.includes('policy') || normalizedMessage.includes('permission') || normalizedMessage.includes('not allowed')) {
+          return 'Je profiel mag niet worden bijgewerkt';
+        }
+
+        return message;
+      };
 
       if (isDisplayNameChanged) {
         const { data: duplicateProfile, error: duplicateError } = await supabase
           .from('profiles')
           .select('id')
-          .eq('display_name', trimmedDisplayName)
+          .ilike('display_name', trimmedDisplayName)
           .neq('id', profile.id)
           .maybeSingle();
 
-        if (duplicateError || duplicateProfile) {
+        if (duplicateError) {
+          console.error('Fout bij controleren van dubbele naam:', duplicateError);
+          setSaveProfileError(getProfileSaveErrorMessage(duplicateError.message));
+          setSavingProfile(false);
+          return;
+        }
+
+        if (duplicateProfile) {
           setSaveProfileError('Deze naam is al bezet');
           setSavingProfile(false);
           return;
         }
       }
 
-      let nextAvatarUrl = profile.avatar_url;
+      const updates: { display_name?: string; avatar_url?: string } = {};
 
-      if (isAvatarChanged) {
-        const response = await fetch(editAvatarUrl);
-        const avatarBlob = await response.blob();
-        const filePath = `${profile.id}/${Date.now()}.jpg`;
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
-          contentType: avatarBlob.type || 'image/jpeg',
-          upsert: true,
-        });
+      if (isDisplayNameChanged) {
+        updates.display_name = trimmedDisplayName;
+      }
 
-        if (uploadError) {
-          setSaveProfileError('Opslaan mislukt. Probeer opnieuw.');
+      if (isNewAvatarSelected) {
+        try {
+          const response = await fetch(editAvatarUrl);
+          const avatarBlob = await response.blob();
+          const filePath = `${session.user.id}/${Date.now()}.jpg`;
+          const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
+            contentType: avatarBlob.type || 'image/jpeg',
+            upsert: true,
+          });
+
+          if (uploadError) {
+            console.error('Avatar upload mislukt:', uploadError);
+            setSaveProfileError('Foto uploaden mislukt');
+            setSavingProfile(false);
+            return;
+          }
+
+          updates.avatar_url = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
+        } catch (uploadRuntimeError) {
+          console.error('Avatar upload runtime fout:', uploadRuntimeError);
+          setSaveProfileError('Foto uploaden mislukt');
           setSavingProfile(false);
           return;
         }
-
-        nextAvatarUrl = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
       }
 
-      const { data: updatedProfile, error: updateError } = await supabase
-        .from('profiles')
-        .update({
-          display_name: trimmedDisplayName,
-          avatar_url: nextAvatarUrl,
-        })
-        .eq('id', profile.id)
-        .select('id, display_name, avatar_url, created_at')
-        .single();
-
-      if (updateError || !updatedProfile) {
-        setSaveProfileError('Opslaan mislukt. Probeer opnieuw.');
+      if (Object.keys(updates).length === 0) {
+        setIsEditingProfile(false);
         setSavingProfile(false);
         return;
       }
 
-      setProfile(updatedProfile);
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update(updates)
+        .eq('id', session.user.id);
+
+      if (updateError) {
+        console.error('Profiel opslaan mislukt:', updateError);
+        setSaveProfileError(getProfileSaveErrorMessage(updateError.message));
+        setSavingProfile(false);
+        return;
+      }
+
+      const previousProfile = profile;
+      const refreshedProfile = await fetchProfile(session.user.id, { showLoader: false });
+
+      if (!refreshedProfile) {
+        setSaveProfileError('Profiel vernieuwen mislukt');
+        setSavingProfile(false);
+        return;
+      }
+
       setIsEditingProfile(false);
 
       setSessionsBySpot((prev) =>
         mapSpotRecord(prev, (sessionItem) =>
-          sessionItem.userName === profile.display_name && sessionItem.userAvatarUrl === profile.avatar_url
-            ? { ...sessionItem, userName: updatedProfile.display_name, userAvatarUrl: updatedProfile.avatar_url }
+          sessionItem.userName === previousProfile.display_name && sessionItem.userAvatarUrl === previousProfile.avatar_url
+            ? { ...sessionItem, userName: refreshedProfile.display_name, userAvatarUrl: refreshedProfile.avatar_url }
             : sessionItem,
         ),
       );
 
       setMessagesBySpot((prev) =>
         mapSpotRecord(prev, (message) =>
-          message.userName === profile.display_name && message.userAvatarUrl === profile.avatar_url
-            ? { ...message, userName: updatedProfile.display_name, userAvatarUrl: updatedProfile.avatar_url }
+          message.userName === previousProfile.display_name && message.userAvatarUrl === previousProfile.avatar_url
+            ? { ...message, userName: refreshedProfile.display_name, userAvatarUrl: refreshedProfile.avatar_url }
             : message,
         ),
       );
