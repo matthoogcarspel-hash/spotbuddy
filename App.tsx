@@ -10,15 +10,19 @@ const spots = [
   'Maasvlakte 2 Slufter',
 ];
 
+type SessionStatus = 'Gaat' | 'Is er al' | 'Twijfelt' | 'Afgezegd';
+
 type Session = {
   start: string;
   end: string;
+  status: SessionStatus;
 };
 
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
+const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Twijfelt', 'Afgezegd'];
 
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 
@@ -46,6 +50,25 @@ export default function App() {
     return `${count} kiters vandaag`;
   };
 
+  const getCompactStatus = (count: number) => {
+    if (count === 0) {
+      return 'Niemand';
+    }
+
+    if (count <= 2) {
+      return 'Rustig';
+    }
+
+    return 'Druk';
+  };
+
+  const getSessionsByStatus = (sessions: Session[]) => ({
+    Gaat: sessions.filter((session) => session.status === 'Gaat'),
+    'Is er al': sessions.filter((session) => session.status === 'Is er al'),
+    Twijfelt: sessions.filter((session) => session.status === 'Twijfelt'),
+    Afgezegd: sessions.filter((session) => session.status === 'Afgezegd'),
+  });
+
   const resetForm = () => {
     setShowForm(false);
     setActivePicker(null);
@@ -54,6 +77,41 @@ export default function App() {
     setEndHour(null);
     setEndMinute(null);
     setFormError('');
+  };
+
+  const updateSessionStatus = (spot: string, sessionIndex: number, status: SessionStatus) => {
+    setSessionsBySpot((prev) => {
+      const spotSessions = prev[spot] ?? [];
+
+      if (!spotSessions[sessionIndex]) {
+        return prev;
+      }
+
+      const nextSessions = [...spotSessions];
+      nextSessions[sessionIndex] = {
+        ...nextSessions[sessionIndex],
+        status,
+      };
+
+      return {
+        ...prev,
+        [spot]: nextSessions,
+      };
+    });
+  };
+
+  const handleCheckIn = () => {
+    if (!selectedSpot) {
+      return;
+    }
+
+    const sessions = sessionsBySpot[selectedSpot] ?? [];
+
+    if (sessions.length === 0) {
+      return;
+    }
+
+    updateSessionStatus(selectedSpot, sessions.length - 1, 'Is er al');
   };
 
   const handleSave = () => {
@@ -86,7 +144,7 @@ export default function App() {
 
     setSessionsBySpot((prev) => ({
       ...prev,
-      [selectedSpot]: [...(prev[selectedSpot] ?? []), { start, end }],
+      [selectedSpot]: [...(prev[selectedSpot] ?? []), { start, end, status: 'Gaat' }],
     }));
 
     resetForm();
@@ -138,6 +196,8 @@ export default function App() {
     </Pressable>
   );
 
+  const sessionsByStatus = getSessionsByStatus(currentSessions);
+
   return (
     <SafeAreaView
       style={{
@@ -151,9 +211,7 @@ export default function App() {
         <View>
           <View style={{ marginBottom: 20 }}>
             <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>
-              Wie gaat waar vandaag?
-            </Text>
+            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
           </View>
 
           <View>
@@ -177,8 +235,9 @@ export default function App() {
                   }}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>
-                    {getKiterText(kiterCount)}
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(kiterCount)}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>
+                    Status: {getCompactStatus(kiterCount)}
                   </Text>
                 </Pressable>
               );
@@ -224,6 +283,21 @@ export default function App() {
             >
               <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ga vandaag</Text>
             </Pressable>
+
+            {currentSessions.length > 0 ? (
+              <Pressable
+                onPress={handleCheckIn}
+                style={{
+                  marginTop: 10,
+                  backgroundColor: '#0b0f14',
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  paddingHorizontal: 12,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
+              </Pressable>
+            ) : null}
 
             {showForm ? (
               <View style={{ marginTop: 14 }}>
@@ -387,14 +461,67 @@ export default function App() {
             </Text>
             {currentSessions.length > 0 ? (
               <View>
-                {currentSessions.map((session, index) => (
-                  <Text
-                    key={`${session.start}-${session.end}-${index}`}
-                    style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}
-                  >
-                    Jij: {session.start} - {session.end}
-                  </Text>
-                ))}
+                {statusOrder.map((status) => {
+                  const sessionsForStatus = sessionsByStatus[status];
+
+                  return (
+                    <View key={status} style={{ marginBottom: 10 }}>
+                      <Text
+                        style={{
+                          color: '#9db0c7',
+                          fontSize: 14,
+                          marginBottom: 6,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {status}
+                      </Text>
+                      {sessionsForStatus.length > 0 ? (
+                        sessionsForStatus.map((session) => {
+                          const sessionIndex = currentSessions.findIndex((item) => item === session);
+
+                          return (
+                            <View key={`${session.start}-${session.end}-${sessionIndex}`} style={{ marginBottom: 8 }}>
+                              <Text style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}>
+                                Jij: {session.start} - {session.end}
+                              </Text>
+                              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                                {statusOrder.map((nextStatus) => (
+                                  <Pressable
+                                    key={`${session.start}-${session.end}-${sessionIndex}-${nextStatus}`}
+                                    onPress={() => updateSessionStatus(selectedSpot, sessionIndex, nextStatus)}
+                                    style={{
+                                      backgroundColor:
+                                        session.status === nextStatus ? '#9db0c7' : '#0b0f14',
+                                      borderRadius: 8,
+                                      paddingVertical: 6,
+                                      paddingHorizontal: 8,
+                                      marginRight: 6,
+                                      marginBottom: 6,
+                                    }}
+                                  >
+                                    <Text
+                                      style={{
+                                        color: session.status === nextStatus ? '#0b0f14' : '#ffffff',
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      {nextStatus}
+                                    </Text>
+                                  </Pressable>
+                                ))}
+                              </View>
+                            </View>
+                          );
+                        })
+                      ) : (
+                        <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 4 }}>
+                          Nog niemand
+                        </Text>
+                      )}
+                    </View>
+                  );
+                })}
               </View>
             ) : (
               <View>
