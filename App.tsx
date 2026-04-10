@@ -66,7 +66,6 @@ export default function App() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState('');
@@ -86,7 +85,6 @@ export default function App() {
   const resetFlow = () => {
     setSelectedSpot(null);
     setShowProfile(false);
-    setIsEditingProfile(false);
     setProfileNameInput('');
     setProfileAvatarInputUri(null);
     setProfileEditError('');
@@ -154,6 +152,12 @@ export default function App() {
     };
   }, []);
 
+  useEffect(() => {
+    if (showProfile && profile) {
+      setProfileNameInput(profile.display_name);
+    }
+  }, [showProfile, profile]);
+
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
 
@@ -213,19 +217,7 @@ export default function App() {
   }
 
   if (showProfile) {
-    const handleStartEditProfile = () => {
-      setProfileNameInput(profile.display_name);
-      setProfileAvatarInputUri(null);
-      setProfileEditError('');
-      setIsEditingProfile(true);
-    };
-
     const handlePickProfileAvatar = async () => {
-      if (!isEditingProfile) {
-        setProfileNameInput(profile.display_name);
-        setIsEditingProfile(true);
-      }
-
       setProfileEditError('');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
@@ -343,7 +335,6 @@ export default function App() {
 
       setProfile(freshProfile);
       setIsSavingProfile(false);
-      setIsEditingProfile(false);
       setProfileAvatarInputUri(null);
       setProfileEditError('');
     };
@@ -354,39 +345,23 @@ export default function App() {
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
+              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profileNameInput || profile.display_name}</Text>
               <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
             </View>
           </View>
 
-          {isEditingProfile ? (
-            <View style={{ marginTop: 16 }}>
-              <TextInput
-                value={profileNameInput}
-                onChangeText={setProfileNameInput}
-                placeholder="Display name"
-                placeholderTextColor="#9db0c7"
-                autoCapitalize="none"
-                style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
-              />
+          <View style={{ marginTop: 16 }}>
+            <TextInput
+              value={profileNameInput}
+              onChangeText={setProfileNameInput}
+              placeholder="Display name"
+              placeholderTextColor="#9db0c7"
+              autoCapitalize="none"
+              style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
+            />
 
-              {profileEditError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileEditError}</Text> : null}
-            </View>
-          ) : (
-            <Pressable
-              onPress={handleStartEditProfile}
-              style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
-            >
-              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Profiel bewerken</Text>
-            </Pressable>
-          )}
-
-          <Pressable
-            onPress={handleStartEditProfile}
-            style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
-          >
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Naam wijzigen</Text>
-          </Pressable>
+            {profileEditError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileEditError}</Text> : null}
+          </View>
 
           <Pressable
             onPress={() => {
@@ -400,10 +375,6 @@ export default function App() {
           <Pressable
             disabled={isSavingProfile}
             onPress={() => {
-              if (!isEditingProfile) {
-                handleStartEditProfile();
-                return;
-              }
               void handleSaveProfile();
             }}
             style={{
@@ -428,7 +399,6 @@ export default function App() {
 
           <Pressable onPress={() => {
             setShowProfile(false);
-            setIsEditingProfile(false);
             setProfileAvatarInputUri(null);
             setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
@@ -493,9 +463,9 @@ export default function App() {
               setActivePicker(null);
               setFormError('');
             }}
-            style={{ marginTop: 14, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}
+            style={{ marginTop: 14, backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ga vandaag</Text>
+            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
 
           {sessions.length > 0 ? (
