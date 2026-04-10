@@ -322,7 +322,9 @@ export default function App() {
         try {
           const response = await fetch(editAvatarUrl);
           const avatarBlob = await response.blob();
-          const filePath = `${session.user.id}.jpg`;
+          const filePath = `${session.user.id}/avatar.jpg`;
+          console.log('upload path', filePath);
+
           const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
             contentType: avatarBlob.type || 'image/jpeg',
             upsert: true,
@@ -335,7 +337,17 @@ export default function App() {
             return;
           }
 
-          updates.avatar_url = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
+          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
+          const publicUrl = publicUrlData.publicUrl;
+          console.log('avatar public url', publicUrl);
+
+          if (!publicUrl) {
+            setSaveProfileError('Avatar URL ontbreekt');
+            setSavingProfile(false);
+            return;
+          }
+
+          updates.avatar_url = publicUrl;
         } catch (uploadRuntimeError) {
           console.error('Avatar upload runtime fout:', uploadRuntimeError);
           setSaveProfileError(uploadRuntimeError instanceof Error ? uploadRuntimeError.message : 'Foto uploaden mislukt');
@@ -350,10 +362,12 @@ export default function App() {
         return;
       }
 
-      const { error: updateError } = await supabase
+      const updateResult = await supabase
         .from('profiles')
         .update(updates)
         .eq('id', session.user.id);
+      console.log('profile avatar update result', updateResult);
+      const { error: updateError } = updateResult;
 
       if (updateError) {
         console.error('Profiel opslaan mislukt:', updateError);
@@ -363,7 +377,21 @@ export default function App() {
       }
 
       const previousProfile = profile;
-      const refreshedProfile = await fetchProfile(session.user.id, { showLoader: false });
+      const { data: refreshedProfile, error: reloadError } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, created_at')
+        .eq('id', session.user.id)
+        .maybeSingle();
+
+      if (reloadError) {
+        console.error('Profiel vernieuwen mislukt:', reloadError);
+        setSaveProfileError(reloadError.message);
+        setSavingProfile(false);
+        return;
+      }
+
+      console.log('reloaded profile', refreshedProfile);
+      setProfile(refreshedProfile ?? null);
 
       if (!refreshedProfile) {
         setSaveProfileError('Profiel vernieuwen mislukt');
@@ -403,7 +431,7 @@ export default function App() {
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={isEditingProfile ? editAvatarUrl : getAvatarUri(profile.avatar_url, { cacheBust: true })} size={42} />
+            <Avatar uri={getAvatarUri(profile.avatar_url, { cacheBust: true })} size={42} />
             <View style={{ marginLeft: 10 }}>
               <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>
                 {isEditingProfile ? editDisplayName || profile.display_name : profile.display_name}
