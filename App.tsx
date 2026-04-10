@@ -291,6 +291,10 @@ export default function App() {
     }
   }, [showProfile, profile]);
 
+  useEffect(() => {
+    console.log('SHOW_FORM', showForm);
+  }, [showForm]);
+
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const newestFirstMessages = useMemo(
@@ -369,6 +373,7 @@ export default function App() {
 
     if (error) {
       console.error('Status bijwerken mislukt:', error);
+      setSessionActionError(error.message);
       return;
     }
 
@@ -610,20 +615,12 @@ export default function App() {
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
-      const now = new Date();
-      const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
-
-      if (startTotalMinutes < nowTotalMinutes) {
-        setFormError('Starttijd kan niet eerder zijn dan nu.');
-        return;
-      }
-
       if (endTotalMinutes <= startTotalMinutes) {
         setFormError('Eindtijd moet later zijn dan starttijd.');
         return;
       }
 
-      const { error } = await supabase.from('sessions').insert({
+      const payload = {
         spot_name: selectedSpot,
         user_id: session.user.id,
         user_name: profile.display_name,
@@ -631,7 +628,11 @@ export default function App() {
         start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
         end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         status: 'Gaat',
-      });
+      };
+      console.log('SESSION_SAVE_PAYLOAD', payload);
+      const result = await supabase.from('sessions').insert(payload);
+      console.log('SESSION_SAVE_RESULT', result);
+      const { error } = result;
 
       if (error) {
         setFormError(error.message);
@@ -639,6 +640,7 @@ export default function App() {
       }
 
       await fetchSharedData();
+      setFormError('');
       setSessionActionError('');
       resetForm();
     };
@@ -684,7 +686,9 @@ export default function App() {
 
           <Pressable
             onPress={() => {
+              console.log('SESSION_PLAN_BUTTON_CLICKED');
               setShowForm(true);
+              console.log('SHOW_FORM', true);
               setActivePicker(null);
               setFormError('');
               setSessionActionError('');
@@ -693,6 +697,7 @@ export default function App() {
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
+          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
@@ -778,9 +783,14 @@ export default function App() {
 
               {formError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
-              <Pressable onPress={handleSave} style={primaryButtonStyle}>
-                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <Pressable onPress={handleSave} style={{ ...primaryButtonStyle, flex: 1 }}>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
+                </Pressable>
+                <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, flex: 1, backgroundColor: theme.bgElevated }}>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Annuleren</Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
         </View>
