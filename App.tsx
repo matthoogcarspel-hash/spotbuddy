@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
-import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Profile, supabase } from './src/lib/supabase';
@@ -65,13 +64,8 @@ export default function App() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
-  const [editDisplayName, setEditDisplayName] = useState('');
-  const [editAvatarUrl, setEditAvatarUrl] = useState('');
-  const [saveProfileError, setSaveProfileError] = useState('');
-  const [savingProfile, setSavingProfile] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -207,143 +201,6 @@ export default function App() {
   }
 
   if (showProfile) {
-    const startEditProfile = () => {
-      setEditDisplayName(profile.display_name);
-      setEditAvatarUrl(profile.avatar_url ?? '');
-      setSaveProfileError('');
-      setIsEditingProfile(true);
-    };
-
-    const handlePickAvatar = async () => {
-      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      if (!permission.granted) {
-        return;
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-      });
-
-      if (!result.canceled && result.assets.length > 0) {
-        setEditAvatarUrl(result.assets[0].uri);
-        setSaveProfileError('');
-      }
-    };
-
-    const handleSaveProfile = async () => {
-      setSavingProfile(true);
-      setSaveProfileError('');
-
-      try {
-        const trimmedDisplayName = editDisplayName.trim();
-        const isDisplayNameChanged = trimmedDisplayName !== profile.display_name;
-        const isNewAvatarSelected =
-          editAvatarUrl !== profile.avatar_url &&
-          (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
-
-        if (trimmedDisplayName.length === 0) {
-          setSaveProfileError('Naam is verplicht');
-          setSavingProfile(false);
-          return;
-        }
-
-        if (trimmedDisplayName.length < 2) {
-          setSaveProfileError('Naam moet minimaal 2 tekens bevatten');
-          setSavingProfile(false);
-          return;
-        }
-
-        if (trimmedDisplayName.length > 20) {
-          setSaveProfileError('Naam mag maximaal 20 tekens bevatten');
-          setSavingProfile(false);
-          return;
-        }
-
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-          console.error('auth user ophalen mislukt', authError);
-          setSaveProfileError('Opslaan mislukt');
-          setSavingProfile(false);
-          return;
-        }
-
-        const payload: Partial<Pick<Profile, 'display_name' | 'avatar_url'>> = {};
-
-        if (isDisplayNameChanged) {
-          payload.display_name = trimmedDisplayName;
-        }
-
-        if (isNewAvatarSelected) {
-          const response = await fetch(editAvatarUrl);
-          const file = await response.blob();
-          const filePath = `${user.id}/avatar.jpg`;
-          const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-
-          if (uploadError) {
-            setSaveProfileError('Foto uploaden mislukt');
-            setSavingProfile(false);
-            return;
-          }
-
-          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          const publicUrl = data.publicUrl;
-          console.log('avatar public url', publicUrl);
-          payload.avatar_url = publicUrl;
-        }
-
-        if (Object.keys(payload).length === 0) {
-          setIsEditingProfile(false);
-          setSavingProfile(false);
-          return;
-        }
-
-        console.log('profile update payload', payload);
-        const result = await supabase.from('profiles').update(payload).eq('id', user.id);
-        console.log('profile update result', result);
-
-        if (result.error) {
-          if (result.error.code === '23505') {
-            setSaveProfileError('Deze naam is al bezet');
-          } else if (result.error.code === '42501' || result.status === 401 || result.status === 403) {
-            setSaveProfileError('Je profiel mag niet worden bijgewerkt');
-          } else {
-            setSaveProfileError(result.error.message);
-          }
-          setSavingProfile(false);
-          return;
-        }
-
-        const { data: refreshedProfile, error: reloadError } = await supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, created_at')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (reloadError || !refreshedProfile) {
-          console.error('Profiel vernieuwen mislukt:', reloadError);
-          setSaveProfileError(reloadError?.message ?? 'Opslaan mislukt');
-          setSavingProfile(false);
-          return;
-        }
-
-        console.log('reloaded profile', refreshedProfile);
-        setProfile(refreshedProfile);
-        setIsEditingProfile(false);
-      } catch (error) {
-        console.error('profiel opslaan exception', error);
-        setSaveProfileError(error instanceof Error ? error.message : 'Opslaan mislukt');
-      } finally {
-        setSavingProfile(false);
-      }
-    };
-
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
         <Pressable onPress={() => setShowProfile(false)} style={{ marginBottom: 16 }}>
@@ -353,45 +210,15 @@ export default function App() {
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>
-                {isEditingProfile ? editDisplayName || profile.display_name : profile.display_name}
-              </Text>
+              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
               <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
             </View>
           </View>
 
-          {isEditingProfile ? (
-            <View style={{ marginTop: 16 }}>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Weergavenaam</Text>
-              <TextInput
-                value={editDisplayName}
-                onChangeText={setEditDisplayName}
-                autoCapitalize="none"
-                placeholder="Naam"
-                placeholderTextColor="#9db0c7"
-                style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
-              />
-
-              <Pressable onPress={handlePickAvatar} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 10 }}>
-                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
-              </Pressable>
-
-              {saveProfileError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{saveProfileError}</Text> : null}
-
-              <Pressable onPress={handleSaveProfile} disabled={savingProfile} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
-                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>{savingProfile ? 'Opslaan...' : 'Opslaan'}</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <Pressable onPress={startEditProfile} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
-              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Profiel bewerken</Text>
-            </Pressable>
-          )}
-
           <Pressable onPress={() => {
             resetFlow();
             void supabase.auth.signOut();
-          }} style={{ marginTop: 12, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+          }} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
             <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
           </Pressable>
         </View>
