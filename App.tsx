@@ -1,5 +1,4 @@
-import React from 'react';
-import { SafeAreaView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView, View, Text } from 'react-native';
 
 const spots = [
   'Scheveningen KZVS',
@@ -12,60 +11,38 @@ const spots = [
 
 export default function App() {
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>SpotBuddy</Text>
-        <Text style={styles.subtitle}>Wie gaat waar vandaag?</Text>
+    <SafeAreaView
+      style={{
+        flex: 1,
+        backgroundColor: '#0B0F14',
+        paddingHorizontal: 20,
+        paddingTop: 20,
+      }}
+    >
+      <View style={{ marginBottom: 20 }}>
+        <Text style={{ color: '#FFFFFF', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
+        <Text style={{ color: '#9DB0C7', fontSize: 16, marginTop: 6 }}>
+          Wie gaat waar vandaag?
+        </Text>
       </View>
 
-      <View style={styles.list}>
+      <View>
         {spots.map((spot) => (
-          <View key={spot} style={styles.card}>
-            <Text style={styles.spotName}>{spot}</Text>
-            <Text style={styles.spotMeta}>0 kiters vandaag</Text>
+          <View
+            key={spot}
+            style={{
+              backgroundColor: '#121821',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              paddingVertical: 12,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
+            <Text style={{ color: '#9DB0C7', fontSize: 14, marginTop: 4 }}>0 kiters vandaag</Text>
           </View>
         ))}
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0b0f14',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  header: {
-    marginBottom: 12,
-  },
-  title: {
-    color: '#ffffff',
-    fontSize: 32,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  subtitle: {
-    color: '#9db0c7',
-    fontSize: 16,
-  },
-  list: {
-    gap: 10,
-  },
-  card: {
-    backgroundColor: '#121821',
-    borderRadius: 12,
-    padding: 14,
-  },
-  spotName: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  spotMeta: {
-    color: '#9db0c7',
-    fontSize: 14,
-  },
-});
