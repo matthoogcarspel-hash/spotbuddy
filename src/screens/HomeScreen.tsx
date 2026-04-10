@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pressable, SafeAreaView, Text, View } from 'react-native';
+import { Image, Pressable, SafeAreaView, Text, View } from 'react-native';
 
 import { Profile } from '../lib/supabase';
 
@@ -40,7 +40,10 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
       <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View>
-          <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Image source={require('../../assets/logo.png')} style={{ width: 32, height: 32, marginRight: 8 }} resizeMode="contain" />
+            <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
+          </View>
           <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 10, padding: 10 }}>
