@@ -41,7 +41,6 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Ik ben geweest'];
-const activeStatuses: Array<'Gaat' | 'Is er al'> = ['Gaat', 'Is er al'];
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 
 const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
@@ -789,9 +788,8 @@ export default function App() {
 
       <View>
         {V1_SPOTS.map((spot) => {
-          const todayCount = sessionsBySpot[spot]?.filter((sessionItem) => activeStatuses.includes(sessionItem.status)).length ?? 0;
+          const plannedCount = sessionsBySpot[spot]?.filter((sessionItem) => sessionItem.status === 'Gaat').length ?? 0;
           const liveCount = sessionsBySpot[spot]?.filter((sessionItem) => sessionItem.status === 'Is er al').length ?? 0;
-          const kiterText = todayCount === 1 ? '1 kiter vandaag' : `${todayCount} kiters vandaag`;
 
           return (
             <Pressable
@@ -806,7 +804,7 @@ export default function App() {
               }}
             >
               <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{kiterText}</Text>
+              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>Gepland: {plannedCount}</Text>
               <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
             </Pressable>
           );
