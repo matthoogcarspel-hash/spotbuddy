@@ -161,20 +161,17 @@ export default function SpotDetailScreen({
             setActivePicker(null);
             setFormError('');
           }}
-          style={{ marginTop: 14, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}
+          style={{ marginTop: 14, backgroundColor: '#2c6cdf', borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12, alignItems: 'center' }}
         >
-          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ga vandaag</Text>
+          <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Sessie plannen</Text>
         </Pressable>
 
         {sessions.length > 0 ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Gaat')} style={{ flex: 1, marginRight: 8, backgroundColor: '#4f6378', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
-            </Pressable>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ flex: 1, marginRight: 8, backgroundColor: '#16a34a', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ flex: 1, marginRight: 8, backgroundColor: '#1f8a4b', borderRadius: 11, minHeight: 40, paddingVertical: 8, paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
             </Pressable>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Uitchecken')} style={{ flex: 1, backgroundColor: '#e4572e', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Uitchecken')} style={{ flex: 1, backgroundColor: '#a35a2a', borderRadius: 11, minHeight: 40, paddingVertical: 8, paddingHorizontal: 10, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
             </Pressable>
           </View>
@@ -183,7 +180,14 @@ export default function SpotDetailScreen({
         {showForm ? (
           <View style={{ marginTop: 14 }}>
             <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
-            <PickerField label="Uur" value={startHour === null ? '--' : formatTimePart(startHour)} onPress={() => setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour'))} />
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, marginRight: 4 }}>
+                <PickerField label="Uur" value={startHour === null ? '--' : formatTimePart(startHour)} onPress={() => setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour'))} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 4 }}>
+                <PickerField label="Minuut" value={formatTimePart(startMinute)} onPress={() => setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute'))} />
+              </View>
+            </View>
             {activePicker === 'startHour' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                 {hours.map((hour) => (
@@ -193,8 +197,6 @@ export default function SpotDetailScreen({
                 ))}
               </View>
             ) : null}
-
-            <PickerField label="Minuut" value={formatTimePart(startMinute)} onPress={() => setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute'))} />
             {activePicker === 'startMinute' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                 {minuteOptions.map((minute) => (
@@ -206,7 +208,14 @@ export default function SpotDetailScreen({
             ) : null}
 
             <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
-            <PickerField label="Uur" value={endHour === null ? '--' : formatTimePart(endHour)} onPress={() => setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour'))} />
+            <View style={{ flexDirection: 'row' }}>
+              <View style={{ flex: 1, marginRight: 4 }}>
+                <PickerField label="Uur" value={endHour === null ? '--' : formatTimePart(endHour)} onPress={() => setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour'))} />
+              </View>
+              <View style={{ flex: 1, marginLeft: 4 }}>
+                <PickerField label="Minuut" value={formatTimePart(endMinute)} onPress={() => setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute'))} />
+              </View>
+            </View>
             {activePicker === 'endHour' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                 {hours.map((hour) => (
@@ -216,8 +225,6 @@ export default function SpotDetailScreen({
                 ))}
               </View>
             ) : null}
-
-            <PickerField label="Minuut" value={formatTimePart(endMinute)} onPress={() => setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute'))} />
             {activePicker === 'endMinute' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                 {minuteOptions.map((minute) => (
@@ -230,7 +237,7 @@ export default function SpotDetailScreen({
 
             {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
-            <Pressable onPress={handleSave} style={{ backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, width: '100%', alignItems: 'center' }}>
+            <Pressable onPress={handleSave} style={{ backgroundColor: '#2c6cdf', borderRadius: 11, paddingVertical: 10, paddingHorizontal: 12, width: '100%', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Opslaan</Text>
             </Pressable>
           </View>
