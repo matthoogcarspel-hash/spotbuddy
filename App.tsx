@@ -21,13 +21,21 @@ const V1_SPOTS = [
 type SpotName = (typeof V1_SPOTS)[number];
 type SessionStatus = 'Is er al' | 'Gaat' | 'Ik ben geweest';
 type SpotSession = {
+  id: string;
   start: string;
   end: string;
   status: SessionStatus;
+  userId: string;
   userName: string;
   userAvatarUrl: string | null;
 };
-type ChatMessage = { text: string; userName: string; userAvatarUrl: string | null };
+type ChatMessage = {
+  id: string;
+  text: string;
+  userId: string;
+  userName: string;
+  userAvatarUrl: string | null;
+};
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
@@ -72,6 +80,7 @@ export default function App() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
+  const [loadingData, setLoadingData] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -120,6 +129,80 @@ export default function App() {
     return data ?? null;
   };
 
+  const mapSessionStatus = (status: string): SessionStatus => {
+    if (status === 'Is er al' || status === 'Ik ben geweest') {
+      return status;
+    }
+    return 'Gaat';
+  };
+
+  const fetchSharedData = async () => {
+    setLoadingData(true);
+
+    const [sessionsResponse, messagesResponse] = await Promise.all([
+      supabase
+        .from('sessions')
+        .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at')
+        .in('spot_name', [...V1_SPOTS])
+        .order('created_at', { ascending: true }),
+      supabase
+        .from('messages')
+        .select('id, spot_name, user_id, user_name, user_avatar_url, text, created_at')
+        .in('spot_name', [...V1_SPOTS])
+        .order('created_at', { ascending: true }),
+    ]);
+
+    if (sessionsResponse.error) {
+      console.error('Sessies ophalen mislukt:', sessionsResponse.error);
+    } else {
+      const nextSessionsBySpot = createSpotRecord<SpotSession[]>(() => []);
+
+      for (const row of sessionsResponse.data) {
+        const spot = row.spot_name as SpotName;
+        if (!V1_SPOTS.includes(spot)) {
+          continue;
+        }
+
+        nextSessionsBySpot[spot].push({
+          id: row.id,
+          start: row.start_time.slice(0, 5),
+          end: row.end_time.slice(0, 5),
+          status: mapSessionStatus(row.status),
+          userId: row.user_id,
+          userName: row.user_name,
+          userAvatarUrl: row.user_avatar_url,
+        });
+      }
+
+      setSessionsBySpot(nextSessionsBySpot);
+    }
+
+    if (messagesResponse.error) {
+      console.error('Berichten ophalen mislukt:', messagesResponse.error);
+    } else {
+      const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(() => []);
+
+      for (const row of messagesResponse.data) {
+        const spot = row.spot_name as SpotName;
+        if (!V1_SPOTS.includes(spot)) {
+          continue;
+        }
+
+        nextMessagesBySpot[spot].push({
+          id: row.id,
+          text: row.text,
+          userId: row.user_id,
+          userName: row.user_name,
+          userAvatarUrl: row.user_avatar_url,
+        });
+      }
+
+      setMessagesBySpot(nextMessagesBySpot);
+    }
+
+    setLoadingData(false);
+  };
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
@@ -128,6 +211,7 @@ export default function App() {
 
       if (nextSession) {
         void fetchProfile(nextSession.user.id);
+        void fetchSharedData();
       } else {
         setProfile(null);
       }
@@ -145,6 +229,7 @@ export default function App() {
       }
 
       void fetchProfile(nextSession.user.id);
+      void fetchSharedData();
     });
 
     return () => {
@@ -170,18 +255,18 @@ export default function App() {
     [sessions],
   );
 
-  const handleUpdateSessionStatus = (spot: SpotName, sessionIndex: number, status: SessionStatus) => {
-    setSessionsBySpot((prev) => ({
-      ...prev,
-      [spot]: prev[spot].map((sessionItem, index) =>
-        index === sessionIndex
-          ? {
-              ...sessionItem,
-              status,
-            }
-          : sessionItem,
-      ),
-    }));
+  const handleUpdateSessionStatus = async (sessionId: string, status: SessionStatus) => {
+    const { error } = await supabase
+      .from('sessions')
+      .update({ status })
+      .eq('id', sessionId);
+
+    if (error) {
+      console.error('Status bijwerken mislukt:', error);
+      return;
+    }
+
+    await fetchSharedData();
   };
 
   const resetForm = () => {
@@ -194,7 +279,7 @@ export default function App() {
     setFormError('');
   };
 
-  if (loadingSession || loadingProfile) {
+  if (loadingSession || loadingProfile || loadingData) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: '#ffffff' }}>Laden...</Text>
@@ -207,6 +292,7 @@ export default function App() {
       void supabase.auth.getSession().then(({ data }) => {
         if (data.session) {
           void fetchProfile(data.session.user.id);
+          void fetchSharedData();
         }
       });
     }} />;
@@ -410,7 +496,7 @@ export default function App() {
   }
 
   if (selectedSpot) {
-    const handleSave = () => {
+    const handleSave = async () => {
       if (startHour === null || endHour === null) {
         setFormError('Kies eerst een start- en eindtijd.');
         return;
@@ -431,20 +517,22 @@ export default function App() {
         return;
       }
 
-      setSessionsBySpot((prev) => ({
-        ...prev,
-        [selectedSpot]: [
-          ...prev[selectedSpot],
-          {
-            start: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
-            end: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
-            status: 'Gaat',
-            userName: profile.display_name,
-            userAvatarUrl: profile.avatar_url,
-          },
-        ],
-      }));
+      const { error } = await supabase.from('sessions').insert({
+        spot_name: selectedSpot,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
+        end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
+        status: 'Gaat',
+      });
 
+      if (error) {
+        setFormError(error.message);
+        return;
+      }
+
+      await fetchSharedData();
       resetForm();
     };
 
@@ -470,10 +558,30 @@ export default function App() {
 
           {sessions.length > 0 ? (
             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-              <Pressable onPress={() => handleUpdateSessionStatus(selectedSpot, sessions.length - 1, 'Is er al')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
+              <Pressable onPress={() => {
+                const latestOwnSession = [...sessions]
+                  .reverse()
+                  .find((sessionItem) => sessionItem.userId === session.user.id);
+
+                if (!latestOwnSession) {
+                  return;
+                }
+
+                void handleUpdateSessionStatus(latestOwnSession.id, 'Is er al');
+              }} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
               </Pressable>
-              <Pressable onPress={() => handleUpdateSessionStatus(selectedSpot, sessions.length - 1, 'Ik ben geweest')} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
+              <Pressable onPress={() => {
+                const latestOwnSession = [...sessions]
+                  .reverse()
+                  .find((sessionItem) => sessionItem.userId === session.user.id);
+
+                if (!latestOwnSession) {
+                  return;
+                }
+
+                void handleUpdateSessionStatus(latestOwnSession.id, 'Ik ben geweest');
+              }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
               </Pressable>
             </View>
@@ -555,8 +663,6 @@ export default function App() {
                   <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{status}</Text>
                   {sessionsForStatus.length > 0 ? (
                     sessionsForStatus.map((item, index) => {
-                      const sessionIndex = sessions.findIndex((sessionItem) => sessionItem === item);
-
                       return (
                         <View key={`${item.start}-${item.end}-${index}`} style={{ marginBottom: 8 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
@@ -569,7 +675,9 @@ export default function App() {
                             {statusOrder.map((nextStatus) => (
                               <Pressable
                                 key={`${item.start}-${item.end}-${index}-${nextStatus}`}
-                                onPress={() => handleUpdateSessionStatus(selectedSpot, sessionIndex, nextStatus)}
+                                onPress={() => {
+                                  void handleUpdateSessionStatus(item.id, nextStatus);
+                                }}
                                 style={{
                                   backgroundColor: item.status === nextStatus ? '#9db0c7' : '#0b0f14',
                                   borderRadius: 8,
@@ -605,8 +713,8 @@ export default function App() {
 
           {messages.length > 0 ? (
             <View style={{ marginBottom: 10 }}>
-              {messages.map((message, index) => (
-                <View key={`${message.text}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              {messages.map((message) => (
+                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                   <Avatar uri={message.userAvatarUrl} size={24} />
                   <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 8 }}>
                     {message.userName}: {message.text}
@@ -627,16 +735,28 @@ export default function App() {
           />
           <Pressable
             onPress={() => {
+              void (async () => {
               const text = messageInput.trim();
               if (!text) {
                 return;
               }
 
-              setMessagesBySpot((prev) => ({
-                ...prev,
-                [selectedSpot]: [...prev[selectedSpot], { text, userName: profile.display_name, userAvatarUrl: profile.avatar_url }],
-              }));
+              const { error } = await supabase.from('messages').insert({
+                spot_name: selectedSpot,
+                user_id: session.user.id,
+                user_name: profile.display_name,
+                user_avatar_url: profile.avatar_url,
+                text,
+              });
+
+              if (error) {
+                console.error('Bericht opslaan mislukt:', error);
+                return;
+              }
+
+              await fetchSharedData();
               setMessageInput('');
+              })();
             }}
             style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}
           >
