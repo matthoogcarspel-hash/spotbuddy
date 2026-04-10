@@ -15,16 +15,27 @@ type Session = {
   end: string;
 };
 
+type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
+
+const hours = Array.from({ length: 24 }, (_, index) => index);
+const minuteOptions = [0, 15, 30, 45];
+
+const formatTimePart = (value: number) => String(value).padStart(2, '0');
+
 export default function App() {
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
-  const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, Session>>({});
+  const [activePicker, setActivePicker] = useState<PickerKey>(null);
+  const [startHour, setStartHour] = useState<number | null>(null);
+  const [startMinute, setStartMinute] = useState<number | null>(null);
+  const [endHour, setEndHour] = useState<number | null>(null);
+  const [endMinute, setEndMinute] = useState<number | null>(null);
+  const [formError, setFormError] = useState('');
+  const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, Session[]>>({});
   const [messagesBySpot, setMessagesBySpot] = useState<Record<string, string[]>>({});
   const [messageInput, setMessageInput] = useState('');
 
-  const currentSession = selectedSpot ? sessionsBySpot[selectedSpot] : undefined;
+  const currentSessions = selectedSpot ? sessionsBySpot[selectedSpot] ?? [] : [];
   const currentMessages = selectedSpot ? messagesBySpot[selectedSpot] ?? [] : [];
 
   const getKiterText = (count: number) => {
@@ -35,25 +46,50 @@ export default function App() {
     return `${count} kiters vandaag`;
   };
 
+  const resetForm = () => {
+    setShowForm(false);
+    setActivePicker(null);
+    setStartHour(null);
+    setStartMinute(null);
+    setEndHour(null);
+    setEndMinute(null);
+    setFormError('');
+  };
+
   const handleSave = () => {
     if (!selectedSpot) {
       return;
     }
 
-    const start = startTime.trim();
-    const end = endTime.trim();
-
-    if (!start || !end) {
+    if (startHour === null || startMinute === null || endHour === null || endMinute === null) {
+      setFormError('Kies eerst een start- en eindtijd.');
       return;
     }
 
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const endTotalMinutes = endHour * 60 + endMinute;
+    const now = new Date();
+    const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+    if (startTotalMinutes < nowTotalMinutes) {
+      setFormError('Starttijd kan niet eerder zijn dan nu.');
+      return;
+    }
+
+    if (endTotalMinutes <= startTotalMinutes) {
+      setFormError('Eindtijd moet later zijn dan starttijd.');
+      return;
+    }
+
+    const start = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
+    const end = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
+
     setSessionsBySpot((prev) => ({
       ...prev,
-      [selectedSpot]: { start, end },
+      [selectedSpot]: [...(prev[selectedSpot] ?? []), { start, end }],
     }));
-    setShowForm(false);
-    setStartTime('');
-    setEndTime('');
+
+    resetForm();
   };
 
   const handleSendMessage = () => {
@@ -73,6 +109,34 @@ export default function App() {
     }));
     setMessageInput('');
   };
+
+  const PickerField = ({
+    label,
+    value,
+    onPress,
+  }: {
+    label: string;
+    value: string;
+    onPress: () => void;
+  }) => (
+    <Pressable
+      onPress={() => {
+        onPress();
+        setFormError('');
+      }}
+      style={{
+        backgroundColor: '#0b0f14',
+        borderRadius: 10,
+        paddingHorizontal: 12,
+        paddingVertical: 10,
+        marginBottom: 6,
+      }}
+    >
+      <Text style={{ color: '#ffffff', fontSize: 15 }}>
+        {label}: {value}
+      </Text>
+    </Pressable>
+  );
 
   return (
     <SafeAreaView
@@ -94,16 +158,14 @@ export default function App() {
 
           <View>
             {spots.map((spot) => {
-              const kiterCount = sessionsBySpot[spot] ? 1 : 0;
+              const kiterCount = sessionsBySpot[spot]?.length ?? 0;
 
               return (
                 <Pressable
                   key={spot}
                   onPress={() => {
                     setSelectedSpot(spot);
-                    setShowForm(false);
-                    setStartTime('');
-                    setEndTime('');
+                    resetForm();
                     setMessageInput('');
                   }}
                   style={{
@@ -128,9 +190,7 @@ export default function App() {
           <Pressable
             onPress={() => {
               setSelectedSpot(null);
-              setShowForm(false);
-              setStartTime('');
-              setEndTime('');
+              resetForm();
               setMessageInput('');
             }}
             style={{ marginBottom: 18 }}
@@ -149,7 +209,11 @@ export default function App() {
             <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{selectedSpot}</Text>
 
             <Pressable
-              onPress={() => setShowForm(true)}
+              onPress={() => {
+                setShowForm(true);
+                setActivePicker(null);
+                setFormError('');
+              }}
               style={{
                 marginTop: 14,
                 backgroundColor: '#0b0f14',
@@ -163,34 +227,138 @@ export default function App() {
 
             {showForm ? (
               <View style={{ marginTop: 14 }}>
-                <TextInput
-                  value={startTime}
-                  onChangeText={setStartTime}
-                  placeholder="Starttijd, bv 13:00"
-                  placeholderTextColor="#9db0c7"
-                  style={{
-                    backgroundColor: '#0b0f14',
-                    color: '#ffffff',
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    marginBottom: 10,
-                  }}
+                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
+                <PickerField
+                  label="Uur"
+                  value={startHour === null ? '--' : formatTimePart(startHour)}
+                  onPress={() => setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour'))}
                 />
-                <TextInput
-                  value={endTime}
-                  onChangeText={setEndTime}
-                  placeholder="Eindtijd, bv 16:30"
-                  placeholderTextColor="#9db0c7"
-                  style={{
-                    backgroundColor: '#0b0f14',
-                    color: '#ffffff',
-                    borderRadius: 10,
-                    paddingHorizontal: 12,
-                    paddingVertical: 10,
-                    marginBottom: 10,
-                  }}
+                {activePicker === 'startHour' ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                    {hours.map((hour) => (
+                      <Pressable
+                        key={`start-hour-${hour}`}
+                        onPress={() => {
+                          setStartHour(hour);
+                          setFormError('');
+                        }}
+                        style={{
+                          backgroundColor: startHour === hour ? '#9db0c7' : '#0b0f14',
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          marginRight: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text style={{ color: startHour === hour ? '#0b0f14' : '#ffffff' }}>
+                          {formatTimePart(hour)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                <PickerField
+                  label="Minuut"
+                  value={startMinute === null ? '--' : formatTimePart(startMinute)}
+                  onPress={() =>
+                    setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute'))
+                  }
                 />
+                {activePicker === 'startMinute' ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                    {minuteOptions.map((minute) => (
+                      <Pressable
+                        key={`start-minute-${minute}`}
+                        onPress={() => {
+                          setStartMinute(minute);
+                          setFormError('');
+                        }}
+                        style={{
+                          backgroundColor: startMinute === minute ? '#9db0c7' : '#0b0f14',
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          marginRight: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text style={{ color: startMinute === minute ? '#0b0f14' : '#ffffff' }}>
+                          {formatTimePart(minute)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
+                <PickerField
+                  label="Uur"
+                  value={endHour === null ? '--' : formatTimePart(endHour)}
+                  onPress={() => setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour'))}
+                />
+                {activePicker === 'endHour' ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                    {hours.map((hour) => (
+                      <Pressable
+                        key={`end-hour-${hour}`}
+                        onPress={() => {
+                          setEndHour(hour);
+                          setFormError('');
+                        }}
+                        style={{
+                          backgroundColor: endHour === hour ? '#9db0c7' : '#0b0f14',
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          marginRight: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text style={{ color: endHour === hour ? '#0b0f14' : '#ffffff' }}>
+                          {formatTimePart(hour)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                <PickerField
+                  label="Minuut"
+                  value={endMinute === null ? '--' : formatTimePart(endMinute)}
+                  onPress={() => setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute'))}
+                />
+                {activePicker === 'endMinute' ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                    {minuteOptions.map((minute) => (
+                      <Pressable
+                        key={`end-minute-${minute}`}
+                        onPress={() => {
+                          setEndMinute(minute);
+                          setFormError('');
+                        }}
+                        style={{
+                          backgroundColor: endMinute === minute ? '#9db0c7' : '#0b0f14',
+                          borderRadius: 8,
+                          paddingVertical: 8,
+                          paddingHorizontal: 10,
+                          marginRight: 8,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <Text style={{ color: endMinute === minute ? '#0b0f14' : '#ffffff' }}>
+                          {formatTimePart(minute)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+
+                {formError ? (
+                  <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text>
+                ) : null}
+
                 <Pressable
                   onPress={handleSave}
                   style={{
@@ -217,10 +385,17 @@ export default function App() {
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
               Sessies
             </Text>
-            {currentSession ? (
-              <Text style={{ color: '#ffffff', fontSize: 15 }}>
-                Jij: {currentSession.start} - {currentSession.end}
-              </Text>
+            {currentSessions.length > 0 ? (
+              <View>
+                {currentSessions.map((session, index) => (
+                  <Text
+                    key={`${session.start}-${session.end}-${index}`}
+                    style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}
+                  >
+                    Jij: {session.start} - {session.end}
+                  </Text>
+                ))}
+              </View>
             ) : (
               <View>
                 <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
