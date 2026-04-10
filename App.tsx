@@ -653,10 +653,10 @@ export default function App() {
         <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
           <Image
             source={require('./assets/logo.png')}
-            style={{ width: 72, height: 72 }}
+            style={{ width: 84, height: 84, marginRight: 12 }}
             resizeMode="contain"
           />
-          <View style={{ marginLeft: 12 }}>
+          <View>
             <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
             <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
           </View>
