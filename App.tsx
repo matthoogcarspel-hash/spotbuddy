@@ -25,6 +25,9 @@ type SpotSession = {
   start: string;
   end: string;
   status: SessionStatus;
+  createdAt: string | null;
+  checkedInAt: string | null;
+  checkedOutAt: string | null;
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
@@ -35,6 +38,7 @@ type ChatMessage = {
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
+  createdAt: string | null;
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
@@ -42,6 +46,22 @@ const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const formatToHourMinute = (value: string | null | undefined) => {
+  if (!value) {
+    return '--:--';
+  }
+
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return '--:--';
+  }
+
+  return dateValue.toLocaleTimeString('nl-NL', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+};
 
 const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
   V1_SPOTS.reduce((result, spot) => {
@@ -146,7 +166,7 @@ export default function App() {
     const [sessionsResponse, messagesResponse] = await Promise.all([
       supabase
         .from('sessions')
-        .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at')
+        .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
         .in('spot_name', [...V1_SPOTS])
         .order('created_at', { ascending: true }),
       supabase
@@ -172,6 +192,9 @@ export default function App() {
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
           status: mapSessionStatus(row.status),
+          createdAt: row.created_at,
+          checkedInAt: row.checked_in_at,
+          checkedOutAt: row.checked_out_at,
           userId: row.user_id,
           userName: row.user_name,
           userAvatarUrl: row.user_avatar_url,
@@ -198,6 +221,7 @@ export default function App() {
           userId: row.user_id,
           userName: row.user_name,
           userAvatarUrl: row.user_avatar_url,
+          createdAt: row.created_at,
         });
       }
 
@@ -272,9 +296,20 @@ export default function App() {
       return;
     }
 
+    const nowIso = new Date().toISOString();
+    const updates: { status: SessionStatus; checked_in_at?: string; checked_out_at?: string } = { status };
+
+    if (status === 'Is er al') {
+      updates.checked_in_at = nowIso;
+    }
+
+    if (status === 'Uitchecken') {
+      updates.checked_out_at = nowIso;
+    }
+
     const { error } = await supabase
       .from('sessions')
-      .update({ status })
+      .update(updates)
       .eq('id', sessionItem.id);
 
     if (error) {
@@ -552,17 +587,19 @@ export default function App() {
       resetForm();
     };
     const primaryButtonStyle = {
-      backgroundColor: '#1f8fff',
-      borderRadius: 12,
-      paddingVertical: 12,
+      backgroundColor: '#2563eb',
+      borderRadius: 10,
+      paddingVertical: 10,
       paddingHorizontal: 14,
+      minHeight: 42,
       width: '100%',
       alignItems: 'center',
+      justifyContent: 'center',
     } as const;
     const sessionActionButtonBaseStyle = {
       flex: 1,
-      borderRadius: 12,
-      minHeight: 44,
+      borderRadius: 10,
+      minHeight: 42,
       paddingVertical: 10,
       paddingHorizontal: 12,
       justifyContent: 'center',
@@ -591,24 +628,10 @@ export default function App() {
             }}
             style={{ marginTop: 14, ...primaryButtonStyle }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Sessie plannen</Text>
+            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
 
-          {sessions.length > 0 ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-              <Pressable onPress={() => {
-                const latestOwnSession = [...sessions]
-                  .reverse()
-                  .find((sessionItem) => sessionItem.userId === session.user.id);
-
-                if (!latestOwnSession) {
-                  return;
-                }
-
-                void handleUpdateSessionStatus(latestOwnSession, 'Gaat');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#4f6378', marginRight: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
-              </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
                   .reverse()
@@ -619,7 +642,7 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#16a34a', marginRight: 8 }}>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
               </Pressable>
               <Pressable onPress={() => {
@@ -632,19 +655,23 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#e4572e' }}>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#9a3412' }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
               </Pressable>
             </View>
-          ) : null}
 
           {showForm ? (
             <View style={{ marginTop: 14 }}>
               <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
 
-              <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
+                </Pressable>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(startMinute)}</Text>
+                </Pressable>
+              </View>
               {activePicker === 'startHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {hours.map((hour) => (
@@ -654,10 +681,6 @@ export default function App() {
                   ))}
                 </View>
               ) : null}
-
-              <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(startMinute)}</Text>
-              </Pressable>
               {activePicker === 'startMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
@@ -669,9 +692,14 @@ export default function App() {
               ) : null}
 
               <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
-              <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
+                </Pressable>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(endMinute)}</Text>
+                </Pressable>
+              </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {hours.map((hour) => (
@@ -681,10 +709,6 @@ export default function App() {
                   ))}
                 </View>
               ) : null}
-
-              <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(endMinute)}</Text>
-              </Pressable>
               {activePicker === 'endMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
@@ -698,7 +722,7 @@ export default function App() {
               {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
               <Pressable onPress={handleSave} style={primaryButtonStyle}>
-                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Opslaan</Text>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
               </Pressable>
             </View>
           ) : null}
@@ -718,10 +742,17 @@ export default function App() {
                         <View key={`${item.start}-${item.end}-${index}`} style={{ marginBottom: 8 }}>
                           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                             <Avatar uri={item.userAvatarUrl} size={24} />
-                            <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 8 }}>
+                            <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 8, marginRight: 8 }}>
                               {item.userName}: {item.start} - {item.end}
                             </Text>
                           </View>
+                          <Text style={{ color: '#9db0c7', fontSize: 13, marginBottom: 6 }}>
+                            {item.status === 'Gaat'
+                              ? `Gepland om ${formatToHourMinute(item.createdAt)}`
+                              : item.status === 'Is er al'
+                                ? `Ingecheckt om ${formatToHourMinute(item.checkedInAt)}`
+                                : `Uitgecheckt om ${formatToHourMinute(item.checkedOutAt)}`}
+                          </Text>
                           {item.userId === currentUserId ? (
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
                               {statusOrder.map((nextStatus) => (
@@ -767,11 +798,14 @@ export default function App() {
           {messages.length > 0 ? (
             <View style={{ marginBottom: 10 }}>
               {messages.map((message) => (
-                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
                   <Avatar uri={message.userAvatarUrl} size={24} />
-                  <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 8 }}>
-                    {message.userName}: {message.text}
-                  </Text>
+                  <View style={{ marginLeft: 8, flex: 1 }}>
+                    <Text style={{ color: '#9db0c7', fontSize: 13, marginBottom: 2 }}>
+                      {message.userName} · {formatToHourMinute(message.createdAt)}
+                    </Text>
+                    <Text style={{ color: '#ffffff', fontSize: 15 }}>{message.text}</Text>
+                  </View>
                 </View>
               ))}
             </View>
