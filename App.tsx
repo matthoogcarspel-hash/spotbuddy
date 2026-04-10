@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
+import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { Profile, supabase } from './src/lib/supabase';
@@ -39,6 +40,11 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
+const mapSpotRecord = <T,>(record: Record<SpotName, T[]>, mapItem: (item: T) => T): Record<SpotName, T[]> =>
+  V1_SPOTS.reduce((result, spot) => {
+    result[spot] = record[spot].map(mapItem);
+    return result;
+  }, {} as Record<SpotName, T[]>);
 
 function Avatar({ uri, size = 28 }: { uri: string; size?: number }) {
   return (
@@ -56,8 +62,13 @@ export default function App() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
+  const [editDisplayName, setEditDisplayName] = useState('');
+  const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [saveProfileError, setSaveProfileError] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -184,6 +195,117 @@ export default function App() {
   }
 
   if (showProfile) {
+    const startEditProfile = () => {
+      setEditDisplayName(profile.display_name);
+      setEditAvatarUrl(profile.avatar_url);
+      setSaveProfileError('');
+      setIsEditingProfile(true);
+    };
+
+    const handlePickAvatar = async () => {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets.length > 0) {
+        setEditAvatarUrl(result.assets[0].uri);
+        setSaveProfileError('');
+      }
+    };
+
+    const handleSaveProfile = async () => {
+      const trimmedDisplayName = editDisplayName.trim();
+      if (!trimmedDisplayName) {
+        return;
+      }
+
+      setSavingProfile(true);
+      setSaveProfileError('');
+
+      const isDisplayNameChanged = trimmedDisplayName !== profile.display_name;
+      const isAvatarChanged = editAvatarUrl !== profile.avatar_url;
+
+      if (isDisplayNameChanged) {
+        const { data: duplicateProfile, error: duplicateError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('display_name', trimmedDisplayName)
+          .neq('id', profile.id)
+          .maybeSingle();
+
+        if (duplicateError || duplicateProfile) {
+          setSaveProfileError('Deze naam is al bezet');
+          setSavingProfile(false);
+          return;
+        }
+      }
+
+      let nextAvatarUrl = profile.avatar_url;
+
+      if (isAvatarChanged) {
+        const response = await fetch(editAvatarUrl);
+        const avatarBlob = await response.blob();
+        const filePath = `${profile.id}/${Date.now()}.jpg`;
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
+          contentType: avatarBlob.type || 'image/jpeg',
+          upsert: true,
+        });
+
+        if (uploadError) {
+          setSaveProfileError('Opslaan mislukt. Probeer opnieuw.');
+          setSavingProfile(false);
+          return;
+        }
+
+        nextAvatarUrl = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
+      }
+
+      const { data: updatedProfile, error: updateError } = await supabase
+        .from('profiles')
+        .update({
+          display_name: trimmedDisplayName,
+          avatar_url: nextAvatarUrl,
+        })
+        .eq('id', profile.id)
+        .select('id, display_name, avatar_url, created_at')
+        .single();
+
+      if (updateError || !updatedProfile) {
+        setSaveProfileError('Opslaan mislukt. Probeer opnieuw.');
+        setSavingProfile(false);
+        return;
+      }
+
+      setProfile(updatedProfile);
+      setIsEditingProfile(false);
+
+      setSessionsBySpot((prev) =>
+        mapSpotRecord(prev, (sessionItem) =>
+          sessionItem.userName === profile.display_name && sessionItem.userAvatarUrl === profile.avatar_url
+            ? { ...sessionItem, userName: updatedProfile.display_name, userAvatarUrl: updatedProfile.avatar_url }
+            : sessionItem,
+        ),
+      );
+
+      setMessagesBySpot((prev) =>
+        mapSpotRecord(prev, (message) =>
+          message.userName === profile.display_name && message.userAvatarUrl === profile.avatar_url
+            ? { ...message, userName: updatedProfile.display_name, userAvatarUrl: updatedProfile.avatar_url }
+            : message,
+        ),
+      );
+
+      setSavingProfile(false);
+    };
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
         <Pressable onPress={() => setShowProfile(false)} style={{ marginBottom: 16 }}>
@@ -191,17 +313,47 @@ export default function App() {
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={profile.avatar_url} size={42} />
+            <Avatar uri={isEditingProfile ? editAvatarUrl : profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
+              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>
+                {isEditingProfile ? editDisplayName || profile.display_name : profile.display_name}
+              </Text>
               <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
             </View>
           </View>
 
+          {isEditingProfile ? (
+            <View style={{ marginTop: 16 }}>
+              <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Weergavenaam</Text>
+              <TextInput
+                value={editDisplayName}
+                onChangeText={setEditDisplayName}
+                autoCapitalize="none"
+                placeholder="Naam"
+                placeholderTextColor="#9db0c7"
+                style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+              />
+
+              <Pressable onPress={handlePickAvatar} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
+              </Pressable>
+
+              {saveProfileError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{saveProfileError}</Text> : null}
+
+              <Pressable onPress={() => { void handleSaveProfile(); }} disabled={savingProfile} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>{savingProfile ? 'Opslaan...' : 'Opslaan'}</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable onPress={startEditProfile} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Profiel bewerken</Text>
+            </Pressable>
+          )}
+
           <Pressable onPress={() => {
             resetFlow();
             void supabase.auth.signOut();
-          }} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+          }} style={{ marginTop: 12, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
             <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
           </Pressable>
         </View>
