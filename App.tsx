@@ -123,6 +123,7 @@ export default function App() {
   const [endHour, setEndHour] = useState<number | null>(null);
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
+  const [sessionActionError, setSessionActionError] = useState('');
   const [messageInput, setMessageInput] = useState('');
 
   const resetFlow = () => {
@@ -311,11 +312,41 @@ export default function App() {
     [sessions],
   );
 
-  const handleUpdateSessionStatus = async (sessionItem: SpotSession, status: SessionStatus) => {
+  const handleUpdateSessionStatus = async (sessionItem: SpotSession | null, status: SessionStatus) => {
+    setSessionActionError('');
+
     const { data } = await supabase.auth.getUser();
     const authUserId = data.user?.id;
 
-    if (!authUserId || sessionItem.userId !== authUserId) {
+    if (!authUserId || !selectedSpot || !sessionItem || sessionItem.userId !== authUserId) {
+      if (status === 'Is er al') {
+        setSessionActionError('Plan eerst een sessie');
+      } else if (status === 'Uitchecken') {
+        setSessionActionError('Check eerst in');
+      }
+      return;
+    }
+
+    const latestOwnSession = [...sessionsBySpot[selectedSpot]]
+      .reverse()
+      .find((item) => item.userId === authUserId);
+
+    if (!latestOwnSession || latestOwnSession.id !== sessionItem.id) {
+      if (status === 'Is er al') {
+        setSessionActionError('Plan eerst een sessie');
+      } else if (status === 'Uitchecken') {
+        setSessionActionError('Check eerst in');
+      }
+      return;
+    }
+
+    if (status === 'Is er al' && sessionItem.status !== 'Gaat') {
+      setSessionActionError('Plan eerst een sessie');
+      return;
+    }
+
+    if (status === 'Uitchecken' && sessionItem.status !== 'Is er al') {
+      setSessionActionError('Check eerst in');
       return;
     }
 
@@ -333,7 +364,8 @@ export default function App() {
     const { error } = await supabase
       .from('sessions')
       .update(updates)
-      .eq('id', sessionItem.id);
+      .eq('id', sessionItem.id)
+      .eq('user_id', authUserId);
 
     if (error) {
       console.error('Status bijwerken mislukt:', error);
@@ -607,6 +639,7 @@ export default function App() {
       }
 
       await fetchSharedData();
+      setSessionActionError('');
       resetForm();
     };
     const primaryButtonStyle = {
@@ -633,6 +666,11 @@ export default function App() {
       'Is er al': 'Inchecken',
       Uitchecken: 'Uitchecken',
     };
+    const latestOwnSession = [...sessions]
+      .reverse()
+      .find((sessionItem) => sessionItem.userId === session.user.id) ?? null;
+    const canCheckIn = latestOwnSession?.status === 'Gaat';
+    const canCheckOut = latestOwnSession?.status === 'Is er al';
 
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
@@ -649,6 +687,7 @@ export default function App() {
               setShowForm(true);
               setActivePicker(null);
               setFormError('');
+              setSessionActionError('');
             }}
             style={{ marginTop: 14, ...primaryButtonStyle }}
           >
@@ -656,33 +695,27 @@ export default function App() {
           </Pressable>
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
-              <Pressable onPress={() => {
-                const latestOwnSession = [...sessions]
-                  .reverse()
-                  .find((sessionItem) => sessionItem.userId === session.user.id);
-
-                if (!latestOwnSession) {
-                  return;
-                }
-
+            <Pressable
+              disabled={!canCheckIn}
+              onPress={() => {
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
-              </Pressable>
-              <Pressable onPress={() => {
-                const latestOwnSession = [...sessions]
-                  .reverse()
-                  .find((sessionItem) => sessionItem.userId === session.user.id);
-
-                if (!latestOwnSession) {
-                  return;
-                }
-
+              }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
+            </Pressable>
+            <Pressable
+              disabled={!canCheckOut}
+              onPress={() => {
                 void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12' }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
-              </Pressable>
-            </View>
+              }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
+            </Pressable>
+          </View>
+
+          {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
             <View style={{ marginTop: 14 }}>
@@ -777,28 +810,46 @@ export default function App() {
                                 ? `Ingecheckt om ${formatToHourMinute(item.checkedInAt)}`
                                 : `Uitgecheckt om ${formatToHourMinute(item.checkedOutAt)}`}
                           </Text>
-                          {item.userId === currentUserId ? (
+                          {item.userId === currentUserId && latestOwnSession?.id === item.id ? (
                             <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                              {statusOrder.map((nextStatus) => (
-                                <Pressable
-                                  key={`${item.start}-${item.end}-${index}-${nextStatus}`}
-                                  onPress={() => {
-                                    void handleUpdateSessionStatus(item, nextStatus);
-                                  }}
-                                  style={{
-                                    backgroundColor: item.status === nextStatus ? theme.primary : theme.bgElevated,
-                                    borderRadius: 8,
-                                    borderWidth: 1,
-                                    borderColor: theme.border,
-                                    paddingVertical: 6,
-                                    paddingHorizontal: 8,
-                                    marginRight: 6,
-                                    marginBottom: 6,
-                                  }}
-                                >
-                                  <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
-                                </Pressable>
-                              ))}
+                              <Pressable
+                                disabled={!canCheckIn}
+                                onPress={() => {
+                                  void handleUpdateSessionStatus(item, 'Is er al');
+                                }}
+                                style={{
+                                  backgroundColor: item.status === 'Is er al' ? theme.primary : theme.bgElevated,
+                                  borderRadius: 8,
+                                  borderWidth: 1,
+                                  borderColor: theme.border,
+                                  paddingVertical: 6,
+                                  paddingHorizontal: 8,
+                                  marginRight: 6,
+                                  marginBottom: 6,
+                                  opacity: canCheckIn ? 1 : 0.5,
+                                }}
+                              >
+                                <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel['Is er al']}</Text>
+                              </Pressable>
+                              <Pressable
+                                disabled={!canCheckOut}
+                                onPress={() => {
+                                  void handleUpdateSessionStatus(item, 'Uitchecken');
+                                }}
+                                style={{
+                                  backgroundColor: item.status === 'Uitchecken' ? theme.primary : theme.bgElevated,
+                                  borderRadius: 8,
+                                  borderWidth: 1,
+                                  borderColor: theme.border,
+                                  paddingVertical: 6,
+                                  paddingHorizontal: 8,
+                                  marginRight: 6,
+                                  marginBottom: 6,
+                                  opacity: canCheckOut ? 1 : 0.5,
+                                }}
+                              >
+                                <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel['Uitchecken']}</Text>
+                              </Pressable>
                             </View>
                           ) : null}
                         </View>
