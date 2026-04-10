@@ -556,20 +556,21 @@ export default function App() {
       borderRadius: 12,
       paddingVertical: 12,
       paddingHorizontal: 14,
+      width: '100%',
+      alignItems: 'center',
     } as const;
     const sessionActionButtonBaseStyle = {
-      marginTop: 10,
+      flex: 1,
       borderRadius: 12,
-      minHeight: 42,
+      minHeight: 44,
       paddingVertical: 10,
       paddingHorizontal: 12,
       justifyContent: 'center',
       alignItems: 'center',
-      marginRight: 8,
     } as const;
     const sessionStatusLabel: Record<SessionStatus, string> = {
       Gaat: 'Gaat',
-      'Is er al': 'Ik ben er',
+      'Is er al': 'Inchecken',
       Uitchecken: 'Uitchecken',
     };
 
@@ -594,7 +595,7 @@ export default function App() {
           </Pressable>
 
           {sessions.length > 0 ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
                   .reverse()
@@ -605,7 +606,7 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Gaat');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#445469' }}>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#4f6378', marginRight: 8 }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
               </Pressable>
               <Pressable onPress={() => {
@@ -618,8 +619,8 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1f9d55' }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#16a34a', marginRight: 8 }}>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
               </Pressable>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
@@ -631,8 +632,8 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#d95f31', marginRight: 0 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Uitchecken</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#e4572e' }}>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
               </Pressable>
             </View>
           ) : null}

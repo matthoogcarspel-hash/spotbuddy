@@ -33,7 +33,7 @@ const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const sessionStatusLabel: Record<SessionStatus, string> = {
   Gaat: 'Gaat',
-  'Is er al': 'Ik ben er',
+  'Is er al': 'Inchecken',
   Uitchecken: 'Uitchecken',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
@@ -167,15 +167,15 @@ export default function SpotDetailScreen({
         </Pressable>
 
         {sessions.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Gaat')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#445469', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Gaat')} style={{ flex: 1, marginRight: 8, backgroundColor: '#4f6378', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
             </Pressable>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#1f9d55', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ flex: 1, marginRight: 8, backgroundColor: '#16a34a', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
             </Pressable>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Uitchecken')} style={{ marginTop: 10, backgroundColor: '#d95f31', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Uitchecken</Text>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Uitchecken')} style={{ flex: 1, backgroundColor: '#e4572e', borderRadius: 12, minHeight: 44, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
             </Pressable>
           </View>
         ) : null}
@@ -230,7 +230,7 @@ export default function SpotDetailScreen({
 
             {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
-            <Pressable onPress={handleSave} style={{ backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
+            <Pressable onPress={handleSave} style={{ backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, width: '100%', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Opslaan</Text>
             </Pressable>
           </View>
