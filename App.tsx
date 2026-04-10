@@ -45,6 +45,20 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
+const theme = {
+  bg: '#060b14',
+  bgElevated: '#0b1626',
+  card: '#101f33',
+  cardStrong: '#13263d',
+  border: '#1f3d5f',
+  text: '#f2f7ff',
+  textSoft: '#9eb2c9',
+  textMuted: '#7f97b3',
+  primary: '#2a8cff',
+  primaryPressed: '#1f72d4',
+  live: '#21c47f',
+  warm: '#c67a44',
+};
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const formatToHourMinute = (value: string | null | undefined) => {
   if (!value) {
@@ -73,7 +87,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
     return (
       <View
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#223247' }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.cardStrong, borderWidth: 1, borderColor: theme.border }}
       />
     );
   }
@@ -81,7 +95,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   return (
     <Image
       source={{ uri }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#223247' }}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.cardStrong, borderWidth: 1, borderColor: theme.border }}
     />
   );
 }
@@ -332,8 +346,8 @@ export default function App() {
 
   if (loadingSession || loadingProfile || loadingData) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#ffffff' }}>Laden...</Text>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: theme.text }}>Laden...</Text>
       </SafeAreaView>
     );
   }
@@ -477,13 +491,13 @@ export default function App() {
     };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-        <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profileNameInput || profile.display_name}</Text>
-              <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
+              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '700' }}>{profileNameInput || profile.display_name}</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 4 }}>Ingelogd</Text>
             </View>
           </View>
 
@@ -492,21 +506,21 @@ export default function App() {
               value={profileNameInput}
               onChangeText={setProfileNameInput}
               placeholder="Display name"
-              placeholderTextColor="#9db0c7"
+              placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
-              style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
+              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 10, padding: 12, marginBottom: 10 }}
             />
 
-            {profileEditError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileEditError}</Text> : null}
+            {profileEditError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{profileEditError}</Text> : null}
           </View>
 
           <Pressable
             onPress={() => {
               void handlePickProfileAvatar();
             }}
-            style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
+            style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
           >
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
           </Pressable>
 
           <Pressable
@@ -516,13 +530,13 @@ export default function App() {
             }}
             style={{
               marginTop: 10,
-              backgroundColor: '#0b0f14',
+              backgroundColor: theme.bgElevated,
               borderRadius: 10,
               padding: 12,
               opacity: isSavingProfile ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
               {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
             </Text>
           </Pressable>
@@ -530,16 +544,16 @@ export default function App() {
           <Pressable onPress={() => {
             resetFlow();
             void supabase.auth.signOut();
-          }} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
+          }} style={{ marginTop: 16, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
           </Pressable>
 
           <Pressable onPress={() => {
             setShowProfile(false);
             setProfileAvatarInputUri(null);
             setProfileEditError('');
-          }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Terug</Text>
+          }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Terug</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -587,11 +601,11 @@ export default function App() {
       resetForm();
     };
     const primaryButtonStyle = {
-      backgroundColor: '#2563eb',
-      borderRadius: 10,
-      paddingVertical: 10,
-      paddingHorizontal: 14,
-      minHeight: 42,
+      backgroundColor: theme.primary,
+      borderRadius: 14,
+      paddingVertical: 12,
+      paddingHorizontal: 16,
+      minHeight: 46,
       width: '100%',
       alignItems: 'center',
       justifyContent: 'center',
@@ -612,13 +626,14 @@ export default function App() {
     };
 
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: '#0b0f14' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 30 }}>
+      <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
-          <Text style={{ color: '#9db0c7', fontSize: 15 }}>← Terug</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Terug naar spots</Text>
         </Pressable>
 
-        <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-          <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{selectedSpot}</Text>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
+          <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
 
           <Pressable
             onPress={() => {
@@ -628,10 +643,10 @@ export default function App() {
             }}
             style={{ marginTop: 14, ...primaryButtonStyle }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Sessie plannen</Text>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 }}>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
                   .reverse()
@@ -642,8 +657,8 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: theme.live, borderRadius: 14 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Inchecken</Text>
               </Pressable>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
@@ -655,28 +670,28 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
-              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#9a3412' }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: theme.warm, borderRadius: 14 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Uitchecken</Text>
               </Pressable>
             </View>
 
           {showForm ? (
             <View style={{ marginTop: 14 }}>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
 
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Uur: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(startMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Minuut: {formatTimePart(startMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'startHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {hours.map((hour) => (
-                    <Pressable key={`start-hour-${hour}`} onPress={() => setStartHour(hour)} style={{ backgroundColor: startHour === hour ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
-                      <Text style={{ color: startHour === hour ? '#0b0f14' : '#ffffff' }}>{formatTimePart(hour)}</Text>
+                    <Pressable key={`start-hour-${hour}`} onPress={() => setStartHour(hour)} style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                      <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -684,27 +699,27 @@ export default function App() {
               {activePicker === 'startMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
-                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
-                      <Text style={{ color: startMinute === minute ? '#0b0f14' : '#ffffff' }}>{formatTimePart(minute)}</Text>
+                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                      <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                   ))}
                 </View>
               ) : null}
 
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Uur: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Uur: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: '#0b0f14', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: '#ffffff', fontSize: 15 }}>Minuut: {formatTimePart(endMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Minuut: {formatTimePart(endMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {hours.map((hour) => (
-                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
-                      <Text style={{ color: endHour === hour ? '#0b0f14' : '#ffffff' }}>{formatTimePart(hour)}</Text>
+                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                      <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
                   ))}
                 </View>
@@ -712,41 +727,41 @@ export default function App() {
               {activePicker === 'endMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
-                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
-                      <Text style={{ color: endMinute === minute ? '#0b0f14' : '#ffffff' }}>{formatTimePart(minute)}</Text>
+                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                      <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                   ))}
                 </View>
               ) : null}
 
-              {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
+              {formError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
               <Pressable onPress={handleSave} style={primaryButtonStyle}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
               </Pressable>
             </View>
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-          <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Sessies</Text>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Sessies</Text>
           {sessions.length > 0 ? (
             statusOrder.map((status) => {
               const sessionsForStatus = sessionsByStatus[status];
               return (
                 <View key={status} style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
                   {sessionsForStatus.length > 0 ? (
                     sessionsForStatus.map((item, index) => {
                       return (
-                        <View key={`${item.start}-${item.end}-${index}`} style={{ marginBottom: 8 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                        <View key={`${item.start}-${item.end}-${index}`} style={{ marginBottom: 10, backgroundColor: theme.cardStrong, borderRadius: 14, padding: 10 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
                             <Avatar uri={item.userAvatarUrl} size={24} />
-                            <Text style={{ color: '#ffffff', fontSize: 15, marginLeft: 8, marginRight: 8 }}>
+                            <Text style={{ color: theme.text, fontSize: 15, marginLeft: 8, marginRight: 8 }}>
                               {item.userName}: {item.start} - {item.end}
                             </Text>
                           </View>
-                          <Text style={{ color: '#9db0c7', fontSize: 13, marginBottom: 6 }}>
+                          <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 6 }}>
                             {item.status === 'Gaat'
                               ? `Gepland om ${formatToHourMinute(item.createdAt)}`
                               : item.status === 'Is er al'
@@ -762,15 +777,17 @@ export default function App() {
                                     void handleUpdateSessionStatus(item, nextStatus);
                                   }}
                                   style={{
-                                    backgroundColor: item.status === nextStatus ? '#9db0c7' : '#0b0f14',
+                                    backgroundColor: item.status === nextStatus ? theme.primary : theme.bgElevated,
                                     borderRadius: 8,
+                                    borderWidth: 1,
+                                    borderColor: theme.border,
                                     paddingVertical: 6,
                                     paddingHorizontal: 8,
                                     marginRight: 6,
                                     marginBottom: 6,
                                   }}
                                 >
-                                  <Text style={{ color: item.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
+                                  <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
                                 </Pressable>
                               ))}
                             </View>
@@ -779,46 +796,46 @@ export default function App() {
                       );
                     })
                   ) : (
-                    <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 4 }}>Nog niemand</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 4 }}>Nog niemand</Text>
                   )}
                 </View>
               );
             })
           ) : (
             <View>
-              <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>{profile.display_name} kunt de eerste zijn</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 15 }}>Nog niemand ingepland</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 4 }}>{profile.display_name} kunt de eerste zijn</Text>
             </View>
           )}
         </View>
 
-        <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
-          <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
 
           {messages.length > 0 ? (
             <View style={{ marginBottom: 10 }}>
               {messages.map((message) => (
-                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 10 }}>
+                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
                   <Avatar uri={message.userAvatarUrl} size={24} />
-                  <View style={{ marginLeft: 8, flex: 1 }}>
-                    <Text style={{ color: '#9db0c7', fontSize: 13, marginBottom: 2 }}>
+                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
                       {message.userName} · {formatToHourMinute(message.createdAt)}
                     </Text>
-                    <Text style={{ color: '#ffffff', fontSize: 15 }}>{message.text}</Text>
+                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
                   </View>
                 </View>
               ))}
             </View>
           ) : (
-            <Text style={{ color: '#9db0c7', fontSize: 15, marginBottom: 10 }}>Nog geen berichten</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 15, marginBottom: 10 }}>Nog geen berichten</Text>
           )}
 
           <TextInput
             value={messageInput}
             onChangeText={setMessageInput}
             placeholder="Typ een bericht"
-            placeholderTextColor="#9db0c7"
-            style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+            placeholderTextColor={theme.textMuted}
+            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
           />
           <Pressable
             onPress={() => {
@@ -845,9 +862,9 @@ export default function App() {
               setMessageInput('');
               })();
             }}
-            style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}
+            style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -855,22 +872,23 @@ export default function App() {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-      <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
+      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
           <Image
             source={require('./assets/logo.png')}
-            style={{ width: 84, height: 84, marginRight: 12 }}
+            style={{ width: 82, height: 82, marginRight: 12 }}
             resizeMode="contain"
           />
-          <View>
-            <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.4 }}>COASTAL WIND TRACKER</Text>
+            <Text style={{ color: theme.text, fontSize: 34, fontWeight: '700', marginTop: 2 }}>SpotBuddy</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 6 }}>Spot slim. Time it hard. Hit the water.</Text>
           </View>
         </View>
-        <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}>
+        <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border, marginLeft: 10 }}>
           <Avatar uri={profile.avatar_url} size={24} />
-          <Text style={{ color: '#ffffff', fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
+          <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
         </Pressable>
       </View>
 
@@ -884,16 +902,26 @@ export default function App() {
               key={spot}
               onPress={() => setSelectedSpot(spot)}
               style={{
-                backgroundColor: '#121821',
-                borderRadius: 12,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                marginBottom: 10,
+                backgroundColor: theme.card,
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                marginBottom: 12,
+                borderWidth: 1,
+                borderColor: theme.border,
               }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>Gepland: {plannedCount}</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
+              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+              <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+                <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>GEPLAND</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{plannedCount}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: '#0c2130', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
+                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>LIVE</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{liveCount}</Text>
+                </View>
+              </View>
             </Pressable>
           );
         })}
