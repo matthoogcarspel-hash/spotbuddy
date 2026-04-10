@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
+import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { uploadAvatar } from './src/lib/avatar';
 import { Profile, supabase } from './src/lib/supabase';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
@@ -64,10 +66,11 @@ export default function App() {
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
-  const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+  const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
-  const [profileNameError, setProfileNameError] = useState('');
-  const [isSavingProfileName, setIsSavingProfileName] = useState(false);
+  const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
+  const [profileEditError, setProfileEditError] = useState('');
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
 
@@ -83,10 +86,11 @@ export default function App() {
   const resetFlow = () => {
     setSelectedSpot(null);
     setShowProfile(false);
-    setIsEditingProfileName(false);
+    setIsEditingProfile(false);
     setProfileNameInput('');
-    setProfileNameError('');
-    setIsSavingProfileName(false);
+    setProfileAvatarInputUri(null);
+    setProfileEditError('');
+    setIsSavingProfile(false);
     setSessionsBySpot(createSpotRecord(() => []));
     setMessagesBySpot(createSpotRecord(() => []));
   };
@@ -209,32 +213,58 @@ export default function App() {
   }
 
   if (showProfile) {
-    const handleStartEditName = () => {
+    const handleStartEditProfile = () => {
       setProfileNameInput(profile.display_name);
-      setProfileNameError('');
-      setIsEditingProfileName(true);
+      setProfileAvatarInputUri(null);
+      setProfileEditError('');
+      setIsEditingProfile(true);
     };
 
-    const handleSaveDisplayName = async () => {
+    const handlePickProfileAvatar = async () => {
+      if (!isEditingProfile) {
+        setProfileNameInput(profile.display_name);
+        setIsEditingProfile(true);
+      }
+
+      setProfileEditError('');
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        setProfileEditError("Geef toegang tot je foto's om een profielfoto te kiezen");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled) {
+        setProfileAvatarInputUri(result.assets[0].uri);
+      }
+    };
+
+    const handleSaveProfile = async () => {
       const trimmedName = profileNameInput.trim();
 
       if (!trimmedName) {
-        setProfileNameError('Naam is verplicht');
+        setProfileEditError('Naam is verplicht');
         return;
       }
 
       if (trimmedName.length < 2) {
-        setProfileNameError('Naam moet minimaal 2 tekens zijn');
+        setProfileEditError('Naam moet minimaal 2 tekens zijn');
         return;
       }
 
       if (trimmedName.length > 20) {
-        setProfileNameError('Naam mag maximaal 20 tekens zijn');
+        setProfileEditError('Naam mag maximaal 20 tekens zijn');
         return;
       }
 
-      setProfileNameError('');
-      setIsSavingProfileName(true);
+      setProfileEditError('');
+      setIsSavingProfile(true);
 
       const { data: existingProfile, error: existingProfileError } = await supabase
         .from('profiles')
@@ -244,58 +274,92 @@ export default function App() {
         .maybeSingle();
 
       if (existingProfileError) {
-        setIsSavingProfileName(false);
-        setProfileNameError('Er ging iets mis. Probeer het opnieuw.');
+        setIsSavingProfile(false);
+        setProfileEditError(existingProfileError.message);
         return;
       }
 
       if (existingProfile) {
-        setIsSavingProfileName(false);
-        setProfileNameError('Deze naam is al bezet');
+        setIsSavingProfile(false);
+        setProfileEditError('Deze naam is al bezet');
         return;
       }
 
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ display_name: trimmedName })
-        .eq('id', session.user.id);
-
-      if (updateError) {
-        setIsSavingProfileName(false);
-        if (updateError.code === '23505') {
-          setProfileNameError('Deze naam is al bezet');
+      let avatarUrl = profile.avatar_url;
+      if (profileAvatarInputUri) {
+        const { error: uploadError, publicUrl } = await uploadAvatar(session.user.id, profileAvatarInputUri);
+        if (uploadError) {
+          setIsSavingProfile(false);
+          setProfileEditError('Foto uploaden mislukt');
           return;
         }
-        setProfileNameError('Er ging iets mis. Probeer het opnieuw.');
+        if (!publicUrl) {
+          setIsSavingProfile(false);
+          setProfileEditError('Avatar URL ontbreekt');
+          return;
+        }
+        avatarUrl = publicUrl;
+      }
+
+      const payload = {
+        display_name: trimmedName,
+        avatar_url: avatarUrl,
+      };
+      console.log('profile update payload', payload);
+
+      const updateResult = await supabase
+        .from('profiles')
+        .update(payload)
+        .eq('id', session.user.id);
+      console.log('profile update result', updateResult);
+      const { error: updateError } = updateResult;
+
+      if (updateError) {
+        setIsSavingProfile(false);
+        if (updateError.code === '23505') {
+          setProfileEditError('Deze naam is al bezet');
+          return;
+        }
+        if (updateError.code === '42501') {
+          setProfileEditError('Je profiel mag niet worden bijgewerkt');
+          return;
+        }
+        setProfileEditError(updateError.message);
         return;
       }
 
-      setProfile((currentProfile) =>
-        currentProfile
-          ? {
-              ...currentProfile,
-              display_name: trimmedName,
-            }
-          : currentProfile,
-      );
-      await fetchProfile(session.user.id, { showLoader: false });
-      setIsSavingProfileName(false);
-      setIsEditingProfileName(false);
-      setProfileNameError('');
+      const { data: freshProfile, error: freshProfileError } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, created_at')
+        .eq('id', session.user.id)
+        .single();
+      console.log('reloaded profile', freshProfile);
+
+      if (freshProfileError) {
+        setIsSavingProfile(false);
+        setProfileEditError(freshProfileError.message);
+        return;
+      }
+
+      setProfile(freshProfile);
+      setIsSavingProfile(false);
+      setIsEditingProfile(false);
+      setProfileAvatarInputUri(null);
+      setProfileEditError('');
     };
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={profile.avatar_url} size={42} />
+            <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
               <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
               <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
             </View>
           </View>
 
-          {isEditingProfileName ? (
+          {isEditingProfile ? (
             <View style={{ marginTop: 16 }}>
               <TextInput
                 value={profileNameInput}
@@ -306,31 +370,54 @@ export default function App() {
                 style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
               />
 
-              {profileNameError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileNameError}</Text> : null}
-
-              <Pressable
-                disabled={isSavingProfileName}
-                onPress={handleSaveDisplayName}
-                style={{
-                  backgroundColor: '#0b0f14',
-                  borderRadius: 10,
-                  padding: 12,
-                  opacity: isSavingProfileName ? 0.6 : 1,
-                }}
-              >
-                <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-                  {isSavingProfileName ? 'Opslaan...' : 'Opslaan'}
-                </Text>
-              </Pressable>
+              {profileEditError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{profileEditError}</Text> : null}
             </View>
           ) : (
             <Pressable
-              onPress={handleStartEditName}
+              onPress={handleStartEditProfile}
               style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
             >
-              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Naam wijzigen</Text>
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Profiel bewerken</Text>
             </Pressable>
           )}
+
+          <Pressable
+            onPress={handleStartEditProfile}
+            style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
+          >
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Naam wijzigen</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              void handlePickProfileAvatar();
+            }}
+            style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}
+          >
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
+          </Pressable>
+
+          <Pressable
+            disabled={isSavingProfile}
+            onPress={() => {
+              if (!isEditingProfile) {
+                handleStartEditProfile();
+                return;
+              }
+              void handleSaveProfile();
+            }}
+            style={{
+              marginTop: 10,
+              backgroundColor: '#0b0f14',
+              borderRadius: 10,
+              padding: 12,
+              opacity: isSavingProfile ? 0.6 : 1,
+            }}
+          >
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+              {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
+            </Text>
+          </Pressable>
 
           <Pressable onPress={() => {
             resetFlow();
@@ -341,8 +428,9 @@ export default function App() {
 
           <Pressable onPress={() => {
             setShowProfile(false);
-            setIsEditingProfileName(false);
-            setProfileNameError('');
+            setIsEditingProfile(false);
+            setProfileAvatarInputUri(null);
+            setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
             <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Terug</Text>
           </Pressable>

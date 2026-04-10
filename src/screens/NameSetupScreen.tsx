@@ -3,6 +3,7 @@ import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { uploadAvatar } from '../lib/avatar';
 import { Profile, supabase } from '../lib/supabase';
 
 type NameSetupScreenProps = {
@@ -89,24 +90,20 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     let avatarUrl: string | null = null;
 
     if (avatarUri) {
-      const avatarPath = `${userId}.jpg`;
-      const imageResponse = await fetch(avatarUri);
-      const imageBlob = await imageResponse.blob();
-
-      const { error: uploadError } = await supabase.storage.from('avatars').upload(avatarPath, imageBlob, {
-        upsert: true,
-        contentType: 'image/jpeg',
-      });
-
+      const { error: uploadError, publicUrl } = await uploadAvatar(userId, avatarUri);
       if (uploadError) {
-        console.error('Avatar upload mislukt:', uploadError);
         setIsLoading(false);
-        setError(uploadError.message);
+        setError('Foto uploaden mislukt');
         return;
       }
 
-      const { data: avatarPublicUrlData } = supabase.storage.from('avatars').getPublicUrl(avatarPath);
-      avatarUrl = avatarPublicUrlData.publicUrl;
+      if (!publicUrl) {
+        setIsLoading(false);
+        setError('Avatar URL ontbreekt');
+        return;
+      }
+
+      avatarUrl = publicUrl;
     }
 
     const createdAt = new Date().toISOString();
@@ -117,7 +114,11 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       created_at: createdAt,
     };
 
-    const { error: upsertError } = await supabase.from('profiles').upsert(profilePayload, { onConflict: 'id' });
+    const { data: savedProfile, error: upsertError } = await supabase
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'id' })
+      .select('id, display_name, avatar_url, created_at')
+      .single();
 
     setIsLoading(false);
 
@@ -132,7 +133,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       return;
     }
 
-    onSaved(profilePayload);
+    onSaved(savedProfile);
   };
 
   return (
