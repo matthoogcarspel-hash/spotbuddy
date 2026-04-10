@@ -76,7 +76,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       return;
     }
 
-    let avatarUrl = '';
+    let avatarUrl: string | null = null;
 
     if (avatarUri) {
       const avatarPath = `${userId}.jpg`;
@@ -89,8 +89,9 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       });
 
       if (uploadError) {
+        console.error('Avatar upload mislukt:', uploadError);
         setIsLoading(false);
-        setError('Uploaden van profielfoto is mislukt');
+        setError(uploadError.message);
         return;
       }
 
@@ -111,12 +112,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     setIsLoading(false);
 
     if (upsertError) {
+      console.error('Profiel opslaan mislukt:', upsertError);
       if (upsertError.code === '23505') {
         setError('Deze naam is al bezet');
         return;
       }
 
-      setError('Er ging iets mis. Probeer het opnieuw.');
+      setError(upsertError.message);
       return;
     }
 

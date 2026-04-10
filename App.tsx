@@ -24,9 +24,9 @@ type SpotSession = {
   end: string;
   status: SessionStatus;
   userName: string;
-  userAvatarUrl: string;
+  userAvatarUrl: string | null;
 };
-type ChatMessage = { text: string; userName: string; userAvatarUrl: string };
+type ChatMessage = { text: string; userName: string; userAvatarUrl: string | null };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
@@ -46,7 +46,15 @@ const mapSpotRecord = <T,>(record: Record<SpotName, T[]>, mapItem: (item: T) => 
     return result;
   }, {} as Record<SpotName, T[]>);
 
-function Avatar({ uri, size = 28 }: { uri: string; size?: number }) {
+function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
+  if (!uri) {
+    return (
+      <View
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: '#223247' }}
+      />
+    );
+  }
+
   return (
     <Image
       source={{ uri }}
@@ -67,6 +75,7 @@ export default function App() {
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
+  const [avatarCacheBustKey, setAvatarCacheBustKey] = useState<number | null>(null);
   const [saveProfileError, setSaveProfileError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -78,6 +87,18 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
   const [messageInput, setMessageInput] = useState('');
+
+  const getAvatarUri = (avatarUrl: string | null, options?: { cacheBust?: boolean }) => {
+    if (!avatarUrl) {
+      return null;
+    }
+
+    if (options?.cacheBust && avatarCacheBustKey) {
+      return `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}t=${avatarCacheBustKey}`;
+    }
+
+    return avatarUrl;
+  };
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -206,7 +227,7 @@ export default function App() {
   if (showProfile) {
     const startEditProfile = () => {
       setEditDisplayName(profile.display_name);
-      setEditAvatarUrl(profile.avatar_url);
+      setEditAvatarUrl(profile.avatar_url ?? '');
       setSaveProfileError('');
       setIsEditingProfile(true);
     };
@@ -301,7 +322,7 @@ export default function App() {
         try {
           const response = await fetch(editAvatarUrl);
           const avatarBlob = await response.blob();
-          const filePath = `${session.user.id}/${Date.now()}.jpg`;
+          const filePath = `${session.user.id}.jpg`;
           const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
             contentType: avatarBlob.type || 'image/jpeg',
             upsert: true,
@@ -309,7 +330,7 @@ export default function App() {
 
           if (uploadError) {
             console.error('Avatar upload mislukt:', uploadError);
-            setSaveProfileError('Foto uploaden mislukt');
+            setSaveProfileError(uploadError.message);
             setSavingProfile(false);
             return;
           }
@@ -317,7 +338,7 @@ export default function App() {
           updates.avatar_url = supabase.storage.from('avatars').getPublicUrl(filePath).data.publicUrl;
         } catch (uploadRuntimeError) {
           console.error('Avatar upload runtime fout:', uploadRuntimeError);
-          setSaveProfileError('Foto uploaden mislukt');
+          setSaveProfileError(uploadRuntimeError instanceof Error ? uploadRuntimeError.message : 'Foto uploaden mislukt');
           setSavingProfile(false);
           return;
         }
@@ -336,7 +357,7 @@ export default function App() {
 
       if (updateError) {
         console.error('Profiel opslaan mislukt:', updateError);
-        setSaveProfileError(getProfileSaveErrorMessage(updateError.message));
+        setSaveProfileError(updateError.message || getProfileSaveErrorMessage('Onbekende fout'));
         setSavingProfile(false);
         return;
       }
@@ -348,6 +369,10 @@ export default function App() {
         setSaveProfileError('Profiel vernieuwen mislukt');
         setSavingProfile(false);
         return;
+      }
+
+      if (isNewAvatarSelected && refreshedProfile.avatar_url) {
+        setAvatarCacheBustKey(Date.now());
       }
 
       setIsEditingProfile(false);
@@ -378,7 +403,7 @@ export default function App() {
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={isEditingProfile ? editAvatarUrl : profile.avatar_url} size={42} />
+            <Avatar uri={isEditingProfile ? editAvatarUrl : getAvatarUri(profile.avatar_url, { cacheBust: true })} size={42} />
             <View style={{ marginLeft: 10 }}>
               <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>
                 {isEditingProfile ? editDisplayName || profile.display_name : profile.display_name}
@@ -672,7 +697,7 @@ export default function App() {
           <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}>
-          <Avatar uri={profile.avatar_url} size={24} />
+          <Avatar uri={getAvatarUri(profile.avatar_url, { cacheBust: true })} size={24} />
           <Text style={{ color: '#ffffff', fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
         </Pressable>
       </View>
