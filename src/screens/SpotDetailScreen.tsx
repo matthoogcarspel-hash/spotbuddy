@@ -276,7 +276,7 @@ export default function SpotDetailScreen({
         ) : (
           <View>
             <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>Jij kunt de eerste zijn</Text>
+            <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>{userName} kunt de eerste zijn</Text>
           </View>
         )}
       </View>
