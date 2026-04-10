@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-export type SessionStatus = 'Is er al' | 'Gaat' | 'Ik ben geweest';
+export type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 
 export type Session = {
   start: string;
@@ -30,7 +30,12 @@ type SpotDetailScreenProps = {
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Ik ben geweest'];
+const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
+const sessionStatusLabel: Record<SessionStatus, string> = {
+  Gaat: 'Gaat',
+  'Is er al': 'Ik ben er',
+  Uitchecken: 'Uitchecken',
+};
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 
 export default function SpotDetailScreen({
@@ -56,7 +61,7 @@ export default function SpotDetailScreen({
     () => ({
       'Is er al': sessions.filter((session) => session.status === 'Is er al'),
       Gaat: sessions.filter((session) => session.status === 'Gaat'),
-      'Ik ben geweest': sessions.filter((session) => session.status === 'Ik ben geweest'),
+      'Uitchecken': sessions.filter((session) => session.status === 'Uitchecken'),
     }),
     [sessions],
   );
@@ -162,12 +167,15 @@ export default function SpotDetailScreen({
         </Pressable>
 
         {sessions.length > 0 ? (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Gaat')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#445469', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
+            </Pressable>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Is er al')} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#1f9d55', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
               <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
             </Pressable>
-            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Ik ben geweest')} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
+            <Pressable onPress={() => onUpdateSessionStatus(sessions.length - 1, 'Uitchecken')} style={{ marginTop: 10, backgroundColor: '#d95f31', borderRadius: 12, minHeight: 42, paddingVertical: 10, paddingHorizontal: 12, justifyContent: 'center', alignItems: 'center' }}>
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Uitchecken</Text>
             </Pressable>
           </View>
         ) : null}
@@ -222,8 +230,8 @@ export default function SpotDetailScreen({
 
             {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
-            <Pressable onPress={handleSave} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
-              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Opslaan</Text>
+            <Pressable onPress={handleSave} style={{ backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}>
+              <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Opslaan</Text>
             </Pressable>
           </View>
         ) : null}
@@ -236,7 +244,7 @@ export default function SpotDetailScreen({
             const sessionsForStatus = sessionsByStatus[status];
             return (
               <View key={status} style={{ marginBottom: 10 }}>
-                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{status}</Text>
+                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
                 {sessionsForStatus.length > 0 ? (
                   sessionsForStatus.map((session, index) => {
                     const sessionIndex = sessions.findIndex((item) => item === session);
@@ -260,7 +268,7 @@ export default function SpotDetailScreen({
                                 marginBottom: 6,
                               }}
                             >
-                              <Text style={{ color: session.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{nextStatus}</Text>
+                              <Text style={{ color: session.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
                             </Pressable>
                           ))}
                         </View>

@@ -19,7 +19,7 @@ const V1_SPOTS = [
 ] as const;
 
 type SpotName = (typeof V1_SPOTS)[number];
-type SessionStatus = 'Is er al' | 'Gaat' | 'Ik ben geweest';
+type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 type SpotSession = {
   id: string;
   start: string;
@@ -40,7 +40,7 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Ik ben geweest'];
+const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 
 const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
@@ -130,7 +130,11 @@ export default function App() {
   };
 
   const mapSessionStatus = (status: string): SessionStatus => {
-    if (status === 'Is er al' || status === 'Ik ben geweest') {
+    if (status === 'Ik ben geweest') {
+      return 'Uitchecken';
+    }
+
+    if (status === 'Is er al' || status === 'Uitchecken') {
       return status;
     }
     return 'Gaat';
@@ -255,7 +259,7 @@ export default function App() {
     () => ({
       'Is er al': sessions.filter((item) => item.status === 'Is er al'),
       Gaat: sessions.filter((item) => item.status === 'Gaat'),
-      'Ik ben geweest': sessions.filter((item) => item.status === 'Ik ben geweest'),
+      'Uitchecken': sessions.filter((item) => item.status === 'Uitchecken'),
     }),
     [sessions],
   );
@@ -547,6 +551,27 @@ export default function App() {
       await fetchSharedData();
       resetForm();
     };
+    const primaryButtonStyle = {
+      backgroundColor: '#1f8fff',
+      borderRadius: 12,
+      paddingVertical: 12,
+      paddingHorizontal: 14,
+    } as const;
+    const sessionActionButtonBaseStyle = {
+      marginTop: 10,
+      borderRadius: 12,
+      minHeight: 42,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      justifyContent: 'center',
+      alignItems: 'center',
+      marginRight: 8,
+    } as const;
+    const sessionStatusLabel: Record<SessionStatus, string> = {
+      Gaat: 'Gaat',
+      'Is er al': 'Ik ben er',
+      Uitchecken: 'Uitchecken',
+    };
 
     return (
       <ScrollView style={{ flex: 1, backgroundColor: '#0b0f14' }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 30 }}>
@@ -563,13 +588,26 @@ export default function App() {
               setActivePicker(null);
               setFormError('');
             }}
-            style={{ marginTop: 14, backgroundColor: '#1f8fff', borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14 }}
+            style={{ marginTop: 14, ...primaryButtonStyle }}
           >
             <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
 
           {sessions.length > 0 ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' }}>
+              <Pressable onPress={() => {
+                const latestOwnSession = [...sessions]
+                  .reverse()
+                  .find((sessionItem) => sessionItem.userId === session.user.id);
+
+                if (!latestOwnSession) {
+                  return;
+                }
+
+                void handleUpdateSessionStatus(latestOwnSession, 'Gaat');
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#445469' }}>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Gaat</Text>
+              </Pressable>
               <Pressable onPress={() => {
                 const latestOwnSession = [...sessions]
                   .reverse()
@@ -580,7 +618,7 @@ export default function App() {
                 }
 
                 void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
-              }} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1f9d55' }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
               </Pressable>
               <Pressable onPress={() => {
@@ -592,9 +630,9 @@ export default function App() {
                   return;
                 }
 
-                void handleUpdateSessionStatus(latestOwnSession, 'Ik ben geweest');
-              }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
+                void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
+              }} style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#d95f31', marginRight: 0 }}>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Uitchecken</Text>
               </Pressable>
             </View>
           ) : null}
@@ -658,8 +696,8 @@ export default function App() {
 
               {formError ? <Text style={{ color: '#ff6b6b', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
 
-              <Pressable onPress={handleSave} style={{ backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Opslaan</Text>
+              <Pressable onPress={handleSave} style={primaryButtonStyle}>
+                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700' }}>Opslaan</Text>
               </Pressable>
             </View>
           ) : null}
@@ -672,7 +710,7 @@ export default function App() {
               const sessionsForStatus = sessionsByStatus[status];
               return (
                 <View key={status} style={{ marginBottom: 10 }}>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{status}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
                   {sessionsForStatus.length > 0 ? (
                     sessionsForStatus.map((item, index) => {
                       return (
@@ -700,7 +738,7 @@ export default function App() {
                                     marginBottom: 6,
                                   }}
                                 >
-                                  <Text style={{ color: item.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{nextStatus}</Text>
+                                  <Text style={{ color: item.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
                                 </Pressable>
                               ))}
                             </View>
