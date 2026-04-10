@@ -40,11 +40,6 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
-const mapSpotRecord = <T,>(record: Record<SpotName, T[]>, mapItem: (item: T) => T): Record<SpotName, T[]> =>
-  V1_SPOTS.reduce((result, spot) => {
-    result[spot] = record[spot].map(mapItem);
-    return result;
-  }, {} as Record<SpotName, T[]>);
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -75,7 +70,6 @@ export default function App() {
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
   const [editDisplayName, setEditDisplayName] = useState('');
   const [editAvatarUrl, setEditAvatarUrl] = useState('');
-  const [avatarCacheBustKey, setAvatarCacheBustKey] = useState<number | null>(null);
   const [saveProfileError, setSaveProfileError] = useState('');
   const [savingProfile, setSavingProfile] = useState(false);
 
@@ -87,18 +81,6 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
   const [messageInput, setMessageInput] = useState('');
-
-  const getAvatarUri = (avatarUrl: string | null, options?: { cacheBust?: boolean }) => {
-    if (!avatarUrl) {
-      return null;
-    }
-
-    if (options?.cacheBust && avatarCacheBustKey) {
-      return `${avatarUrl}${avatarUrl.includes('?') ? '&' : '?'}t=${avatarCacheBustKey}`;
-    }
-
-    return avatarUrl;
-  };
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -252,176 +234,79 @@ export default function App() {
     };
 
     const handleSaveProfile = async () => {
-      const trimmedDisplayName = editDisplayName.trim();
-      if (!trimmedDisplayName) {
-        setSaveProfileError('Naam is verplicht');
-        return;
-      }
+      const isNewAvatarSelected =
+        editAvatarUrl !== profile.avatar_url &&
+        (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
 
-      if (trimmedDisplayName.length < 2) {
-        setSaveProfileError('Naam moet minimaal 2 tekens zijn');
-        return;
-      }
-
-      if (trimmedDisplayName.length > 20) {
-        setSaveProfileError('Naam mag maximaal 20 tekens zijn');
+      if (!isNewAvatarSelected) {
         return;
       }
 
       setSavingProfile(true);
       setSaveProfileError('');
 
-      const isDisplayNameChanged = trimmedDisplayName !== profile.display_name;
-      const isNewAvatarSelected =
-        editAvatarUrl !== profile.avatar_url &&
-        (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
 
-      const getProfileSaveErrorMessage = (message: string) => {
-        const normalizedMessage = message.toLowerCase();
-
-        if (normalizedMessage.includes('duplicate') || normalizedMessage.includes('unique')) {
-          return 'Deze naam is al bezet';
+        if (authError || !user) {
+          console.error('auth user ophalen mislukt', authError);
+          setSaveProfileError('Opslaan mislukt');
+          setSavingProfile(false);
+          return;
         }
 
-        if (normalizedMessage.includes('policy') || normalizedMessage.includes('permission') || normalizedMessage.includes('not allowed')) {
-          return 'Je profiel mag niet worden bijgewerkt';
+        const response = await fetch(editAvatarUrl);
+        const file = await response.blob();
+        const filePath = `${user.id}/avatar.jpg`;
+        console.log('upload path', filePath);
+
+        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+        console.log('uploadError', uploadError);
+
+        if (uploadError) {
+          setSaveProfileError('Upload mislukt');
+          setSavingProfile(false);
+          return;
         }
 
-        return message;
-      };
+        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+        const publicUrl = data.publicUrl;
+        console.log('avatar public url', publicUrl);
 
-      if (isDisplayNameChanged) {
-        const { data: duplicateProfile, error: duplicateError } = await supabase
+        const result = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
+        console.log('profile avatar update result', result);
+
+        if (result.error) {
+          setSaveProfileError('Opslaan mislukt');
+          setSavingProfile(false);
+          return;
+        }
+
+        const { data: refreshedProfile, error: reloadError } = await supabase
           .from('profiles')
-          .select('id')
-          .ilike('display_name', trimmedDisplayName)
-          .neq('id', profile.id)
+          .select('id, display_name, avatar_url, created_at')
+          .eq('id', user.id)
           .maybeSingle();
 
-        if (duplicateError) {
-          console.error('Fout bij controleren van dubbele naam:', duplicateError);
-          setSaveProfileError(getProfileSaveErrorMessage(duplicateError.message));
+        if (reloadError || !refreshedProfile) {
+          console.error('Profiel vernieuwen mislukt:', reloadError);
+          setSaveProfileError('Opslaan mislukt');
           setSavingProfile(false);
           return;
         }
 
-        if (duplicateProfile) {
-          setSaveProfileError('Deze naam is al bezet');
-          setSavingProfile(false);
-          return;
-        }
-      }
-
-      const updates: { display_name?: string; avatar_url?: string } = {};
-
-      if (isDisplayNameChanged) {
-        updates.display_name = trimmedDisplayName;
-      }
-
-      if (isNewAvatarSelected) {
-        try {
-          const response = await fetch(editAvatarUrl);
-          const avatarBlob = await response.blob();
-          const filePath = `${session.user.id}/avatar.jpg`;
-          console.log('upload path', filePath);
-
-          const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, avatarBlob, {
-            contentType: avatarBlob.type || 'image/jpeg',
-            upsert: true,
-          });
-
-          if (uploadError) {
-            console.error('Avatar upload mislukt:', uploadError);
-            setSaveProfileError(uploadError.message);
-            setSavingProfile(false);
-            return;
-          }
-
-          const { data: publicUrlData } = supabase.storage.from('avatars').getPublicUrl(filePath);
-          const publicUrl = publicUrlData.publicUrl;
-          console.log('avatar public url', publicUrl);
-
-          if (!publicUrl) {
-            setSaveProfileError('Avatar URL ontbreekt');
-            setSavingProfile(false);
-            return;
-          }
-
-          updates.avatar_url = publicUrl;
-        } catch (uploadRuntimeError) {
-          console.error('Avatar upload runtime fout:', uploadRuntimeError);
-          setSaveProfileError(uploadRuntimeError instanceof Error ? uploadRuntimeError.message : 'Foto uploaden mislukt');
-          setSavingProfile(false);
-          return;
-        }
-      }
-
-      if (Object.keys(updates).length === 0) {
+        console.log('reloaded profile', refreshedProfile);
+        setProfile(refreshedProfile);
         setIsEditingProfile(false);
+      } catch (error) {
+        console.error('profiel opslaan exception', error);
+        setSaveProfileError('Opslaan mislukt');
+      } finally {
         setSavingProfile(false);
-        return;
       }
-
-      const updateResult = await supabase
-        .from('profiles')
-        .update(updates)
-        .eq('id', session.user.id);
-      console.log('profile avatar update result', updateResult);
-      const { error: updateError } = updateResult;
-
-      if (updateError) {
-        console.error('Profiel opslaan mislukt:', updateError);
-        setSaveProfileError(updateError.message || getProfileSaveErrorMessage('Onbekende fout'));
-        setSavingProfile(false);
-        return;
-      }
-
-      const previousProfile = profile;
-      const { data: refreshedProfile, error: reloadError } = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, created_at')
-        .eq('id', session.user.id)
-        .maybeSingle();
-
-      if (reloadError) {
-        console.error('Profiel vernieuwen mislukt:', reloadError);
-        setSaveProfileError(reloadError.message);
-        setSavingProfile(false);
-        return;
-      }
-
-      console.log('reloaded profile', refreshedProfile);
-      setProfile(refreshedProfile ?? null);
-
-      if (!refreshedProfile) {
-        setSaveProfileError('Profiel vernieuwen mislukt');
-        setSavingProfile(false);
-        return;
-      }
-
-      if (isNewAvatarSelected && refreshedProfile.avatar_url) {
-        setAvatarCacheBustKey(Date.now());
-      }
-
-      setIsEditingProfile(false);
-
-      setSessionsBySpot((prev) =>
-        mapSpotRecord(prev, (sessionItem) =>
-          sessionItem.userName === previousProfile.display_name && sessionItem.userAvatarUrl === previousProfile.avatar_url
-            ? { ...sessionItem, userName: refreshedProfile.display_name, userAvatarUrl: refreshedProfile.avatar_url }
-            : sessionItem,
-        ),
-      );
-
-      setMessagesBySpot((prev) =>
-        mapSpotRecord(prev, (message) =>
-          message.userName === previousProfile.display_name && message.userAvatarUrl === previousProfile.avatar_url
-            ? { ...message, userName: refreshedProfile.display_name, userAvatarUrl: refreshedProfile.avatar_url }
-            : message,
-        ),
-      );
-
-      setSavingProfile(false);
     };
 
     return (
@@ -431,7 +316,7 @@ export default function App() {
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={getAvatarUri(profile.avatar_url, { cacheBust: true })} size={42} />
+            <Avatar uri={profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
               <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>
                 {isEditingProfile ? editDisplayName || profile.display_name : profile.display_name}
@@ -458,7 +343,7 @@ export default function App() {
 
               {saveProfileError ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{saveProfileError}</Text> : null}
 
-              <Pressable onPress={() => { void handleSaveProfile(); }} disabled={savingProfile} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
+              <Pressable onPress={handleSaveProfile} disabled={savingProfile} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
                 <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>{savingProfile ? 'Opslaan...' : 'Opslaan'}</Text>
               </Pressable>
             </View>
@@ -725,7 +610,7 @@ export default function App() {
           <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 20, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}>
-          <Avatar uri={getAvatarUri(profile.avatar_url, { cacheBust: true })} size={24} />
+          <Avatar uri={profile.avatar_url} size={24} />
           <Text style={{ color: '#ffffff', fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
         </Pressable>
       </View>
