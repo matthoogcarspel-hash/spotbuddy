@@ -86,7 +86,9 @@ const isCreatedToday = (value: string | null | undefined) => {
 };
 const getCurrentLocalMinutes = () => {
   const now = new Date();
-  return now.getHours() * 60 + now.getMinutes();
+  const nowHours = now.getHours();
+  const nowMinutes = now.getMinutes();
+  return nowHours * 60 + nowMinutes;
 };
 const formatToHourMinute = (value: string | null | undefined) => {
   if (!value) {
@@ -388,15 +390,27 @@ export default function App() {
   }, [session?.user.id, todaysSessionsBySpot]);
   const latestSessionIsActive = latestOwnSession ? isSessionStillActive(latestOwnSession, currentLocalMinutes) : false;
   const canPlanSession = !latestOwnSession || !latestSessionIsActive;
+  const startMinutes = latestOwnSession ? toMinutes(latestOwnSession.start) : 0;
+  const endMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
   const canCheckIn = Boolean(
     latestOwnSession
     && latestOwnSession.status === 'Gaat'
-    && currentLocalMinutes >= toMinutes(latestOwnSession.start),
+    && currentLocalMinutes >= startMinutes,
   ) && Boolean(
     latestOwnSession
-    && currentLocalMinutes < toMinutes(latestOwnSession.end),
+    && currentLocalMinutes < endMinutes,
   );
-  const canCheckOut = Boolean(latestOwnSession && latestOwnSession.status === 'Is er al');
+  const canCheckOut = Boolean(
+    latestOwnSession
+    && latestOwnSession.status === 'Is er al'
+    && currentLocalMinutes < endMinutes,
+  );
+  useEffect(() => {
+    console.log('LATEST_OWN_SESSION', latestOwnSession);
+    console.log('CURRENT_MINUTES', currentLocalMinutes);
+    console.log('SESSION_WINDOW', { startMinutes, endMinutes });
+    console.log('CAN_CHECK_IN', canCheckIn);
+  }, [canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes]);
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -440,12 +454,12 @@ export default function App() {
       return;
     }
 
-    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && currentLocalMinutes < toMinutes(latestOwnSession.start)) {
+    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && currentLocalMinutes < startMinutes) {
       setSessionActionError(`Je kunt pas inchecken vanaf ${latestOwnSession.start}`);
       return;
     }
 
-    if (status === 'Is er al' && currentLocalMinutes >= toMinutes(latestOwnSession.end)) {
+    if (status === 'Is er al' && currentLocalMinutes >= endMinutes) {
       setSessionActionError('Deze sessie is verlopen. Plan een nieuwe sessie');
       return;
     }
