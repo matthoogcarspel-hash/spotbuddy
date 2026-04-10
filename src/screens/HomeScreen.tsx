@@ -5,7 +5,7 @@ import { Profile } from '../lib/supabase';
 
 type HomeScreenProps = {
   spots: string[];
-  sessionsBySpot: Record<string, { start: string; end: string; status: 'Is er al' | 'Gaat' | 'Ik ben geweest' }[]>;
+  sessionsBySpot: Record<string, { start: string; end: string; status: 'Is er al' | 'Gaat' | 'Uitchecken' }[]>;
   onSelectSpot: (spot: string) => void;
   profile: Profile;
   onLogout: () => void;
