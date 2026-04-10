@@ -60,6 +60,34 @@ const theme = {
   warm: '#c67a44',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const toMinutes = (hourMinute: string) => {
+  const [hourPart, minutePart] = hourMinute.split(':');
+  const hour = Number.parseInt(hourPart ?? '', 10);
+  const minute = Number.parseInt(minutePart ?? '', 10);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return 0;
+  }
+
+  return hour * 60 + minute;
+};
+const isCreatedToday = (value: string | null | undefined) => {
+  if (!value) {
+    return false;
+  }
+
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return false;
+  }
+
+  const now = new Date();
+  return dateValue.getFullYear() === now.getFullYear() && dateValue.getMonth() === now.getMonth() && dateValue.getDate() === now.getDate();
+};
+const getCurrentLocalMinutes = () => {
+  const now = new Date();
+  return now.getHours() * 60 + now.getMinutes();
+};
 const formatToHourMinute = (value: string | null | undefined) => {
   if (!value) {
     return '--:--';
@@ -82,6 +110,11 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
+const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
+const isPlannedSessionStillFuture = (sessionItem: SpotSession, nowMinutes: number) =>
+  sessionItem.status === 'Gaat' && nowMinutes < toMinutes(sessionItem.start);
+const isLiveSessionStillActive = (sessionItem: SpotSession, nowMinutes: number) =>
+  sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -125,6 +158,7 @@ export default function App() {
   const [formError, setFormError] = useState('');
   const [sessionActionError, setSessionActionError] = useState('');
   const [messageInput, setMessageInput] = useState('');
+  const [clockTick, setClockTick] = useState(() => Date.now());
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -295,14 +329,35 @@ export default function App() {
     console.log('SHOW_FORM', showForm);
   }, [showForm]);
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setClockTick(Date.now());
+    }, 30000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, []);
+
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  const currentLocalMinutes = useMemo(() => {
+    void clockTick;
+    return getCurrentLocalMinutes();
+  }, [clockTick]);
+  const todaysSessionsBySpot = useMemo(() => {
+    const next = createSpotRecord<SpotSession[]>(() => []);
+    for (const spot of V1_SPOTS) {
+      next[spot] = sessionsBySpot[spot].filter((item) => isSessionCreatedToday(item));
+    }
+    return next;
+  }, [sessionsBySpot]);
   const latestOwnSession = useMemo(() => {
     if (!session?.user.id) {
       return null;
     }
 
-    const ownSessions = Object.values(sessionsBySpot)
+    const ownSessions = Object.values(todaysSessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
 
@@ -315,10 +370,19 @@ export default function App() {
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     })[0] ?? null;
-  }, [session?.user.id, sessionsBySpot]);
-  const canPlanSession = !latestOwnSession || latestOwnSession.status === 'Uitchecken';
-  const canCheckIn = latestOwnSession?.status === 'Gaat';
-  const canCheckOut = latestOwnSession?.status === 'Is er al';
+  }, [session?.user.id, todaysSessionsBySpot]);
+  const latestPlannedFuture = latestOwnSession ? isPlannedSessionStillFuture(latestOwnSession, currentLocalMinutes) : false;
+  const latestLiveActive = latestOwnSession ? isLiveSessionStillActive(latestOwnSession, currentLocalMinutes) : false;
+  const latestIsOpenBlocking = latestOwnSession
+    ? latestPlannedFuture || latestLiveActive
+    : false;
+  const canPlanSession = !latestOwnSession || latestOwnSession.status === 'Uitchecken' || !latestIsOpenBlocking;
+  const canCheckIn = Boolean(
+    latestOwnSession
+    && latestOwnSession.status === 'Gaat'
+    && currentLocalMinutes >= toMinutes(latestOwnSession.start),
+  );
+  const canCheckOut = Boolean(latestOwnSession && latestOwnSession.status === 'Is er al' && latestLiveActive);
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -331,11 +395,11 @@ export default function App() {
 
   const sessionsByStatus = useMemo(
     () => ({
-      'Is er al': sessions.filter((item) => item.status === 'Is er al'),
-      Gaat: sessions.filter((item) => item.status === 'Gaat'),
-      'Uitchecken': sessions.filter((item) => item.status === 'Uitchecken'),
+      'Is er al': sessions.filter((item) => isSessionCreatedToday(item) && isLiveSessionStillActive(item, currentLocalMinutes)),
+      Gaat: sessions.filter((item) => isSessionCreatedToday(item) && isPlannedSessionStillFuture(item, currentLocalMinutes)),
+      'Uitchecken': sessions.filter((item) => isSessionCreatedToday(item) && item.status === 'Uitchecken'),
     }),
-    [sessions],
+    [currentLocalMinutes, sessions],
   );
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
@@ -362,7 +426,12 @@ export default function App() {
       return;
     }
 
-    if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
+    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && currentLocalMinutes < toMinutes(latestOwnSession.start)) {
+      setSessionActionError(`Je kunt pas inchecken vanaf ${latestOwnSession.start}`);
+      return;
+    }
+
+    if (status === 'Uitchecken' && (latestOwnSession.status !== 'Is er al' || !isLiveSessionStillActive(latestOwnSession, currentLocalMinutes))) {
       setSessionActionError('Check eerst in');
       return;
     }
@@ -632,8 +701,7 @@ export default function App() {
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
-      const now = new Date();
-      const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
+      const nowTotalMinutes = getCurrentLocalMinutes();
 
       if (startTotalMinutes < nowTotalMinutes) {
         setFormError('Starttijd kan niet eerder zijn dan nu.');
@@ -668,6 +736,10 @@ export default function App() {
       const { error } = result;
 
       if (error) {
+        if (error.code === '23505') {
+          setFormError('Rond eerst je huidige sessie af');
+          return;
+        }
         setFormError(error.message);
         return;
       }
@@ -994,8 +1066,8 @@ export default function App() {
 
       <View>
         {V1_SPOTS.map((spot) => {
-          const plannedCount = sessionsBySpot[spot]?.filter((sessionItem) => sessionItem.status === 'Gaat').length ?? 0;
-          const liveCount = sessionsBySpot[spot]?.filter((sessionItem) => sessionItem.status === 'Is er al').length ?? 0;
+          const plannedCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isPlannedSessionStillFuture(sessionItem, currentLocalMinutes)).length ?? 0;
+          const liveCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isLiveSessionStillActive(sessionItem, currentLocalMinutes)).length ?? 0;
 
           return (
             <Pressable
