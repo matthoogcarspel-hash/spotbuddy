@@ -297,6 +297,28 @@ export default function App() {
 
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  const latestOwnSession = useMemo(() => {
+    if (!session?.user.id) {
+      return null;
+    }
+
+    const ownSessions = Object.values(sessionsBySpot)
+      .flat()
+      .filter((sessionItem) => sessionItem.userId === session.user.id);
+
+    if (ownSessions.length === 0) {
+      return null;
+    }
+
+    return [...ownSessions].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime;
+    })[0] ?? null;
+  }, [session?.user.id, sessionsBySpot]);
+  const canPlanSession = !latestOwnSession || latestOwnSession.status === 'Uitchecken';
+  const canCheckIn = latestOwnSession?.status === 'Gaat';
+  const canCheckOut = latestOwnSession?.status === 'Is er al';
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -316,13 +338,17 @@ export default function App() {
     [sessions],
   );
 
-  const handleUpdateSessionStatus = async (sessionItem: SpotSession | null, status: SessionStatus) => {
+  const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
 
     const { data } = await supabase.auth.getUser();
     const authUserId = data.user?.id;
 
-    if (!authUserId || !selectedSpot || !sessionItem || sessionItem.userId !== authUserId) {
+    if (!authUserId) {
+      return;
+    }
+
+    if (!latestOwnSession) {
       if (status === 'Is er al') {
         setSessionActionError('Plan eerst een sessie');
       } else if (status === 'Uitchecken') {
@@ -331,25 +357,12 @@ export default function App() {
       return;
     }
 
-    const latestOwnSession = [...sessionsBySpot[selectedSpot]]
-      .reverse()
-      .find((item) => item.userId === authUserId);
-
-    if (!latestOwnSession || latestOwnSession.id !== sessionItem.id) {
-      if (status === 'Is er al') {
-        setSessionActionError('Plan eerst een sessie');
-      } else if (status === 'Uitchecken') {
-        setSessionActionError('Check eerst in');
-      }
-      return;
-    }
-
-    if (status === 'Is er al' && sessionItem.status !== 'Gaat') {
+    if (status === 'Is er al' && latestOwnSession.status !== 'Gaat') {
       setSessionActionError('Plan eerst een sessie');
       return;
     }
 
-    if (status === 'Uitchecken' && sessionItem.status !== 'Is er al') {
+    if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
       setSessionActionError('Check eerst in');
       return;
     }
@@ -366,11 +379,11 @@ export default function App() {
     }
 
     const nextStatus = status;
-    console.log('SESSION_STATUS_UPDATE', { sessionId: sessionItem.id, nextStatus });
+    console.log('SESSION_STATUS_UPDATE', { sessionId: latestOwnSession.id, nextStatus });
     const result = await supabase
       .from('sessions')
       .update(updates)
-      .eq('id', sessionItem.id)
+      .eq('id', latestOwnSession.id)
       .eq('user_id', authUserId);
     console.log('SESSION_STATUS_RESULT', result);
     const { error } = result;
@@ -611,12 +624,6 @@ export default function App() {
   }
 
   if (selectedSpot) {
-    const hasActiveSessionOnSpot = sessions.some(
-      (sessionItem) =>
-        sessionItem.userId === session.user.id &&
-        (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'),
-    );
-
     const handleSave = async () => {
       if (startHour === null || endHour === null) {
         setFormError('Kies eerst een start- en eindtijd.');
@@ -641,42 +648,8 @@ export default function App() {
       const startTime = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
       const endTime = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
 
-      const [activeSessionResponse, duplicateSessionResponse] = await Promise.all([
-        supabase
-          .from('sessions')
-          .select('id, status')
-          .eq('spot_name', selectedSpot)
-          .eq('user_id', session.user.id)
-          .in('status', ['Gaat', 'Is er al'])
-          .limit(1),
-        supabase
-          .from('sessions')
-          .select('id')
-          .eq('spot_name', selectedSpot)
-          .eq('user_id', session.user.id)
-          .eq('start_time', startTime)
-          .eq('end_time', endTime)
-          .not('status', 'in', '("Uitchecken","Ik ben geweest")')
-          .limit(1),
-      ]);
-
-      if (activeSessionResponse.error) {
-        setFormError(activeSessionResponse.error.message);
-        return;
-      }
-
-      if (activeSessionResponse.data.length > 0) {
-        setFormError('Je hebt hier al een actieve sessie. Check eerst uit.');
-        return;
-      }
-
-      if (duplicateSessionResponse.error) {
-        setFormError(duplicateSessionResponse.error.message);
-        return;
-      }
-
-      if (duplicateSessionResponse.data.length > 0) {
-        setFormError('Deze sessie bestaat al');
+      if (!canPlanSession) {
+        setFormError('Rond eerst je huidige sessie af');
         return;
       }
 
@@ -728,12 +701,6 @@ export default function App() {
       'Is er al': 'Inchecken',
       Uitchecken: 'Uitchecken',
     };
-    const latestOwnSession = [...sessions]
-      .reverse()
-      .find((sessionItem) => sessionItem.userId === session.user.id) ?? null;
-    const canCheckIn = latestOwnSession?.status === 'Gaat';
-    const canCheckOut = latestOwnSession?.status === 'Is er al';
-
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
@@ -745,28 +712,28 @@ export default function App() {
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
 
           <Pressable
+            disabled={!canPlanSession}
             onPress={() => {
-              console.log('SESSION_PLAN_BUTTON_CLICKED');
+              if (!canPlanSession) {
+                setSessionActionError('Rond eerst je huidige sessie af');
+                return;
+              }
               setShowForm(true);
-              console.log('SHOW_FORM', true);
               setActivePicker(null);
               setFormError('');
               setSessionActionError('');
             }}
-            style={{ marginTop: 14, ...primaryButtonStyle }}
+            style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
-          {hasActiveSessionOnSpot ? (
-            <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie op deze spot</Text>
-          ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
               disabled={!canCheckIn}
               onPress={() => {
-                void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
+                void handleUpdateSessionStatus('Is er al');
               }}
               style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
             >
@@ -775,7 +742,7 @@ export default function App() {
             <Pressable
               disabled={!canCheckOut}
               onPress={() => {
-                void handleUpdateSessionStatus(latestOwnSession, 'Uitchecken');
+                void handleUpdateSessionStatus('Uitchecken');
               }}
               style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
             >
@@ -888,7 +855,7 @@ export default function App() {
                               <Pressable
                                 disabled={!canCheckIn}
                                 onPress={() => {
-                                  void handleUpdateSessionStatus(item, 'Is er al');
+                                  void handleUpdateSessionStatus('Is er al');
                                 }}
                                 style={{
                                   backgroundColor: item.status === 'Is er al' ? theme.primary : theme.bgElevated,
@@ -907,7 +874,7 @@ export default function App() {
                               <Pressable
                                 disabled={!canCheckOut}
                                 onPress={() => {
-                                  void handleUpdateSessionStatus(item, 'Uitchecken');
+                                  void handleUpdateSessionStatus('Uitchecken');
                                 }}
                                 style={{
                                   backgroundColor: item.status === 'Uitchecken' ? theme.primary : theme.bgElevated,
