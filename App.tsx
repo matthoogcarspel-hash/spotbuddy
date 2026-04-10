@@ -22,7 +22,7 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Is er al', 'Gaat', 'Ik ben geweest'];
+const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Ik ben geweest'];
 const activeStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
 
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
@@ -32,9 +32,9 @@ export default function App() {
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
   const [startHour, setStartHour] = useState<number | null>(null);
-  const [startMinute, setStartMinute] = useState<number | null>(null);
+  const [startMinute, setStartMinute] = useState<number>(0);
   const [endHour, setEndHour] = useState<number | null>(null);
-  const [endMinute, setEndMinute] = useState<number | null>(null);
+  const [endMinute, setEndMinute] = useState<number>(0);
   const [formError, setFormError] = useState('');
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, Session[]>>({});
   const [messagesBySpot, setMessagesBySpot] = useState<Record<string, string[]>>({});
@@ -61,9 +61,9 @@ export default function App() {
     setShowForm(false);
     setActivePicker(null);
     setStartHour(null);
-    setStartMinute(null);
+    setStartMinute(0);
     setEndHour(null);
-    setEndMinute(null);
+    setEndMinute(0);
     setFormError('');
   };
 
@@ -218,8 +218,10 @@ export default function App() {
 
           <View>
             {spots.map((spot) => {
-              const activeCount =
+              const todayCount =
                 sessionsBySpot[spot]?.filter((session) => activeStatuses.includes(session.status)).length ?? 0;
+              const liveCount =
+                sessionsBySpot[spot]?.filter((session) => session.status === 'Is er al').length ?? 0;
 
               return (
                 <Pressable
@@ -238,8 +240,8 @@ export default function App() {
                   }}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(activeCount)}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {activeCount}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(todayCount)}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
                 </Pressable>
               );
             })}
@@ -351,7 +353,7 @@ export default function App() {
 
                 <PickerField
                   label="Minuut"
-                  value={startMinute === null ? '--' : formatTimePart(startMinute)}
+                  value={formatTimePart(startMinute)}
                   onPress={() =>
                     setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute'))
                   }
@@ -416,7 +418,7 @@ export default function App() {
 
                 <PickerField
                   label="Minuut"
-                  value={endMinute === null ? '--' : formatTimePart(endMinute)}
+                  value={formatTimePart(endMinute)}
                   onPress={() => setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute'))}
                 />
                 {activePicker === 'endMinute' ? (
