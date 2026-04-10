@@ -234,18 +234,34 @@ export default function App() {
     };
 
     const handleSaveProfile = async () => {
-      const isNewAvatarSelected =
-        editAvatarUrl !== profile.avatar_url &&
-        (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
-
-      if (!isNewAvatarSelected) {
-        return;
-      }
-
       setSavingProfile(true);
       setSaveProfileError('');
 
       try {
+        const trimmedDisplayName = editDisplayName.trim();
+        const isDisplayNameChanged = trimmedDisplayName !== profile.display_name;
+        const isNewAvatarSelected =
+          editAvatarUrl !== profile.avatar_url &&
+          (editAvatarUrl.startsWith('file://') || editAvatarUrl.startsWith('content://') || editAvatarUrl.startsWith('ph://'));
+
+        if (trimmedDisplayName.length === 0) {
+          setSaveProfileError('Naam is verplicht');
+          setSavingProfile(false);
+          return;
+        }
+
+        if (trimmedDisplayName.length < 2) {
+          setSaveProfileError('Naam moet minimaal 2 tekens bevatten');
+          setSavingProfile(false);
+          return;
+        }
+
+        if (trimmedDisplayName.length > 20) {
+          setSaveProfileError('Naam mag maximaal 20 tekens bevatten');
+          setSavingProfile(false);
+          return;
+        }
+
         const {
           data: { user },
           error: authError,
@@ -258,29 +274,48 @@ export default function App() {
           return;
         }
 
-        const response = await fetch(editAvatarUrl);
-        const file = await response.blob();
-        const filePath = `${user.id}/avatar.jpg`;
-        console.log('upload path', filePath);
+        const payload: Partial<Pick<Profile, 'display_name' | 'avatar_url'>> = {};
 
-        const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
-        console.log('uploadError', uploadError);
+        if (isDisplayNameChanged) {
+          payload.display_name = trimmedDisplayName;
+        }
 
-        if (uploadError) {
-          setSaveProfileError('Upload mislukt');
+        if (isNewAvatarSelected) {
+          const response = await fetch(editAvatarUrl);
+          const file = await response.blob();
+          const filePath = `${user.id}/avatar.jpg`;
+          const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true });
+
+          if (uploadError) {
+            setSaveProfileError('Foto uploaden mislukt');
+            setSavingProfile(false);
+            return;
+          }
+
+          const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+          const publicUrl = data.publicUrl;
+          console.log('avatar public url', publicUrl);
+          payload.avatar_url = publicUrl;
+        }
+
+        if (Object.keys(payload).length === 0) {
+          setIsEditingProfile(false);
           setSavingProfile(false);
           return;
         }
 
-        const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
-        const publicUrl = data.publicUrl;
-        console.log('avatar public url', publicUrl);
-
-        const result = await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', user.id);
-        console.log('profile avatar update result', result);
+        console.log('profile update payload', payload);
+        const result = await supabase.from('profiles').update(payload).eq('id', user.id);
+        console.log('profile update result', result);
 
         if (result.error) {
-          setSaveProfileError('Opslaan mislukt');
+          if (result.error.code === '23505') {
+            setSaveProfileError('Deze naam is al bezet');
+          } else if (result.error.code === '42501' || result.status === 401 || result.status === 403) {
+            setSaveProfileError('Je profiel mag niet worden bijgewerkt');
+          } else {
+            setSaveProfileError(result.error.message);
+          }
           setSavingProfile(false);
           return;
         }
@@ -293,7 +328,7 @@ export default function App() {
 
         if (reloadError || !refreshedProfile) {
           console.error('Profiel vernieuwen mislukt:', reloadError);
-          setSaveProfileError('Opslaan mislukt');
+          setSaveProfileError(reloadError?.message ?? 'Opslaan mislukt');
           setSavingProfile(false);
           return;
         }
@@ -303,7 +338,7 @@ export default function App() {
         setIsEditingProfile(false);
       } catch (error) {
         console.error('profiel opslaan exception', error);
-        setSaveProfileError('Opslaan mislukt');
+        setSaveProfileError(error instanceof Error ? error.message : 'Opslaan mislukt');
       } finally {
         setSavingProfile(false);
       }
