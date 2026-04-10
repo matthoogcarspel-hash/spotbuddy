@@ -80,6 +80,7 @@ export default function App() {
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
   const [loadingData, setLoadingData] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -203,6 +204,10 @@ export default function App() {
   };
 
   useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null);
+    });
+
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
       setSession(nextSession);
@@ -220,6 +225,7 @@ export default function App() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
+      setCurrentUserId(nextSession?.user.id ?? null);
 
       if (!nextSession) {
         setProfile(null);
@@ -254,11 +260,18 @@ export default function App() {
     [sessions],
   );
 
-  const handleUpdateSessionStatus = async (sessionId: string, status: SessionStatus) => {
+  const handleUpdateSessionStatus = async (sessionItem: SpotSession, status: SessionStatus) => {
+    const { data } = await supabase.auth.getUser();
+    const authUserId = data.user?.id;
+
+    if (!authUserId || sessionItem.userId !== authUserId) {
+      return;
+    }
+
     const { error } = await supabase
       .from('sessions')
       .update({ status })
-      .eq('id', sessionId);
+      .eq('id', sessionItem.id);
 
     if (error) {
       console.error('Status bijwerken mislukt:', error);
@@ -566,7 +579,7 @@ export default function App() {
                   return;
                 }
 
-                void handleUpdateSessionStatus(latestOwnSession.id, 'Is er al');
+                void handleUpdateSessionStatus(latestOwnSession, 'Is er al');
               }} style={{ marginTop: 10, marginRight: 8, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
               </Pressable>
@@ -579,7 +592,7 @@ export default function App() {
                   return;
                 }
 
-                void handleUpdateSessionStatus(latestOwnSession.id, 'Ik ben geweest');
+                void handleUpdateSessionStatus(latestOwnSession, 'Ik ben geweest');
               }} style={{ marginTop: 10, backgroundColor: '#0b0f14', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12 }}>
                 <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
               </Pressable>
@@ -670,26 +683,28 @@ export default function App() {
                               {item.userName}: {item.start} - {item.end}
                             </Text>
                           </View>
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                            {statusOrder.map((nextStatus) => (
-                              <Pressable
-                                key={`${item.start}-${item.end}-${index}-${nextStatus}`}
-                                onPress={() => {
-                                  void handleUpdateSessionStatus(item.id, nextStatus);
-                                }}
-                                style={{
-                                  backgroundColor: item.status === nextStatus ? '#9db0c7' : '#0b0f14',
-                                  borderRadius: 8,
-                                  paddingVertical: 6,
-                                  paddingHorizontal: 8,
-                                  marginRight: 6,
-                                  marginBottom: 6,
-                                }}
-                              >
-                                <Text style={{ color: item.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{nextStatus}</Text>
-                              </Pressable>
-                            ))}
-                          </View>
+                          {item.userId === currentUserId ? (
+                            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                              {statusOrder.map((nextStatus) => (
+                                <Pressable
+                                  key={`${item.start}-${item.end}-${index}-${nextStatus}`}
+                                  onPress={() => {
+                                    void handleUpdateSessionStatus(item, nextStatus);
+                                  }}
+                                  style={{
+                                    backgroundColor: item.status === nextStatus ? '#9db0c7' : '#0b0f14',
+                                    borderRadius: 8,
+                                    paddingVertical: 6,
+                                    paddingHorizontal: 8,
+                                    marginRight: 6,
+                                    marginBottom: 6,
+                                  }}
+                                >
+                                  <Text style={{ color: item.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{nextStatus}</Text>
+                                </Pressable>
+                              ))}
+                            </View>
+                          ) : null}
                         </View>
                       );
                     })
