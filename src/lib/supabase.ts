@@ -11,7 +11,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 export type Profile = {
   id: string;
   display_name: string;
-  created_at: string;
+  avatar_url: string;
+  created_at?: string;
 };
 
 export const supabase = createClient(supabaseUrl ?? '', supabaseAnonKey ?? '', {
