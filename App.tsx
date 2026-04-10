@@ -10,7 +10,7 @@ const spots = [
   'Maasvlakte 2 Slufter',
 ];
 
-type SessionStatus = 'Gaat' | 'Is er al' | 'Twijfelt' | 'Afgezegd';
+type SessionStatus = 'Is er al' | 'Gaat' | 'Ik ben geweest';
 
 type Session = {
   start: string;
@@ -22,7 +22,8 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Twijfelt', 'Afgezegd'];
+const statusOrder: SessionStatus[] = ['Is er al', 'Gaat', 'Ik ben geweest'];
+const activeStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
 
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 
@@ -50,23 +51,10 @@ export default function App() {
     return `${count} kiters vandaag`;
   };
 
-  const getCompactStatus = (count: number) => {
-    if (count === 0) {
-      return 'Niemand';
-    }
-
-    if (count <= 2) {
-      return 'Rustig';
-    }
-
-    return 'Druk';
-  };
-
   const getSessionsByStatus = (sessions: Session[]) => ({
-    Gaat: sessions.filter((session) => session.status === 'Gaat'),
     'Is er al': sessions.filter((session) => session.status === 'Is er al'),
-    Twijfelt: sessions.filter((session) => session.status === 'Twijfelt'),
-    Afgezegd: sessions.filter((session) => session.status === 'Afgezegd'),
+    Gaat: sessions.filter((session) => session.status === 'Gaat'),
+    'Ik ben geweest': sessions.filter((session) => session.status === 'Ik ben geweest'),
   });
 
   const resetForm = () => {
@@ -112,6 +100,20 @@ export default function App() {
     }
 
     updateSessionStatus(selectedSpot, sessions.length - 1, 'Is er al');
+  };
+
+  const handleDone = () => {
+    if (!selectedSpot) {
+      return;
+    }
+
+    const sessions = sessionsBySpot[selectedSpot] ?? [];
+
+    if (sessions.length === 0) {
+      return;
+    }
+
+    updateSessionStatus(selectedSpot, sessions.length - 1, 'Ik ben geweest');
   };
 
   const handleSave = () => {
@@ -216,7 +218,8 @@ export default function App() {
 
           <View>
             {spots.map((spot) => {
-              const kiterCount = sessionsBySpot[spot]?.length ?? 0;
+              const activeCount =
+                sessionsBySpot[spot]?.filter((session) => activeStatuses.includes(session.status)).length ?? 0;
 
               return (
                 <Pressable
@@ -235,10 +238,8 @@ export default function App() {
                   }}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(kiterCount)}</Text>
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>
-                    Status: {getCompactStatus(kiterCount)}
-                  </Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>{getKiterText(activeCount)}</Text>
+                  <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {activeCount}</Text>
                 </Pressable>
               );
             })}
@@ -285,18 +286,33 @@ export default function App() {
             </Pressable>
 
             {currentSessions.length > 0 ? (
-              <Pressable
-                onPress={handleCheckIn}
-                style={{
-                  marginTop: 10,
-                  backgroundColor: '#0b0f14',
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  paddingHorizontal: 12,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
-              </Pressable>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
+                <Pressable
+                  onPress={handleCheckIn}
+                  style={{
+                    marginTop: 10,
+                    marginRight: 8,
+                    backgroundColor: '#0b0f14',
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben er</Text>
+                </Pressable>
+                <Pressable
+                  onPress={handleDone}
+                  style={{
+                    marginTop: 10,
+                    backgroundColor: '#0b0f14',
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '600' }}>Ik ben geweest</Text>
+                </Pressable>
+              </View>
             ) : null}
 
             {showForm ? (
