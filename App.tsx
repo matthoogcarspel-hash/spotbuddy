@@ -22,48 +22,69 @@ type SpotMessage = {
   userName: string;
 };
 
+const LoadingView = () => (
+  <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', justifyContent: 'center', alignItems: 'center' }}>
+    <ActivityIndicator color="#ffffff" />
+    <Text style={{ color: '#9db0c7', marginTop: 12 }}>SpotBuddy laden...</Text>
+  </SafeAreaView>
+);
+
 export default function App() {
+  const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const [selectedSpot, setSelectedSpot] = useState<string | null>(null);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<string, SpotSession[]>>({});
   const [messagesBySpot, setMessagesBySpot] = useState<Record<string, SpotMessage[]>>({});
 
-  const loadProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase.from('profiles').select('*').eq('id', userId).maybeSingle();
 
     if (error) {
       console.warn('Could not fetch profile:', error.message);
-      setProfile(null);
-      return;
+      return null;
     }
 
-    setProfile(data ?? null);
+    return data ?? null;
   };
 
   useEffect(() => {
-    const bootstrap = async () => {
+    const loadInitialAuth = async () => {
+      setLoading(true);
+
       const { data } = await supabase.auth.getSession();
-      setSession(data.session ?? null);
+      const currentSession = data.session ?? null;
+      setSession(currentSession);
 
-      if (data.session?.user.id) {
-        await loadProfile(data.session.user.id);
-      }
-
-      setIsLoading(false);
-    };
-
-    void bootstrap();
-
-    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      setSession(nextSession);
-      if (!nextSession?.user.id) {
+      if (!currentSession?.user.id) {
         setProfile(null);
+        setLoading(false);
         return;
       }
 
-      void loadProfile(nextSession.user.id);
+      const nextProfile = await fetchProfile(currentSession.user.id);
+      setProfile(nextProfile);
+      setLoading(false);
+    };
+
+    void loadInitialAuth();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      void (async () => {
+        setLoading(true);
+        setSession(nextSession);
+
+        if (!nextSession?.user.id) {
+          setProfile(null);
+          setSelectedSpot(null);
+          setLoading(false);
+          return;
+        }
+
+        const nextProfile = await fetchProfile(nextSession.user.id);
+        setProfile(nextProfile);
+        setLoading(false);
+      })();
     });
 
     return () => {
@@ -93,22 +114,11 @@ export default function App() {
     });
   };
 
-  if (isLoading) {
-    return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#ffffff" />
-        <Text style={{ color: '#9db0c7', marginTop: 12 }}>SpotBuddy laden...</Text>
-      </SafeAreaView>
-    );
-  }
+  if (loading) return <LoadingView />;
 
-  if (!session) {
-    return <AuthScreen onSignedUp={() => setProfile(null)} />;
-  }
+  if (!session) return <AuthScreen onSignedUp={() => setProfile(null)} />;
 
-  if (!profile) {
-    return <ProfileSetupScreen userId={session.user.id} onSaved={() => loadProfile(session.user.id)} />;
-  }
+  if (session && !profile) return <ProfileSetupScreen userId={session.user.id} onSaved={() => void loadInitialProfile()} />;
 
   if (selectedSpot) {
     return (
@@ -144,4 +154,14 @@ export default function App() {
       onLogout={handleLogout}
     />
   );
+
+  async function loadInitialProfile() {
+    if (!session?.user.id) {
+      setProfile(null);
+      return;
+    }
+
+    const nextProfile = await fetchProfile(session.user.id);
+    setProfile(nextProfile);
+  }
 }
