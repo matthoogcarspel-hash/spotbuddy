@@ -44,7 +44,6 @@ type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const theme = {
   bg: '#060b14',
   bgElevated: '#0b1626',
@@ -113,25 +112,12 @@ const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
     return result;
   }, {} as Record<SpotName, T>);
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
-const isSessionStillActive = (sessionItem: SpotSession, nowMinutes: number) => {
-  if (sessionItem.status === 'Uitchecken') {
-    return false;
-  }
-
-  if (sessionItem.status === 'Gaat') {
-    return nowMinutes < toMinutes(sessionItem.end);
-  }
-
-  if (sessionItem.status === 'Is er al') {
-    return nowMinutes < toMinutes(sessionItem.end);
-  }
-
-  return false;
-};
-const isPlannedSessionStillFuture = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Gaat' && isSessionStillActive(sessionItem, nowMinutes);
-const isLiveSessionStillActive = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Is er al' && isSessionStillActive(sessionItem, nowMinutes);
+const isGoingLaterSession = (sessionItem: SpotSession, nowMinutes: number) =>
+  sessionItem.status === 'Gaat' && nowMinutes < toMinutes(sessionItem.start);
+const isProbablyThereSession = (sessionItem: SpotSession, nowMinutes: number) =>
+  sessionItem.status === 'Gaat' && nowMinutes >= toMinutes(sessionItem.start) && nowMinutes < toMinutes(sessionItem.end);
+const isCheckedInSession = (sessionItem: SpotSession, nowMinutes: number) =>
+  sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -440,11 +426,11 @@ export default function App() {
     [messages],
   );
 
-  const sessionsByStatus = useMemo(
+  const activeSessionsByDisplayState = useMemo(
     () => ({
-      'Is er al': sessions.filter((item) => isSessionCreatedToday(item) && isLiveSessionStillActive(item, currentLocalMinutes)),
-      Gaat: sessions.filter((item) => isSessionCreatedToday(item) && isPlannedSessionStillFuture(item, currentLocalMinutes)),
-      'Uitchecken': sessions.filter((item) => isSessionCreatedToday(item) && item.status === 'Uitchecken'),
+      'Gaat nog': sessions.filter((item) => isSessionCreatedToday(item) && isGoingLaterSession(item, currentLocalMinutes)),
+      'Waarschijnlijk er': sessions.filter((item) => isSessionCreatedToday(item) && isProbablyThereSession(item, currentLocalMinutes)),
+      Ingecheckt: sessions.filter((item) => isSessionCreatedToday(item) && isCheckedInSession(item, currentLocalMinutes)),
     }),
     [currentLocalMinutes, sessions],
   );
@@ -829,6 +815,7 @@ export default function App() {
       'Is er al': 'Inchecken',
       Uitchecken: 'Uitchecken',
     };
+    const sectionOrder = ['Gaat nog', 'Waarschijnlijk er', 'Ingecheckt'] as const;
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
@@ -957,11 +944,11 @@ export default function App() {
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Sessies</Text>
           {sessions.length > 0 ? (
-            statusOrder.map((status) => {
-              const sessionsForStatus = sessionsByStatus[status];
+            sectionOrder.map((sectionLabel) => {
+              const sessionsForStatus = activeSessionsByDisplayState[sectionLabel];
               return (
-                <View key={status} style={{ marginBottom: 10 }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
+                <View key={sectionLabel} style={{ marginBottom: 10 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sectionLabel}</Text>
                   {sessionsForStatus.length > 0 ? (
                     sessionsForStatus.map((item, index) => {
                       return (
@@ -1123,8 +1110,9 @@ export default function App() {
 
       <View>
         {V1_SPOTS.map((spot) => {
-          const plannedCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isPlannedSessionStillFuture(sessionItem, currentLocalMinutes)).length ?? 0;
-          const liveCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isLiveSessionStillActive(sessionItem, currentLocalMinutes)).length ?? 0;
+          const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
 
           return (
             <Pressable
@@ -1143,12 +1131,16 @@ export default function App() {
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>GEPLAND</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{plannedCount}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>GAAT NOG</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{goingLaterCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#0c2130', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>LIVE</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{liveCount}</Text>
+                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>WAARSCHIJNLIJK ER</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{probablyThereCount}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
+                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>INGECHECKT</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
                 </View>
               </View>
             </Pressable>
