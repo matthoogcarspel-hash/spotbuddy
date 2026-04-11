@@ -31,12 +31,28 @@ type SpotDetailScreenProps = {
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
+const timelineVisibleStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
+const timelineStartMinutes = 6 * 60;
+const timelineEndMinutes = 22 * 60;
+const timelineRangeMinutes = timelineEndMinutes - timelineStartMinutes;
+const timelineLabels = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
 const sessionStatusLabel: Record<SessionStatus, string> = {
   Gaat: 'Gaat',
   'Is er al': 'Inchecken',
   Uitchecken: 'Uitchecken',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const parseTimeToMinutes = (time: string) => {
+  const [hourPart, minutePart] = time.split(':');
+  const hour = Number(hourPart);
+  const minute = Number(minutePart);
+
+  if (Number.isNaN(hour) || Number.isNaN(minute)) {
+    return timelineStartMinutes;
+  }
+
+  return hour * 60 + minute;
+};
 
 export default function SpotDetailScreen({
   selectedSpot,
@@ -65,6 +81,20 @@ export default function SpotDetailScreen({
     }),
     [sessions],
   );
+  const timelineSessions = useMemo(() => {
+    const now = new Date();
+    const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
+
+    return sessions
+      .filter((session) => timelineVisibleStatuses.includes(session.status))
+      .map((session) => {
+        const startMinutes = parseTimeToMinutes(session.start);
+        const endMinutes = parseTimeToMinutes(session.end);
+        return { session, startMinutes, endMinutes };
+      })
+      .filter(({ startMinutes, endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > timelineStartMinutes && startMinutes < timelineEndMinutes)
+      .sort((first, second) => first.startMinutes - second.startMinutes);
+  }, [sessions]);
 
   const resetForm = () => {
     setShowForm(false);
@@ -293,6 +323,53 @@ export default function SpotDetailScreen({
             <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
             <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>{userName} kunt de eerste zijn</Text>
           </View>
+        )}
+      </View>
+
+      <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
+        <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Vandaag</Text>
+
+        <View style={{ marginLeft: 104, marginBottom: 10, flexDirection: 'row', justifyContent: 'space-between' }}>
+          {timelineLabels.map((label) => (
+            <Text key={`timeline-label-${label}`} style={{ color: '#9db0c7', fontSize: 10 }}>
+              {label}
+            </Text>
+          ))}
+        </View>
+
+        {timelineSessions.length > 0 ? (
+          timelineSessions.map(({ session, startMinutes, endMinutes }, index) => {
+            const clampedStartMinutes = Math.min(Math.max(startMinutes, timelineStartMinutes), timelineEndMinutes);
+            const clampedEndMinutes = Math.min(Math.max(endMinutes, timelineStartMinutes), timelineEndMinutes);
+            const startRatio = (clampedStartMinutes - timelineStartMinutes) / timelineRangeMinutes;
+            const endRatio = (clampedEndMinutes - timelineStartMinutes) / timelineRangeMinutes;
+            const leftPercent = startRatio * 100;
+            const widthPercent = Math.max((endRatio - startRatio) * 100, 6);
+            const barColor = session.status === 'Is er al' ? '#1f8a4b' : '#375f9b';
+
+            return (
+              <View key={`timeline-session-${session.userName}-${session.start}-${session.end}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, width: 96, marginRight: 8 }} numberOfLines={1}>
+                  {session.userName}
+                </Text>
+                <View style={{ flex: 1, height: 28, backgroundColor: '#0b0f14', borderRadius: 8, position: 'relative', justifyContent: 'center' }}>
+                  <View
+                    style={{
+                      position: 'absolute',
+                      left: `${leftPercent}%`,
+                      width: `${widthPercent}%`,
+                      minWidth: 24,
+                      height: 18,
+                      borderRadius: 6,
+                      backgroundColor: barColor,
+                    }}
+                  />
+                </View>
+              </View>
+            );
+          })
+        ) : (
+          <Text style={{ color: '#9db0c7', fontSize: 14 }}>Geen actieve sessies voor vandaag.</Text>
         )}
       </View>
 
