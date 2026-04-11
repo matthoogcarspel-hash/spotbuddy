@@ -1497,15 +1497,15 @@ export default function App() {
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>GAAT NOG</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Gaat nog</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{goingLaterCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#0c2130', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>WAARSCHIJNLIJK ER</Text>
+                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>Waarschijnlijk er</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{probablyThereCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>INGECHECKT</Text>
+                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Ingecheckt</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
                 </View>
               </View>
