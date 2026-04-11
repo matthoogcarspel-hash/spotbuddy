@@ -449,17 +449,30 @@ export default function App() {
     () =>
       sessions
         .filter((item) => {
-          if (!isSessionCreatedToday(item) || getSessionDisplayState(item, currentLocalMinutes) === null) {
+          if (!isSessionCreatedToday(item)) {
             return false;
           }
 
-          const actualStartMinutes = toMinutes(item.start);
-          let actualEndMinutes = toMinutes(item.end);
-          if (actualEndMinutes <= actualStartMinutes) {
-            actualEndMinutes += 24 * 60;
+          if (item.status !== 'Gaat' && item.status !== 'Is er al') {
+            return false;
           }
 
-          return actualStartMinutes >= timelineStartMinutes && actualEndMinutes <= timelineEndMinutes;
+          const startMinutes = toMinutes(item.start);
+          const endMinutes = toMinutes(item.end);
+
+          if (startMinutes < timelineStartMinutes || endMinutes > timelineEndMinutes) {
+            return false;
+          }
+
+          if (endMinutes <= startMinutes) {
+            return false;
+          }
+
+          if (currentLocalMinutes >= endMinutes) {
+            return false;
+          }
+
+          return true;
         })
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start)),
     [currentLocalMinutes, sessions],
