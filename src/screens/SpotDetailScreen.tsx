@@ -28,17 +28,15 @@ type SpotDetailScreenProps = {
   onSendMessage: (message: Message) => void;
 };
 
-const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
-const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const timelineVisibleStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
-const timelineStartMinutes = 6 * 60;
-const defaultTimelineEndMinutes = 22 * 60;
-const sessionStatusLabel: Record<SessionStatus, string> = {
-  Gaat: 'Gaat nog',
-  'Is er al': 'Waarschijnlijk er',
-  Uitchecken: 'Ingecheckt',
-};
+const planningStartMinutes = 8 * 60;
+const planningEndMinutes = 21 * 60;
+const timelineStartMinutes = planningStartMinutes;
+const timelineEndMinutes = planningEndMinutes;
+const startHourOptions = Array.from({ length: 13 }, (_, index) => 8 + index);
+const endHourOptions = Array.from({ length: 14 }, (_, index) => 8 + index);
+const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const parseTimeToMinutes = (time: string) => {
   const [hourPart, minutePart] = time.split(':');
@@ -46,19 +44,10 @@ const parseTimeToMinutes = (time: string) => {
   const minute = Number(minutePart);
 
   if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return timelineStartMinutes;
+    return planningStartMinutes;
   }
 
   return hour * 60 + minute;
-};
-
-
-const formatMinutesToTime = (minutes: number) => {
-  const normalizedMinutes = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
-  const hour = Math.floor(normalizedMinutes / 60);
-  const minute = normalizedMinutes % 60;
-
-  return `${formatTimePart(hour)}:${formatTimePart(minute)}`;
 };
 export default function SpotDetailScreen({
   selectedSpot,
@@ -79,42 +68,23 @@ export default function SpotDetailScreen({
   const [formError, setFormError] = useState('');
   const [messageInput, setMessageInput] = useState('');
 
-  const sessionsByStatus = useMemo(
-    () => ({
-      'Is er al': sessions.filter((session) => session.status === 'Is er al'),
-      Gaat: sessions.filter((session) => session.status === 'Gaat'),
-      'Uitchecken': sessions.filter((session) => session.status === 'Uitchecken'),
-    }),
-    [sessions],
-  );
   const timelineConfig = useMemo(() => {
     const visibleSessions = sessions
       .filter((session) => timelineVisibleStatuses.includes(session.status))
-      .map((session) => {
-        const startMinutes = parseTimeToMinutes(session.start);
-        let endMinutes = parseTimeToMinutes(session.end);
+      .map((session) => ({
+        session,
+        startMinutes: parseTimeToMinutes(session.start),
+        endMinutes: parseTimeToMinutes(session.end),
+      }))
+      .filter(({ startMinutes, endMinutes }) => startMinutes >= planningStartMinutes && endMinutes <= planningEndMinutes && endMinutes > startMinutes);
 
-        if (endMinutes <= startMinutes) {
-          endMinutes += 24 * 60;
-        }
-
-        return { session, startMinutes, endMinutes };
-      });
-
-    const maxSessionEndMinutes = visibleSessions.reduce((maxEnd, { endMinutes }) => Math.max(maxEnd, endMinutes), defaultTimelineEndMinutes);
-    const timelineEndMinutes = Math.ceil(maxSessionEndMinutes / 60) * 60;
-    const timelineRangeMinutes = Math.max(timelineEndMinutes - timelineStartMinutes, 60);
-
-    const timelineLabels: string[] = [];
-    for (let markerMinutes = timelineStartMinutes; markerMinutes <= timelineEndMinutes; markerMinutes += 120) {
-      timelineLabels.push(formatMinutesToTime(markerMinutes));
-    }
-
-    if (timelineLabels[timelineLabels.length - 1] !== formatMinutesToTime(timelineEndMinutes)) {
-      timelineLabels.push(formatMinutesToTime(timelineEndMinutes));
-    }
-
-    return { visibleSessions, timelineEndMinutes, timelineRangeMinutes, timelineLabels };
+    return {
+      visibleSessions,
+      timelineStartMinutes,
+      timelineEndMinutes,
+      timelineRangeMinutes: timelineEndMinutes - timelineStartMinutes,
+      timelineLabels,
+    };
   }, [sessions]);
 
   const timelineSessions = useMemo(() => {
@@ -122,7 +92,7 @@ export default function SpotDetailScreen({
     const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
     return timelineConfig.visibleSessions
-      .filter(({ endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > timelineStartMinutes)
+      .filter(({ endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > planningStartMinutes)
       .sort((first, second) => first.startMinutes - second.startMinutes);
   }, [timelineConfig.visibleSessions]);
 
@@ -147,13 +117,23 @@ export default function SpotDetailScreen({
     const now = new Date();
     const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-    if (startTotalMinutes < nowTotalMinutes) {
-      setFormError('Starttijd kan niet eerder zijn dan nu.');
+    if (startTotalMinutes < planningStartMinutes) {
+      setFormError('Je kunt pas vanaf 08:00 plannen');
+      return;
+    }
+
+    if (endTotalMinutes > planningEndMinutes) {
+      setFormError('Je kunt niet later dan 21:00 plannen');
       return;
     }
 
     if (endTotalMinutes <= startTotalMinutes) {
-      setFormError('Eindtijd moet later zijn dan starttijd.');
+      setFormError('Eindtijd moet later zijn dan starttijd');
+      return;
+    }
+
+    if (startTotalMinutes < nowTotalMinutes) {
+      setFormError('Starttijd kan niet eerder zijn dan nu.');
       return;
     }
 
@@ -250,7 +230,7 @@ export default function SpotDetailScreen({
             </View>
             {activePicker === 'startHour' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                {hours.map((hour) => (
+                {startHourOptions.map((hour) => (
                   <Pressable key={`start-hour-${hour}`} onPress={() => setStartHour(hour)} style={{ backgroundColor: startHour === hour ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                     <Text style={{ color: startHour === hour ? '#0b0f14' : '#ffffff' }}>{formatTimePart(hour)}</Text>
                   </Pressable>
@@ -278,7 +258,7 @@ export default function SpotDetailScreen({
             </View>
             {activePicker === 'endHour' ? (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                {hours.map((hour) => (
+                {endHourOptions.map((hour) => (
                   <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? '#9db0c7' : '#0b0f14', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                     <Text style={{ color: endHour === hour ? '#0b0f14' : '#ffffff' }}>{formatTimePart(hour)}</Text>
                   </Pressable>
@@ -364,57 +344,6 @@ export default function SpotDetailScreen({
           })
         ) : (
           <Text style={{ color: '#9db0c7', fontSize: 14 }}>Geen actieve sessies voor vandaag.</Text>
-        )}
-      </View>
-
-      <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        {sessions.length > 0 ? (
-          statusOrder.map((status) => {
-            const sessionsForStatus = sessionsByStatus[status];
-            return (
-              <View key={status} style={{ marginBottom: 10 }}>
-                <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sessionStatusLabel[status]}</Text>
-                {sessionsForStatus.length > 0 ? (
-                  sessionsForStatus.map((session, index) => {
-                    const sessionIndex = sessions.findIndex((item) => item === session);
-
-                    return (
-                      <View key={`${session.start}-${session.end}-${index}`} style={{ marginBottom: 8 }}>
-                        <Text style={{ color: '#ffffff', fontSize: 15, marginBottom: 6 }}>
-                          {session.userName}: {session.start} - {session.end}
-                        </Text>
-                        <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                          {statusOrder.map((nextStatus) => (
-                            <Pressable
-                              key={`${session.start}-${session.end}-${index}-${nextStatus}`}
-                              onPress={() => onUpdateSessionStatus(sessionIndex, nextStatus)}
-                              style={{
-                                backgroundColor: session.status === nextStatus ? '#9db0c7' : '#0b0f14',
-                                borderRadius: 8,
-                                paddingVertical: 6,
-                                paddingHorizontal: 8,
-                                marginRight: 6,
-                                marginBottom: 6,
-                              }}
-                            >
-                              <Text style={{ color: session.status === nextStatus ? '#0b0f14' : '#ffffff', fontSize: 12 }}>{sessionStatusLabel[nextStatus]}</Text>
-                            </Pressable>
-                          ))}
-                        </View>
-                      </View>
-                    );
-                  })
-                ) : (
-                  <Text style={{ color: '#9db0c7', fontSize: 14, marginBottom: 4 }}>Nog niemand</Text>
-                )}
-              </View>
-            );
-          })
-        ) : (
-          <View>
-            <Text style={{ color: '#9db0c7', fontSize: 15 }}>Nog niemand ingepland</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 15, marginTop: 4 }}>{userName} kunt de eerste zijn</Text>
-          </View>
         )}
       </View>
 
