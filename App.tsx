@@ -10,16 +10,17 @@ import { Profile, supabase } from './src/lib/supabase';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 
-const V1_SPOTS = [
-  'Scheveningen KZVS',
-  'Scheveningen Jump Team',
-  'Noordwijk KSN',
-  'Rockanje 1e Slag',
-  'Rockanje 2e Slag',
-  'Maasvlakte 2 Slufter',
+const SPOTS = [
+  { name: 'Scheveningen KZVS', lat: 52.1146, lng: 4.2638 },
+  { name: 'Scheveningen Jump Team', lat: 52.1109, lng: 4.2595 },
+  { name: 'Noordwijk KSN', lat: 52.2396, lng: 4.4312 },
+  { name: 'Rockanje 1e Slag', lat: 51.8713, lng: 4.0686 },
+  { name: 'Rockanje 2e Slag', lat: 51.8794, lng: 4.0628 },
+  { name: 'Maasvlakte 2 Slufter', lat: 51.9557, lng: 3.9903 },
 ] as const;
 
-type SpotName = (typeof V1_SPOTS)[number];
+type SpotName = (typeof SPOTS)[number]['name'];
+const SPOT_NAMES = SPOTS.map((spot) => spot.name) as SpotName[];
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 type SpotSession = {
   id: string;
@@ -43,8 +44,8 @@ type ChatMessage = {
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 type SpotCoordinates = {
-  latitude: number;
-  longitude: number;
+  lat: number;
+  lng: number;
 };
 type NearestSpotResult = {
   spot: SpotName;
@@ -147,7 +148,7 @@ const formatToHourMinute = (value: string | null | undefined) => {
 };
 
 const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
-  V1_SPOTS.reduce((result, spot) => {
+  SPOT_NAMES.reduce((result, spot) => {
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
@@ -175,22 +176,13 @@ const timelineEndMinutes = 21 * 60;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
 const nearbySpotThresholdMeters = 5000;
-const spotCoordinates: Record<SpotName, SpotCoordinates> = {
-  'Scheveningen KZVS': { latitude: 52.1068, longitude: 4.2467 },
-  'Scheveningen Jump Team': { latitude: 52.0995, longitude: 4.2484 },
-  'Noordwijk KSN': { latitude: 52.2477, longitude: 4.4329 },
-  'Rockanje 1e Slag': { latitude: 51.8698, longitude: 4.0641 },
-  'Rockanje 2e Slag': { latitude: 51.8636, longitude: 4.0512 },
-  'Maasvlakte 2 Slufter': { latitude: 51.9562, longitude: 3.9904 },
-};
-
 const toRadians = (value: number) => value * (Math.PI / 180);
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
   const earthRadiusMeters = 6371_000;
-  const latitudeDelta = toRadians(end.latitude - start.latitude);
-  const longitudeDelta = toRadians(end.longitude - start.longitude);
-  const startLatitudeRadians = toRadians(start.latitude);
-  const endLatitudeRadians = toRadians(end.latitude);
+  const latitudeDelta = toRadians(end.lat - start.lat);
+  const longitudeDelta = toRadians(end.lng - start.lng);
+  const startLatitudeRadians = toRadians(start.lat);
+  const endLatitudeRadians = toRadians(end.lat);
 
   const haversine =
     Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
@@ -210,10 +202,13 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult 
   let nearestSpot: SpotName | null = null;
   let nearestDistanceMeters = Number.POSITIVE_INFINITY;
 
-  for (const spot of V1_SPOTS) {
-    const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates[spot]);
+  for (const spot of SPOTS) {
+    const distanceMeters = getDistanceMeters(currentCoordinates, {
+      lat: spot.lat,
+      lng: spot.lng,
+    });
     if (distanceMeters < nearestDistanceMeters) {
-      nearestSpot = spot;
+      nearestSpot = spot.name;
       nearestDistanceMeters = distanceMeters;
     }
   }
@@ -333,12 +328,12 @@ export default function App() {
       supabase
         .from('sessions')
         .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
-        .in('spot_name', [...V1_SPOTS])
+        .in('spot_name', [...SPOT_NAMES])
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
         .select('id, spot_name, user_id, user_name, user_avatar_url, text, created_at')
-        .in('spot_name', [...V1_SPOTS])
+        .in('spot_name', [...SPOT_NAMES])
         .order('created_at', { ascending: true }),
     ]);
 
@@ -349,7 +344,7 @@ export default function App() {
 
       for (const row of sessionsResponse.data) {
         const spot = row.spot_name as SpotName;
-        if (!V1_SPOTS.includes(spot)) {
+        if (!SPOT_NAMES.includes(spot)) {
           continue;
         }
 
@@ -377,7 +372,7 @@ export default function App() {
 
       for (const row of messagesResponse.data) {
         const spot = row.spot_name as SpotName;
-        if (!V1_SPOTS.includes(spot)) {
+        if (!SPOT_NAMES.includes(spot)) {
           continue;
         }
 
@@ -482,8 +477,8 @@ export default function App() {
       }
 
       const nearest = getNearestSpot({
-        latitude: currentPosition.coords.latitude,
-        longitude: currentPosition.coords.longitude,
+        lat: currentPosition.coords.latitude,
+        lng: currentPosition.coords.longitude,
       });
       setNearestSpotResult(nearest);
       setIsResolvingNearestSpot(false);
@@ -500,7 +495,7 @@ export default function App() {
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const todaysSessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(() => []);
-    for (const spot of V1_SPOTS) {
+    for (const spot of SPOT_NAMES) {
       next[spot] = sessionsBySpot[spot].filter((item) => isSessionCreatedToday(item));
     }
     return next;
@@ -779,6 +774,10 @@ export default function App() {
     if (!session?.user.id || !profile) {
       return;
     }
+    if (!nearestSpotWithinRange) {
+      setHomeQuickCheckInError('Je bent nog niet dicht genoeg bij een spot');
+      return;
+    }
 
     setQuickCheckInSpotInFlight(spot);
     const startTime = getNowLocalHourMinute();
@@ -812,7 +811,7 @@ export default function App() {
 
     setSessionsBySpot((previous) => {
       const insertedSpot = result.data.spot_name as SpotName;
-      if (!V1_SPOTS.includes(insertedSpot)) {
+      if (!SPOT_NAMES.includes(insertedSpot)) {
         return previous;
       }
 
@@ -1476,7 +1475,7 @@ export default function App() {
             </>
           )}
         </View>
-        {V1_SPOTS.map((spot) => {
+        {SPOT_NAMES.map((spot) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
