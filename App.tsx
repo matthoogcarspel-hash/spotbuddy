@@ -132,6 +132,18 @@ const isProbablyThereSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Gaat' && nowMinutes >= toMinutes(sessionItem.start) && nowMinutes < toMinutes(sessionItem.end);
 const isCheckedInSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
+const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): 'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt' | null => {
+  if (isGoingLaterSession(sessionItem, nowMinutes)) {
+    return 'Gaat nog';
+  }
+  if (isProbablyThereSession(sessionItem, nowMinutes)) {
+    return 'Waarschijnlijk er';
+  }
+  if (isCheckedInSession(sessionItem, nowMinutes)) {
+    return 'Ingecheckt';
+  }
+  return null;
+};
 const timelineStartMinutes = 6 * 60;
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
@@ -436,20 +448,32 @@ export default function App() {
     [messages],
   );
 
-  const activeSessionsByDisplayState = useMemo(
-    () => ({
-      'Gaat nog': sessions.filter((item) => isSessionCreatedToday(item) && isGoingLaterSession(item, currentLocalMinutes)),
-      'Waarschijnlijk er': sessions.filter((item) => isSessionCreatedToday(item) && isProbablyThereSession(item, currentLocalMinutes)),
-      Ingecheckt: sessions.filter((item) => isSessionCreatedToday(item) && isCheckedInSession(item, currentLocalMinutes)),
-    }),
-    [currentLocalMinutes, sessions],
-  );
+  const activeSessionsByDisplayState = useMemo(() => {
+    const grouped: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', SpotSession[]> = {
+      'Gaat nog': [],
+      'Waarschijnlijk er': [],
+      Ingecheckt: [],
+    };
+
+    sessions.forEach((item) => {
+      if (!isSessionCreatedToday(item)) {
+        return;
+      }
+      const displayState = getSessionDisplayState(item, currentLocalMinutes);
+      if (!displayState) {
+        return;
+      }
+      grouped[displayState].push(item);
+    });
+
+    return grouped;
+  }, [currentLocalMinutes, sessions]);
   const timelineSessions = useMemo(
     () =>
       sessions
-        .filter((item) => isSessionCreatedToday(item) && (item.status === 'Gaat' || item.status === 'Is er al'))
+        .filter((item) => isSessionCreatedToday(item) && getSessionDisplayState(item, currentLocalMinutes) !== null)
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start)),
-    [sessions],
+    [currentLocalMinutes, sessions],
   );
   const timelineEndMinutes = useMemo(() => {
     const minimumEndMinutes = 22 * 60;
@@ -1096,38 +1120,126 @@ export default function App() {
               const leftPercent = clamp(rawLeftPercent, 0, 100);
               const maxWidthPercent = Math.max(0, 100 - leftPercent);
               const widthPercent = clamp(rawWidthPercent, 0, maxWidthPercent);
-              const timelineColor = timelineSession.status === 'Is er al' ? '#16a34a' : '#355f96';
+              const displayState = getSessionDisplayState(timelineSession, currentLocalMinutes);
+              if (!displayState) {
+                return null;
+              }
+
+              const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
+                'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
+                'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
+                Ingecheckt: { bar: '#27835a', text: '#eafff3' },
+              };
+              const showLabelOutside = widthPercent < 18;
+              const labelText = `${timelineSession.start}–${timelineSession.end}`;
+              const labelLeftPercent = clamp(leftPercent + widthPercent, 0, 96);
 
               return (
                 <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                   <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
                     {timelineSession.userName}
                   </Text>
-                  <View style={{ flex: 1, height: 24, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border }}>
+                  <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
                     <View
                       style={{
                         position: 'absolute',
                         left: `${leftPercent}%`,
                         width: `${widthPercent}%`,
-                        top: 3,
-                        bottom: 3,
+                        top: 2,
+                        bottom: 2,
                         borderRadius: 999,
-                        backgroundColor: timelineColor,
+                        backgroundColor: timelineStateStyle[displayState].bar,
                         justifyContent: 'center',
-                        alignItems: 'center',
-                        paddingHorizontal: 6,
+                        alignItems: showLabelOutside ? 'flex-end' : 'center',
+                        paddingHorizontal: showLabelOutside ? 8 : 10,
+                        overflow: 'visible',
                       }}
                     >
-                      <Text style={{ color: '#e6f4ff', fontSize: 10, fontWeight: '600' }}>
-                        {timelineSession.start}–{timelineSession.end}
-                      </Text>
+                      {!showLabelOutside ? (
+                        <Text style={{ color: timelineStateStyle[displayState].text, fontSize: 11, fontWeight: '600', lineHeight: 14 }}>
+                          {labelText}
+                        </Text>
+                      ) : null}
                     </View>
+                    {showLabelOutside ? (
+                      <Text
+                        style={{
+                          position: 'absolute',
+                          left: `${labelLeftPercent}%`,
+                          top: -17,
+                          color: theme.textSoft,
+                          fontSize: 11,
+                          fontWeight: '600',
+                        }}
+                      >
+                        {labelText}
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               );
             })
           ) : (
             <Text style={{ color: theme.textSoft, fontSize: 14 }}>Nog geen sessies op de tijdlijn</Text>
+          )}
+        </View>
+
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
+
+          <TextInput
+            value={messageInput}
+            onChangeText={setMessageInput}
+            placeholder="Typ een bericht"
+            placeholderTextColor={theme.textMuted}
+            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+          />
+          <Pressable
+            onPress={() => {
+              void (async () => {
+              const text = messageInput.trim();
+              if (!text) {
+                return;
+              }
+
+              const { error } = await supabase.from('messages').insert({
+                spot_name: selectedSpot,
+                user_id: session.user.id,
+                user_name: profile.display_name,
+                user_avatar_url: profile.avatar_url,
+                text,
+              });
+
+              if (error) {
+                console.error('Bericht opslaan mislukt:', error);
+                return;
+              }
+
+              await fetchSharedData();
+              setMessageInput('');
+              })();
+            }}
+            style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
+          </Pressable>
+
+          {newestFirstMessages.length > 0 ? (
+            <View style={{ marginTop: 12 }}>
+              {newestFirstMessages.map((message) => (
+                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <Avatar uri={message.userAvatarUrl} size={24} />
+                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
+                      {message.userName} · {formatToHourMinute(message.createdAt)}
+                    </Text>
+                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>Nog geen berichten</Text>
           )}
         </View>
 
@@ -1214,64 +1326,6 @@ export default function App() {
           )}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
-
-          <TextInput
-            value={messageInput}
-            onChangeText={setMessageInput}
-            placeholder="Typ een bericht"
-            placeholderTextColor={theme.textMuted}
-            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
-          />
-          <Pressable
-            onPress={() => {
-              void (async () => {
-              const text = messageInput.trim();
-              if (!text) {
-                return;
-              }
-
-              const { error } = await supabase.from('messages').insert({
-                spot_name: selectedSpot,
-                user_id: session.user.id,
-                user_name: profile.display_name,
-                user_avatar_url: profile.avatar_url,
-                text,
-              });
-
-              if (error) {
-                console.error('Bericht opslaan mislukt:', error);
-                return;
-              }
-
-              await fetchSharedData();
-              setMessageInput('');
-              })();
-            }}
-            style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
-          >
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
-          </Pressable>
-
-          {newestFirstMessages.length > 0 ? (
-            <View style={{ marginTop: 12 }}>
-              {newestFirstMessages.map((message) => (
-                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <Avatar uri={message.userAvatarUrl} size={24} />
-                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                      {message.userName} · {formatToHourMinute(message.createdAt)}
-                    </Text>
-                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>Nog geen berichten</Text>
-          )}
-        </View>
       </ScrollView>
     );
   }
