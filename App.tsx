@@ -369,34 +369,33 @@ export default function App() {
     }
     return next;
   }, [sessionsBySpot]);
-  const allSessions = useMemo(() => Object.values(sessionsBySpot).flat(), [sessionsBySpot]);
-  const latestOwnSession = useMemo(() => {
+  const todayUserSessions = useMemo(() => {
     if (!session?.user.id) {
-      return null;
+      return [];
     }
 
-    const ownSessions = Object.values(todaysSessionsBySpot)
+    return Object.values(todaysSessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
-
-    if (ownSessions.length === 0) {
+  }, [session?.user.id, todaysSessionsBySpot]);
+  const latestOwnSession = useMemo(() => {
+    if (todayUserSessions.length === 0) {
       return null;
     }
 
-    return [...ownSessions].sort((a, b) => {
+    return [...todayUserSessions].sort((a, b) => {
       const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
       return bTime - aTime;
     })[0] ?? null;
-  }, [session?.user.id, todaysSessionsBySpot]);
+  }, [todayUserSessions]);
   const blockingSession = useMemo(() => {
-    if (!session?.user.id) {
+    if (todayUserSessions.length === 0) {
       return null;
     }
 
     return (
-      [...allSessions]
-        .filter((sessionItem) => sessionItem.userId === session.user.id)
+      [...todayUserSessions]
         .filter((sessionItem) => (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'))
         .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
         .sort((a, b) => {
@@ -405,7 +404,7 @@ export default function App() {
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [allSessions, currentLocalMinutes, session?.user.id]);
+  }, [currentLocalMinutes, todayUserSessions]);
   const canPlanSession = !blockingSession;
   const startMinutes = latestOwnSession ? toMinutes(latestOwnSession.start) : 0;
   const endMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
@@ -427,8 +426,10 @@ export default function App() {
     console.log('CURRENT_MINUTES', currentLocalMinutes);
     console.log('SESSION_WINDOW', { startMinutes, endMinutes });
     console.log('BLOCKING_SESSION', blockingSession);
+    console.log('TODAY_USER_SESSIONS', todayUserSessions);
+    console.log('BLOCKING_SESSION_FIXED', blockingSession);
     console.log('CAN_CHECK_IN', canCheckIn);
-  }, [blockingSession, canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes]);
+  }, [blockingSession, canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes, todayUserSessions]);
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
