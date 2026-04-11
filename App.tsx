@@ -67,6 +67,29 @@ const getLocalHourMinuteAfterMinutes = (minutesToAdd: number) => {
   dateValue.setMinutes(dateValue.getMinutes() + minutesToAdd);
   return formatLocalHourMinute(dateValue);
 };
+const getQuickCheckInWindowError = (currentMinutes: number) => {
+  if (currentMinutes < timelineStartMinutes) {
+    return 'Je kunt pas vanaf 08:00 inchecken';
+  }
+
+  if (currentMinutes >= timelineEndMinutes) {
+    return 'Inchecken kan alleen tot 21:00';
+  }
+
+  return null;
+};
+const getQuickCheckInEndTime = () => {
+  const now = new Date();
+  const cappedEndTime = new Date(now);
+  cappedEndTime.setHours(21, 0, 0, 0);
+
+  const proposedEndTime = new Date(now);
+  proposedEndTime.setHours(now.getHours(), now.getMinutes(), 0, 0);
+  proposedEndTime.setMinutes(proposedEndTime.getMinutes() + 120);
+
+  const endTime = proposedEndTime > cappedEndTime ? cappedEndTime : proposedEndTime;
+  return formatLocalHourMinute(endTime);
+};
 const toMinutes = (hourMinute: string) => {
   const [hourPart, minutePart] = hourMinute.split(':');
   const hour = Number.parseInt(hourPart ?? '', 10);
@@ -184,6 +207,8 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
   const [sessionActionError, setSessionActionError] = useState('');
+  const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
+  const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
 
@@ -426,6 +451,8 @@ export default function App() {
       && latestOwnSession.status === 'Is er al'
       && currentLocalMinutes < latestOwnSessionEndMinutes,
   );
+  const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
+  const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
   useEffect(() => {
     console.log('LATEST_OWN_SESSION', latestOwnSession);
     console.log('CURRENT_MINUTES', currentLocalMinutes);
@@ -629,6 +656,82 @@ export default function App() {
     setEndHour(null);
     setEndMinute(0);
     setFormError('');
+  };
+
+  const handleQuickCheckIn = async (spot: SpotName) => {
+    setHomeQuickCheckInError('');
+
+    if (blockingSession) {
+      setHomeQuickCheckInError('Rond eerst je huidige sessie af');
+      return;
+    }
+
+    if (quickCheckInWindowError) {
+      setHomeQuickCheckInError(quickCheckInWindowError);
+      return;
+    }
+
+    if (!session?.user.id || !profile) {
+      return;
+    }
+
+    setQuickCheckInSpotInFlight(spot);
+    const startTime = getNowLocalHourMinute();
+    const endTime = getQuickCheckInEndTime();
+    const nowIso = new Date().toISOString();
+    const payload = {
+      spot_name: spot,
+      user_id: session.user.id,
+      user_name: profile.display_name,
+      user_avatar_url: profile.avatar_url,
+      start_time: startTime,
+      end_time: endTime,
+      status: 'Is er al',
+      checked_in_at: nowIso,
+    };
+    const result = await supabase
+      .from('sessions')
+      .insert(payload)
+      .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
+      .single();
+
+    if (result.error) {
+      if (result.error.code === '23505') {
+        setHomeQuickCheckInError('Rond eerst je huidige sessie af');
+      } else {
+        setHomeQuickCheckInError(result.error.message);
+      }
+      setQuickCheckInSpotInFlight(null);
+      return;
+    }
+
+    setSessionsBySpot((previous) => {
+      const insertedSpot = result.data.spot_name as SpotName;
+      if (!V1_SPOTS.includes(insertedSpot)) {
+        return previous;
+      }
+
+      const next = { ...previous };
+      next[insertedSpot] = [
+        ...previous[insertedSpot],
+        {
+          id: result.data.id,
+          start: result.data.start_time.slice(0, 5),
+          end: result.data.end_time.slice(0, 5),
+          status: mapSessionStatus(result.data.status),
+          createdAt: result.data.created_at,
+          checkedInAt: result.data.checked_in_at,
+          checkedOutAt: result.data.checked_out_at,
+          userId: result.data.user_id,
+          userName: result.data.user_name,
+          userAvatarUrl: result.data.user_avatar_url,
+        },
+      ];
+      return next;
+    });
+
+    setQuickCheckInSpotInFlight(null);
+    await fetchSharedData();
   };
 
   if (loadingSession || loadingProfile || loadingData) {
@@ -1228,10 +1331,13 @@ export default function App() {
       </View>
 
       <View>
+        {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         {V1_SPOTS.map((spot) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const isQuickCheckInDisabled = !canQuickCheckIn || quickCheckInSpotInFlight !== null;
+          const isSubmittingThisSpot = quickCheckInSpotInFlight === spot;
 
           return (
             <Pressable
@@ -1262,6 +1368,24 @@ export default function App() {
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
                 </View>
               </View>
+              <Pressable
+                disabled={isQuickCheckInDisabled}
+                onPress={() => {
+                  void handleQuickCheckIn(spot);
+                }}
+                style={{
+                  marginTop: 10,
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  backgroundColor: '#15803d',
+                  opacity: isQuickCheckInDisabled ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                  {isSubmittingThisSpot ? 'Inchecken...' : 'Inchecken'}
+                </Text>
+              </Pressable>
             </Pressable>
           );
         })}
