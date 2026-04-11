@@ -161,7 +161,7 @@ export default function App() {
   const [formError, setFormError] = useState('');
   const [sessionActionError, setSessionActionError] = useState('');
   const [messageInput, setMessageInput] = useState('');
-  const [clockTick, setClockTick] = useState(() => Date.now());
+  const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -333,21 +333,19 @@ export default function App() {
   }, [showForm]);
 
   useEffect(() => {
+    setCurrentLocalMinutes(getCurrentLocalMinutes());
+
     const interval = setInterval(() => {
-      setClockTick(Date.now());
+      setCurrentLocalMinutes(getCurrentLocalMinutes());
     }, 30000);
 
     return () => {
       clearInterval(interval);
     };
-  }, []);
+  }, [selectedSpot]);
 
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
-  const currentLocalMinutes = useMemo(() => {
-    void clockTick;
-    return getCurrentLocalMinutes();
-  }, [clockTick]);
   const todaysSessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(() => []);
     for (const spot of V1_SPOTS) {
