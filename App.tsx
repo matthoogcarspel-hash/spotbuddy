@@ -97,12 +97,6 @@ const getCurrentLocalMinutes = () => {
   const nowMinutes = now.getMinutes();
   return nowHours * 60 + nowMinutes;
 };
-const formatMinutesToHourMinute = (totalMinutes: number) => {
-  const normalizedMinutes = ((totalMinutes % (24 * 60)) + (24 * 60)) % (24 * 60);
-  const hour = Math.floor(normalizedMinutes / 60);
-  const minute = normalizedMinutes % 60;
-  return `${formatTimePart(hour)}:${formatTimePart(minute)}`;
-};
 const formatToHourMinute = (value: string | null | undefined) => {
   if (!value) {
     return '--:--';
@@ -144,7 +138,10 @@ const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): '
   }
   return null;
 };
-const timelineStartMinutes = 6 * 60;
+const timelineStartMinutes = 8 * 60;
+const timelineEndMinutes = 21 * 60;
+const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
+const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -448,67 +445,25 @@ export default function App() {
     [messages],
   );
 
-  const activeSessionsByDisplayState = useMemo(() => {
-    const grouped: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', SpotSession[]> = {
-      'Gaat nog': [],
-      'Waarschijnlijk er': [],
-      Ingecheckt: [],
-    };
-
-    sessions.forEach((item) => {
-      if (!isSessionCreatedToday(item)) {
-        return;
-      }
-      const displayState = getSessionDisplayState(item, currentLocalMinutes);
-      if (!displayState) {
-        return;
-      }
-      grouped[displayState].push(item);
-    });
-
-    return grouped;
-  }, [currentLocalMinutes, sessions]);
   const timelineSessions = useMemo(
     () =>
       sessions
-        .filter((item) => isSessionCreatedToday(item) && getSessionDisplayState(item, currentLocalMinutes) !== null)
+        .filter((item) => {
+          if (!isSessionCreatedToday(item) || getSessionDisplayState(item, currentLocalMinutes) === null) {
+            return false;
+          }
+
+          const actualStartMinutes = toMinutes(item.start);
+          let actualEndMinutes = toMinutes(item.end);
+          if (actualEndMinutes <= actualStartMinutes) {
+            actualEndMinutes += 24 * 60;
+          }
+
+          return actualStartMinutes >= timelineStartMinutes && actualEndMinutes <= timelineEndMinutes;
+        })
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start)),
     [currentLocalMinutes, sessions],
   );
-  const timelineEndMinutes = useMemo(() => {
-    const minimumEndMinutes = 22 * 60;
-    if (timelineSessions.length === 0) {
-      return minimumEndMinutes;
-    }
-
-    const latestEndMinutes = timelineSessions.reduce((latest, timelineSession) => {
-      const sessionStartMinutes = toMinutes(timelineSession.start);
-      let sessionEndMinutes = toMinutes(timelineSession.end);
-
-      if (sessionEndMinutes <= sessionStartMinutes) {
-        sessionEndMinutes += 24 * 60;
-      }
-
-      return Math.max(latest, sessionEndMinutes);
-    }, timelineStartMinutes);
-
-    const roundedUpEndMinutes = Math.ceil(latestEndMinutes / 60) * 60;
-    return Math.max(minimumEndMinutes, roundedUpEndMinutes);
-  }, [timelineSessions]);
-  const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
-  const timelineLabels = useMemo(() => {
-    const labels: string[] = [];
-    for (let labelMinutes = timelineStartMinutes; labelMinutes <= timelineEndMinutes; labelMinutes += 120) {
-      labels.push(formatMinutesToHourMinute(labelMinutes));
-    }
-
-    const finalLabel = formatMinutesToHourMinute(timelineEndMinutes);
-    if (labels[labels.length - 1] !== finalLabel) {
-      labels.push(finalLabel);
-    }
-
-    return labels;
-  }, [timelineEndMinutes]);
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
@@ -888,18 +843,18 @@ export default function App() {
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
-      const nowTotalMinutes = getCurrentLocalMinutes();
+      if (startTotalMinutes < timelineStartMinutes) {
+        setFormError('Je kunt pas vanaf 08:00 plannen');
+        return;
+      }
 
-      console.log('PLAN_VALIDATION_NOW', nowTotalMinutes);
-      console.log('PLAN_VALIDATION_SELECTED', { startMinutes: startTotalMinutes, endMinutes: endTotalMinutes });
-
-      if (startTotalMinutes < nowTotalMinutes) {
-        setFormError('Starttijd kan niet eerder zijn dan nu.');
+      if (endTotalMinutes > timelineEndMinutes) {
+        setFormError('Je kunt niet later dan 21:00 plannen');
         return;
       }
 
       if (endTotalMinutes <= startTotalMinutes) {
-        setFormError('Eindtijd moet later zijn dan starttijd.');
+        setFormError('Eindtijd moet later zijn dan starttijd');
         return;
       }
 
@@ -959,12 +914,6 @@ export default function App() {
       justifyContent: 'center',
       alignItems: 'center',
     } as const;
-    const sessionStatusLabel: Record<SessionStatus, string> = {
-      Gaat: 'Gaat',
-      'Is er al': 'Inchecken',
-      Uitchecken: 'Uitchecken',
-    };
-    const sectionOrder = ['Gaat nog', 'Waarschijnlijk er', 'Ingecheckt'] as const;
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
@@ -1031,7 +980,7 @@ export default function App() {
               </View>
               {activePicker === 'startHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {hours.map((hour) => (
+                  {hours.filter((hour) => hour >= 8 && hour <= 20).map((hour) => (
                     <Pressable key={`start-hour-${hour}`} onPress={() => setStartHour(hour)} style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
@@ -1059,7 +1008,7 @@ export default function App() {
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {hours.map((hour) => (
+                  {hours.filter((hour) => hour >= 8 && hour <= 21).map((hour) => (
                     <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
@@ -1092,10 +1041,6 @@ export default function App() {
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Sessies</Text>
-          <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 8 }}>
-            timeline end: {formatMinutesToHourMinute(timelineEndMinutes)}
-          </Text>
-
           <View style={{ marginBottom: 10 }}>
             <View style={{ marginLeft: 98, flexDirection: 'row', justifyContent: 'space-between' }}>
               {timelineLabels.map((label) => (
@@ -1243,88 +1188,6 @@ export default function App() {
           )}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          {sessions.length > 0 ? (
-            sectionOrder.map((sectionLabel) => {
-              const sessionsForStatus = activeSessionsByDisplayState[sectionLabel];
-              return (
-                <View key={sectionLabel} style={{ marginBottom: 10 }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6, fontWeight: '600' }}>{sectionLabel}</Text>
-                  {sessionsForStatus.length > 0 ? (
-                    sessionsForStatus.map((item, index) => {
-                      return (
-                        <View key={`${item.start}-${item.end}-${index}`} style={{ marginBottom: 10, backgroundColor: theme.cardStrong, borderRadius: 14, padding: 10 }}>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5 }}>
-                            <Avatar uri={item.userAvatarUrl} size={24} />
-                            <Text style={{ color: theme.text, fontSize: 15, marginLeft: 8, marginRight: 8 }}>
-                              {item.userName}: {item.start} - {item.end}
-                            </Text>
-                          </View>
-                          <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 6 }}>
-                            {item.status === 'Gaat'
-                              ? `Gepland om ${formatToHourMinute(item.createdAt)}`
-                              : item.status === 'Is er al'
-                                ? `Ingecheckt om ${formatToHourMinute(item.checkedInAt)}`
-                                : `Uitgecheckt om ${formatToHourMinute(item.checkedOutAt)}`}
-                          </Text>
-                          {item.userId === currentUserId && latestOwnSession?.id === item.id ? (
-                            <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-                              <Pressable
-                                disabled={!canCheckIn}
-                                onPress={() => {
-                                  void handleUpdateSessionStatus('Is er al');
-                                }}
-                                style={{
-                                  backgroundColor: item.status === 'Is er al' ? theme.primary : theme.bgElevated,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: theme.border,
-                                  paddingVertical: 6,
-                                  paddingHorizontal: 8,
-                                  marginRight: 6,
-                                  marginBottom: 6,
-                                  opacity: canCheckIn ? 1 : 0.5,
-                                }}
-                              >
-                                <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel['Is er al']}</Text>
-                              </Pressable>
-                              <Pressable
-                                disabled={!canCheckOut}
-                                onPress={() => {
-                                  void handleUpdateSessionStatus('Uitchecken');
-                                }}
-                                style={{
-                                  backgroundColor: item.status === 'Uitchecken' ? theme.primary : theme.bgElevated,
-                                  borderRadius: 8,
-                                  borderWidth: 1,
-                                  borderColor: theme.border,
-                                  paddingVertical: 6,
-                                  paddingHorizontal: 8,
-                                  marginRight: 6,
-                                  marginBottom: 6,
-                                  opacity: canCheckOut ? 1 : 0.5,
-                                }}
-                              >
-                                <Text style={{ color: theme.text, fontSize: 12 }}>{sessionStatusLabel['Uitchecken']}</Text>
-                              </Pressable>
-                            </View>
-                          ) : null}
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 4 }}>Nog niemand</Text>
-                  )}
-                </View>
-              );
-            })
-          ) : (
-            <View>
-              <Text style={{ color: theme.textSoft, fontSize: 15 }}>Nog niemand ingepland</Text>
-              <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 4 }}>{profile.display_name} kunt de eerste zijn</Text>
-            </View>
-          )}
-        </View>
 
       </ScrollView>
     );
