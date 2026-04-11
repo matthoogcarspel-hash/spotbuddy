@@ -59,6 +59,13 @@ const theme = {
   warm: '#c67a44',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
+const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
+const getLocalHourMinuteAfterMinutes = (minutesToAdd: number) => {
+  const dateValue = new Date();
+  dateValue.setMinutes(dateValue.getMinutes() + minutesToAdd);
+  return formatLocalHourMinute(dateValue);
+};
 const toMinutes = (hourMinute: string) => {
   const [hourPart, minutePart] = hourMinute.split(':');
   const hour = Number.parseInt(hourPart ?? '', 10);
@@ -390,30 +397,27 @@ export default function App() {
     );
   }, [currentLocalMinutes, todayUserSessions]);
   const canPlanSession = !blockingSession;
-  const startMinutes = latestOwnSession ? toMinutes(latestOwnSession.start) : 0;
-  const endMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
-  const canCheckIn = Boolean(
+  const latestOwnSessionEndMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
+  const isLatestOwnSessionActive = Boolean(
     latestOwnSession
-    && latestOwnSession.status === 'Gaat'
-    && currentLocalMinutes >= startMinutes,
-  ) && Boolean(
-    latestOwnSession
-    && currentLocalMinutes < endMinutes,
+      && (latestOwnSession.status === 'Gaat' || latestOwnSession.status === 'Is er al')
+      && currentLocalMinutes < latestOwnSessionEndMinutes,
   );
+  const canCheckIn = !latestOwnSession || !isLatestOwnSessionActive || latestOwnSession.status === 'Gaat';
   const canCheckOut = Boolean(
     latestOwnSession
-    && latestOwnSession.status === 'Is er al'
-    && currentLocalMinutes < endMinutes,
+      && latestOwnSession.status === 'Is er al'
+      && currentLocalMinutes < latestOwnSessionEndMinutes,
   );
   useEffect(() => {
     console.log('LATEST_OWN_SESSION', latestOwnSession);
     console.log('CURRENT_MINUTES', currentLocalMinutes);
-    console.log('SESSION_WINDOW', { startMinutes, endMinutes });
+    console.log('SESSION_WINDOW', { latestOwnSessionEndMinutes });
     console.log('BLOCKING_SESSION', blockingSession);
     console.log('TODAY_USER_SESSIONS', todayUserSessions);
     console.log('BLOCKING_SESSION_FIXED', blockingSession);
     console.log('CAN_CHECK_IN', canCheckIn);
-  }, [blockingSession, canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes, todayUserSessions]);
+  }, [blockingSession, canCheckIn, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -445,25 +449,99 @@ export default function App() {
 
     if (!latestOwnSession) {
       if (status === 'Is er al') {
-        setSessionActionError('Plan eerst een sessie');
+        const startTime = getNowLocalHourMinute();
+        const endTime = getLocalHourMinuteAfterMinutes(120);
+        const result = await supabase.from('sessions').insert({
+          spot_name: selectedSpot,
+          user_id: session.user.id,
+          user_name: profile.display_name,
+          user_avatar_url: profile.avatar_url,
+          start_time: startTime,
+          end_time: endTime,
+          status: 'Is er al',
+          checked_in_at: new Date().toISOString(),
+        });
+
+        if (result.error) {
+          setSessionActionError(result.error.message);
+          return;
+        }
+
+        await fetchSharedData();
       } else if (status === 'Uitchecken') {
         setSessionActionError('Check eerst in');
       }
       return;
     }
 
-    if (status === 'Is er al' && latestOwnSession.status !== 'Gaat') {
-      setSessionActionError('Plan eerst een sessie');
+    const latestSessionIsActive = currentLocalMinutes < toMinutes(latestOwnSession.end);
+
+    if (status === 'Is er al' && latestOwnSession.status === 'Is er al' && latestSessionIsActive) {
+      setSessionActionError('Je bent al ingecheckt');
       return;
     }
 
-    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && currentLocalMinutes < startMinutes) {
-      setSessionActionError(`Je kunt pas inchecken vanaf ${latestOwnSession.start}`);
+    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && latestSessionIsActive) {
+      const nowIso = new Date().toISOString();
+      const result = await supabase
+        .from('sessions')
+        .update({ status: 'Is er al', checked_in_at: nowIso })
+        .eq('id', latestOwnSession.id)
+        .eq('user_id', authUserId);
+
+      if (result.error) {
+        console.error('Status bijwerken mislukt:', result.error);
+        setSessionActionError(result.error.message);
+        return;
+      }
+
+      await fetchSharedData();
       return;
     }
 
-    if (status === 'Is er al' && currentLocalMinutes >= endMinutes) {
-      setSessionActionError('Deze sessie is verlopen. Plan een nieuwe sessie');
+    if (status === 'Is er al' && latestOwnSession.status === 'Uitchecken') {
+      const startTime = getNowLocalHourMinute();
+      const endTime = getLocalHourMinuteAfterMinutes(120);
+      const result = await supabase.from('sessions').insert({
+        spot_name: selectedSpot,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: startTime,
+        end_time: endTime,
+        status: 'Is er al',
+        checked_in_at: new Date().toISOString(),
+      });
+
+      if (result.error) {
+        setSessionActionError(result.error.message);
+        return;
+      }
+
+      await fetchSharedData();
+      return;
+    }
+
+    if (status === 'Is er al' && !latestSessionIsActive) {
+      const startTime = getNowLocalHourMinute();
+      const endTime = getLocalHourMinuteAfterMinutes(120);
+      const result = await supabase.from('sessions').insert({
+        spot_name: selectedSpot,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: startTime,
+        end_time: endTime,
+        status: 'Is er al',
+        checked_in_at: new Date().toISOString(),
+      });
+
+      if (result.error) {
+        setSessionActionError(result.error.message);
+        return;
+      }
+
+      await fetchSharedData();
       return;
     }
 
