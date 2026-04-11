@@ -369,6 +369,7 @@ export default function App() {
     }
     return next;
   }, [sessionsBySpot]);
+  const allSessions = useMemo(() => Object.values(sessionsBySpot).flat(), [sessionsBySpot]);
   const latestOwnSession = useMemo(() => {
     if (!session?.user.id) {
       return null;
@@ -388,8 +389,24 @@ export default function App() {
       return bTime - aTime;
     })[0] ?? null;
   }, [session?.user.id, todaysSessionsBySpot]);
-  const latestSessionIsActive = latestOwnSession ? isSessionStillActive(latestOwnSession, currentLocalMinutes) : false;
-  const canPlanSession = !latestOwnSession || !latestSessionIsActive;
+  const blockingSession = useMemo(() => {
+    if (!session?.user.id) {
+      return null;
+    }
+
+    return (
+      [...allSessions]
+        .filter((sessionItem) => sessionItem.userId === session.user.id)
+        .filter((sessionItem) => (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'))
+        .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })[0] ?? null
+    );
+  }, [allSessions, currentLocalMinutes, session?.user.id]);
+  const canPlanSession = !blockingSession;
   const startMinutes = latestOwnSession ? toMinutes(latestOwnSession.start) : 0;
   const endMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
   const canCheckIn = Boolean(
@@ -409,8 +426,9 @@ export default function App() {
     console.log('LATEST_OWN_SESSION', latestOwnSession);
     console.log('CURRENT_MINUTES', currentLocalMinutes);
     console.log('SESSION_WINDOW', { startMinutes, endMinutes });
+    console.log('BLOCKING_SESSION', blockingSession);
     console.log('CAN_CHECK_IN', canCheckIn);
-  }, [canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes]);
+  }, [blockingSession, canCheckIn, currentLocalMinutes, endMinutes, latestOwnSession, startMinutes]);
   const newestFirstMessages = useMemo(
     () =>
       [...messages].sort((a, b) => {
@@ -736,6 +754,9 @@ export default function App() {
       const endTotalMinutes = endHour * 60 + endMinute;
       const nowTotalMinutes = getCurrentLocalMinutes();
 
+      console.log('PLAN_VALIDATION_NOW', nowTotalMinutes);
+      console.log('PLAN_VALIDATION_SELECTED', { startMinutes: startTotalMinutes, endMinutes: endTotalMinutes });
+
       if (startTotalMinutes < nowTotalMinutes) {
         setFormError('Starttijd kan niet eerder zijn dan nu.');
         return;
@@ -749,7 +770,8 @@ export default function App() {
       const startTime = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
       const endTime = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
 
-      if (!canPlanSession) {
+      console.log('BLOCKING_SESSION', blockingSession);
+      if (blockingSession) {
         setFormError('Rond eerst je huidige sessie af');
         return;
       }
