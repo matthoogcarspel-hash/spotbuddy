@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
@@ -41,6 +42,14 @@ type ChatMessage = {
   createdAt: string | null;
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
+type SpotCoordinates = {
+  latitude: number;
+  longitude: number;
+};
+type NearestSpotResult = {
+  spot: SpotName;
+  distanceMeters: number;
+};
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -165,6 +174,59 @@ const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
+const nearbySpotThresholdMeters = 5000;
+const spotCoordinates: Record<SpotName, SpotCoordinates> = {
+  'Scheveningen KZVS': { latitude: 52.1068, longitude: 4.2467 },
+  'Scheveningen Jump Team': { latitude: 52.0995, longitude: 4.2484 },
+  'Noordwijk KSN': { latitude: 52.2477, longitude: 4.4329 },
+  'Rockanje 1e Slag': { latitude: 51.8698, longitude: 4.0641 },
+  'Rockanje 2e Slag': { latitude: 51.8636, longitude: 4.0512 },
+  'Maasvlakte 2 Slufter': { latitude: 51.9562, longitude: 3.9904 },
+};
+
+const toRadians = (value: number) => value * (Math.PI / 180);
+const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
+  const earthRadiusMeters = 6371_000;
+  const latitudeDelta = toRadians(end.latitude - start.latitude);
+  const longitudeDelta = toRadians(end.longitude - start.longitude);
+  const startLatitudeRadians = toRadians(start.latitude);
+  const endLatitudeRadians = toRadians(end.latitude);
+
+  const haversine =
+    Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
+    + Math.cos(startLatitudeRadians) * Math.cos(endLatitudeRadians) * Math.sin(longitudeDelta / 2) * Math.sin(longitudeDelta / 2);
+
+  const angularDistance = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+  return earthRadiusMeters * angularDistance;
+};
+const formatDistance = (distanceMeters: number) => {
+  if (distanceMeters < 1000) {
+    return `${Math.round(distanceMeters)} m`;
+  }
+
+  return `${(distanceMeters / 1000).toFixed(1)} km`;
+};
+const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult | null => {
+  let nearestSpot: SpotName | null = null;
+  let nearestDistanceMeters = Number.POSITIVE_INFINITY;
+
+  for (const spot of V1_SPOTS) {
+    const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates[spot]);
+    if (distanceMeters < nearestDistanceMeters) {
+      nearestSpot = spot;
+      nearestDistanceMeters = distanceMeters;
+    }
+  }
+
+  if (!nearestSpot || !Number.isFinite(nearestDistanceMeters)) {
+    return null;
+  }
+
+  return {
+    spot: nearestSpot,
+    distanceMeters: nearestDistanceMeters,
+  };
+};
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -209,6 +271,9 @@ export default function App() {
   const [sessionActionError, setSessionActionError] = useState('');
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
+  const [locationPermissionStatus, setLocationPermissionStatus] = useState<Location.PermissionStatus | null>(null);
+  const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
+  const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
 
@@ -393,6 +458,44 @@ export default function App() {
     };
   }, [selectedSpot]);
 
+  useEffect(() => {
+    let isCancelled = false;
+
+    const resolveNearestSpot = async () => {
+      setIsResolvingNearestSpot(true);
+
+      const permissionResponse = await Location.requestForegroundPermissionsAsync();
+      if (isCancelled) {
+        return;
+      }
+
+      setLocationPermissionStatus(permissionResponse.status);
+      if (permissionResponse.status !== 'granted') {
+        setNearestSpotResult(null);
+        setIsResolvingNearestSpot(false);
+        return;
+      }
+
+      const currentPosition = await Location.getCurrentPositionAsync({});
+      if (isCancelled) {
+        return;
+      }
+
+      const nearest = getNearestSpot({
+        latitude: currentPosition.coords.latitude,
+        longitude: currentPosition.coords.longitude,
+      });
+      setNearestSpotResult(nearest);
+      setIsResolvingNearestSpot(false);
+    };
+
+    void resolveNearestSpot();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [session?.user.id]);
+
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const todaysSessionsBySpot = useMemo(() => {
@@ -453,6 +556,8 @@ export default function App() {
   );
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
+  const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
+  const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   useEffect(() => {
     console.log('LATEST_OWN_SESSION', latestOwnSession);
     console.log('CURRENT_MINUTES', currentLocalMinutes);
@@ -1332,12 +1437,49 @@ export default function App() {
 
       <View>
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
+        <View style={{ backgroundColor: theme.cardStrong, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Dichtstbijzijnde spot</Text>
+          {isResolvingNearestSpot ? (
+            <Text style={{ color: theme.textSoft, marginTop: 8 }}>Locatie ophalen...</Text>
+          ) : nearestSpotResult && nearestSpotDistanceLabel ? (
+            <>
+              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>{nearestSpotResult.spot}</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 2 }}>Afstand: {nearestSpotDistanceLabel}</Text>
+              <Pressable
+                disabled={!canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null}
+                onPress={() => {
+                  void handleQuickCheckIn(nearestSpotResult.spot);
+                }}
+                style={{
+                  marginTop: 10,
+                  borderRadius: 10,
+                  paddingVertical: 10,
+                  alignItems: 'center',
+                  backgroundColor: '#15803d',
+                  opacity: !canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                  {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Inchecken...' : 'Hier inchecken'}
+                </Text>
+              </Pressable>
+              {!nearestSpotWithinRange ? (
+                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>Je bent nog niet dicht genoeg bij een spot</Text>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Geen spot in de buurt</Text>
+              {locationPermissionStatus !== 'granted' ? (
+                <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>Locatietoegang is nodig om dichtbij te kunnen inchecken.</Text>
+              ) : null}
+            </>
+          )}
+        </View>
         {V1_SPOTS.map((spot) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
-          const isQuickCheckInDisabled = !canQuickCheckIn || quickCheckInSpotInFlight !== null;
-          const isSubmittingThisSpot = quickCheckInSpotInFlight === spot;
 
           return (
             <Pressable
@@ -1368,24 +1510,6 @@ export default function App() {
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
                 </View>
               </View>
-              <Pressable
-                disabled={isQuickCheckInDisabled}
-                onPress={() => {
-                  void handleQuickCheckIn(spot);
-                }}
-                style={{
-                  marginTop: 10,
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  alignItems: 'center',
-                  backgroundColor: '#15803d',
-                  opacity: isQuickCheckInDisabled ? 0.45 : 1,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                  {isSubmittingThisSpot ? 'Inchecken...' : 'Inchecken'}
-                </Text>
-              </Pressable>
             </Pressable>
           );
         })}
