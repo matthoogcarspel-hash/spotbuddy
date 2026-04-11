@@ -59,6 +59,7 @@ const theme = {
   warm: '#c67a44',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
 const getLocalHourMinuteAfterMinutes = (minutesToAdd: number) => {
@@ -125,6 +126,10 @@ const isProbablyThereSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Gaat' && nowMinutes >= toMinutes(sessionItem.start) && nowMinutes < toMinutes(sessionItem.end);
 const isCheckedInSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
+const timelineStartMinutes = 6 * 60;
+const timelineEndMinutes = 22 * 60;
+const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
+const timelineLabels = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
@@ -435,6 +440,14 @@ export default function App() {
       Ingecheckt: sessions.filter((item) => isSessionCreatedToday(item) && isCheckedInSession(item, currentLocalMinutes)),
     }),
     [currentLocalMinutes, sessions],
+  );
+  const timelineSessions = useMemo(
+    () =>
+      sessions
+        .filter((item) => isSessionCreatedToday(item) && (item.status === 'Gaat' || item.status === 'Is er al'))
+        .filter((item) => toMinutes(item.end) > timelineStartMinutes && toMinutes(item.start) < timelineEndMinutes)
+        .sort((a, b) => toMinutes(a.start) - toMinutes(b.start)),
+    [sessions],
   );
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
@@ -1098,6 +1111,63 @@ export default function App() {
               <Text style={{ color: theme.textSoft, fontSize: 15 }}>Nog niemand ingepland</Text>
               <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 4 }}>{profile.display_name} kunt de eerste zijn</Text>
             </View>
+          )}
+        </View>
+
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Tijdlijn</Text>
+
+          <View style={{ marginBottom: 10 }}>
+            <View style={{ marginLeft: 98, flexDirection: 'row', justifyContent: 'space-between' }}>
+              {timelineLabels.map((label) => (
+                <Text key={label} style={{ color: theme.textMuted, fontSize: 11 }}>
+                  {label}
+                </Text>
+              ))}
+            </View>
+          </View>
+
+          {timelineSessions.length > 0 ? (
+            timelineSessions.map((timelineSession) => {
+              const sessionStartMinutes = toMinutes(timelineSession.start);
+              const sessionEndMinutes = toMinutes(timelineSession.end);
+              const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
+              const clampedEndMinutes = clamp(sessionEndMinutes, timelineStartMinutes, timelineEndMinutes);
+              const leftPercent = ((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100;
+              const rawWidthPercent = ((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100;
+              const widthPercent = clamp(rawWidthPercent, 1.5, 100 - leftPercent);
+              const timelineColor = timelineSession.status === 'Is er al' ? '#16a34a' : '#355f96';
+
+              return (
+                <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
+                    {timelineSession.userName}
+                  </Text>
+                  <View style={{ flex: 1, height: 24, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border }}>
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        top: 3,
+                        bottom: 3,
+                        borderRadius: 999,
+                        backgroundColor: timelineColor,
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        paddingHorizontal: 6,
+                      }}
+                    >
+                      <Text style={{ color: '#e6f4ff', fontSize: 10, fontWeight: '600' }}>
+                        {timelineSession.start}–{timelineSession.end}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={{ color: theme.textSoft, fontSize: 14 }}>Nog geen sessies op de tijdlijn</Text>
           )}
         </View>
 
