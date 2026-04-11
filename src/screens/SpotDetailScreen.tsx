@@ -33,13 +33,11 @@ const minuteOptions = [0, 15, 30, 45];
 const statusOrder: SessionStatus[] = ['Gaat', 'Is er al', 'Uitchecken'];
 const timelineVisibleStatuses: SessionStatus[] = ['Gaat', 'Is er al'];
 const timelineStartMinutes = 6 * 60;
-const timelineEndMinutes = 22 * 60;
-const timelineRangeMinutes = timelineEndMinutes - timelineStartMinutes;
-const timelineLabels = ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'];
+const defaultTimelineEndMinutes = 22 * 60;
 const sessionStatusLabel: Record<SessionStatus, string> = {
-  Gaat: 'Gaat',
-  'Is er al': 'Inchecken',
-  Uitchecken: 'Uitchecken',
+  Gaat: 'Gaat nog',
+  'Is er al': 'Waarschijnlijk er',
+  Uitchecken: 'Ingecheckt',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const parseTimeToMinutes = (time: string) => {
@@ -54,6 +52,14 @@ const parseTimeToMinutes = (time: string) => {
   return hour * 60 + minute;
 };
 
+
+const formatMinutesToTime = (minutes: number) => {
+  const normalizedMinutes = ((minutes % (24 * 60)) + 24 * 60) % (24 * 60);
+  const hour = Math.floor(normalizedMinutes / 60);
+  const minute = normalizedMinutes % 60;
+
+  return `${formatTimePart(hour)}:${formatTimePart(minute)}`;
+};
 export default function SpotDetailScreen({
   selectedSpot,
   sessions,
@@ -81,20 +87,44 @@ export default function SpotDetailScreen({
     }),
     [sessions],
   );
+  const timelineConfig = useMemo(() => {
+    const visibleSessions = sessions
+      .filter((session) => timelineVisibleStatuses.includes(session.status))
+      .map((session) => {
+        const startMinutes = parseTimeToMinutes(session.start);
+        let endMinutes = parseTimeToMinutes(session.end);
+
+        if (endMinutes <= startMinutes) {
+          endMinutes += 24 * 60;
+        }
+
+        return { session, startMinutes, endMinutes };
+      });
+
+    const maxSessionEndMinutes = visibleSessions.reduce((maxEnd, { endMinutes }) => Math.max(maxEnd, endMinutes), defaultTimelineEndMinutes);
+    const timelineEndMinutes = Math.ceil(maxSessionEndMinutes / 60) * 60;
+    const timelineRangeMinutes = Math.max(timelineEndMinutes - timelineStartMinutes, 60);
+
+    const timelineLabels: string[] = [];
+    for (let markerMinutes = timelineStartMinutes; markerMinutes <= timelineEndMinutes; markerMinutes += 120) {
+      timelineLabels.push(formatMinutesToTime(markerMinutes));
+    }
+
+    if (timelineLabels[timelineLabels.length - 1] !== formatMinutesToTime(timelineEndMinutes)) {
+      timelineLabels.push(formatMinutesToTime(timelineEndMinutes));
+    }
+
+    return { visibleSessions, timelineEndMinutes, timelineRangeMinutes, timelineLabels };
+  }, [sessions]);
+
   const timelineSessions = useMemo(() => {
     const now = new Date();
     const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-    return sessions
-      .filter((session) => timelineVisibleStatuses.includes(session.status))
-      .map((session) => {
-        const startMinutes = parseTimeToMinutes(session.start);
-        const endMinutes = parseTimeToMinutes(session.end);
-        return { session, startMinutes, endMinutes };
-      })
-      .filter(({ startMinutes, endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > timelineStartMinutes && startMinutes < timelineEndMinutes)
+    return timelineConfig.visibleSessions
+      .filter(({ endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > timelineStartMinutes)
       .sort((first, second) => first.startMinutes - second.startMinutes);
-  }, [sessions]);
+  }, [timelineConfig.visibleSessions]);
 
   const resetForm = () => {
     setShowForm(false);
@@ -275,10 +305,10 @@ export default function SpotDetailScreen({
       </View>
 
       <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Vandaag</Text>
+        <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Sessies</Text>
 
         <View style={{ marginLeft: 104, marginBottom: 12, flexDirection: 'row', justifyContent: 'space-between' }}>
-          {timelineLabels.map((label) => (
+          {timelineConfig.timelineLabels.map((label) => (
             <Text key={`timeline-label-${label}`} style={{ color: '#9db0c7', fontSize: 10 }}>
               {label}
             </Text>
@@ -287,12 +317,12 @@ export default function SpotDetailScreen({
 
         {timelineSessions.length > 0 ? (
           timelineSessions.map(({ session, startMinutes, endMinutes }, index) => {
-            const clampedStartMinutes = Math.min(Math.max(startMinutes, timelineStartMinutes), timelineEndMinutes);
-            const clampedEndMinutes = Math.min(Math.max(endMinutes, timelineStartMinutes), timelineEndMinutes);
-            const startRatio = (clampedStartMinutes - timelineStartMinutes) / timelineRangeMinutes;
-            const endRatio = (clampedEndMinutes - timelineStartMinutes) / timelineRangeMinutes;
+            const clampedStartMinutes = Math.min(Math.max(startMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
+            const clampedEndMinutes = Math.min(Math.max(endMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
+            const startRatio = (clampedStartMinutes - timelineStartMinutes) / timelineConfig.timelineRangeMinutes;
+            const widthRatio = Math.max((clampedEndMinutes - clampedStartMinutes) / timelineConfig.timelineRangeMinutes, 0);
             const leftPercent = startRatio * 100;
-            const widthPercent = Math.max((endRatio - startRatio) * 100, 6);
+            const widthPercent = Math.max(widthRatio * 100, 6);
             const barColor = session.status === 'Is er al' ? '#1f8a4b' : '#375f9b';
 
             return (
@@ -301,8 +331,8 @@ export default function SpotDetailScreen({
                   {session.userName}
                 </Text>
                 <View style={{ flex: 1, height: 30, backgroundColor: '#0b0f14', borderRadius: 8, position: 'relative', justifyContent: 'center', overflow: 'hidden' }}>
-                  {timelineLabels.map((_, labelIndex) => {
-                    const leftPercent = (labelIndex / (timelineLabels.length - 1)) * 100;
+                  {timelineConfig.timelineLabels.map((_, labelIndex) => {
+                    const leftPercent = (labelIndex / (timelineConfig.timelineLabels.length - 1)) * 100;
                     return (
                       <View
                         key={`timeline-marker-${session.userName}-${session.start}-${labelIndex}`}
@@ -338,7 +368,6 @@ export default function SpotDetailScreen({
       </View>
 
       <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Sessies</Text>
         {sessions.length > 0 ? (
           statusOrder.map((status) => {
             const sessionsForStatus = sessionsByStatus[status];
