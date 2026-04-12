@@ -114,6 +114,8 @@ const getQuickCheckInEndTime = () => {
   const endTime = proposedEndTime > cappedEndTime ? cappedEndTime : proposedEndTime;
   return formatLocalHourMinute(endTime);
 };
+const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
+  error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
 const toMinutes = (hourMinute: string) => {
   const [hourPart, minutePart] = hourMinute.split(':');
   const hour = Number.parseInt(hourPart ?? '', 10);
@@ -683,7 +685,6 @@ export default function App() {
       && (latestOwnSession.status === 'Gaat' || latestOwnSession.status === 'Is er al')
       && currentLocalMinutes < latestOwnSessionEndMinutes,
   );
-  const canCheckIn = !latestOwnSession || !isLatestOwnSessionActive || latestOwnSession.status === 'Gaat';
   const canCheckOut = Boolean(
     latestOwnSession
       && latestOwnSession.status === 'Is er al'
@@ -733,8 +734,7 @@ export default function App() {
     console.log('BLOCKING_SESSION', blockingSession);
     console.log('TODAY_USER_SESSIONS', todayUserSessions);
     console.log('BLOCKING_SESSION_FIXED', blockingSession);
-    console.log('CAN_CHECK_IN', canCheckIn);
-  }, [blockingSession, canCheckIn, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
+  }, [blockingSession, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
   const newestFirstMessages = useMemo(
     () =>
       messages
@@ -835,28 +835,119 @@ export default function App() {
       return;
     }
 
-    if (!latestOwnSession) {
-      if (status === 'Is er al') {
-        const startTime = getNowLocalHourMinute();
-        const endTime = getLocalHourMinuteAfterMinutes(120);
-        const result = await supabase.from('sessions').insert({
-          spot_name: selectedSpot,
-          user_id: session.user.id,
-          user_name: profile.display_name,
-          user_avatar_url: profile.avatar_url,
-          start_time: startTime,
-          end_time: endTime,
-          status: 'Is er al',
-          checked_in_at: new Date().toISOString(),
-        });
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const nowLocalMinutes = now.getHours() * 60 + now.getMinutes();
 
-        if (result.error) {
-          setSessionActionError(result.error.message);
+    const getLatestOpenSession = async () => {
+      const response = await supabase
+        .from('sessions')
+        .select('id, spot_name, status, end_time, created_at')
+        .eq('user_id', authUserId)
+        .in('status', ['Gaat', 'Is er al'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      return response;
+    };
+
+    const isExpiredSession = (sessionItem: { end_time: string | null }) => {
+      if (!sessionItem.end_time) {
+        return false;
+      }
+
+      return nowLocalMinutes >= toMinutes(sessionItem.end_time.slice(0, 5));
+    };
+
+    if (status === 'Is er al') {
+      const latestOpenSessionResponse = await getLatestOpenSession();
+
+      if (latestOpenSessionResponse.error) {
+        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+        return;
+      }
+
+      let latestOpenSession = latestOpenSessionResponse.data;
+
+      if (latestOpenSession && isExpiredSession(latestOpenSession)) {
+        const closeResponse = await supabase
+          .from('sessions')
+          .update({
+            status: 'Uitchecken',
+            checked_out_at: nowIso,
+          })
+          .eq('id', latestOpenSession.id)
+          .eq('user_id', authUserId);
+
+        if (closeResponse.error) {
+          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+          return;
+        }
+
+        latestOpenSession = null;
+      }
+
+      if (latestOpenSession && latestOpenSession.spot_name === selectedSpot && latestOpenSession.status === 'Gaat') {
+        const checkInResponse = await supabase
+          .from('sessions')
+          .update({
+            status: 'Is er al',
+            checked_in_at: nowIso,
+          })
+          .eq('id', latestOpenSession.id)
+          .eq('user_id', authUserId);
+
+        if (checkInResponse.error) {
+          if (isUniqueConstraintError(checkInResponse.error)) {
+            setSessionActionError('Je hebt al een actieve sessie');
+            return;
+          }
+
+          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
           return;
         }
 
         await fetchSharedData();
-      } else if (status === 'Uitchecken') {
+        return;
+      }
+
+      if (latestOpenSession && latestOpenSession.spot_name === selectedSpot && latestOpenSession.status === 'Is er al') {
+        setSessionActionError('Je bent al ingecheckt');
+        return;
+      }
+
+      if (!selectedSpot || !session?.user.id || !profile) {
+        return;
+      }
+
+      const insertResult = await supabase.from('sessions').insert({
+        spot_name: selectedSpot,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: getNowLocalHourMinute(),
+        end_time: getQuickCheckInEndTime(),
+        status: 'Is er al',
+        checked_in_at: nowIso,
+      });
+
+      if (insertResult.error) {
+        if (isUniqueConstraintError(insertResult.error)) {
+          setSessionActionError('Je hebt al een actieve sessie');
+          return;
+        }
+
+        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+        return;
+      }
+
+      await fetchSharedData();
+      return;
+    }
+
+    if (!latestOwnSession) {
+      if (status === 'Uitchecken') {
         setSessionActionError('Check eerst in');
       }
       return;
@@ -864,81 +955,11 @@ export default function App() {
 
     const latestSessionIsActive = currentLocalMinutes < toMinutes(latestOwnSession.end);
 
-    if (status === 'Is er al' && latestOwnSession.status === 'Is er al' && latestSessionIsActive) {
-      setSessionActionError('Je bent al ingecheckt');
-      return;
-    }
-
-    if (status === 'Is er al' && latestOwnSession.status === 'Gaat' && latestSessionIsActive) {
-      const nowIso = new Date().toISOString();
-      const result = await supabase
-        .from('sessions')
-        .update({ status: 'Is er al', checked_in_at: nowIso })
-        .eq('id', latestOwnSession.id)
-        .eq('user_id', authUserId);
-
-      if (result.error) {
-        console.error('Status bijwerken mislukt:', result.error);
-        setSessionActionError(result.error.message);
-        return;
-      }
-
-      await fetchSharedData();
-      return;
-    }
-
-    if (status === 'Is er al' && latestOwnSession.status === 'Uitchecken') {
-      const startTime = getNowLocalHourMinute();
-      const endTime = getLocalHourMinuteAfterMinutes(120);
-      const result = await supabase.from('sessions').insert({
-        spot_name: selectedSpot,
-        user_id: session.user.id,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
-        start_time: startTime,
-        end_time: endTime,
-        status: 'Is er al',
-        checked_in_at: new Date().toISOString(),
-      });
-
-      if (result.error) {
-        setSessionActionError(result.error.message);
-        return;
-      }
-
-      await fetchSharedData();
-      return;
-    }
-
-    if (status === 'Is er al' && !latestSessionIsActive) {
-      const startTime = getNowLocalHourMinute();
-      const endTime = getLocalHourMinuteAfterMinutes(120);
-      const result = await supabase.from('sessions').insert({
-        spot_name: selectedSpot,
-        user_id: session.user.id,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
-        start_time: startTime,
-        end_time: endTime,
-        status: 'Is er al',
-        checked_in_at: new Date().toISOString(),
-      });
-
-      if (result.error) {
-        setSessionActionError(result.error.message);
-        return;
-      }
-
-      await fetchSharedData();
-      return;
-    }
-
     if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
       setSessionActionError('Check eerst in');
       return;
     }
 
-    const nowIso = new Date().toISOString();
     const updates: { status: SessionStatus; checked_in_at?: string; checked_out_at?: string } = { status };
 
     if (status === 'Is er al') {
@@ -961,7 +982,7 @@ export default function App() {
 
     if (error) {
       console.error('Status bijwerken mislukt:', error);
-      setSessionActionError(error.message);
+      setSessionActionError('Status bijwerken mislukt.');
       return;
     }
 
@@ -1023,7 +1044,7 @@ export default function App() {
       if (result.error.code === '23505') {
         setHomeQuickCheckInError('Rond eerst je huidige sessie af');
       } else {
-        setHomeQuickCheckInError(result.error.message);
+        setHomeQuickCheckInError('Inchecken is mislukt. Probeer opnieuw.');
       }
       setQuickCheckInSpotInFlight(null);
       return;
@@ -1084,7 +1105,11 @@ export default function App() {
         .eq('user_id', session.user.id);
 
       if (result.error) {
-        setSessionActionError(result.error.message);
+        if (isUniqueConstraintError(result.error)) {
+          setSessionActionError('Je hebt al een actieve sessie');
+        } else {
+          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+        }
         return;
       }
 
@@ -1104,7 +1129,11 @@ export default function App() {
     });
 
     if (result.error) {
-      setSessionActionError(result.error.message);
+      if (isUniqueConstraintError(result.error)) {
+        setSessionActionError('Je hebt al een actieve sessie');
+      } else {
+        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+      }
       return;
     }
 
@@ -1438,11 +1467,10 @@ export default function App() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
-              disabled={!canCheckIn}
               onPress={() => {
                 void handleUpdateSessionStatus('Is er al');
               }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
             >
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
             </Pressable>
@@ -1669,7 +1697,6 @@ export default function App() {
 
             return (
               <>
-                {isCurrentTimeMarkerVisible ? <Text style={{ color: '#d6e9ffcc', fontSize: 12, marginBottom: 6, marginLeft: 98 }}>marker active</Text> : null}
                 <View style={{ position: 'relative' }}>
                   {isCurrentTimeMarkerVisible ? (
                     <View
