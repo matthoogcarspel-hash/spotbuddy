@@ -42,22 +42,25 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
           flexDirection: 'row',
           justifyContent: 'space-between',
           alignItems: 'center',
-          minHeight: 104,
-          paddingVertical: 10,
+          minHeight: 156,
+          paddingVertical: 14,
+          paddingHorizontal: 16,
+          backgroundColor: '#121821',
+          borderRadius: 16,
         }}
       >
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 16 }}>
           <Image
             source={require('../../assets/logo.png')}
-            style={{ height: 82, aspectRatio: logoAspectRatio, marginRight: 14 }}
+            style={{ width: 130, height: 130, aspectRatio: logoAspectRatio, marginRight: 18 }}
             resizeMode="contain"
           />
           <View style={{ justifyContent: 'center' }}>
-            <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '700' }}>SpotBuddy</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 2 }}>Spot, tijd en gaaaan!</Text>
+            <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '800' }}>See who’s riding</Text>
+            <Text style={{ color: '#9db0c7', fontSize: 16, fontWeight: '600', marginTop: 4 }}>Join the session</Text>
           </View>
         </View>
-        <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 10, padding: 10 }}>
+        <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 10 }}>
           <Text style={{ color: '#ffffff', fontWeight: '600' }}>{profile.display_name}</Text>
         </Pressable>
       </View>
