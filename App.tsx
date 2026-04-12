@@ -55,6 +55,10 @@ type SpotDistanceInfo = {
   spot: SpotName;
   distanceMeters: number | null;
 };
+type SpotNotificationPreferences = {
+  sessionNotificationsEnabled: boolean;
+  chatNotificationsEnabled: boolean;
+};
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -73,6 +77,10 @@ const theme = {
   warm: '#c67a44',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
+  sessionNotificationsEnabled: false,
+  chatNotificationsEnabled: false,
+};
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
@@ -314,6 +322,10 @@ export default function App() {
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
+  const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
+  const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<'session' | 'chat' | null>(null);
+  const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
 
@@ -488,6 +500,53 @@ export default function App() {
   useEffect(() => {
     console.log('SHOW_FORM', showForm);
   }, [showForm]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    const loadSpotNotificationPreferences = async () => {
+      if (!selectedSpot || !session?.user.id) {
+        setSpotNotificationPreferences(defaultSpotNotificationPreferences);
+        setNotificationPreferencesError('');
+        setLoadingSpotNotificationPreferences(false);
+        return;
+      }
+
+      setLoadingSpotNotificationPreferences(true);
+      setNotificationPreferencesError('');
+
+      const { data, error } = await supabase
+        .from('spot_notification_preferences')
+        .select('session_notifications_enabled, chat_notifications_enabled')
+        .eq('user_id', session.user.id)
+        .eq('spot_name', selectedSpot)
+        .maybeSingle();
+
+      if (isCancelled) {
+        return;
+      }
+
+      if (error) {
+        console.error('Notificatievoorkeuren ophalen mislukt:', error);
+        setSpotNotificationPreferences(defaultSpotNotificationPreferences);
+        setNotificationPreferencesError('Kon meldingsvoorkeuren niet laden.');
+        setLoadingSpotNotificationPreferences(false);
+        return;
+      }
+
+      setSpotNotificationPreferences({
+        sessionNotificationsEnabled: data?.session_notifications_enabled ?? false,
+        chatNotificationsEnabled: data?.chat_notifications_enabled ?? false,
+      });
+      setLoadingSpotNotificationPreferences(false);
+    };
+
+    void loadSpotNotificationPreferences();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedSpot, session?.user.id]);
 
   useEffect(() => {
     setCurrentLocalMinutes(getCurrentLocalMinutes());
@@ -708,6 +767,39 @@ export default function App() {
       const bMinutes = bDirectCheckIn ? (getLocalMinutesFromIso(b.checkedInAt) ?? toMinutes(b.start)) : toMinutes(b.start);
       return aMinutes - bMinutes;
     }), [currentLocalMinutes, sessions]);
+
+  const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'session' | 'chat') => {
+    if (!selectedSpot || !session?.user.id) {
+      return false;
+    }
+
+    setSavingNotificationPreferenceKey(preferenceKey);
+    setNotificationPreferencesError('');
+
+    const { error } = await supabase
+      .from('spot_notification_preferences')
+      .upsert(
+        {
+          user_id: session.user.id,
+          spot_name: selectedSpot,
+          session_notifications_enabled: nextPreferences.sessionNotificationsEnabled,
+          chat_notifications_enabled: nextPreferences.chatNotificationsEnabled,
+        },
+        {
+          onConflict: 'user_id,spot_name',
+        },
+      );
+
+    setSavingNotificationPreferenceKey(null);
+
+    if (error) {
+      console.error('Notificatievoorkeur opslaan mislukt:', error);
+      setNotificationPreferencesError('Opslaan van meldingsvoorkeuren is mislukt.');
+      return false;
+    }
+
+    return true;
+  };
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
@@ -1413,6 +1505,98 @@ export default function App() {
               </View>
             </View>
           ) : null}
+        </View>
+
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Sessie meldingen</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Sessie gepland of ingecheckt</Text>
+            </View>
+            <Pressable
+              disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+              onPress={() => {
+                const previousPreferences = spotNotificationPreferences;
+                const nextPreferences = {
+                  ...previousPreferences,
+                  sessionNotificationsEnabled: !previousPreferences.sessionNotificationsEnabled,
+                };
+                setSpotNotificationPreferences(nextPreferences);
+                void saveSpotNotificationPreferences(nextPreferences, 'session').then((didSave) => {
+                  if (!didSave) {
+                    setSpotNotificationPreferences(previousPreferences);
+                  }
+                });
+              }}
+              style={{
+                width: 56,
+                height: 30,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: spotNotificationPreferences.sessionNotificationsEnabled ? '#2563eb' : theme.bgElevated,
+                paddingHorizontal: 3,
+                justifyContent: 'center',
+                opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
+              }}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 999,
+                  backgroundColor: '#ffffff',
+                  alignSelf: spotNotificationPreferences.sessionNotificationsEnabled ? 'flex-end' : 'flex-start',
+                }}
+              />
+            </Pressable>
+          </View>
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Chat meldingen</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Nieuw chatbericht</Text>
+            </View>
+            <Pressable
+              disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+              onPress={() => {
+                const previousPreferences = spotNotificationPreferences;
+                const nextPreferences = {
+                  ...previousPreferences,
+                  chatNotificationsEnabled: !previousPreferences.chatNotificationsEnabled,
+                };
+                setSpotNotificationPreferences(nextPreferences);
+                void saveSpotNotificationPreferences(nextPreferences, 'chat').then((didSave) => {
+                  if (!didSave) {
+                    setSpotNotificationPreferences(previousPreferences);
+                  }
+                });
+              }}
+              style={{
+                width: 56,
+                height: 30,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: spotNotificationPreferences.chatNotificationsEnabled ? '#2563eb' : theme.bgElevated,
+                paddingHorizontal: 3,
+                justifyContent: 'center',
+                opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
+              }}
+            >
+              <View
+                style={{
+                  width: 22,
+                  height: 22,
+                  borderRadius: 999,
+                  backgroundColor: '#ffffff',
+                  alignSelf: spotNotificationPreferences.chatNotificationsEnabled ? 'flex-end' : 'flex-start',
+                }}
+              />
+            </Pressable>
+          </View>
+
+          {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
