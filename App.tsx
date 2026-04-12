@@ -26,6 +26,7 @@ const SPOT_NAMES = SPOTS.map((spot) => spot.name) as SpotName[];
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 type SpotSession = {
   id: string;
+  spot: SpotName;
   start: string;
   end: string;
   status: SessionStatus;
@@ -367,6 +368,7 @@ export default function App() {
   const [isNotificationPanelExpanded, setIsNotificationPanelExpanded] = useState(false);
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
+  const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -449,6 +451,7 @@ export default function App() {
 
         nextSessionsBySpot[spot].push({
           id: row.id,
+          spot,
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
           status: mapSessionStatus(row.status),
@@ -708,6 +711,22 @@ export default function App() {
       return bTime - aTime;
     })[0] ?? null;
   }, [todayUserSessions]);
+  const activeCheckedInSession = useMemo(() => {
+    if (todayUserSessions.length === 0) {
+      return null;
+    }
+
+    return (
+      [...todayUserSessions]
+        .filter((sessionItem) => sessionItem.status === 'Is er al')
+        .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })[0] ?? null
+    );
+  }, [currentLocalMinutes, todayUserSessions]);
   const blockingSession = useMemo(() => {
     if (todayUserSessions.length === 0) {
       return null;
@@ -999,18 +1018,12 @@ export default function App() {
       return;
     }
 
-    const latestSessionIsActive = currentLocalMinutes < toMinutes(latestOwnSession.end);
-
     if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
       setSessionActionError('Check eerst in');
       return;
     }
 
     const updates: { status: SessionStatus; checked_in_at?: string; checked_out_at?: string } = { status };
-
-    if (status === 'Is er al') {
-      updates.checked_in_at = nowIso;
-    }
 
     if (status === 'Uitchecken') {
       updates.checked_out_at = nowIso;
@@ -1107,6 +1120,7 @@ export default function App() {
         ...previous[insertedSpot],
         {
           id: result.data.id,
+          spot: insertedSpot,
           start: result.data.start_time.slice(0, 5),
           end: result.data.end_time.slice(0, 5),
           status: mapSessionStatus(result.data.status),
@@ -1122,6 +1136,39 @@ export default function App() {
     });
 
     setQuickCheckInSpotInFlight(null);
+    setHomeQuickCheckInError('');
+    await fetchSharedData();
+  };
+
+  const handleQuickCheckOut = async () => {
+    setHomeQuickCheckInError('');
+
+    if (!session?.user.id) {
+      return;
+    }
+
+    if (!activeCheckedInSession) {
+      setHomeQuickCheckInError('Check eerst in');
+      return;
+    }
+
+    setHomeQuickCheckOutInFlight(true);
+    const result = await supabase
+      .from('sessions')
+      .update({
+        status: 'Uitchecken',
+        checked_out_at: new Date().toISOString(),
+      })
+      .eq('id', activeCheckedInSession.id)
+      .eq('user_id', session.user.id);
+
+    setHomeQuickCheckOutInFlight(false);
+
+    if (result.error) {
+      setHomeQuickCheckInError('Uitchecken is mislukt. Probeer opnieuw.');
+      return;
+    }
+
     setHomeQuickCheckInError('');
     await fetchSharedData();
   };
@@ -2045,24 +2092,52 @@ export default function App() {
             <>
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>{nearestSpotResult.spot}</Text>
               <Text style={{ color: theme.textSoft, marginTop: 2 }}>Afstand: {nearestSpotDistanceLabel}</Text>
-              <Pressable
-                disabled={!canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null}
-                onPress={() => {
-                  void handleQuickCheckIn(nearestSpotResult.spot);
-                }}
-                style={{
-                  marginTop: 10,
-                  borderRadius: 10,
-                  paddingVertical: 10,
-                  alignItems: 'center',
-                  backgroundColor: '#15803d',
-                  opacity: !canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null ? 0.45 : 1,
-                }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                  {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Inchecken...' : 'Hier inchecken'}
-                </Text>
-              </Pressable>
+              {activeCheckedInSession ? (
+                <>
+                  <Pressable
+                    disabled={homeQuickCheckOutInFlight}
+                    onPress={() => {
+                      void handleQuickCheckOut();
+                    }}
+                    style={{
+                      marginTop: 10,
+                      borderRadius: 10,
+                      paddingVertical: 10,
+                      alignItems: 'center',
+                      backgroundColor: '#7c2d12',
+                      opacity: homeQuickCheckOutInFlight ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                      {homeQuickCheckOutInFlight ? 'Uitchecken...' : 'Hier uitchecken'}
+                    </Text>
+                  </Pressable>
+                  {activeCheckedInSession.spot !== nearestSpotResult.spot ? (
+                    <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>
+                      Je bent ingecheckt bij {activeCheckedInSession.spot}
+                    </Text>
+                  ) : null}
+                </>
+              ) : (
+                <Pressable
+                  disabled={!canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null}
+                  onPress={() => {
+                    void handleQuickCheckIn(nearestSpotResult.spot);
+                  }}
+                  style={{
+                    marginTop: 10,
+                    borderRadius: 10,
+                    paddingVertical: 10,
+                    alignItems: 'center',
+                    backgroundColor: '#15803d',
+                    opacity: !canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null ? 0.45 : 1,
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                    {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Inchecken...' : 'Hier inchecken'}
+                  </Text>
+                </Pressable>
+              )}
               {!nearestSpotWithinRange ? (
                 <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>Je bent nog niet dicht genoeg bij een spot</Text>
               ) : null}
