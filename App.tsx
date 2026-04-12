@@ -326,6 +326,7 @@ export default function App() {
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<'session' | 'chat' | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
+  const [isNotificationPanelExpanded, setIsNotificationPanelExpanded] = useState(false);
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
 
@@ -503,6 +504,7 @@ export default function App() {
 
   useEffect(() => {
     let isCancelled = false;
+    setIsNotificationPanelExpanded(false);
 
     const loadSpotNotificationPreferences = async () => {
       if (!selectedSpot || !session?.user.id) {
@@ -619,6 +621,8 @@ export default function App() {
 
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  const areAnySpotNotificationsEnabled =
+    spotNotificationPreferences.sessionNotificationsEnabled || spotNotificationPreferences.chatNotificationsEnabled;
   const todaysSessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(() => []);
     for (const spot of SPOT_NAMES) {
@@ -1507,96 +1511,123 @@ export default function App() {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Sessie meldingen</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Sessie gepland of ingecheckt</Text>
-            </View>
-            <Pressable
-              disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-              onPress={() => {
-                const previousPreferences = spotNotificationPreferences;
-                const nextPreferences = {
-                  ...previousPreferences,
-                  sessionNotificationsEnabled: !previousPreferences.sessionNotificationsEnabled,
-                };
-                setSpotNotificationPreferences(nextPreferences);
-                void saveSpotNotificationPreferences(nextPreferences, 'session').then((didSave) => {
-                  if (!didSave) {
-                    setSpotNotificationPreferences(previousPreferences);
-                  }
-                });
-              }}
+        <View style={{ marginTop: -2, marginBottom: 14 }}>
+          <Pressable
+            onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
+            style={{
+              borderRadius: 10,
+              paddingHorizontal: 4,
+              paddingVertical: 8,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '500' }}>🔔 Meldingen</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+              {areAnySpotNotificationsEnabled ? 'Meldingen aan' : 'Meldingen uit'}
+            </Text>
+          </Pressable>
+
+          {isNotificationPanelExpanded ? (
+            <View
               style={{
-                width: 56,
-                height: 30,
-                borderRadius: 999,
+                marginTop: 4,
+                borderRadius: 12,
                 borderWidth: 1,
                 borderColor: theme.border,
-                backgroundColor: spotNotificationPreferences.sessionNotificationsEnabled ? '#2563eb' : theme.bgElevated,
-                paddingHorizontal: 3,
-                justifyContent: 'center',
-                opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
+                backgroundColor: theme.card,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
               }}
             >
-              <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  backgroundColor: '#ffffff',
-                  alignSelf: spotNotificationPreferences.sessionNotificationsEnabled ? 'flex-end' : 'flex-start',
-                }}
-              />
-            </Pressable>
-          </View>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>Pushmeldingen voor deze spot</Text>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Chat meldingen</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Nieuw chatbericht</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Sessie updates</Text>
+                <Pressable
+                  disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                  onPress={() => {
+                    const previousPreferences = spotNotificationPreferences;
+                    const nextPreferences = {
+                      ...previousPreferences,
+                      sessionNotificationsEnabled: !previousPreferences.sessionNotificationsEnabled,
+                    };
+                    setSpotNotificationPreferences(nextPreferences);
+                    void saveSpotNotificationPreferences(nextPreferences, 'session').then((didSave) => {
+                      if (!didSave) {
+                        setSpotNotificationPreferences(previousPreferences);
+                      }
+                    });
+                  }}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    backgroundColor: spotNotificationPreferences.sessionNotificationsEnabled ? '#2563eb' : theme.bgElevated,
+                    paddingHorizontal: 2,
+                    justifyContent: 'center',
+                    opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      backgroundColor: '#ffffff',
+                      alignSelf: spotNotificationPreferences.sessionNotificationsEnabled ? 'flex-end' : 'flex-start',
+                    }}
+                  />
+                </Pressable>
+              </View>
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Chat berichten</Text>
+                <Pressable
+                  disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                  onPress={() => {
+                    const previousPreferences = spotNotificationPreferences;
+                    const nextPreferences = {
+                      ...previousPreferences,
+                      chatNotificationsEnabled: !previousPreferences.chatNotificationsEnabled,
+                    };
+                    setSpotNotificationPreferences(nextPreferences);
+                    void saveSpotNotificationPreferences(nextPreferences, 'chat').then((didSave) => {
+                      if (!didSave) {
+                        setSpotNotificationPreferences(previousPreferences);
+                      }
+                    });
+                  }}
+                  style={{
+                    width: 44,
+                    height: 24,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    backgroundColor: spotNotificationPreferences.chatNotificationsEnabled ? '#2563eb' : theme.bgElevated,
+                    paddingHorizontal: 2,
+                    justifyContent: 'center',
+                    opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
+                  }}
+                >
+                  <View
+                    style={{
+                      width: 18,
+                      height: 18,
+                      borderRadius: 999,
+                      backgroundColor: '#ffffff',
+                      alignSelf: spotNotificationPreferences.chatNotificationsEnabled ? 'flex-end' : 'flex-start',
+                    }}
+                  />
+                </Pressable>
+              </View>
+
+              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
             </View>
-            <Pressable
-              disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-              onPress={() => {
-                const previousPreferences = spotNotificationPreferences;
-                const nextPreferences = {
-                  ...previousPreferences,
-                  chatNotificationsEnabled: !previousPreferences.chatNotificationsEnabled,
-                };
-                setSpotNotificationPreferences(nextPreferences);
-                void saveSpotNotificationPreferences(nextPreferences, 'chat').then((didSave) => {
-                  if (!didSave) {
-                    setSpotNotificationPreferences(previousPreferences);
-                  }
-                });
-              }}
-              style={{
-                width: 56,
-                height: 30,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: spotNotificationPreferences.chatNotificationsEnabled ? '#2563eb' : theme.bgElevated,
-                paddingHorizontal: 3,
-                justifyContent: 'center',
-                opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
-              }}
-            >
-              <View
-                style={{
-                  width: 22,
-                  height: 22,
-                  borderRadius: 999,
-                  backgroundColor: '#ffffff',
-                  alignSelf: spotNotificationPreferences.chatNotificationsEnabled ? 'flex-end' : 'flex-start',
-                }}
-              />
-            </Pressable>
-          </View>
-
-          {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+          ) : null}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
