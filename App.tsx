@@ -164,6 +164,31 @@ const formatToHourMinute = (value: string | null | undefined) => {
     hour12: false,
   });
 };
+const getLocalMinutesFromIso = (value: string | null | undefined) => {
+  if (!value) {
+    return null;
+  }
+
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return null;
+  }
+
+  return dateValue.getHours() * 60 + dateValue.getMinutes();
+};
+const isDirectCheckIn = (sessionItem: SpotSession) => {
+  if (!sessionItem.checkedInAt || !sessionItem.createdAt || sessionItem.status !== 'Is er al') {
+    return false;
+  }
+
+  const createdMs = new Date(sessionItem.createdAt).getTime();
+  const checkedInMs = new Date(sessionItem.checkedInAt).getTime();
+  if (Number.isNaN(createdMs) || Number.isNaN(checkedInMs)) {
+    return false;
+  }
+
+  return Math.abs(checkedInMs - createdMs) <= 90_000;
+};
 
 const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
   SPOT_NAMES.reduce((result, spot) => {
@@ -639,38 +664,50 @@ export default function App() {
     [currentLocalDateKey, messages],
   );
 
-  const timelineSessions = useMemo(
-    () =>
-      sessions
-        .filter((item) => {
-          if (!isSessionCreatedToday(item)) {
-            return false;
-          }
+  const timelineSessions = useMemo(() => sessions
+    .filter((item) => {
+      if (!isSessionCreatedToday(item)) {
+        return false;
+      }
 
-          if (item.status !== 'Gaat' && item.status !== 'Is er al') {
-            return false;
-          }
+      if (item.status !== 'Gaat' && item.status !== 'Is er al') {
+        return false;
+      }
 
-          const startMinutes = toMinutes(item.start);
-          const endMinutes = toMinutes(item.end);
+      const directCheckIn = isDirectCheckIn(item);
+      const checkInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+      if (directCheckIn) {
+        if (checkInMinutes === null || checkInMinutes < timelineStartMinutes || checkInMinutes > timelineEndMinutes) {
+          return false;
+        }
 
-          if (startMinutes < timelineStartMinutes || endMinutes > timelineEndMinutes) {
-            return false;
-          }
+        return true;
+      }
 
-          if (endMinutes <= startMinutes) {
-            return false;
-          }
+      const startMinutes = toMinutes(item.start);
+      const endMinutes = toMinutes(item.end);
 
-          if (currentLocalMinutes >= endMinutes) {
-            return false;
-          }
+      if (startMinutes < timelineStartMinutes || endMinutes > timelineEndMinutes) {
+        return false;
+      }
 
-          return true;
-        })
-        .sort((a, b) => toMinutes(a.start) - toMinutes(b.start)),
-    [currentLocalMinutes, sessions],
-  );
+      if (endMinutes <= startMinutes) {
+        return false;
+      }
+
+      if (currentLocalMinutes >= endMinutes) {
+        return false;
+      }
+
+      return true;
+    })
+    .sort((a, b) => {
+      const aDirectCheckIn = isDirectCheckIn(a);
+      const bDirectCheckIn = isDirectCheckIn(b);
+      const aMinutes = aDirectCheckIn ? (getLocalMinutesFromIso(a.checkedInAt) ?? toMinutes(a.start)) : toMinutes(a.start);
+      const bMinutes = bDirectCheckIn ? (getLocalMinutesFromIso(b.checkedInAt) ?? toMinutes(b.start)) : toMinutes(b.start);
+      return aMinutes - bMinutes;
+    }), [currentLocalMinutes, sessions]);
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
@@ -1448,6 +1485,60 @@ export default function App() {
 
                   {timelineSessions.length > 0 ? (
                     timelineSessions.map((timelineSession) => {
+                      const directCheckIn = isDirectCheckIn(timelineSession);
+                      const checkedInMinutes = getLocalMinutesFromIso(timelineSession.checkedInAt);
+                      const checkedInLocalHourMinute = formatToHourMinute(timelineSession.checkedInAt);
+                      const checkInMarkerPercent = checkedInMinutes === null
+                        ? null
+                        : clamp(((checkedInMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
+
+                      const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
+                        'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
+                        'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
+                        Ingecheckt: { bar: '#27835a', text: '#eafff3' },
+                      };
+
+                      if (directCheckIn) {
+                        if (checkInMarkerPercent === null || checkedInLocalHourMinute === '--:--') {
+                          return null;
+                        }
+
+                        return (
+                          <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                            <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
+                              {timelineSession.userName}
+                            </Text>
+                            <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
+                              <View
+                                style={{
+                                  position: 'absolute',
+                                  left: `${checkInMarkerPercent}%`,
+                                  top: 4,
+                                  bottom: 4,
+                                  width: 0,
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                }}
+                              >
+                                <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: theme.live }} />
+                              </View>
+                              <Text
+                                style={{
+                                  position: 'absolute',
+                                  left: `${clamp(checkInMarkerPercent + 2, 0, 94)}%`,
+                                  top: 6,
+                                  color: '#b4f7d4',
+                                  fontSize: 11,
+                                  fontWeight: '700',
+                                }}
+                              >
+                                {checkedInLocalHourMinute}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      }
+
                       const sessionStartMinutes = toMinutes(timelineSession.start);
                       let sessionEndMinutes = toMinutes(timelineSession.end);
                       if (sessionEndMinutes <= sessionStartMinutes) {
@@ -1464,12 +1555,6 @@ export default function App() {
                       if (!displayState) {
                         return null;
                       }
-
-                      const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
-                        'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
-                        'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
-                        Ingecheckt: { bar: '#27835a', text: '#eafff3' },
-                      };
                       const showLabelOutside = widthPercent < 18;
                       const labelText = `${timelineSession.start}–${timelineSession.end}`;
                       const labelLeftPercent = clamp(leftPercent + widthPercent, 0, 96);
@@ -1514,6 +1599,35 @@ export default function App() {
                               >
                                 {labelText}
                               </Text>
+                            ) : null}
+                            {timelineSession.status === 'Is er al' && checkInMarkerPercent !== null && checkedInLocalHourMinute !== '--:--' ? (
+                              <>
+                                <View
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${checkInMarkerPercent}%`,
+                                    top: 2,
+                                    bottom: 2,
+                                    width: 0,
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                  }}
+                                >
+                                  <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: theme.live, borderWidth: 1, borderColor: '#ddffe8' }} />
+                                </View>
+                                <Text
+                                  style={{
+                                    position: 'absolute',
+                                    left: `${clamp(checkInMarkerPercent + 1.5, 0, 92)}%`,
+                                    top: -16,
+                                    color: '#b4f7d4',
+                                    fontSize: 10,
+                                    fontWeight: '700',
+                                  }}
+                                >
+                                  {`in ${checkedInLocalHourMinute}`}
+                                </Text>
+                              </>
                             ) : null}
                           </View>
                         </View>
