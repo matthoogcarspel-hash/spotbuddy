@@ -1245,15 +1245,6 @@ export default function App() {
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
 
           <Pressable
-            onPress={() => {
-              void handleSpotQuickCheckIn();
-            }}
-            style={{ marginTop: 14, ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Snelle check-in</Text>
-          </Pressable>
-
-          <Pressable
             disabled={!canPlanSession}
             onPress={() => {
               if (!canPlanSession) {
@@ -1379,83 +1370,143 @@ export default function App() {
               ))}
             </View>
           </View>
+          {(() => {
+            const totalRange = timelineEndMinutes - timelineStartMinutes;
+            const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineStartMinutes && currentLocalMinutes <= timelineEndMinutes;
+            const currentPercent = ((currentLocalMinutes - timelineStartMinutes) / totalRange) * 100;
 
-          {timelineSessions.length > 0 ? (
-            timelineSessions.map((timelineSession) => {
-              const sessionStartMinutes = toMinutes(timelineSession.start);
-              let sessionEndMinutes = toMinutes(timelineSession.end);
-              if (sessionEndMinutes <= sessionStartMinutes) {
-                sessionEndMinutes += 24 * 60;
-              }
-              const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
-              const clampedEndMinutes = clamp(sessionEndMinutes, timelineStartMinutes, timelineEndMinutes);
-              const rawLeftPercent = ((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100;
-              const rawWidthPercent = ((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100;
-              const leftPercent = clamp(rawLeftPercent, 0, 100);
-              const maxWidthPercent = Math.max(0, 100 - leftPercent);
-              const widthPercent = clamp(rawWidthPercent, 0, maxWidthPercent);
-              const displayState = getSessionDisplayState(timelineSession, currentLocalMinutes);
-              if (!displayState) {
-                return null;
-              }
-
-              const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
-                'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
-                'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
-                Ingecheckt: { bar: '#27835a', text: '#eafff3' },
-              };
-              const showLabelOutside = widthPercent < 18;
-              const labelText = `${timelineSession.start}–${timelineSession.end}`;
-              const labelLeftPercent = clamp(leftPercent + widthPercent, 0, 96);
-
-              return (
-                <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                  <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
-                    {timelineSession.userName}
-                  </Text>
-                  <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
+            return (
+              <>
+                {isCurrentTimeMarkerVisible ? <Text style={{ color: '#d6e9ffcc', fontSize: 12, marginBottom: 6, marginLeft: 98 }}>marker active</Text> : null}
+                <View style={{ position: 'relative' }}>
+                  {isCurrentTimeMarkerVisible ? (
                     <View
+                      pointerEvents="none"
                       style={{
                         position: 'absolute',
-                        left: `${leftPercent}%`,
-                        width: `${widthPercent}%`,
-                        top: 2,
-                        bottom: 2,
-                        borderRadius: 999,
-                        backgroundColor: timelineStateStyle[displayState].bar,
-                        justifyContent: 'center',
-                        alignItems: showLabelOutside ? 'flex-end' : 'center',
-                        paddingHorizontal: showLabelOutside ? 8 : 10,
-                        overflow: 'visible',
+                        left: 98,
+                        right: 0,
+                        top: 0,
+                        bottom: 0,
+                        zIndex: 10,
                       }}
                     >
-                      {!showLabelOutside ? (
-                        <Text style={{ color: timelineStateStyle[displayState].text, fontSize: 11, fontWeight: '600', lineHeight: 14 }}>
-                          {labelText}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {showLabelOutside ? (
-                      <Text
+                      <View
                         style={{
                           position: 'absolute',
-                          left: `${labelLeftPercent}%`,
-                          top: -17,
-                          color: theme.textSoft,
-                          fontSize: 11,
-                          fontWeight: '600',
+                          left: `${currentPercent}%`,
+                          top: 0,
+                          bottom: 0,
+                          width: 0,
+                          alignItems: 'center',
                         }}
                       >
-                        {labelText}
-                      </Text>
-                    ) : null}
-                  </View>
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 999,
+                            backgroundColor: '#d8eeffcc',
+                            shadowColor: '#d8eeff',
+                            shadowOpacity: 0.28,
+                            shadowRadius: 5,
+                            shadowOffset: { width: 0, height: 0 },
+                          }}
+                        />
+                        <View
+                          style={{
+                            marginTop: 4,
+                            width: 1,
+                            flex: 1,
+                            borderLeftWidth: 1,
+                            borderStyle: 'dashed',
+                            borderColor: '#cfe6ff80',
+                          }}
+                        />
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {timelineSessions.length > 0 ? (
+                    timelineSessions.map((timelineSession) => {
+                      const sessionStartMinutes = toMinutes(timelineSession.start);
+                      let sessionEndMinutes = toMinutes(timelineSession.end);
+                      if (sessionEndMinutes <= sessionStartMinutes) {
+                        sessionEndMinutes += 24 * 60;
+                      }
+                      const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
+                      const clampedEndMinutes = clamp(sessionEndMinutes, timelineStartMinutes, timelineEndMinutes);
+                      const rawLeftPercent = ((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100;
+                      const rawWidthPercent = ((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100;
+                      const leftPercent = clamp(rawLeftPercent, 0, 100);
+                      const maxWidthPercent = Math.max(0, 100 - leftPercent);
+                      const widthPercent = clamp(rawWidthPercent, 0, maxWidthPercent);
+                      const displayState = getSessionDisplayState(timelineSession, currentLocalMinutes);
+                      if (!displayState) {
+                        return null;
+                      }
+
+                      const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
+                        'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
+                        'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
+                        Ingecheckt: { bar: '#27835a', text: '#eafff3' },
+                      };
+                      const showLabelOutside = widthPercent < 18;
+                      const labelText = `${timelineSession.start}–${timelineSession.end}`;
+                      const labelLeftPercent = clamp(leftPercent + widthPercent, 0, 96);
+
+                      return (
+                        <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                          <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
+                            {timelineSession.userName}
+                          </Text>
+                          <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
+                            <View
+                              style={{
+                                position: 'absolute',
+                                left: `${leftPercent}%`,
+                                width: `${widthPercent}%`,
+                                top: 2,
+                                bottom: 2,
+                                borderRadius: 999,
+                                backgroundColor: timelineStateStyle[displayState].bar,
+                                justifyContent: 'center',
+                                alignItems: showLabelOutside ? 'flex-end' : 'center',
+                                paddingHorizontal: showLabelOutside ? 8 : 10,
+                                overflow: 'visible',
+                              }}
+                            >
+                              {!showLabelOutside ? (
+                                <Text style={{ color: timelineStateStyle[displayState].text, fontSize: 11, fontWeight: '600', lineHeight: 14 }}>
+                                  {labelText}
+                                </Text>
+                              ) : null}
+                            </View>
+                            {showLabelOutside ? (
+                              <Text
+                                style={{
+                                  position: 'absolute',
+                                  left: `${labelLeftPercent}%`,
+                                  top: -17,
+                                  color: theme.textSoft,
+                                  fontSize: 11,
+                                  fontWeight: '600',
+                                }}
+                              >
+                                {labelText}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      );
+                    })
+                  ) : (
+                    <Text style={{ color: theme.textSoft, fontSize: 14 }}>Nog geen sessies op de tijdlijn</Text>
+                  )}
                 </View>
-              );
-            })
-          ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 14 }}>Nog geen sessies op de tijdlijn</Text>
-          )}
+              </>
+            );
+          })()}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
