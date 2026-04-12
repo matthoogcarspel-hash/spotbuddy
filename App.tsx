@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
-import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
@@ -254,25 +253,13 @@ const formatDistance = (distanceMeters: number) => {
 
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 };
-const registerPushToken = async (userId: string) => {
-  if (!Device.isDevice) {
-    console.log('Push registration skipped: physical device required.');
+const registerForPushNotifications = async (userId: string) => {
+  const { status } = await Notifications.requestPermissionsAsync();
+  if (status !== 'granted') {
     return;
   }
 
-  const existingPermissions = await Notifications.getPermissionsAsync();
-  let finalStatus = existingPermissions.status;
-
-  if (finalStatus !== 'granted') {
-    const requestedPermissions = await Notifications.requestPermissionsAsync();
-    finalStatus = requestedPermissions.status;
-  }
-
-  console.log('Push permission status:', finalStatus);
-
-  if (finalStatus !== 'granted') {
-    return;
-  }
+  console.log('push permission granted');
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
@@ -282,7 +269,6 @@ const registerPushToken = async (userId: string) => {
 
   const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
   const expoPushToken = tokenResult.data;
-  console.log('Expo push token acquired:', expoPushToken);
 
   const { error } = await supabase.from('push_tokens').upsert(
     {
@@ -291,7 +277,7 @@ const registerPushToken = async (userId: string) => {
       platform: Platform.OS,
       updated_at: new Date().toISOString(),
     },
-    { onConflict: 'user_id,expo_push_token' }
+    { onConflict: 'user_id,platform' }
   );
 
   if (error) {
@@ -299,7 +285,7 @@ const registerPushToken = async (userId: string) => {
     return;
   }
 
-  console.log('Push token saved successfully.');
+  console.log('push token saved');
 };
 const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult | null => {
   let nearestSpot: SpotName | null = null;
@@ -555,7 +541,7 @@ export default function App() {
       return;
     }
 
-    void registerPushToken(session.user.id).catch((error: unknown) => {
+    void registerForPushNotifications(session.user.id).catch((error: unknown) => {
       console.error('Push registration failed:', error);
     });
   }, [session?.user.id]);
