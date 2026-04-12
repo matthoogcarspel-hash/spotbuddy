@@ -51,6 +51,10 @@ type NearestSpotResult = {
   spot: SpotName;
   distanceMeters: number;
 };
+type SpotDistanceInfo = {
+  spot: SpotName;
+  distanceMeters: number | null;
+};
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -269,6 +273,7 @@ export default function App() {
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<Location.PermissionStatus | null>(null);
   const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
+  const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
 
@@ -462,29 +467,46 @@ export default function App() {
     const resolveNearestSpot = async () => {
       setIsResolvingNearestSpot(true);
 
-      const permissionResponse = await Location.requestForegroundPermissionsAsync();
-      if (isCancelled) {
-        return;
-      }
+      try {
+        const permissionResponse = await Location.requestForegroundPermissionsAsync();
+        if (isCancelled) {
+          return;
+        }
 
-      setLocationPermissionStatus(permissionResponse.status);
-      if (permissionResponse.status !== 'granted') {
+        setLocationPermissionStatus(permissionResponse.status);
+        if (permissionResponse.status !== 'granted') {
+          setCurrentCoordinates(null);
+          setNearestSpotResult(null);
+          setIsResolvingNearestSpot(false);
+          return;
+        }
+
+        const currentPosition = await Location.getCurrentPositionAsync({});
+        if (isCancelled) {
+          return;
+        }
+
+        const coordinates = {
+          lat: currentPosition.coords.latitude,
+          lng: currentPosition.coords.longitude,
+        };
+
+        setCurrentCoordinates(coordinates);
+        const nearest = getNearestSpot(coordinates);
+        setNearestSpotResult(nearest);
+      } catch (error) {
+        if (isCancelled) {
+          return;
+        }
+
+        setCurrentCoordinates(null);
         setNearestSpotResult(null);
-        setIsResolvingNearestSpot(false);
-        return;
+        console.error('Locatie ophalen mislukt:', error);
+      } finally {
+        if (!isCancelled) {
+          setIsResolvingNearestSpot(false);
+        }
       }
-
-      const currentPosition = await Location.getCurrentPositionAsync({});
-      if (isCancelled) {
-        return;
-      }
-
-      const nearest = getNearestSpot({
-        lat: currentPosition.coords.latitude,
-        lng: currentPosition.coords.longitude,
-      });
-      setNearestSpotResult(nearest);
-      setIsResolvingNearestSpot(false);
     };
 
     void resolveNearestSpot();
@@ -556,6 +578,29 @@ export default function App() {
   const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
+  const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
+    const spotsWithDistance = SPOTS.map((spot) => ({
+      spot: spot.name,
+      distanceMeters: currentCoordinates
+        ? getDistanceMeters(currentCoordinates, {
+          lat: spot.lat,
+          lng: spot.lng,
+        })
+        : null,
+    }));
+
+    if (!currentCoordinates) {
+      return spotsWithDistance;
+    }
+
+    return [...spotsWithDistance].sort((a, b) => {
+      if (a.distanceMeters === null || b.distanceMeters === null) {
+        return 0;
+      }
+
+      return a.distanceMeters - b.distanceMeters;
+    });
+  }, [currentCoordinates]);
   useEffect(() => {
     console.log('LATEST_OWN_SESSION', latestOwnSession);
     console.log('CURRENT_MINUTES', currentLocalMinutes);
@@ -1539,7 +1584,7 @@ export default function App() {
             </>
           )}
         </View>
-        {SPOT_NAMES.map((spot) => {
+        {homeSpotCards.map(({ spot, distanceMeters }) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
@@ -1559,6 +1604,9 @@ export default function App() {
               }}
             >
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
+                Afstand: {distanceMeters === null ? 'Onbekend' : formatDistance(distanceMeters)}
+              </Text>
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
                   <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Gaat nog</Text>
