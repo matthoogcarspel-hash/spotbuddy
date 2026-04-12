@@ -1,9 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
+import Constants from 'expo-constants';
+import * as Device from 'expo-device';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
-import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import * as Notifications from 'expo-notifications';
+import { Image, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
 import { Profile, supabase } from './src/lib/supabase';
@@ -250,6 +253,53 @@ const formatDistance = (distanceMeters: number) => {
   }
 
   return `${(distanceMeters / 1000).toFixed(1)} km`;
+};
+const registerPushToken = async (userId: string) => {
+  if (!Device.isDevice) {
+    console.log('Push registration skipped: physical device required.');
+    return;
+  }
+
+  const existingPermissions = await Notifications.getPermissionsAsync();
+  let finalStatus = existingPermissions.status;
+
+  if (finalStatus !== 'granted') {
+    const requestedPermissions = await Notifications.requestPermissionsAsync();
+    finalStatus = requestedPermissions.status;
+  }
+
+  console.log('Push permission status:', finalStatus);
+
+  if (finalStatus !== 'granted') {
+    return;
+  }
+
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  if (!projectId) {
+    console.warn('Push registration skipped: missing EAS projectId.');
+    return;
+  }
+
+  const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
+  const expoPushToken = tokenResult.data;
+  console.log('Expo push token acquired:', expoPushToken);
+
+  const { error } = await supabase.from('push_tokens').upsert(
+    {
+      user_id: userId,
+      expo_push_token: expoPushToken,
+      platform: Platform.OS,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'user_id,expo_push_token' }
+  );
+
+  if (error) {
+    console.error('Push token save failed:', error);
+    return;
+  }
+
+  console.log('Push token saved successfully.');
 };
 const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult | null => {
   let nearestSpot: SpotName | null = null;
@@ -499,6 +549,16 @@ export default function App() {
       setProfileNameInput(profile.display_name);
     }
   }, [showProfile, profile]);
+
+  useEffect(() => {
+    if (!session?.user.id) {
+      return;
+    }
+
+    void registerPushToken(session.user.id).catch((error: unknown) => {
+      console.error('Push registration failed:', error);
+    });
+  }, [session?.user.id]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
