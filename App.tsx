@@ -76,6 +76,8 @@ const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
+const getLocalDateKey = (dateValue: Date) => `${dateValue.getFullYear()}-${formatTimePart(dateValue.getMonth() + 1)}-${formatTimePart(dateValue.getDate())}`;
+const getCurrentLocalDateKey = () => getLocalDateKey(new Date());
 const getLocalHourMinuteAfterMinutes = (minutesToAdd: number) => {
   const dateValue = new Date();
   dateValue.setMinutes(dateValue.getMinutes() + minutesToAdd);
@@ -127,6 +129,18 @@ const isCreatedToday = (value: string | null | undefined) => {
 
   const now = new Date();
   return dateValue.getFullYear() === now.getFullYear() && dateValue.getMonth() === now.getMonth() && dateValue.getDate() === now.getDate();
+};
+const isCreatedOnLocalDate = (value: string | null | undefined, localDateKey: string) => {
+  if (!value) {
+    return false;
+  }
+
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return false;
+  }
+
+  return getLocalDateKey(dateValue) === localDateKey;
 };
 const getCurrentLocalMinutes = () => {
   const now = new Date();
@@ -276,6 +290,7 @@ export default function App() {
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
+  const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -451,10 +466,12 @@ export default function App() {
 
   useEffect(() => {
     setCurrentLocalMinutes(getCurrentLocalMinutes());
+    setCurrentLocalDateKey(getCurrentLocalDateKey());
 
     const interval = setInterval(() => {
       setCurrentLocalMinutes(getCurrentLocalMinutes());
-    }, 30000);
+      setCurrentLocalDateKey(getCurrentLocalDateKey());
+    }, 1000);
 
     return () => {
       clearInterval(interval);
@@ -612,12 +629,14 @@ export default function App() {
   }, [blockingSession, canCheckIn, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
   const newestFirstMessages = useMemo(
     () =>
-      [...messages].sort((a, b) => {
+      messages
+        .filter((message) => isCreatedOnLocalDate(message.createdAt, currentLocalDateKey))
+        .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
       }),
-    [messages],
+    [currentLocalDateKey, messages],
   );
 
   const timelineSessions = useMemo(
