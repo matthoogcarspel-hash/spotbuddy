@@ -315,7 +315,10 @@ export default function App() {
       return 'Uitchecken';
     }
 
-    if (status === 'Is er al' || status === 'Uitchecken') {
+    if (status === 'Is er al' || status === 'Uitchecken' || status === 'live') {
+      if (status === 'live') {
+        return 'Is er al';
+      }
       return status;
     }
     return 'Gaat';
@@ -838,6 +841,58 @@ export default function App() {
     await fetchSharedData();
   };
 
+  const handleSpotQuickCheckIn = async () => {
+    if (!selectedSpot || !session?.user.id || !profile) {
+      return;
+    }
+
+    setSessionActionError('');
+    const startTime = getNowLocalHourMinute();
+    const endTime = getLocalHourMinuteAfterMinutes(120);
+    const nowIso = new Date().toISOString();
+
+    if (blockingSession) {
+      const result = await supabase
+        .from('sessions')
+        .update({
+          spot_name: selectedSpot,
+          start_time: startTime,
+          end_time: endTime,
+          status: 'live',
+          checked_in_at: nowIso,
+          checked_out_at: null,
+        })
+        .eq('id', blockingSession.id)
+        .eq('user_id', session.user.id);
+
+      if (result.error) {
+        setSessionActionError(result.error.message);
+        return;
+      }
+
+      await fetchSharedData();
+      return;
+    }
+
+    const result = await supabase.from('sessions').insert({
+      spot_name: selectedSpot,
+      user_id: session.user.id,
+      user_name: profile.display_name,
+      user_avatar_url: profile.avatar_url,
+      start_time: startTime,
+      end_time: endTime,
+      status: 'live',
+      checked_in_at: nowIso,
+    });
+
+    if (result.error) {
+      setSessionActionError(result.error.message);
+      return;
+    }
+
+    await fetchSharedData();
+  };
+
   if (loadingSession || loadingProfile || loadingData) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
@@ -1143,6 +1198,15 @@ export default function App() {
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
+
+          <Pressable
+            onPress={() => {
+              void handleSpotQuickCheckIn();
+            }}
+            style={{ marginTop: 14, ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Snelle check-in</Text>
+          </Pressable>
 
           <Pressable
             disabled={!canPlanSession}
