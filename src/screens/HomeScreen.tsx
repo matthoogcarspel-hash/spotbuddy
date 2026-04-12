@@ -13,6 +13,8 @@ type HomeScreenProps = {
 
 export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profile, onLogout }: HomeScreenProps) {
   const [showProfile, setShowProfile] = useState(false);
+  const logoAsset = Image.resolveAssetSource(require('../../assets/logo.png'));
+  const logoAspectRatio = logoAsset.width / logoAsset.height;
 
   if (showProfile) {
     return (
@@ -34,12 +36,25 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-      <View style={{ marginBottom: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start' }}>
-          <Image source={require('../../assets/logo.png')} style={{ width: 84, height: 84, marginRight: 12 }} resizeMode="contain" />
-          <View>
-            <Text style={{ color: '#ffffff', fontSize: 34, fontWeight: '700' }}>SpotBuddy</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 6 }}>Spot, tijd en gaaaan!</Text>
+      <View
+        style={{
+          marginBottom: 20,
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          minHeight: 104,
+          paddingVertical: 10,
+        }}
+      >
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Image
+            source={require('../../assets/logo.png')}
+            style={{ height: 82, aspectRatio: logoAspectRatio, marginRight: 14 }}
+            resizeMode="contain"
+          />
+          <View style={{ justifyContent: 'center' }}>
+            <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '700' }}>SpotBuddy</Text>
+            <Text style={{ color: '#9db0c7', fontSize: 16, marginTop: 2 }}>Spot, tijd en gaaaan!</Text>
           </View>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#121821', borderRadius: 10, padding: 10 }}>
