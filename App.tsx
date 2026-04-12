@@ -1594,17 +1594,16 @@ export default function App() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
-      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'flex-start', flex: 1 }}>
+      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 12, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Image
             source={require('./assets/logo.png')}
-            style={{ width: 82, height: 82, marginRight: 12 }}
+            style={{ width: 54, height: 54, marginRight: 12 }}
             resizeMode="contain"
           />
           <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.4 }}>COASTAL WIND TRACKER</Text>
-            <Text style={{ color: theme.text, fontSize: 34, fontWeight: '700', marginTop: 2 }}>SpotBuddy</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 6 }}>Spot slim. Time it hard. Hit the water.</Text>
+            <Text style={{ color: theme.text, fontSize: 36, fontWeight: '800', letterSpacing: -0.4, lineHeight: 38 }}>SpotBuddy</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 14, marginTop: 2 }}>See who’s riding, join the session</Text>
           </View>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border, marginLeft: 10 }}>
