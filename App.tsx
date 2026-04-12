@@ -499,6 +499,16 @@ export default function App() {
   }, [showProfile, profile]);
 
   useEffect(() => {
+    setHomeQuickCheckInError('');
+  }, []);
+
+  useEffect(() => {
+    if (!selectedSpot) {
+      setHomeQuickCheckInError('');
+    }
+  }, [selectedSpot]);
+
+  useEffect(() => {
     console.log('SHOW_FORM', showForm);
   }, [showForm]);
 
@@ -683,6 +693,16 @@ export default function App() {
   const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
+  useEffect(() => {
+    if (!homeQuickCheckInError) {
+      return;
+    }
+
+    if (!blockingSession || !quickCheckInWindowError || nearestSpotWithinRange) {
+      setHomeQuickCheckInError('');
+    }
+  }, [blockingSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
+
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const spotsWithDistance = SPOTS.map((spot) => ({
       spot: spot.name,
@@ -1035,6 +1055,7 @@ export default function App() {
     });
 
     setQuickCheckInSpotInFlight(null);
+    setHomeQuickCheckInError('');
     await fetchSharedData();
   };
 
