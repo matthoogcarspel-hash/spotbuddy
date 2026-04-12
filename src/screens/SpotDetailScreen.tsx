@@ -96,6 +96,22 @@ export default function SpotDetailScreen({
       .sort((first, second) => first.startMinutes - second.startMinutes);
   }, [timelineConfig.visibleSessions]);
 
+  const currentTimeMarker = useMemo(() => {
+    const now = new Date();
+    const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+    if (currentMinutes < timelineStartMinutes || currentMinutes > timelineEndMinutes) {
+      return null;
+    }
+
+    const totalRange = timelineEndMinutes - timelineStartMinutes;
+    const currentPercent = ((currentMinutes - timelineStartMinutes) / totalRange) * 100;
+
+    return {
+      currentPercent,
+    };
+  }, []);
+
   const resetForm = () => {
     setShowForm(false);
     setActivePicker(null);
@@ -296,52 +312,97 @@ export default function SpotDetailScreen({
         </View>
 
         {timelineSessions.length > 0 ? (
-          timelineSessions.map(({ session, startMinutes, endMinutes }, index) => {
-            const clampedStartMinutes = Math.min(Math.max(startMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
-            const clampedEndMinutes = Math.min(Math.max(endMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
-            const startRatio = (clampedStartMinutes - timelineStartMinutes) / timelineConfig.timelineRangeMinutes;
-            const widthRatio = Math.max((clampedEndMinutes - clampedStartMinutes) / timelineConfig.timelineRangeMinutes, 0);
-            const leftPercent = startRatio * 100;
-            const widthPercent = Math.max(widthRatio * 100, 6);
-            const barColor = session.status === 'Is er al' ? '#1f8a4b' : '#375f9b';
-
-            return (
-              <View key={`timeline-session-${session.userName}-${session.start}-${session.end}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, width: 96, marginRight: 8 }} numberOfLines={1}>
-                  {session.userName}
-                </Text>
-                <View style={{ flex: 1, height: 30, backgroundColor: '#0b0f14', borderRadius: 8, position: 'relative', justifyContent: 'center', overflow: 'hidden' }}>
-                  {timelineConfig.timelineLabels.map((_, labelIndex) => {
-                    const leftPercent = (labelIndex / (timelineConfig.timelineLabels.length - 1)) * 100;
-                    return (
-                      <View
-                        key={`timeline-marker-${session.userName}-${session.start}-${labelIndex}`}
-                        style={{
-                          position: 'absolute',
-                          left: `${leftPercent}%`,
-                          top: 0,
-                          bottom: 0,
-                          width: 1,
-                          backgroundColor: '#1e2733',
-                        }}
-                      />
-                    );
-                  })}
-                  <View
-                    style={{
-                      position: 'absolute',
-                      left: `${leftPercent}%`,
-                      width: `${widthPercent}%`,
-                      minWidth: 24,
-                      height: 20,
-                      borderRadius: 6,
-                      backgroundColor: barColor,
-                    }}
-                  />
-                </View>
+          <View style={{ position: 'relative' }}>
+            {currentTimeMarker ? (
+              <View
+                pointerEvents="none"
+                style={{
+                  position: 'absolute',
+                  left: 104,
+                  right: 0,
+                  top: -6,
+                  bottom: 0,
+                  zIndex: 3,
+                }}
+              >
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: `${currentTimeMarker.currentPercent}%`,
+                    top: 0,
+                    bottom: 0,
+                    width: 0,
+                    borderLeftWidth: 1,
+                    borderLeftColor: 'rgba(182, 216, 255, 0.5)',
+                    borderStyle: 'dashed',
+                  }}
+                />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: `${currentTimeMarker.currentPercent}%`,
+                    top: 0,
+                    width: 8,
+                    height: 8,
+                    marginLeft: -4,
+                    borderRadius: 4,
+                    backgroundColor: '#dcecff',
+                    shadowColor: '#cfe6ff',
+                    shadowOpacity: 0.35,
+                    shadowRadius: 4,
+                    shadowOffset: { width: 0, height: 1 },
+                  }}
+                />
               </View>
-            );
-          })
+            ) : null}
+
+            {timelineSessions.map(({ session, startMinutes, endMinutes }, index) => {
+              const clampedStartMinutes = Math.min(Math.max(startMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
+              const clampedEndMinutes = Math.min(Math.max(endMinutes, timelineStartMinutes), timelineConfig.timelineEndMinutes);
+              const startRatio = (clampedStartMinutes - timelineStartMinutes) / timelineConfig.timelineRangeMinutes;
+              const widthRatio = Math.max((clampedEndMinutes - clampedStartMinutes) / timelineConfig.timelineRangeMinutes, 0);
+              const leftPercent = startRatio * 100;
+              const widthPercent = Math.max(widthRatio * 100, 6);
+              const barColor = session.status === 'Is er al' ? '#1f8a4b' : '#375f9b';
+
+              return (
+                <View key={`timeline-session-${session.userName}-${session.start}-${session.end}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 14, width: 96, marginRight: 8 }} numberOfLines={1}>
+                    {session.userName}
+                  </Text>
+                  <View style={{ flex: 1, height: 30, backgroundColor: '#0b0f14', borderRadius: 8, position: 'relative', justifyContent: 'center', overflow: 'hidden' }}>
+                    {timelineConfig.timelineLabels.map((_, labelIndex) => {
+                      const leftPercent = (labelIndex / (timelineConfig.timelineLabels.length - 1)) * 100;
+                      return (
+                        <View
+                          key={`timeline-marker-${session.userName}-${session.start}-${labelIndex}`}
+                          style={{
+                            position: 'absolute',
+                            left: `${leftPercent}%`,
+                            top: 0,
+                            bottom: 0,
+                            width: 1,
+                            backgroundColor: '#1e2733',
+                          }}
+                        />
+                      );
+                    })}
+                    <View
+                      style={{
+                        position: 'absolute',
+                        left: `${leftPercent}%`,
+                        width: `${widthPercent}%`,
+                        minWidth: 24,
+                        height: 20,
+                        borderRadius: 6,
+                        backgroundColor: barColor,
+                      }}
+                    />
+                  </View>
+                </View>
+              );
+            })}
+          </View>
         ) : (
           <Text style={{ color: '#9db0c7', fontSize: 14 }}>Geen actieve sessies voor vandaag.</Text>
         )}
