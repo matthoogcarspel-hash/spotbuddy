@@ -214,6 +214,23 @@ const isDirectCheckIn = (sessionItem: SpotSession) => {
 
   return Math.abs(checkedInMs - createdMs) <= 90_000;
 };
+const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
+const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
+const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
+  [...sessions].sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  })[0] ?? null;
+const getCurrentUserLiveSession = (sessions: SpotSession[], userId: string | null | undefined) => {
+  if (!userId) {
+    return null;
+  }
+
+  const userSessions = sessions.filter((sessionItem) => sessionItem.userId === userId);
+  const liveUserSessions = getLiveSessions(userSessions);
+  return getMostRecentSessionByCreatedAt(liveUserSessions);
+};
 
 const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record<SpotName, T> =>
   spotNames.reduce((result, spot) => {
@@ -842,21 +859,9 @@ export default function App() {
       .filter((sessionItem) => sessionItem.userId === session.user.id);
   }, [session?.user.id, sessionsBySpot]);
   const activeCheckedInSession = useMemo(() => {
-    if (allUserSessions.length === 0) {
-      return null;
-    }
-
-    return (
-      [...allUserSessions]
-        .filter((sessionItem) => sessionItem.status === 'Is er al')
-        .filter((sessionItem) => !sessionItem.checkedOutAt)
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })[0] ?? null
-    );
-  }, [allUserSessions]);
+    const allSessions = Object.values(sessionsBySpot).flat();
+    return getCurrentUserLiveSession(allSessions, session?.user.id);
+  }, [session?.user.id, sessionsBySpot]);
   const blockingSession = useMemo(() => {
     if (allUserSessions.length === 0) {
       return null;
@@ -874,7 +879,7 @@ export default function App() {
     );
   }, [allUserSessions]);
   const canPlanSession = !blockingSession;
-  const isCheckedIn = Boolean(activeCheckedInSession && !activeCheckedInSession.checkedOutAt);
+  const isCheckedIn = Boolean(activeCheckedInSession);
   const hasPlannedSession = Boolean(
     blockingSession
       && blockingSession.status === 'Gaat'
@@ -882,12 +887,9 @@ export default function App() {
       && !blockingSession.checkedOutAt,
   );
   const canCheckIn = !isCheckedIn && !hasPlannedSession;
-  const canCheckOut = Boolean(
-    activeCheckedInSession
-      && activeCheckedInSession.status === 'Is er al',
-  );
+  const canCheckOut = Boolean(activeCheckedInSession);
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
-  const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
+  const canQuickCheckIn = !activeCheckedInSession && !quickCheckInWindowError;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   useEffect(() => {
@@ -895,10 +897,10 @@ export default function App() {
       return;
     }
 
-    if (!blockingSession || !quickCheckInWindowError || nearestSpotWithinRange) {
+    if (!activeCheckedInSession || !quickCheckInWindowError || nearestSpotWithinRange) {
       setHomeQuickCheckInError('');
     }
-  }, [blockingSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
+  }, [activeCheckedInSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const spotsWithDistance = spotDefinitions.map((spot) => ({
@@ -923,6 +925,39 @@ export default function App() {
       return a.distanceMeters - b.distanceMeters;
     });
   }, [currentCoordinates, spotDefinitions]);
+  const homeLiveCountBySpot = useMemo(
+    () =>
+      spotNames.reduce((result, spot) => {
+        result[spot] = getLiveSessions(sessionsBySpot[spot] ?? []).length;
+        return result;
+      }, {} as Record<SpotName, number>),
+    [sessionsBySpot, spotNames],
+  );
+  useEffect(() => {
+    const homeLiveSessions = Object.values(sessionsBySpot).flat();
+    console.log('HOME_LIVE_SESSIONS_SOURCE', {
+      totalSessions: homeLiveSessions.length,
+      liveSessions: getLiveSessions(homeLiveSessions).map((sessionItem) => ({
+        id: sessionItem.id,
+        spot: sessionItem.spot,
+        userId: sessionItem.userId,
+        checkedInAt: sessionItem.checkedInAt,
+        checkedOutAt: sessionItem.checkedOutAt,
+      })),
+    });
+  }, [sessionsBySpot]);
+  useEffect(() => {
+    console.log('HOME_LIVE_COUNT_BY_SPOT', homeLiveCountBySpot);
+  }, [homeLiveCountBySpot]);
+  useEffect(() => {
+    console.log('HOME_CURRENT_USER_LIVE_SESSION', {
+      userId: session?.user.id ?? null,
+      liveSessionId: activeCheckedInSession?.id ?? null,
+      spot: activeCheckedInSession?.spot ?? null,
+      checkedInAt: activeCheckedInSession?.checkedInAt ?? null,
+      checkedOutAt: activeCheckedInSession?.checkedOutAt ?? null,
+    });
+  }, [activeCheckedInSession, session?.user.id]);
   useEffect(() => {
     console.log('ACTIVE_SESSION_LOAD', {
       activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
@@ -989,8 +1024,7 @@ export default function App() {
     }), [currentLocalMinutes, sessions]);
   const liveCheckedInSessions = useMemo(
     () =>
-      sessions
-        .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt)
+      getLiveSessions(sessions)
         .sort((a, b) => {
           const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
           const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
@@ -1219,16 +1253,18 @@ export default function App() {
   };
 
   const handleQuickCheckIn = async (spot: SpotName) => {
-    console.log('HOME_QUICK_CHECKIN_PRESSED', { spot });
+    console.log('HOME_QUICK_CHECKIN_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
-    if (blockingSession) {
+    if (activeCheckedInSession) {
       setHomeQuickCheckInError('Rond eerst je huidige sessie af');
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'already_live', activeCheckedInSessionId: activeCheckedInSession.id });
       return;
     }
 
     if (quickCheckInWindowError) {
       setHomeQuickCheckInError(quickCheckInWindowError);
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'outside_window', quickCheckInWindowError });
       return;
     }
 
@@ -1237,6 +1273,7 @@ export default function App() {
     }
     if (!nearestSpotWithinRange) {
       setHomeQuickCheckInError('Je bent nog niet dicht genoeg bij een spot');
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'out_of_range', spot });
       return;
     }
 
@@ -1280,6 +1317,7 @@ export default function App() {
         setHomeQuickCheckInError('Inchecken is mislukt. Probeer opnieuw.');
       }
       setQuickCheckInSpotInFlight(null);
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, error: result.error });
       return;
     }
 
@@ -1312,6 +1350,7 @@ export default function App() {
 
     setQuickCheckInSpotInFlight(null);
     setHomeQuickCheckInError('');
+    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot, sessionId: result.data.id });
     await fetchSharedData();
   };
 
@@ -1325,6 +1364,7 @@ export default function App() {
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
+      console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: false, reason: 'no_live_session' });
       return;
     }
 
@@ -1343,10 +1383,12 @@ export default function App() {
     if (result.error) {
       console.log('HOME_QUICK_CHECKOUT_FAILURE', { error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
       setHomeQuickCheckInError('Uitchecken is mislukt. Probeer opnieuw.');
+      console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: false, error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
       return;
     }
 
     console.log('HOME_QUICK_CHECKOUT_SUCCESS', { activeCheckedInSessionId: activeCheckedInSession.id });
+    console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: true, activeCheckedInSessionId: activeCheckedInSession.id });
     setHomeQuickCheckInError('');
     await fetchSharedData();
   };
@@ -2249,7 +2291,7 @@ export default function App() {
         {homeSpotCards.map(({ spot, distanceMeters }) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
-          const checkedInCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isCheckedInSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
 
           return (
             <Pressable
