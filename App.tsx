@@ -59,9 +59,9 @@ type SpotDistanceInfo = {
   distanceMeters: number | null;
 };
 type SpotNotificationPreferences = {
-  sessionPlanningNotificationsEnabled: boolean;
-  checkinNotificationsEnabled: boolean;
-  chatNotificationsEnabled: boolean;
+  session_planning_notifications_enabled: boolean;
+  checkin_notifications_enabled: boolean;
+  chat_notifications_enabled: boolean;
 };
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
@@ -82,20 +82,15 @@ const theme = {
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
-  sessionPlanningNotificationsEnabled: false,
-  checkinNotificationsEnabled: false,
-  chatNotificationsEnabled: false,
+  session_planning_notifications_enabled: false,
+  checkin_notifications_enabled: false,
+  chat_notifications_enabled: false,
 };
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
 const getLocalDateKey = (dateValue: Date) => `${dateValue.getFullYear()}-${formatTimePart(dateValue.getMonth() + 1)}-${formatTimePart(dateValue.getDate())}`;
 const getCurrentLocalDateKey = () => getLocalDateKey(new Date());
-const getLocalHourMinuteAfterMinutes = (minutesToAdd: number) => {
-  const dateValue = new Date();
-  dateValue.setMinutes(dateValue.getMinutes() + minutesToAdd);
-  return formatLocalHourMinute(dateValue);
-};
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
     return 'Je kunt pas vanaf 08:00 inchecken';
@@ -606,9 +601,9 @@ export default function App() {
         preferences: data,
       });
       setSpotNotificationPreferences({
-        sessionPlanningNotificationsEnabled: data?.session_planning_notifications_enabled ?? false,
-        checkinNotificationsEnabled: data?.checkin_notifications_enabled ?? false,
-        chatNotificationsEnabled: data?.chat_notifications_enabled ?? false,
+        session_planning_notifications_enabled: data?.session_planning_notifications_enabled ?? false,
+        checkin_notifications_enabled: data?.checkin_notifications_enabled ?? false,
+        chat_notifications_enabled: data?.chat_notifications_enabled ?? false,
       });
       setLoadingSpotNotificationPreferences(false);
     };
@@ -692,9 +687,9 @@ export default function App() {
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
-    spotNotificationPreferences.sessionPlanningNotificationsEnabled
-    || spotNotificationPreferences.checkinNotificationsEnabled
-    || spotNotificationPreferences.chatNotificationsEnabled;
+    spotNotificationPreferences.session_planning_notifications_enabled
+    || spotNotificationPreferences.checkin_notifications_enabled
+    || spotNotificationPreferences.chat_notifications_enabled;
   const todaysSessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(() => []);
     for (const spot of SPOT_NAMES) {
@@ -711,21 +706,6 @@ export default function App() {
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
   }, [session?.user.id, sessionsBySpot]);
-  const todayUserSessions = useMemo(
-    () => allUserSessions.filter((sessionItem) => isSessionCreatedToday(sessionItem)),
-    [allUserSessions],
-  );
-  const latestOwnSession = useMemo(() => {
-    if (todayUserSessions.length === 0) {
-      return null;
-    }
-
-    return [...todayUserSessions].sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bTime - aTime;
-    })[0] ?? null;
-  }, [todayUserSessions]);
   const activeCheckedInSession = useMemo(() => {
     if (allUserSessions.length === 0) {
       return null;
@@ -735,14 +715,13 @@ export default function App() {
       [...allUserSessions]
         .filter((sessionItem) => sessionItem.status === 'Is er al')
         .filter((sessionItem) => !sessionItem.checkedOutAt)
-        .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [allUserSessions, currentLocalMinutes]);
+  }, [allUserSessions]);
   const blockingSession = useMemo(() => {
     if (allUserSessions.length === 0) {
       return null;
@@ -752,25 +731,17 @@ export default function App() {
       [...allUserSessions]
         .filter((sessionItem) => (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'))
         .filter((sessionItem) => !sessionItem.checkedOutAt)
-        .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [allUserSessions, currentLocalMinutes]);
+  }, [allUserSessions]);
   const canPlanSession = !blockingSession;
-  const latestOwnSessionEndMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
-  const isLatestOwnSessionActive = Boolean(
-    latestOwnSession
-      && (latestOwnSession.status === 'Gaat' || latestOwnSession.status === 'Is er al')
-      && currentLocalMinutes < latestOwnSessionEndMinutes,
-  );
   const canCheckOut = Boolean(
-    latestOwnSession
-      && latestOwnSession.status === 'Is er al'
-      && currentLocalMinutes < latestOwnSessionEndMinutes,
+    activeCheckedInSession
+      && activeCheckedInSession.status === 'Is er al',
   );
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !blockingSession && !quickCheckInWindowError;
@@ -810,14 +781,13 @@ export default function App() {
     });
   }, [currentCoordinates]);
   useEffect(() => {
-    console.log('LATEST_OWN_SESSION', latestOwnSession);
-    console.log('CURRENT_MINUTES', currentLocalMinutes);
-    console.log('SESSION_WINDOW', { latestOwnSessionEndMinutes });
-    console.log('BLOCKING_SESSION', blockingSession);
-    console.log('TODAY_USER_SESSIONS', todayUserSessions);
-    console.log('ACTIVE_CHECKED_IN_SESSION_DETECTION', activeCheckedInSession);
-    console.log('BLOCKING_SESSION_FIXED', blockingSession);
-  }, [activeCheckedInSession, blockingSession, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
+    console.log('ACTIVE_SESSION_LOAD', {
+      activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
+      activeSpot: activeCheckedInSession?.spot ?? null,
+      blockingSessionId: blockingSession?.id ?? null,
+      blockingStatus: blockingSession?.status ?? null,
+    });
+  }, [activeCheckedInSession, blockingSession]);
   const newestFirstMessages = useMemo(
     () =>
       messages
@@ -895,9 +865,9 @@ export default function App() {
         {
           user_id: session.user.id,
           spot_name: selectedSpot,
-          session_planning_notifications_enabled: nextPreferences.sessionPlanningNotificationsEnabled,
-          checkin_notifications_enabled: nextPreferences.checkinNotificationsEnabled,
-          chat_notifications_enabled: nextPreferences.chatNotificationsEnabled,
+          session_planning_notifications_enabled: nextPreferences.session_planning_notifications_enabled,
+          checkin_notifications_enabled: nextPreferences.checkin_notifications_enabled,
+          chat_notifications_enabled: nextPreferences.chat_notifications_enabled,
         },
         {
           onConflict: 'user_id,spot_name',
@@ -923,68 +893,55 @@ export default function App() {
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
+    const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
+    console.log(`${actionLabel}_PRESSED`, { selectedSpot });
 
     const { data } = await supabase.auth.getUser();
     const authUserId = data.user?.id;
-
     if (!authUserId) {
       return;
     }
 
-    const now = new Date();
-    const nowIso = now.toISOString();
-    const nowLocalMinutes = now.getHours() * 60 + now.getMinutes();
-
-    const getLatestOpenSession = async () => {
-      const response = await supabase
+    const nowIso = new Date().toISOString();
+    const getLatestOpenSession = async () =>
+      supabase
         .from('sessions')
-        .select('id, spot_name, status, end_time, created_at')
+        .select('id, spot_name, status, created_at')
         .eq('user_id', authUserId)
+        .is('checked_out_at', null)
         .in('status', ['Gaat', 'Is er al'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
-      return response;
-    };
-
-    const isExpiredSession = (sessionItem: { end_time: string | null }) => {
-      if (!sessionItem.end_time) {
-        return false;
+    if (status === 'Is er al') {
+      if (!selectedSpot || !session?.user.id || !profile) {
+        return;
       }
 
-      return nowLocalMinutes >= toMinutes(sessionItem.end_time.slice(0, 5));
-    };
-
-    if (status === 'Is er al') {
       const latestOpenSessionResponse = await getLatestOpenSession();
-
       if (latestOpenSessionResponse.error) {
+        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: latestOpenSessionResponse.error });
         setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
         return;
       }
 
-      let latestOpenSession = latestOpenSessionResponse.data;
+      const latestOpenSession = latestOpenSessionResponse.data;
+      if (latestOpenSession?.status === 'Is er al') {
+        if (latestOpenSession.spot_name === selectedSpot) {
+          setSessionActionError('Je bent al ingecheckt');
+        } else {
+          setSessionActionError(`Je bent al ingecheckt bij ${latestOpenSession.spot_name}`);
+        }
+        return;
+      }
 
-      if (latestOpenSession && isExpiredSession(latestOpenSession)) {
-        const closeResponse = await supabase
-          .from('sessions')
-          .update({
-            status: 'Uitchecken',
-            checked_out_at: nowIso,
-          })
-          .eq('id', latestOpenSession.id)
-          .eq('user_id', authUserId);
-
-        if (closeResponse.error) {
-          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+      if (latestOpenSession?.status === 'Gaat') {
+        if (latestOpenSession.spot_name !== selectedSpot) {
+          setSessionActionError('Rond eerst je huidige sessie af');
           return;
         }
 
-        latestOpenSession = null;
-      }
-
-      if (latestOpenSession && latestOpenSession.spot_name === selectedSpot && latestOpenSession.status === 'Gaat') {
         const checkInResponse = await supabase
           .from('sessions')
           .update({
@@ -995,25 +952,14 @@ export default function App() {
           .eq('user_id', authUserId);
 
         if (checkInResponse.error) {
-          if (isUniqueConstraintError(checkInResponse.error)) {
-            setSessionActionError('Je hebt al een actieve sessie');
-            return;
-          }
-
+          console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: checkInResponse.error });
           setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
           return;
         }
 
+        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: true, mode: 'updated_planned_session', sessionId: latestOpenSession.id });
         await fetchSharedData();
-        return;
-      }
-
-      if (latestOpenSession && latestOpenSession.spot_name === selectedSpot && latestOpenSession.status === 'Is er al') {
-        setSessionActionError('Je bent al ingecheckt');
-        return;
-      }
-
-      if (!selectedSpot || !session?.user.id || !profile) {
+        setSessionActionError('');
         return;
       }
 
@@ -1029,54 +975,52 @@ export default function App() {
       });
 
       if (insertResult.error) {
+        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: insertResult.error });
         if (isUniqueConstraintError(insertResult.error)) {
           setSessionActionError('Je hebt al een actieve sessie');
           return;
         }
-
         setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
         return;
       }
 
+      console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: true, mode: 'inserted_live_session' });
       await fetchSharedData();
+      setSessionActionError('');
       return;
     }
 
-    if (!latestOwnSession) {
-      if (status === 'Uitchecken') {
-        setSessionActionError('Check eerst in');
-      }
+    const latestOpenSessionResponse = await getLatestOpenSession();
+    if (latestOpenSessionResponse.error) {
+      console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: latestOpenSessionResponse.error });
+      setSessionActionError('Uitchecken is mislukt. Probeer opnieuw.');
       return;
     }
 
-    if (status === 'Uitchecken' && latestOwnSession.status !== 'Is er al') {
+    const checkedInSession = latestOpenSessionResponse.data?.status === 'Is er al' ? latestOpenSessionResponse.data : null;
+    if (!checkedInSession) {
       setSessionActionError('Check eerst in');
       return;
     }
 
-    const updates: { status: SessionStatus; checked_in_at?: string; checked_out_at?: string } = { status };
-
-    if (status === 'Uitchecken') {
-      updates.checked_out_at = nowIso;
-    }
-
-    const nextStatus = status;
-    console.log('SESSION_STATUS_UPDATE', { sessionId: latestOwnSession.id, nextStatus });
     const result = await supabase
       .from('sessions')
-      .update(updates)
-      .eq('id', latestOwnSession.id)
+      .update({
+        status: 'Uitchecken',
+        checked_out_at: nowIso,
+      })
+      .eq('id', checkedInSession.id)
       .eq('user_id', authUserId);
-    console.log('SESSION_STATUS_RESULT', result);
-    const { error } = result;
 
-    if (error) {
-      console.error('Status bijwerken mislukt:', error);
-      setSessionActionError('Status bijwerken mislukt.');
+    if (result.error) {
+      console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: result.error });
+      setSessionActionError('Uitchecken is mislukt. Probeer opnieuw.');
       return;
     }
 
+    console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: true, sessionId: checkedInSession.id });
     await fetchSharedData();
+    setSessionActionError('');
   };
 
   const resetForm = () => {
@@ -1207,66 +1151,6 @@ export default function App() {
 
     console.log('HOME_QUICK_CHECKOUT_SUCCESS', { activeCheckedInSessionId: activeCheckedInSession.id });
     setHomeQuickCheckInError('');
-    await fetchSharedData();
-  };
-
-  const handleSpotQuickCheckIn = async () => {
-    if (!selectedSpot || !session?.user.id || !profile) {
-      return;
-    }
-
-    setSessionActionError('');
-    const startTime = getNowLocalHourMinute();
-    const endTime = getLocalHourMinuteAfterMinutes(120);
-    const nowIso = new Date().toISOString();
-
-    if (blockingSession) {
-      const result = await supabase
-        .from('sessions')
-        .update({
-          spot_name: selectedSpot,
-          start_time: startTime,
-          end_time: endTime,
-          status: 'live',
-          checked_in_at: nowIso,
-          checked_out_at: null,
-        })
-        .eq('id', blockingSession.id)
-        .eq('user_id', session.user.id);
-
-      if (result.error) {
-        if (isUniqueConstraintError(result.error)) {
-          setSessionActionError('Je hebt al een actieve sessie');
-        } else {
-          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
-        }
-        return;
-      }
-
-      await fetchSharedData();
-      return;
-    }
-
-    const result = await supabase.from('sessions').insert({
-      spot_name: selectedSpot,
-      user_id: session.user.id,
-      user_name: profile.display_name,
-      user_avatar_url: profile.avatar_url,
-      start_time: startTime,
-      end_time: endTime,
-      status: 'live',
-      checked_in_at: nowIso,
-    });
-
-    if (result.error) {
-      if (isUniqueConstraintError(result.error)) {
-        setSessionActionError('Je hebt al een actieve sessie');
-      } else {
-        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
-      }
-      return;
-    }
-
     await fetchSharedData();
   };
 
@@ -1623,7 +1507,7 @@ export default function App() {
                     const previousPreferences = spotNotificationPreferences;
                     const nextPreferences = {
                       ...previousPreferences,
-                      sessionPlanningNotificationsEnabled: !previousPreferences.sessionPlanningNotificationsEnabled,
+                      session_planning_notifications_enabled: !previousPreferences.session_planning_notifications_enabled,
                     };
                     setSpotNotificationPreferences(nextPreferences);
                     void saveSpotNotificationPreferences(nextPreferences, 'sessionPlanning').then((didSave) => {
@@ -1638,7 +1522,7 @@ export default function App() {
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.sessionPlanningNotificationsEnabled ? '#2563eb' : theme.bg,
+                    backgroundColor: spotNotificationPreferences.session_planning_notifications_enabled ? '#2563eb' : theme.bg,
                     paddingHorizontal: 2,
                     justifyContent: 'center',
                     opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
@@ -1650,7 +1534,7 @@ export default function App() {
                       height: 18,
                       borderRadius: 999,
                       backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.sessionPlanningNotificationsEnabled ? 'flex-end' : 'flex-start',
+                      alignSelf: spotNotificationPreferences.session_planning_notifications_enabled ? 'flex-end' : 'flex-start',
                     }}
                   />
                 </Pressable>
@@ -1664,7 +1548,7 @@ export default function App() {
                     const previousPreferences = spotNotificationPreferences;
                     const nextPreferences = {
                       ...previousPreferences,
-                      checkinNotificationsEnabled: !previousPreferences.checkinNotificationsEnabled,
+                      checkin_notifications_enabled: !previousPreferences.checkin_notifications_enabled,
                     };
                     setSpotNotificationPreferences(nextPreferences);
                     void saveSpotNotificationPreferences(nextPreferences, 'checkin').then((didSave) => {
@@ -1679,7 +1563,7 @@ export default function App() {
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.checkinNotificationsEnabled ? '#2563eb' : theme.bg,
+                    backgroundColor: spotNotificationPreferences.checkin_notifications_enabled ? '#2563eb' : theme.bg,
                     paddingHorizontal: 2,
                     justifyContent: 'center',
                     opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
@@ -1691,7 +1575,7 @@ export default function App() {
                       height: 18,
                       borderRadius: 999,
                       backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.checkinNotificationsEnabled ? 'flex-end' : 'flex-start',
+                      alignSelf: spotNotificationPreferences.checkin_notifications_enabled ? 'flex-end' : 'flex-start',
                     }}
                   />
                 </Pressable>
@@ -1705,7 +1589,7 @@ export default function App() {
                     const previousPreferences = spotNotificationPreferences;
                     const nextPreferences = {
                       ...previousPreferences,
-                      chatNotificationsEnabled: !previousPreferences.chatNotificationsEnabled,
+                      chat_notifications_enabled: !previousPreferences.chat_notifications_enabled,
                     };
                     setSpotNotificationPreferences(nextPreferences);
                     void saveSpotNotificationPreferences(nextPreferences, 'chat').then((didSave) => {
@@ -1720,7 +1604,7 @@ export default function App() {
                     borderRadius: 999,
                     borderWidth: 1,
                     borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.chatNotificationsEnabled ? '#2563eb' : theme.bg,
+                    backgroundColor: spotNotificationPreferences.chat_notifications_enabled ? '#2563eb' : theme.bg,
                     paddingHorizontal: 2,
                     justifyContent: 'center',
                     opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
@@ -1732,7 +1616,7 @@ export default function App() {
                       height: 18,
                       borderRadius: 999,
                       backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.chatNotificationsEnabled ? 'flex-end' : 'flex-start',
+                      alignSelf: spotNotificationPreferences.chat_notifications_enabled ? 'flex-end' : 'flex-start',
                     }}
                   />
                 </Pressable>
