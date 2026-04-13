@@ -375,6 +375,7 @@ export default function App() {
   const [endHour, setEndHour] = useState<number | null>(null);
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
+  const planningHelperText = 'Je bent pas live op de spot na inchecken.';
   const [sessionActionError, setSessionActionError] = useState('');
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -1631,7 +1632,7 @@ export default function App() {
         return;
       }
 
-      setFormError('Sessies worden alleen bij inchecken aangemaakt.');
+      setFormError(planningHelperText);
     };
     const primaryButtonStyle = {
       backgroundColor: '#1d4ed8',
@@ -1868,7 +1869,17 @@ export default function App() {
                 </View>
               ) : null}
 
-              {formError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginBottom: 10 }}>{formError}</Text> : null}
+              {formError ? (
+                <Text
+                  style={{
+                    color: formError === planningHelperText ? theme.textMuted : '#ff7e7e',
+                    fontSize: formError === planningHelperText ? 13 : 14,
+                    marginBottom: 10,
+                  }}
+                >
+                  {formError}
+                </Text>
+              ) : null}
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable onPress={handleSave} style={{ ...primaryButtonStyle, flex: 1 }}>
