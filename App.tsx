@@ -481,6 +481,7 @@ export default function App() {
         .from('sessions')
         .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
         .in('spot_name', [...spotNames])
+        .not('checked_in_at', 'is', null)
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
@@ -495,6 +496,10 @@ export default function App() {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
       for (const row of sessionsResponse.data) {
+        if (!row.checked_in_at) {
+          continue;
+        }
+
         const spot = row.spot_name as SpotName;
         if (!spotNames.includes(spot)) {
           continue;
@@ -1056,6 +1061,18 @@ export default function App() {
     }
 
     const nowIso = new Date().toISOString();
+    const deleteGhostSessionsForUser = async (userId: string) => {
+      const cleanupResponse = await supabase
+        .from('sessions')
+        .delete()
+        .eq('user_id', userId)
+        .is('checked_in_at', null)
+        .is('checked_out_at', null);
+
+      if (cleanupResponse.error) {
+        console.log('SESSION_GHOST_CLEANUP_ERROR', { userId, error: cleanupResponse.error });
+      }
+    };
     const getLatestOpenSession = async () =>
       supabase
         .from('sessions')
@@ -1126,6 +1143,8 @@ export default function App() {
         return;
       }
 
+      await deleteGhostSessionsForUser(authUserId);
+
       const insertPayload = {
         spot_name: canonicalSelectedSpot,
         user_id: session.user.id,
@@ -1135,6 +1154,7 @@ export default function App() {
         end_time: getQuickCheckInEndTime(),
         status: 'Is er al',
         checked_in_at: nowIso,
+        checked_out_at: null,
       };
       console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload });
       const insertResult = await supabase.from('sessions').insert(insertPayload);
@@ -1224,6 +1244,17 @@ export default function App() {
     const startTime = getNowLocalHourMinute();
     const endTime = getQuickCheckInEndTime();
     const nowIso = new Date().toISOString();
+    const cleanupResponse = await supabase
+      .from('sessions')
+      .delete()
+      .eq('user_id', session.user.id)
+      .is('checked_in_at', null)
+      .is('checked_out_at', null);
+
+    if (cleanupResponse.error) {
+      console.log('HOME_QUICK_CHECKIN_GHOST_CLEANUP_ERROR', { spot, error: cleanupResponse.error });
+    }
+
     const payload = {
       spot_name: spot,
       user_id: session.user.id,
@@ -1233,6 +1264,7 @@ export default function App() {
       end_time: endTime,
       status: 'Is er al',
       checked_in_at: nowIso,
+      checked_out_at: null,
     };
     const result = await supabase
       .from('sessions')
@@ -1559,42 +1591,13 @@ export default function App() {
         return;
       }
 
-      const startTime = `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
-      const endTime = `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
-
       console.log('BLOCKING_SESSION', blockingSession);
       if (blockingSession) {
         setFormError('Rond eerst je huidige sessie af');
         return;
       }
 
-      const payload = {
-        spot_name: selectedSpot,
-        user_id: session.user.id,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
-        start_time: startTime,
-        end_time: endTime,
-        status: 'Gaat',
-      };
-      console.log('SESSION_SAVE_PAYLOAD', payload);
-      const result = await supabase.from('sessions').insert(payload);
-      console.log('SESSION_SAVE_RESULT', result);
-      const { error } = result;
-
-      if (error) {
-        if (error.code === '23505') {
-          setFormError('Rond eerst je huidige sessie af');
-          return;
-        }
-        setFormError(error.message);
-        return;
-      }
-
-      await fetchSharedData();
-      setFormError('');
-      setSessionActionError('');
-      resetForm();
+      setFormError('Sessies worden alleen bij inchecken aangemaakt.');
     };
     const primaryButtonStyle = {
       backgroundColor: '#1d4ed8',
