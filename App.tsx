@@ -579,6 +579,7 @@ export default function App() {
 
       setLoadingSpotNotificationPreferences(true);
       setNotificationPreferencesError('');
+      console.log('NOTIFICATION_PREFS_LOAD_START', { userId: session.user.id, spotName: selectedSpot });
 
       const { data, error } = await supabase
         .from('spot_notification_preferences')
@@ -599,6 +600,11 @@ export default function App() {
         return;
       }
 
+      console.log('NOTIFICATION_PREFS_LOAD_SUCCESS', {
+        userId: session.user.id,
+        spotName: selectedSpot,
+        preferences: data,
+      });
       setSpotNotificationPreferences({
         sessionPlanningNotificationsEnabled: data?.session_planning_notifications_enabled ?? false,
         checkinNotificationsEnabled: data?.checkin_notifications_enabled ?? false,
@@ -696,15 +702,19 @@ export default function App() {
     }
     return next;
   }, [sessionsBySpot]);
-  const todayUserSessions = useMemo(() => {
+  const allUserSessions = useMemo(() => {
     if (!session?.user.id) {
       return [];
     }
 
-    return Object.values(todaysSessionsBySpot)
+    return Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
-  }, [session?.user.id, todaysSessionsBySpot]);
+  }, [session?.user.id, sessionsBySpot]);
+  const todayUserSessions = useMemo(
+    () => allUserSessions.filter((sessionItem) => isSessionCreatedToday(sessionItem)),
+    [allUserSessions],
+  );
   const latestOwnSession = useMemo(() => {
     if (todayUserSessions.length === 0) {
       return null;
@@ -717,13 +727,14 @@ export default function App() {
     })[0] ?? null;
   }, [todayUserSessions]);
   const activeCheckedInSession = useMemo(() => {
-    if (todayUserSessions.length === 0) {
+    if (allUserSessions.length === 0) {
       return null;
     }
 
     return (
-      [...todayUserSessions]
+      [...allUserSessions]
         .filter((sessionItem) => sessionItem.status === 'Is er al')
+        .filter((sessionItem) => !sessionItem.checkedOutAt)
         .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -731,15 +742,16 @@ export default function App() {
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [currentLocalMinutes, todayUserSessions]);
+  }, [allUserSessions, currentLocalMinutes]);
   const blockingSession = useMemo(() => {
-    if (todayUserSessions.length === 0) {
+    if (allUserSessions.length === 0) {
       return null;
     }
 
     return (
-      [...todayUserSessions]
+      [...allUserSessions]
         .filter((sessionItem) => (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'))
+        .filter((sessionItem) => !sessionItem.checkedOutAt)
         .filter((sessionItem) => currentLocalMinutes < toMinutes(sessionItem.end))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -747,7 +759,7 @@ export default function App() {
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [currentLocalMinutes, todayUserSessions]);
+  }, [allUserSessions, currentLocalMinutes]);
   const canPlanSession = !blockingSession;
   const latestOwnSessionEndMinutes = latestOwnSession ? toMinutes(latestOwnSession.end) : 0;
   const isLatestOwnSessionActive = Boolean(
@@ -803,8 +815,9 @@ export default function App() {
     console.log('SESSION_WINDOW', { latestOwnSessionEndMinutes });
     console.log('BLOCKING_SESSION', blockingSession);
     console.log('TODAY_USER_SESSIONS', todayUserSessions);
+    console.log('ACTIVE_CHECKED_IN_SESSION_DETECTION', activeCheckedInSession);
     console.log('BLOCKING_SESSION_FIXED', blockingSession);
-  }, [blockingSession, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
+  }, [activeCheckedInSession, blockingSession, currentLocalMinutes, latestOwnSession, latestOwnSessionEndMinutes, todayUserSessions]);
   const newestFirstMessages = useMemo(
     () =>
       messages
@@ -867,6 +880,12 @@ export default function App() {
       return false;
     }
 
+    console.log('NOTIFICATION_TOGGLE_SAVE_START', {
+      userId: session.user.id,
+      spotName: selectedSpot,
+      preferenceKey,
+      nextPreferences,
+    });
     setSavingNotificationPreferenceKey(preferenceKey);
     setNotificationPreferencesError('');
 
@@ -893,6 +912,12 @@ export default function App() {
       return false;
     }
 
+    console.log('NOTIFICATION_TOGGLE_SAVE_SUCCESS', {
+      userId: session.user.id,
+      spotName: selectedSpot,
+      preferenceKey,
+      nextPreferences,
+    });
     return true;
   };
 
@@ -1065,6 +1090,7 @@ export default function App() {
   };
 
   const handleQuickCheckIn = async (spot: SpotName) => {
+    console.log('HOME_QUICK_CHECKIN_PRESSED', { spot });
     setHomeQuickCheckInError('');
 
     if (blockingSession) {
@@ -1106,6 +1132,7 @@ export default function App() {
       .single();
 
     if (result.error) {
+      console.log('HOME_QUICK_CHECKIN_FAILURE', { spot, error: result.error });
       if (result.error.code === '23505') {
         setHomeQuickCheckInError('Rond eerst je huidige sessie af');
       } else {
@@ -1115,6 +1142,7 @@ export default function App() {
       return;
     }
 
+    console.log('HOME_QUICK_CHECKIN_SUCCESS', { spot, sessionId: result.data.id });
     setSessionsBySpot((previous) => {
       const insertedSpot = result.data.spot_name as SpotName;
       if (!SPOT_NAMES.includes(insertedSpot)) {
@@ -1147,6 +1175,7 @@ export default function App() {
   };
 
   const handleQuickCheckOut = async () => {
+    console.log('HOME_QUICK_CHECKOUT_PRESSED', { activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
     if (!session?.user.id) {
@@ -1171,10 +1200,12 @@ export default function App() {
     setHomeQuickCheckOutInFlight(false);
 
     if (result.error) {
+      console.log('HOME_QUICK_CHECKOUT_FAILURE', { error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
       setHomeQuickCheckInError('Uitchecken is mislukt. Probeer opnieuw.');
       return;
     }
 
+    console.log('HOME_QUICK_CHECKOUT_SUCCESS', { activeCheckedInSessionId: activeCheckedInSession.id });
     setHomeQuickCheckInError('');
     await fetchSharedData();
   };
@@ -1561,62 +1592,25 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>🔔 Meldingen</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Meldingen</Text>
               <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
 
-          <Pressable
-            disabled={!canPlanSession}
-            onPress={() => {
-              if (!canPlanSession) {
-                setSessionActionError('Rond eerst je huidige sessie af');
-                return;
-              }
-              setShowForm(true);
-              setActivePicker(null);
-              setFormError('');
-              setSessionActionError('');
-            }}
-            style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
-          </Pressable>
-          {!canPlanSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
-          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
-            <Pressable
-              onPress={() => {
-                void handleUpdateSessionStatus('Is er al');
-              }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
-            </Pressable>
-            <Pressable
-              disabled={!canCheckOut}
-              onPress={() => {
-                void handleUpdateSessionStatus('Uitchecken');
-              }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
-            </Pressable>
-          </View>
-
-          {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
-
           {isNotificationPanelExpanded ? (
             <View
               style={{
-                marginTop: 12,
+                position: 'absolute',
+                top: 58,
+                right: 18,
+                width: 230,
                 borderRadius: 12,
                 borderWidth: 1,
                 borderColor: theme.border,
                 backgroundColor: theme.bgElevated,
                 paddingHorizontal: 12,
                 paddingVertical: 10,
+                zIndex: 8,
               }}
             >
               <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>Meldingen voor deze spot</Text>
@@ -1747,6 +1741,47 @@ export default function App() {
               {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
             </View>
           ) : null}
+
+          <Pressable
+            disabled={!canPlanSession}
+            onPress={() => {
+              if (!canPlanSession) {
+                setSessionActionError('Rond eerst je huidige sessie af');
+                return;
+              }
+              setShowForm(true);
+              setActivePicker(null);
+              setFormError('');
+              setSessionActionError('');
+            }}
+            style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
+          </Pressable>
+          {!canPlanSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
+          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
+            <Pressable
+              onPress={() => {
+                void handleUpdateSessionStatus('Is er al');
+              }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
+            </Pressable>
+            <Pressable
+              disabled={!canCheckOut}
+              onPress={() => {
+                void handleUpdateSessionStatus('Uitchecken');
+              }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
+            </Pressable>
+          </View>
+
+          {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
             <View style={{ marginTop: 14 }}>
