@@ -8,21 +8,14 @@ import * as Notifications from 'expo-notifications';
 import { Image, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
+import { spots } from './src/data/spots';
 import { Profile, supabase } from './src/lib/supabase';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 
-const SPOTS = [
-  { name: 'Scheveningen KZVS', lat: 52.1146, lng: 4.2638 },
-  { name: 'Scheveningen Jump Team', lat: 52.1109, lng: 4.2595 },
-  { name: 'Noordwijk KSN', lat: 52.2396, lng: 4.4312 },
-  { name: 'Rockanje 1e Slag', lat: 51.8713, lng: 4.0686 },
-  { name: 'Rockanje 2e Slag', lat: 51.8794, lng: 4.0628 },
-  { name: 'Maasvlakte 2 Slufter', lat: 51.9557, lng: 3.9903 },
-] as const;
-
-type SpotName = (typeof SPOTS)[number]['name'];
-const SPOT_NAMES = SPOTS.map((spot) => spot.name) as SpotName[];
+const SPOTS = spots;
+type SpotName = (typeof SPOTS)[number]['spot'];
+const SPOT_NAMES = SPOTS.map((spot) => spot.spot) as SpotName[];
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 type SpotSession = {
   id: string;
@@ -47,8 +40,8 @@ type ChatMessage = {
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 type SpotCoordinates = {
-  lat: number;
-  lng: number;
+  latitude: number;
+  longitude: number;
 };
 type NearestSpotResult = {
   spot: SpotName;
@@ -232,10 +225,10 @@ const nearbySpotThresholdMeters = 5000;
 const toRadians = (value: number) => value * (Math.PI / 180);
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
   const earthRadiusMeters = 6371_000;
-  const latitudeDelta = toRadians(end.lat - start.lat);
-  const longitudeDelta = toRadians(end.lng - start.lng);
-  const startLatitudeRadians = toRadians(start.lat);
-  const endLatitudeRadians = toRadians(end.lat);
+  const latitudeDelta = toRadians(end.latitude - start.latitude);
+  const longitudeDelta = toRadians(end.longitude - start.longitude);
+  const startLatitudeRadians = toRadians(start.latitude);
+  const endLatitudeRadians = toRadians(end.latitude);
 
   const haversine =
     Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
@@ -291,11 +284,11 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult 
 
   for (const spot of SPOTS) {
     const distanceMeters = getDistanceMeters(currentCoordinates, {
-      lat: spot.lat,
-      lng: spot.lng,
+      latitude: spot.latitude,
+      longitude: spot.longitude,
     });
     if (distanceMeters < nearestDistanceMeters) {
-      nearestSpot = spot.name;
+      nearestSpot = spot.spot;
       nearestDistanceMeters = distanceMeters;
     }
   }
@@ -655,8 +648,8 @@ export default function App() {
         }
 
         const coordinates = {
-          lat: currentPosition.coords.latitude,
-          lng: currentPosition.coords.longitude,
+          latitude: currentPosition.coords.latitude,
+          longitude: currentPosition.coords.longitude,
         };
 
         setCurrentCoordinates(coordinates);
@@ -759,11 +752,11 @@ export default function App() {
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const spotsWithDistance = SPOTS.map((spot) => ({
-      spot: spot.name,
+      spot: spot.spot,
       distanceMeters: currentCoordinates
         ? getDistanceMeters(currentCoordinates, {
-          lat: spot.lat,
-          lng: spot.lng,
+          latitude: spot.latitude,
+          longitude: spot.longitude,
         })
         : null,
     }));
