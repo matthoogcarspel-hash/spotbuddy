@@ -869,6 +869,14 @@ export default function App() {
     );
   }, [allUserSessions]);
   const canPlanSession = !blockingSession;
+  const isCheckedIn = Boolean(activeCheckedInSession && !activeCheckedInSession.checkedOutAt);
+  const hasPlannedSession = Boolean(
+    blockingSession
+      && blockingSession.status === 'Gaat'
+      && !blockingSession.checkedInAt
+      && !blockingSession.checkedOutAt,
+  );
+  const canCheckIn = !isCheckedIn && !hasPlannedSession;
   const canCheckOut = Boolean(
     activeCheckedInSession
       && activeCheckedInSession.status === 'Is er al',
@@ -1733,15 +1741,15 @@ export default function App() {
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
-          {!canPlanSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
+              disabled={!canCheckIn}
               onPress={() => {
                 void handleUpdateSessionStatus('Is er al');
               }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d' }}
+              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
             >
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
             </Pressable>
@@ -1756,6 +1764,7 @@ export default function App() {
             </Pressable>
           </View>
 
+          {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
