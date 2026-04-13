@@ -1083,6 +1083,121 @@ export default function App() {
     return true;
   };
 
+
+  const runCheckInFlowForSpot = async ({
+    spot,
+    source,
+  }: {
+    spot: SpotName;
+    source: 'spot_page' | 'home_quick';
+  }): Promise<{ ok: true } | { ok: false; reason: string; error?: unknown }> => {
+    const { data } = await supabase.auth.getUser();
+    const authUserId = data.user?.id;
+    if (!authUserId || !session?.user.id || !profile) {
+      return { ok: false, reason: 'missing_auth_or_profile' };
+    }
+
+    const canonicalSpot =
+      spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
+      ?? spot;
+    if (!canonicalSpot) {
+      return { ok: false, reason: 'missing_spot' };
+    }
+
+    const nowIso = new Date().toISOString();
+    const getLatestOpenSession = async () =>
+      supabase
+        .from('sessions')
+        .select('id, spot_name, status, created_at')
+        .eq('user_id', authUserId)
+        .is('checked_out_at', null)
+        .in('status', ['Gaat', 'Is er al'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+    const deleteGhostSessionsForUser = async (userId: string) => {
+      const cleanupResponse = await supabase
+        .from('sessions')
+        .delete()
+        .eq('user_id', userId)
+        .is('checked_in_at', null)
+        .is('checked_out_at', null);
+
+      if (cleanupResponse.error) {
+        console.log('SESSION_GHOST_CLEANUP_ERROR', { userId, error: cleanupResponse.error, source });
+      }
+    };
+
+    const latestOpenSessionResponse = await getLatestOpenSession();
+    if (latestOpenSessionResponse.error) {
+      console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'fetch_latest_open_session', error: latestOpenSessionResponse.error, source });
+      return { ok: false, reason: 'fetch_latest_open_session_failed', error: latestOpenSessionResponse.error };
+    }
+
+    const latestOpenSession = latestOpenSessionResponse.data;
+    if (latestOpenSession?.status === 'Is er al') {
+      if (normalizeSpotName(latestOpenSession.spot_name) === normalizeSpotName(canonicalSpot)) {
+        return { ok: false, reason: 'already_checked_in_same_spot' };
+      }
+
+      return { ok: false, reason: `already_checked_in_other_spot:${latestOpenSession.spot_name}` };
+    }
+
+    if (latestOpenSession?.status === 'Gaat') {
+      if (normalizeSpotName(latestOpenSession.spot_name) !== normalizeSpotName(canonicalSpot)) {
+        return { ok: false, reason: 'planned_session_other_spot' };
+      }
+
+      const updatePayload = {
+        status: 'Is er al',
+        checked_in_at: nowIso,
+      } as const;
+      console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, source });
+      const checkInResponse = await supabase
+        .from('sessions')
+        .update(updatePayload)
+        .eq('id', latestOpenSession.id)
+        .eq('user_id', authUserId);
+
+      if (checkInResponse.error) {
+        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'update_existing_session', error: checkInResponse.error, source });
+        return { ok: false, reason: 'update_existing_session_failed', error: checkInResponse.error };
+      }
+
+      console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'updated_planned_session', sessionId: latestOpenSession.id, selectedSpot: canonicalSpot, source });
+      await fetchSharedData();
+      return { ok: true };
+    }
+
+    await deleteGhostSessionsForUser(authUserId);
+
+    const insertPayload = {
+      spot_name: canonicalSpot,
+      user_id: session.user.id,
+      user_name: profile.display_name,
+      user_avatar_url: profile.avatar_url,
+      start_time: getNowLocalHourMinute(),
+      end_time: getQuickCheckInEndTime(),
+      status: 'Is er al',
+      checked_in_at: nowIso,
+      checked_out_at: null,
+    };
+    console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
+    const insertResult = await supabase.from('sessions').insert(insertPayload);
+
+    if (insertResult.error) {
+      console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'insert_new_live_session', error: insertResult.error, payload: insertPayload, source });
+      if (isUniqueConstraintError(insertResult.error)) {
+        return { ok: false, reason: 'unique_constraint_live_session', error: insertResult.error };
+      }
+      return { ok: false, reason: 'insert_new_live_session_failed', error: insertResult.error };
+    }
+
+    console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSpot, source });
+    await fetchSharedData();
+    return { ok: true };
+  };
+
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
@@ -1095,18 +1210,6 @@ export default function App() {
     }
 
     const nowIso = new Date().toISOString();
-    const deleteGhostSessionsForUser = async (userId: string) => {
-      const cleanupResponse = await supabase
-        .from('sessions')
-        .delete()
-        .eq('user_id', userId)
-        .is('checked_in_at', null)
-        .is('checked_out_at', null);
-
-      if (cleanupResponse.error) {
-        console.log('SESSION_GHOST_CLEANUP_ERROR', { userId, error: cleanupResponse.error });
-      }
-    };
     const getLatestOpenSession = async () =>
       supabase
         .from('sessions')
@@ -1123,79 +1226,23 @@ export default function App() {
         console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot, hasSession: Boolean(session?.user.id), hasProfile: Boolean(profile) });
         return;
       }
-      const canonicalSelectedSpot =
-        spotDefinitions.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(selectedSpot))?.spot
-        ?? selectedSpot;
-      if (!canonicalSelectedSpot) {
-        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot, canonicalSelectedSpot });
-        return;
-      }
 
-      const latestOpenSessionResponse = await getLatestOpenSession();
-      if (latestOpenSessionResponse.error) {
-        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'fetch_latest_open_session', error: latestOpenSessionResponse.error });
-        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
-        return;
-      }
-
-      const latestOpenSession = latestOpenSessionResponse.data;
-      if (latestOpenSession?.status === 'Is er al') {
-        if (normalizeSpotName(latestOpenSession.spot_name) === normalizeSpotName(canonicalSelectedSpot)) {
+      const checkInResult = await runCheckInFlowForSpot({ spot: selectedSpot, source: 'spot_page' });
+      if (!checkInResult.ok) {
+        if (checkInResult.reason === 'already_checked_in_same_spot') {
           setSessionActionError('Je bent al ingecheckt');
-        } else {
-          setSessionActionError(`Je bent al ingecheckt bij ${latestOpenSession.spot_name}`);
+          return;
         }
-        return;
-      }
-
-      if (latestOpenSession?.status === 'Gaat') {
-        if (normalizeSpotName(latestOpenSession.spot_name) !== normalizeSpotName(canonicalSelectedSpot)) {
+        if (checkInResult.reason.startsWith('already_checked_in_other_spot:')) {
+          const spotName = checkInResult.reason.split(':')[1] ?? '';
+          setSessionActionError(`Je bent al ingecheckt bij ${spotName}`);
+          return;
+        }
+        if (checkInResult.reason === 'planned_session_other_spot') {
           setSessionActionError('Rond eerst je huidige sessie af');
           return;
         }
-
-        const updatePayload = {
-          status: 'Is er al',
-          checked_in_at: nowIso,
-        } as const;
-        console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload });
-        const checkInResponse = await supabase
-          .from('sessions')
-          .update(updatePayload)
-          .eq('id', latestOpenSession.id)
-          .eq('user_id', authUserId);
-
-        if (checkInResponse.error) {
-          console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'update_existing_session', error: checkInResponse.error });
-          setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
-          return;
-        }
-
-        console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'updated_planned_session', sessionId: latestOpenSession.id, selectedSpot: canonicalSelectedSpot });
-        await fetchSharedData();
-        setSessionActionError('');
-        return;
-      }
-
-      await deleteGhostSessionsForUser(authUserId);
-
-      const insertPayload = {
-        spot_name: canonicalSelectedSpot,
-        user_id: session.user.id,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
-        start_time: getNowLocalHourMinute(),
-        end_time: getQuickCheckInEndTime(),
-        status: 'Is er al',
-        checked_in_at: nowIso,
-        checked_out_at: null,
-      };
-      console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload });
-      const insertResult = await supabase.from('sessions').insert(insertPayload);
-
-      if (insertResult.error) {
-        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'insert_new_live_session', error: insertResult.error, payload: insertPayload });
-        if (isUniqueConstraintError(insertResult.error)) {
+        if (checkInResult.reason === 'unique_constraint_live_session') {
           setSessionActionError('Je hebt al een actieve sessie');
           return;
         }
@@ -1203,8 +1250,6 @@ export default function App() {
         return;
       }
 
-      console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSelectedSpot });
-      await fetchSharedData();
       setSessionActionError('');
       return;
     }
@@ -1278,80 +1323,33 @@ export default function App() {
     }
 
     setQuickCheckInSpotInFlight(spot);
-    const startTime = getNowLocalHourMinute();
-    const endTime = getQuickCheckInEndTime();
-    const nowIso = new Date().toISOString();
-    const cleanupResponse = await supabase
-      .from('sessions')
-      .delete()
-      .eq('user_id', session.user.id)
-      .is('checked_in_at', null)
-      .is('checked_out_at', null);
-
-    if (cleanupResponse.error) {
-      console.log('HOME_QUICK_CHECKIN_GHOST_CLEANUP_ERROR', { spot, error: cleanupResponse.error });
-    }
-
-    const payload = {
+    console.log('HOME_QUICK_CHECKIN_SELECTED_SPOT', { spot });
+    console.log('HOME_QUICK_CHECKIN_PAYLOAD', {
       spot_name: spot,
       user_id: session.user.id,
       user_name: profile.display_name,
       user_avatar_url: profile.avatar_url,
-      start_time: startTime,
-      end_time: endTime,
-      status: 'Is er al',
-      checked_in_at: nowIso,
+      checked_in_at: 'now',
       checked_out_at: null,
-    };
-    const result = await supabase
-      .from('sessions')
-      .insert(payload)
-      .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
-      .single();
+    });
 
-    if (result.error) {
-      console.log('HOME_QUICK_CHECKIN_FAILURE', { spot, error: result.error });
-      if (result.error.code === '23505') {
+    const checkInResult = await runCheckInFlowForSpot({ spot, source: 'home_quick' });
+    setQuickCheckInSpotInFlight(null);
+
+    if (!checkInResult.ok) {
+      if (checkInResult.reason === 'already_checked_in_same_spot' || checkInResult.reason.startsWith('already_checked_in_other_spot:') || checkInResult.reason === 'planned_session_other_spot' || checkInResult.reason === 'unique_constraint_live_session') {
         setHomeQuickCheckInError('Rond eerst je huidige sessie af');
       } else {
         setHomeQuickCheckInError('Inchecken is mislukt. Probeer opnieuw.');
       }
-      setQuickCheckInSpotInFlight(null);
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, error: result.error });
+      console.log('HOME_QUICK_CHECKIN_ERROR', { spot, reason: checkInResult.reason, error: checkInResult.error ?? null });
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, reason: checkInResult.reason });
       return;
     }
 
-    console.log('HOME_QUICK_CHECKIN_SUCCESS', { spot, sessionId: result.data.id });
-    setSessionsBySpot((previous) => {
-      const insertedSpot = result.data.spot_name as SpotName;
-      if (!spotNames.includes(insertedSpot)) {
-        return previous;
-      }
-
-      const next = { ...previous };
-      next[insertedSpot] = [
-        ...previous[insertedSpot],
-        {
-          id: result.data.id,
-          spot: insertedSpot,
-          start: result.data.start_time.slice(0, 5),
-          end: result.data.end_time.slice(0, 5),
-          status: mapSessionStatus(result.data.status),
-          createdAt: result.data.created_at,
-          checkedInAt: result.data.checked_in_at,
-          checkedOutAt: result.data.checked_out_at,
-          userId: result.data.user_id,
-          userName: result.data.user_name,
-          userAvatarUrl: result.data.user_avatar_url,
-        },
-      ];
-      return next;
-    });
-
-    setQuickCheckInSpotInFlight(null);
     setHomeQuickCheckInError('');
-    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot, sessionId: result.data.id });
-    await fetchSharedData();
+    console.log('HOME_QUICK_CHECKIN_SUCCESS', { spot });
+    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot });
   };
 
   const handleQuickCheckOut = async () => {
