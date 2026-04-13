@@ -844,6 +844,18 @@ export default function App() {
       const bMinutes = bDirectCheckIn ? (getLocalMinutesFromIso(b.checkedInAt) ?? toMinutes(b.start)) : toMinutes(b.start);
       return aMinutes - bMinutes;
     }), [currentLocalMinutes, sessions]);
+  const liveCheckedInSessions = useMemo(
+    () =>
+      sessions
+        .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt)
+        .sort((a, b) => {
+          const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
+          const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
+          return bTime - aTime;
+        }),
+    [sessions],
+  );
+  const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} nu op de spot`;
 
   const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
     if (!selectedSpot || !session?.user.id) {
@@ -1738,6 +1750,28 @@ export default function App() {
               </View>
             </View>
           ) : null}
+        </View>
+
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Nu op de spot</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: liveCheckedInSessions.length > 0 ? 10 : 0 }}>{liveKiterCountLabel}</Text>
+
+          {liveCheckedInSessions.length > 0 ? (
+            <View>
+              {liveCheckedInSessions.map((liveSession) => (
+                <View key={`live-${liveSession.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                    {liveSession.userName}
+                  </Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+                    {`ingecheckt om ${formatToHourMinute(liveSession.checkedInAt)}`}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : (
+            <Text style={{ color: theme.textMuted, fontSize: 14 }}>Nog niemand op de spot</Text>
+          )}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
