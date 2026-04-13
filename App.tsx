@@ -874,7 +874,7 @@ export default function App() {
   const canCheckIn = !isCheckedIn && !hasPlannedSession;
   const canCheckOut = Boolean(activeCheckedInSession);
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
-  const canQuickCheckIn = !activeCheckedInSession && !quickCheckInWindowError;
+  const canQuickCheckIn = !quickCheckInWindowError;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   useEffect(() => {
@@ -1308,12 +1308,6 @@ export default function App() {
   const handleQuickCheckIn = async (spot: SpotName) => {
     console.log('HOME_QUICK_CHECKIN_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
-
-    if (activeCheckedInSession) {
-      setHomeQuickCheckInError('Rond eerst je huidige sessie af');
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'already_live', activeCheckedInSessionId: activeCheckedInSession.id });
-      return;
-    }
 
     if (quickCheckInWindowError) {
       setHomeQuickCheckInError(quickCheckInWindowError);
