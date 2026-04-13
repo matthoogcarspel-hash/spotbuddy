@@ -56,10 +56,11 @@ type SpotDistanceInfo = {
   distanceMeters: number | null;
 };
 type SpotNotificationPreferences = {
-  session_planning_notifications_enabled: boolean;
-  checkin_notifications_enabled: boolean;
-  chat_notifications_enabled: boolean;
+  session_planning_notification_mode: SpotNotificationMode;
+  checkin_notification_mode: SpotNotificationMode;
+  chat_notification_mode: SpotNotificationMode;
 };
+type SpotNotificationMode = 'off' | 'following' | 'everyone';
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -79,10 +80,27 @@ const theme = {
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
-  session_planning_notifications_enabled: false,
-  checkin_notifications_enabled: false,
-  chat_notifications_enabled: false,
+  session_planning_notification_mode: 'off',
+  checkin_notification_mode: 'off',
+  chat_notification_mode: 'off',
 };
+const mapLegacyEnabledToMode = (enabled: boolean | null | undefined): SpotNotificationMode => (enabled ? 'everyone' : 'off');
+const toLegacyEnabled = (mode: SpotNotificationMode) => mode !== 'off';
+const resolveNotificationMode = (
+  mode: SpotNotificationMode | null | undefined,
+  legacyEnabled: boolean | null | undefined,
+): SpotNotificationMode => {
+  if (mode === 'off' || mode === 'following' || mode === 'everyone') {
+    return mode;
+  }
+
+  return mapLegacyEnabledToMode(legacyEnabled);
+};
+const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
+  { label: 'Uit', value: 'off' },
+  { label: 'Volgt', value: 'following' },
+  { label: 'Iedereen', value: 'everyone' },
+];
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
@@ -667,7 +685,14 @@ export default function App() {
 
       const { data, error } = await supabase
         .from('spot_notification_preferences')
-        .select('session_planning_notifications_enabled, checkin_notifications_enabled, chat_notifications_enabled')
+        .select(`
+          session_planning_notification_mode,
+          checkin_notification_mode,
+          chat_notification_mode,
+          session_planning_notifications_enabled,
+          checkin_notifications_enabled,
+          chat_notifications_enabled
+        `)
         .eq('user_id', session.user.id)
         .eq('spot_name', selectedSpot)
         .maybeSingle();
@@ -690,9 +715,18 @@ export default function App() {
         preferences: data,
       });
       setSpotNotificationPreferences({
-        session_planning_notifications_enabled: data?.session_planning_notifications_enabled ?? false,
-        checkin_notifications_enabled: data?.checkin_notifications_enabled ?? false,
-        chat_notifications_enabled: data?.chat_notifications_enabled ?? false,
+        session_planning_notification_mode: resolveNotificationMode(
+          data?.session_planning_notification_mode,
+          data?.session_planning_notifications_enabled,
+        ),
+        checkin_notification_mode: resolveNotificationMode(
+          data?.checkin_notification_mode,
+          data?.checkin_notifications_enabled,
+        ),
+        chat_notification_mode: resolveNotificationMode(
+          data?.chat_notification_mode,
+          data?.chat_notifications_enabled,
+        ),
       });
       setLoadingSpotNotificationPreferences(false);
     };
@@ -783,9 +817,9 @@ export default function App() {
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
-    spotNotificationPreferences.session_planning_notifications_enabled
-    || spotNotificationPreferences.checkin_notifications_enabled
-    || spotNotificationPreferences.chat_notifications_enabled;
+    spotNotificationPreferences.session_planning_notification_mode !== 'off'
+    || spotNotificationPreferences.checkin_notification_mode !== 'off'
+    || spotNotificationPreferences.chat_notification_mode !== 'off';
   const todaysSessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
@@ -958,7 +992,7 @@ export default function App() {
       return false;
     }
 
-    console.log('NOTIFICATION_TOGGLE_SAVE_START', {
+    console.log('NOTIFICATION_MODE_SAVE_START', {
       userId: session.user.id,
       spotName: selectedSpot,
       preferenceKey,
@@ -973,9 +1007,12 @@ export default function App() {
         {
           user_id: session.user.id,
           spot_name: selectedSpot,
-          session_planning_notifications_enabled: nextPreferences.session_planning_notifications_enabled,
-          checkin_notifications_enabled: nextPreferences.checkin_notifications_enabled,
-          chat_notifications_enabled: nextPreferences.chat_notifications_enabled,
+          session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
+          checkin_notification_mode: nextPreferences.checkin_notification_mode,
+          chat_notification_mode: nextPreferences.chat_notification_mode,
+          session_planning_notifications_enabled: toLegacyEnabled(nextPreferences.session_planning_notification_mode),
+          checkin_notifications_enabled: toLegacyEnabled(nextPreferences.checkin_notification_mode),
+          chat_notifications_enabled: toLegacyEnabled(nextPreferences.chat_notification_mode),
         },
         {
           onConflict: 'user_id,spot_name',
@@ -990,7 +1027,7 @@ export default function App() {
       return false;
     }
 
-    console.log('NOTIFICATION_TOGGLE_SAVE_SUCCESS', {
+    console.log('NOTIFICATION_MODE_SAVE_SUCCESS', {
       userId: session.user.id,
       spotName: selectedSpot,
       preferenceKey,
@@ -1619,128 +1656,62 @@ export default function App() {
             >
               <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>Meldingen voor deze spot</Text>
 
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Sessie gepland</Text>
-                <Pressable
-                  disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                  onPress={() => {
-                    const previousPreferences = spotNotificationPreferences;
-                    const nextPreferences = {
-                      ...previousPreferences,
-                      session_planning_notifications_enabled: !previousPreferences.session_planning_notifications_enabled,
-                    };
-                    setSpotNotificationPreferences(nextPreferences);
-                    void saveSpotNotificationPreferences(nextPreferences, 'sessionPlanning').then((didSave) => {
-                      if (!didSave) {
-                        setSpotNotificationPreferences(previousPreferences);
-                      }
-                    });
-                  }}
-                  style={{
-                    width: 44,
-                    height: 24,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.session_planning_notifications_enabled ? '#2563eb' : theme.bg,
-                    paddingHorizontal: 2,
-                    justifyContent: 'center',
-                    opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
-                  }}
+              {[
+                {
+                  key: 'sessionPlanning' as const,
+                  label: 'Sessie gepland',
+                  preferenceField: 'session_planning_notification_mode' as const,
+                },
+                {
+                  key: 'checkin' as const,
+                  label: 'Check-ins',
+                  preferenceField: 'checkin_notification_mode' as const,
+                },
+                {
+                  key: 'chat' as const,
+                  label: 'Chatberichten',
+                  preferenceField: 'chat_notification_mode' as const,
+                },
+              ].map((notificationType, index) => (
+                <View
+                  key={notificationType.key}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10 }}
                 >
-                  <View
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: 999,
-                      backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.session_planning_notifications_enabled ? 'flex-end' : 'flex-start',
-                    }}
-                  />
-                </Pressable>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Check-ins</Text>
-                <Pressable
-                  disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                  onPress={() => {
-                    const previousPreferences = spotNotificationPreferences;
-                    const nextPreferences = {
-                      ...previousPreferences,
-                      checkin_notifications_enabled: !previousPreferences.checkin_notifications_enabled,
-                    };
-                    setSpotNotificationPreferences(nextPreferences);
-                    void saveSpotNotificationPreferences(nextPreferences, 'checkin').then((didSave) => {
-                      if (!didSave) {
-                        setSpotNotificationPreferences(previousPreferences);
-                      }
-                    });
-                  }}
-                  style={{
-                    width: 44,
-                    height: 24,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.checkin_notifications_enabled ? '#2563eb' : theme.bg,
-                    paddingHorizontal: 2,
-                    justifyContent: 'center',
-                    opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: 999,
-                      backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.checkin_notifications_enabled ? 'flex-end' : 'flex-start',
-                    }}
-                  />
-                </Pressable>
-              </View>
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Chatberichten</Text>
-                <Pressable
-                  disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                  onPress={() => {
-                    const previousPreferences = spotNotificationPreferences;
-                    const nextPreferences = {
-                      ...previousPreferences,
-                      chat_notifications_enabled: !previousPreferences.chat_notifications_enabled,
-                    };
-                    setSpotNotificationPreferences(nextPreferences);
-                    void saveSpotNotificationPreferences(nextPreferences, 'chat').then((didSave) => {
-                      if (!didSave) {
-                        setSpotNotificationPreferences(previousPreferences);
-                      }
-                    });
-                  }}
-                  style={{
-                    width: 44,
-                    height: 24,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: spotNotificationPreferences.chat_notifications_enabled ? '#2563eb' : theme.bg,
-                    paddingHorizontal: 2,
-                    justifyContent: 'center',
-                    opacity: loadingSpotNotificationPreferences ? 0.5 : 1,
-                  }}
-                >
-                  <View
-                    style={{
-                      width: 18,
-                      height: 18,
-                      borderRadius: 999,
-                      backgroundColor: '#ffffff',
-                      alignSelf: spotNotificationPreferences.chat_notifications_enabled ? 'flex-end' : 'flex-start',
-                    }}
-                  />
-                </Pressable>
-              </View>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{notificationType.label}</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
+                    {notificationModeOptions.map((option) => {
+                      const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
+                      return (
+                        <Pressable
+                          key={`${notificationType.key}-${option.value}`}
+                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                          onPress={() => {
+                            const previousPreferences = spotNotificationPreferences;
+                            const nextPreferences = {
+                              ...previousPreferences,
+                              [notificationType.preferenceField]: option.value,
+                            };
+                            setSpotNotificationPreferences(nextPreferences);
+                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
+                              if (!didSave) {
+                                setSpotNotificationPreferences(previousPreferences);
+                              }
+                            });
+                          }}
+                          style={{
+                            paddingVertical: 5,
+                            paddingHorizontal: 8,
+                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
+                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
 
               {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
             </View>
@@ -1862,21 +1833,23 @@ export default function App() {
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Nu op de spot</Text>
-          <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: liveCheckedInSessions.length > 0 ? 10 : 0 }}>{liveKiterCountLabel}</Text>
 
           {liveCheckedInSessions.length > 0 ? (
-            <View>
-              {liveCheckedInSessions.map((liveSession) => (
-                <View key={`live-${liveSession.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 }} numberOfLines={1}>
-                    {liveSession.userName}
-                  </Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                    {`ingecheckt om ${formatToHourMinute(liveSession.checkedInAt)}`}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            <>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>{liveKiterCountLabel}</Text>
+              <View>
+                {liveCheckedInSessions.map((liveSession) => (
+                  <View key={`live-${liveSession.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                      {liveSession.userName}
+                    </Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+                      {`ingecheckt om ${formatToHourMinute(liveSession.checkedInAt)}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
           ) : (
             <Text style={{ color: theme.textMuted, fontSize: 14 }}>Nog niemand op de spot</Text>
           )}
