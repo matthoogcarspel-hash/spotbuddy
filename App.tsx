@@ -84,18 +84,8 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
   checkin_notification_mode: 'off',
   chat_notification_mode: 'off',
 };
-const mapLegacyEnabledToMode = (enabled: boolean | null | undefined): SpotNotificationMode => (enabled ? 'everyone' : 'off');
-const toLegacyEnabled = (mode: SpotNotificationMode) => mode !== 'off';
-const resolveNotificationMode = (
-  mode: SpotNotificationMode | null | undefined,
-  legacyEnabled: boolean | null | undefined,
-): SpotNotificationMode => {
-  if (mode === 'off' || mode === 'following' || mode === 'everyone') {
-    return mode;
-  }
-
-  return mapLegacyEnabledToMode(legacyEnabled);
-};
+const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
+  mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
   { label: 'Uit', value: 'off' },
   { label: 'Volgt', value: 'following' },
@@ -710,10 +700,7 @@ export default function App() {
         .select(`
           session_planning_notification_mode,
           checkin_notification_mode,
-          chat_notification_mode,
-          session_planning_notifications_enabled,
-          checkin_notifications_enabled,
-          chat_notifications_enabled
+          chat_notification_mode
         `)
         .eq('user_id', session.user.id)
         .eq('spot_name', selectedSpot)
@@ -734,21 +721,18 @@ export default function App() {
       console.log('NOTIFICATION_PREFS_LOAD_SUCCESS', {
         userId: session.user.id,
         spotName: selectedSpot,
-        preferences: data,
+        rawPreferences: data,
       });
-      setSpotNotificationPreferences({
-        session_planning_notification_mode: resolveNotificationMode(
-          data?.session_planning_notification_mode,
-          data?.session_planning_notifications_enabled,
-        ),
-        checkin_notification_mode: resolveNotificationMode(
-          data?.checkin_notification_mode,
-          data?.checkin_notifications_enabled,
-        ),
-        chat_notification_mode: resolveNotificationMode(
-          data?.chat_notification_mode,
-          data?.chat_notifications_enabled,
-        ),
+      const loadedPreferences: SpotNotificationPreferences = {
+        session_planning_notification_mode: resolveNotificationMode(data?.session_planning_notification_mode),
+        checkin_notification_mode: resolveNotificationMode(data?.checkin_notification_mode),
+        chat_notification_mode: resolveNotificationMode(data?.chat_notification_mode),
+      };
+      setSpotNotificationPreferences(loadedPreferences);
+      console.log('NOTIFICATION_PREFS_LOADED_VALUES_AFTER_REFRESH', {
+        userId: session.user.id,
+        spotName: selectedSpot,
+        loadedPreferences,
       });
       setLoadingSpotNotificationPreferences(false);
     };
@@ -1047,24 +1031,30 @@ export default function App() {
     });
     setSavingNotificationPreferenceKey(preferenceKey);
     setNotificationPreferencesError('');
+    const savePayload = {
+      user_id: session.user.id,
+      spot_name: selectedSpot,
+      session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
+      checkin_notification_mode: nextPreferences.checkin_notification_mode,
+      chat_notification_mode: nextPreferences.chat_notification_mode,
+    };
+    console.log('NOTIFICATION_MODE_SAVE_PAYLOAD', savePayload);
 
-    const { error } = await supabase
+    const saveResult = await supabase
       .from('spot_notification_preferences')
       .upsert(
-        {
-          user_id: session.user.id,
-          spot_name: selectedSpot,
-          session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
-          checkin_notification_mode: nextPreferences.checkin_notification_mode,
-          chat_notification_mode: nextPreferences.chat_notification_mode,
-          session_planning_notifications_enabled: toLegacyEnabled(nextPreferences.session_planning_notification_mode),
-          checkin_notifications_enabled: toLegacyEnabled(nextPreferences.checkin_notification_mode),
-          chat_notifications_enabled: toLegacyEnabled(nextPreferences.chat_notification_mode),
-        },
+        savePayload,
         {
           onConflict: 'user_id,spot_name',
         },
       );
+    const { error } = saveResult;
+    console.log('NOTIFICATION_MODE_SAVE_RESULT', {
+      userId: session.user.id,
+      spotName: selectedSpot,
+      preferenceKey,
+      error: error ?? null,
+    });
 
     setSavingNotificationPreferenceKey(null);
 
@@ -1153,6 +1143,9 @@ export default function App() {
         checked_in_at: nowIso,
       } as const;
       console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, source });
+      if (source === 'home_quick') {
+        console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, spot: canonicalSpot });
+      }
       const checkInResponse = await supabase
         .from('sessions')
         .update(updatePayload)
@@ -1183,6 +1176,9 @@ export default function App() {
       checked_out_at: null,
     };
     console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
+    if (source === 'home_quick') {
+      console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'insert', payload: insertPayload, spot: canonicalSpot });
+    }
     const insertResult = await supabase.from('sessions').insert(insertPayload);
 
     if (insertResult.error) {
@@ -1196,6 +1192,36 @@ export default function App() {
     console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSpot, source });
     await fetchSharedData();
     return { ok: true };
+  };
+  const mapCheckInFailureToMessage = (reason: string) => {
+    if (reason === 'already_checked_in_same_spot') {
+      return 'Je bent al ingecheckt';
+    }
+    if (reason.startsWith('already_checked_in_other_spot:')) {
+      const spotName = reason.split(':')[1] ?? '';
+      return `Je bent al ingecheckt bij ${spotName}`;
+    }
+    if (reason === 'planned_session_other_spot' || reason === 'unique_constraint_live_session') {
+      return 'Rond eerst je huidige sessie af';
+    }
+    return 'Inchecken is mislukt. Probeer opnieuw.';
+  };
+  const handleCheckInWithSharedFlow = async ({
+    spot,
+    source,
+  }: {
+    spot: SpotName;
+    source: 'spot_page' | 'home_quick';
+  }): Promise<string | null> => {
+    console.log('CHECKIN_SHARED_FLOW_SPOT_USED', { source, spot });
+    const checkInResult = await runCheckInFlowForSpot({ spot, source });
+    if (!checkInResult.ok) {
+      console.log('CHECKIN_SHARED_FLOW_ERROR_RESULT', { source, spot, reason: checkInResult.reason, error: checkInResult.error ?? null });
+      return mapCheckInFailureToMessage(checkInResult.reason);
+    }
+
+    console.log('CHECKIN_SHARED_FLOW_SUCCESS_RESULT', { source, spot });
+    return null;
   };
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
@@ -1222,34 +1248,15 @@ export default function App() {
         .maybeSingle();
 
     if (status === 'Is er al') {
-      if (!selectedSpot || !session?.user.id || !profile) {
-        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot, hasSession: Boolean(session?.user.id), hasProfile: Boolean(profile) });
+      if (!selectedSpot) {
+        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot });
         return;
       }
-
-      const checkInResult = await runCheckInFlowForSpot({ spot: selectedSpot, source: 'spot_page' });
-      if (!checkInResult.ok) {
-        if (checkInResult.reason === 'already_checked_in_same_spot') {
-          setSessionActionError('Je bent al ingecheckt');
-          return;
-        }
-        if (checkInResult.reason.startsWith('already_checked_in_other_spot:')) {
-          const spotName = checkInResult.reason.split(':')[1] ?? '';
-          setSessionActionError(`Je bent al ingecheckt bij ${spotName}`);
-          return;
-        }
-        if (checkInResult.reason === 'planned_session_other_spot') {
-          setSessionActionError('Rond eerst je huidige sessie af');
-          return;
-        }
-        if (checkInResult.reason === 'unique_constraint_live_session') {
-          setSessionActionError('Je hebt al een actieve sessie');
-          return;
-        }
-        setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
+      const errorMessage = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
+      if (errorMessage) {
+        setSessionActionError(errorMessage);
         return;
       }
-
       setSessionActionError('');
       return;
     }
@@ -1324,31 +1331,18 @@ export default function App() {
 
     setQuickCheckInSpotInFlight(spot);
     console.log('HOME_QUICK_CHECKIN_SELECTED_SPOT', { spot });
-    console.log('HOME_QUICK_CHECKIN_PAYLOAD', {
-      spot_name: spot,
-      user_id: session.user.id,
-      user_name: profile.display_name,
-      user_avatar_url: profile.avatar_url,
-      checked_in_at: 'now',
-      checked_out_at: null,
-    });
-
-    const checkInResult = await runCheckInFlowForSpot({ spot, source: 'home_quick' });
+    const checkInErrorMessage = await handleCheckInWithSharedFlow({ spot, source: 'home_quick' });
     setQuickCheckInSpotInFlight(null);
 
-    if (!checkInResult.ok) {
-      if (checkInResult.reason === 'already_checked_in_same_spot' || checkInResult.reason.startsWith('already_checked_in_other_spot:') || checkInResult.reason === 'planned_session_other_spot' || checkInResult.reason === 'unique_constraint_live_session') {
-        setHomeQuickCheckInError('Rond eerst je huidige sessie af');
-      } else {
-        setHomeQuickCheckInError('Inchecken is mislukt. Probeer opnieuw.');
-      }
-      console.log('HOME_QUICK_CHECKIN_ERROR', { spot, reason: checkInResult.reason, error: checkInResult.error ?? null });
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, reason: checkInResult.reason });
+    if (checkInErrorMessage) {
+      setHomeQuickCheckInError(checkInErrorMessage);
+      console.log('HOME_QUICK_CHECKIN_ERROR_RESULT', { spot, error: checkInErrorMessage });
+      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, reason: checkInErrorMessage });
       return;
     }
 
     setHomeQuickCheckInError('');
-    console.log('HOME_QUICK_CHECKIN_SUCCESS', { spot });
+    console.log('HOME_QUICK_CHECKIN_SUCCESS_RESULT', { spot });
     console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot });
   };
 
@@ -1692,20 +1686,25 @@ export default function App() {
           {isNotificationPanelExpanded ? (
             <View
               style={{
-                position: 'absolute',
-                top: 58,
-                right: 18,
-                width: 230,
-                borderRadius: 12,
+                alignSelf: 'flex-end',
+                marginTop: 10,
+                width: 332,
+                maxWidth: '100%',
+                borderRadius: 14,
                 borderWidth: 1,
                 borderColor: theme.border,
                 backgroundColor: theme.bgElevated,
-                paddingHorizontal: 12,
-                paddingVertical: 10,
-                zIndex: 8,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+                zIndex: 20,
+                elevation: 8,
+                shadowColor: '#000000',
+                shadowOpacity: 0.35,
+                shadowRadius: 12,
+                shadowOffset: { width: 0, height: 6 },
               }}
             >
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>Meldingen voor deze spot</Text>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Meldingen voor deze spot</Text>
 
               {[
                 {
@@ -1726,10 +1725,10 @@ export default function App() {
               ].map((notificationType, index) => (
                 <View
                   key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
                 >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
                     {notificationModeOptions.map((option) => {
                       const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
                       return (
@@ -1751,7 +1750,7 @@ export default function App() {
                           }}
                           style={{
                             paddingVertical: 5,
-                            paddingHorizontal: 8,
+                            paddingHorizontal: 9,
                             backgroundColor: isSelected ? '#2563eb' : theme.bg,
                             opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
                           }}
