@@ -1142,6 +1142,7 @@ export default function App() {
       const updatePayload = {
         status: 'Is er al',
         checked_in_at: nowIso,
+        checked_out_at: null,
       } as const;
       console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, source });
       if (source === 'home_quick') {
@@ -1318,9 +1319,21 @@ export default function App() {
     if (!session?.user.id || !profile) {
       return;
     }
-    if (!nearestSpotWithinRange) {
+    const isPressedSpotWithinRange = Boolean(
+      nearestSpotResult
+      && normalizeSpotName(nearestSpotResult.spot) === normalizeSpotName(spot)
+      && nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters,
+    );
+    if (!isPressedSpotWithinRange) {
       setHomeQuickCheckInError('Je bent nog niet dicht genoeg bij een spot');
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'out_of_range', spot });
+      console.log('HOME_QUICK_CHECKIN_RESULT', {
+        ok: false,
+        reason: 'out_of_range',
+        spot,
+        nearestSpotResult: nearestSpotResult
+          ? { spot: nearestSpotResult.spot, distanceMeters: nearestSpotResult.distanceMeters }
+          : null,
+      });
       return;
     }
 
