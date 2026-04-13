@@ -13,9 +13,13 @@ import { Profile, supabase } from './src/lib/supabase';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 
-const SPOTS = spots;
-type SpotName = (typeof SPOTS)[number]['spot'];
-const SPOT_NAMES = SPOTS.map((spot) => spot.spot) as SpotName[];
+const fallbackSpots = spots;
+type SpotName = string;
+type SpotDefinition = {
+  spot: SpotName;
+  latitude: number;
+  longitude: number;
+};
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
 type SpotSession = {
   id: string;
@@ -193,11 +197,12 @@ const isDirectCheckIn = (sessionItem: SpotSession) => {
   return Math.abs(checkedInMs - createdMs) <= 90_000;
 };
 
-const createSpotRecord = <T,>(makeValue: () => T): Record<SpotName, T> =>
-  SPOT_NAMES.reduce((result, spot) => {
+const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record<SpotName, T> =>
+  spotNames.reduce((result, spot) => {
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
+const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
 const isGoingLaterSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Gaat' && nowMinutes < toMinutes(sessionItem.start);
@@ -278,11 +283,11 @@ const registerForPushNotifications = async (userId: string) => {
 
   console.log('push token saved');
 };
-const getNearestSpot = (currentCoordinates: SpotCoordinates): NearestSpotResult | null => {
+const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: SpotDefinition[]): NearestSpotResult | null => {
   let nearestSpot: SpotName | null = null;
   let nearestDistanceMeters = Number.POSITIVE_INFINITY;
 
-  for (const spot of SPOTS) {
+  for (const spot of spotDefinitions) {
     const distanceMeters = getDistanceMeters(currentCoordinates, {
       latitude: spot.latitude,
       longitude: spot.longitude,
@@ -325,14 +330,16 @@ export default function App() {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
-  const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(createSpotRecord(() => []));
-  const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(createSpotRecord(() => []));
+  const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
+  const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
+  const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -367,8 +374,8 @@ export default function App() {
     setProfileAvatarInputUri(null);
     setProfileEditError('');
     setIsSavingProfile(false);
-    setSessionsBySpot(createSpotRecord(() => []));
-    setMessagesBySpot(createSpotRecord(() => []));
+    setSessionsBySpot(createSpotRecord(spotNames, () => []));
+    setMessagesBySpot(createSpotRecord(spotNames, () => []));
   };
 
   const fetchProfile = async (userId: string, options?: { showLoader?: boolean }) => {
@@ -412,6 +419,42 @@ export default function App() {
     return 'Gaat';
   };
 
+  const fetchSpotDefinitions = async () => {
+    const { data, error } = await supabase
+      .from('spots')
+      .select('*');
+
+    if (error) {
+      console.error('Spots ophalen mislukt, fallback naar lokale spots:', error);
+      return;
+    }
+
+    const mappedSpots = (data ?? [])
+      .map((row) => {
+        const spotName = (row.spot_name ?? row.name ?? row.spot ?? '').toString().trim();
+        const latitudeValue = Number(row.latitude ?? row.lat ?? null);
+        const longitudeValue = Number(row.longitude ?? row.lng ?? row.lon ?? null);
+        if (!spotName || Number.isNaN(latitudeValue) || Number.isNaN(longitudeValue)) {
+          return null;
+        }
+
+        return {
+          spot: spotName,
+          latitude: latitudeValue,
+          longitude: longitudeValue,
+        } satisfies SpotDefinition;
+      })
+      .filter((spot): spot is SpotDefinition => Boolean(spot));
+
+    if (mappedSpots.length === 0) {
+      console.warn('Spots tabel leeg of onleesbaar, fallback naar lokale spots');
+      return;
+    }
+
+    console.log('SPOTS_SOURCE_LOADED', { source: 'supabase_spots', count: mappedSpots.length });
+    setSpotDefinitions(mappedSpots);
+  };
+
   const fetchSharedData = async () => {
     setLoadingData(true);
 
@@ -419,23 +462,23 @@ export default function App() {
       supabase
         .from('sessions')
         .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
-        .in('spot_name', [...SPOT_NAMES])
+        .in('spot_name', [...spotNames])
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
         .select('id, spot_name, user_id, user_name, user_avatar_url, text, created_at')
-        .in('spot_name', [...SPOT_NAMES])
+        .in('spot_name', [...spotNames])
         .order('created_at', { ascending: true }),
     ]);
 
     if (sessionsResponse.error) {
       console.error('Sessies ophalen mislukt:', sessionsResponse.error);
     } else {
-      const nextSessionsBySpot = createSpotRecord<SpotSession[]>(() => []);
+      const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
       for (const row of sessionsResponse.data) {
         const spot = row.spot_name as SpotName;
-        if (!SPOT_NAMES.includes(spot)) {
+        if (!spotNames.includes(spot)) {
           continue;
         }
 
@@ -460,11 +503,11 @@ export default function App() {
     if (messagesResponse.error) {
       console.error('Berichten ophalen mislukt:', messagesResponse.error);
     } else {
-      const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(() => []);
+      const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
 
       for (const row of messagesResponse.data) {
         const spot = row.spot_name as SpotName;
-        if (!SPOT_NAMES.includes(spot)) {
+        if (!spotNames.includes(spot)) {
           continue;
         }
 
@@ -485,6 +528,7 @@ export default function App() {
   };
 
   useEffect(() => {
+    void fetchSpotDefinitions();
     void supabase.auth.getUser().then(({ data }) => {
       setCurrentUserId(data.user?.id ?? null);
     });
@@ -495,6 +539,7 @@ export default function App() {
       setLoadingSession(false);
 
       if (nextSession) {
+        void fetchSpotDefinitions();
         void fetchProfile(nextSession.user.id);
         void fetchSharedData();
       } else {
@@ -515,6 +560,7 @@ export default function App() {
       }
 
       void fetchProfile(nextSession.user.id);
+      void fetchSpotDefinitions();
       void fetchSharedData();
     });
 
@@ -530,6 +576,40 @@ export default function App() {
   }, [showProfile, profile]);
 
   useEffect(() => {
+    setSessionsBySpot((previous) => {
+      const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
+      for (const spot of spotNames) {
+        next[spot] = previous[spot] ?? [];
+      }
+      return next;
+    });
+    setMessagesBySpot((previous) => {
+      const next = createSpotRecord<ChatMessage[]>(spotNames, () => []);
+      for (const spot of spotNames) {
+        next[spot] = previous[spot] ?? [];
+      }
+      return next;
+    });
+  }, [spotNames]);
+
+  useEffect(() => {
+    if (!selectedSpot) {
+      return;
+    }
+
+    if (!spotNames.includes(selectedSpot)) {
+      const replacementSpot = spotDefinitions.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(selectedSpot))?.spot ?? null;
+      if (replacementSpot) {
+        setSelectedSpot(replacementSpot);
+        return;
+      }
+
+      console.warn('SPOT_DETAIL_SELECTED_SPOT_MISSING', { selectedSpot });
+      setSelectedSpot(null);
+    }
+  }, [selectedSpot, spotDefinitions, spotNames]);
+
+  useEffect(() => {
     if (!session?.user.id) {
       return;
     }
@@ -538,6 +618,14 @@ export default function App() {
       console.error('Push registration failed:', error);
     });
   }, [session?.user.id]);
+
+  useEffect(() => {
+    if (!session?.user.id || spotNames.length === 0) {
+      return;
+    }
+
+    void fetchSharedData();
+  }, [session?.user.id, spotNames]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
@@ -552,6 +640,14 @@ export default function App() {
   useEffect(() => {
     console.log('SHOW_FORM', showForm);
   }, [showForm]);
+
+  useEffect(() => {
+    if (!selectedSpot) {
+      return;
+    }
+
+    console.log('SPOT_DETAIL_SELECTED_SPOT_NAME', { selectedSpot });
+  }, [selectedSpot]);
 
   useEffect(() => {
     let isCancelled = false;
@@ -653,7 +749,7 @@ export default function App() {
         };
 
         setCurrentCoordinates(coordinates);
-        const nearest = getNearestSpot(coordinates);
+        const nearest = getNearestSpot(coordinates, spotDefinitions);
         setNearestSpotResult(nearest);
       } catch (error) {
         if (isCancelled) {
@@ -675,7 +771,14 @@ export default function App() {
     return () => {
       isCancelled = true;
     };
-  }, [session?.user.id]);
+  }, [session?.user.id, spotDefinitions]);
+
+  useEffect(() => {
+    console.log('HOME_NEAREST_SPOT_NAME', {
+      nearestSpotName: nearestSpotResult?.spot ?? null,
+      distanceMeters: nearestSpotResult?.distanceMeters ?? null,
+    });
+  }, [nearestSpotResult]);
 
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
@@ -684,12 +787,12 @@ export default function App() {
     || spotNotificationPreferences.checkin_notifications_enabled
     || spotNotificationPreferences.chat_notifications_enabled;
   const todaysSessionsBySpot = useMemo(() => {
-    const next = createSpotRecord<SpotSession[]>(() => []);
-    for (const spot of SPOT_NAMES) {
+    const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
+    for (const spot of spotNames) {
       next[spot] = sessionsBySpot[spot].filter((item) => isSessionCreatedToday(item));
     }
     return next;
-  }, [sessionsBySpot]);
+  }, [sessionsBySpot, spotNames]);
   const allUserSessions = useMemo(() => {
     if (!session?.user.id) {
       return [];
@@ -751,7 +854,7 @@ export default function App() {
   }, [blockingSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
-    const spotsWithDistance = SPOTS.map((spot) => ({
+    const spotsWithDistance = spotDefinitions.map((spot) => ({
       spot: spot.spot,
       distanceMeters: currentCoordinates
         ? getDistanceMeters(currentCoordinates, {
@@ -772,7 +875,7 @@ export default function App() {
 
       return a.distanceMeters - b.distanceMeters;
     });
-  }, [currentCoordinates]);
+  }, [currentCoordinates, spotDefinitions]);
   useEffect(() => {
     console.log('ACTIVE_SESSION_LOAD', {
       activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
@@ -899,7 +1002,7 @@ export default function App() {
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
-    console.log(`${actionLabel}_PRESSED`, { selectedSpot });
+    console.log(`${actionLabel}_BUTTON_PRESSED`, { selectedSpot, status });
 
     const { data } = await supabase.auth.getUser();
     const authUserId = data.user?.id;
@@ -921,19 +1024,27 @@ export default function App() {
 
     if (status === 'Is er al') {
       if (!selectedSpot || !session?.user.id || !profile) {
+        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot, hasSession: Boolean(session?.user.id), hasProfile: Boolean(profile) });
+        return;
+      }
+      const canonicalSelectedSpot =
+        spotDefinitions.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(selectedSpot))?.spot
+        ?? selectedSpot;
+      if (!canonicalSelectedSpot) {
+        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot, canonicalSelectedSpot });
         return;
       }
 
       const latestOpenSessionResponse = await getLatestOpenSession();
       if (latestOpenSessionResponse.error) {
-        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: latestOpenSessionResponse.error });
+        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'fetch_latest_open_session', error: latestOpenSessionResponse.error });
         setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
         return;
       }
 
       const latestOpenSession = latestOpenSessionResponse.data;
       if (latestOpenSession?.status === 'Is er al') {
-        if (latestOpenSession.spot_name === selectedSpot) {
+        if (normalizeSpotName(latestOpenSession.spot_name) === normalizeSpotName(canonicalSelectedSpot)) {
           setSessionActionError('Je bent al ingecheckt');
         } else {
           setSessionActionError(`Je bent al ingecheckt bij ${latestOpenSession.spot_name}`);
@@ -942,34 +1053,36 @@ export default function App() {
       }
 
       if (latestOpenSession?.status === 'Gaat') {
-        if (latestOpenSession.spot_name !== selectedSpot) {
+        if (normalizeSpotName(latestOpenSession.spot_name) !== normalizeSpotName(canonicalSelectedSpot)) {
           setSessionActionError('Rond eerst je huidige sessie af');
           return;
         }
 
+        const updatePayload = {
+          status: 'Is er al',
+          checked_in_at: nowIso,
+        } as const;
+        console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload });
         const checkInResponse = await supabase
           .from('sessions')
-          .update({
-            status: 'Is er al',
-            checked_in_at: nowIso,
-          })
+          .update(updatePayload)
           .eq('id', latestOpenSession.id)
           .eq('user_id', authUserId);
 
         if (checkInResponse.error) {
-          console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: checkInResponse.error });
+          console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'update_existing_session', error: checkInResponse.error });
           setSessionActionError('Inchecken is mislukt. Probeer opnieuw.');
           return;
         }
 
-        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: true, mode: 'updated_planned_session', sessionId: latestOpenSession.id });
+        console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'updated_planned_session', sessionId: latestOpenSession.id, selectedSpot: canonicalSelectedSpot });
         await fetchSharedData();
         setSessionActionError('');
         return;
       }
 
-      const insertResult = await supabase.from('sessions').insert({
-        spot_name: selectedSpot,
+      const insertPayload = {
+        spot_name: canonicalSelectedSpot,
         user_id: session.user.id,
         user_name: profile.display_name,
         user_avatar_url: profile.avatar_url,
@@ -977,10 +1090,12 @@ export default function App() {
         end_time: getQuickCheckInEndTime(),
         status: 'Is er al',
         checked_in_at: nowIso,
-      });
+      };
+      console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload });
+      const insertResult = await supabase.from('sessions').insert(insertPayload);
 
       if (insertResult.error) {
-        console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: false, error: insertResult.error });
+        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'insert_new_live_session', error: insertResult.error, payload: insertPayload });
         if (isUniqueConstraintError(insertResult.error)) {
           setSessionActionError('Je hebt al een actieve sessie');
           return;
@@ -989,7 +1104,7 @@ export default function App() {
         return;
       }
 
-      console.log('SPOT_PAGE_CHECKIN_RESULT', { ok: true, mode: 'inserted_live_session' });
+      console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSelectedSpot });
       await fetchSharedData();
       setSessionActionError('');
       return;
@@ -1094,7 +1209,7 @@ export default function App() {
     console.log('HOME_QUICK_CHECKIN_SUCCESS', { spot, sessionId: result.data.id });
     setSessionsBySpot((previous) => {
       const insertedSpot = result.data.spot_name as SpotName;
-      if (!SPOT_NAMES.includes(insertedSpot)) {
+      if (!spotNames.includes(insertedSpot)) {
         return previous;
       }
 
