@@ -220,6 +220,11 @@ const isDirectCheckIn = (sessionItem: SpotSession) => {
   return Math.abs(checkedInMs - createdMs) <= 90_000;
 };
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
+const isPlannedSession = (sessionItem: SpotSession) =>
+  sessionItem.start !== ''
+  && sessionItem.end !== ''
+  && sessionItem.checkedInAt === null
+  && sessionItem.checkedOutAt === null;
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
@@ -794,7 +799,7 @@ export default function App() {
         .from('sessions')
         .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
         .in('spot_name', [...spotNames])
-        .not('checked_in_at', 'is', null)
+        .is('checked_out_at', null)
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
@@ -809,10 +814,6 @@ export default function App() {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
       for (const row of sessionsResponse.data) {
-        if (!row.checked_in_at) {
-          continue;
-        }
-
         const spot = row.spot_name as SpotName;
         if (!spotNames.includes(spot)) {
           continue;
@@ -832,6 +833,27 @@ export default function App() {
           userAvatarUrl: row.user_avatar_url,
         });
       }
+
+      const loadedSessions = Object.values(nextSessionsBySpot).flat();
+      console.log('SESSIONS_LOADED_FOR_TIMELINE', {
+        total: loadedSessions.length,
+        planned: loadedSessions.filter((item) => isPlannedSession(item)).map((item) => ({
+          id: item.id,
+          spot: item.spot,
+          start: item.start,
+          end: item.end,
+          checkedInAt: item.checkedInAt,
+          checkedOutAt: item.checkedOutAt,
+        })),
+        live: loadedSessions.filter((item) => isLiveSession(item)).map((item) => ({
+          id: item.id,
+          spot: item.spot,
+          start: item.start,
+          end: item.end,
+          checkedInAt: item.checkedInAt,
+          checkedOutAt: item.checkedOutAt,
+        })),
+      });
 
       setSessionsBySpot(nextSessionsBySpot);
     }
@@ -1336,6 +1358,31 @@ export default function App() {
       const bMinutes = bDirectCheckIn ? (getLocalMinutesFromIso(b.checkedInAt) ?? toMinutes(b.start)) : toMinutes(b.start);
       return aMinutes - bMinutes;
     }), [currentLocalMinutes, sessions]);
+  useEffect(() => {
+    console.log('TIMELINE_FILTERED_SESSIONS', {
+      selectedSpot,
+      totalSpotSessions: sessions.length,
+      plannedSessions: sessions.filter((item) => isPlannedSession(item)).map((item) => ({
+        id: item.id,
+        start: item.start,
+        end: item.end,
+        checkedInAt: item.checkedInAt,
+      })),
+      liveSessions: sessions.filter((item) => isLiveSession(item)).map((item) => ({
+        id: item.id,
+        start: item.start,
+        end: item.end,
+        checkedInAt: item.checkedInAt,
+      })),
+      timelineSessions: timelineSessions.map((item) => ({
+        id: item.id,
+        status: item.status,
+        start: item.start,
+        end: item.end,
+        checkedInAt: item.checkedInAt,
+      })),
+    });
+  }, [selectedSpot, sessions, timelineSessions]);
   const liveCheckedInSessions = useMemo(
     () =>
       getLiveSessions(sessions)
@@ -2223,14 +2270,19 @@ export default function App() {
         checked_out_at: null,
       };
 
-      const result = await supabase.from('sessions').insert(payload);
+      console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', payload);
+      const result = await supabase
+        .from('sessions')
+        .insert(payload)
+        .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
+        .single();
       if (result.error) {
         setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload });
         return;
       }
 
-      console.log('SPOT_PAGE_PLANNING_SAVE_SUCCESS', { payload });
+      console.log('SPOT_PAGE_PLANNING_SAVE_RESULT', result.data);
       await fetchSharedData();
       resetForm();
       setSessionActionError('');
