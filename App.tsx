@@ -2158,8 +2158,22 @@ export default function App() {
 
   if (selectedSpot) {
     const handleSave = async () => {
-      if (startHour === null || endHour === null) {
-        setFormError('Kies eerst een start- en eindtijd.');
+      console.log('SPOT_PAGE_PLANNING_SAVE_PRESSED');
+      console.log('SPOT_PAGE_PLANNING_SELECTED_SPOT', { selectedSpot });
+      console.log('SPOT_PAGE_PLANNING_TIME_PAYLOAD', {
+        startHour,
+        startMinute,
+        endHour,
+        endMinute,
+      });
+
+      if (startHour === null) {
+        setFormError('Kies eerst een starttijd.');
+        return;
+      }
+
+      if (endHour === null) {
+        setFormError('Kies eerst een eindtijd.');
         return;
       }
 
@@ -2186,7 +2200,40 @@ export default function App() {
         return;
       }
 
-      setFormError(planningHelperText);
+      if (!session?.user.id || !profile) {
+        setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
+          reason: 'missing_auth_or_profile',
+          selectedSpot,
+          hasSessionUserId: Boolean(session?.user.id),
+          hasProfile: Boolean(profile),
+        });
+        return;
+      }
+
+      const payload = {
+        spot_name: selectedSpot,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
+        end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
+        status: 'Gaat' as const,
+        checked_in_at: null,
+        checked_out_at: null,
+      };
+
+      const result = await supabase.from('sessions').insert(payload);
+      if (result.error) {
+        setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload });
+        return;
+      }
+
+      console.log('SPOT_PAGE_PLANNING_SAVE_SUCCESS', { payload });
+      await fetchSharedData();
+      resetForm();
+      setSessionActionError('');
     };
     const primaryButtonStyle = {
       backgroundColor: '#1d4ed8',
