@@ -76,6 +76,8 @@ type IncomingFollowRelation = {
   created_at: string | null;
   responded_at: string | null;
 };
+type TimelineFilter = 'everyone' | 'buddies';
+type TimelineState = 'live' | 'planned' | 'completed';
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -233,28 +235,21 @@ const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
   && sessionItem.checkedInAt === null
   && sessionItem.checkedOutAt === null;
-const isPlannedCheckedInSession = (sessionItem: SpotSession) =>
-  hasPlannedTimeWindow(sessionItem)
-  && sessionItem.checkedInAt !== null
-  && sessionItem.checkedOutAt === null
-  && !isDirectCheckIn(sessionItem);
-const isLiveWithoutPlanningSession = (sessionItem: SpotSession) =>
-  sessionItem.checkedInAt !== null
-  && sessionItem.checkedOutAt === null
-  && !hasPlannedTimeWindow(sessionItem);
-const isCheckedOutSession = (sessionItem: SpotSession) => sessionItem.checkedOutAt !== null;
-const getSessionTimelineState = (sessionItem: SpotSession): 'planned' | 'livePlanned' | 'liveUnplanned' | 'checkedOut' => {
-  if (isCheckedOutSession(sessionItem)) {
-    return 'checkedOut';
-  }
-  if (isPlannedCheckedInSession(sessionItem)) {
-    return 'livePlanned';
-  }
+const getTimelineState = (sessionItem: SpotSession): TimelineState => {
   if (sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null) {
-    return 'liveUnplanned';
+    return 'live';
   }
+
+  if (sessionItem.checkedOutAt !== null) {
+    return 'completed';
+  }
+
   return 'planned';
 };
+const getTimelineBarLabel = (state: TimelineState) =>
+  state === 'live' ? 'Live' : state === 'planned' ? 'Gaat' : 'Klaar';
+const getTimelineStatusOrder = (state: TimelineState) =>
+  state === 'live' ? 0 : state === 'planned' ? 1 : 2;
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
@@ -454,6 +449,8 @@ export default function App() {
   const [buddyActionUserId, setBuddyActionUserId] = useState<string | null>(null);
   const [followRequestActionId, setFollowRequestActionId] = useState<string | null>(null);
   const [buddiesError, setBuddiesError] = useState('');
+  const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
+  const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -972,6 +969,28 @@ export default function App() {
   }, [showBuddies, session?.user.id]);
 
   useEffect(() => {
+    if (!session?.user.id) {
+      setFollowingUserIds([]);
+      return;
+    }
+
+    void (async () => {
+      const { data, error } = await supabase
+        .from('user_follows')
+        .select('following_id')
+        .eq('follower_id', session.user.id)
+        .eq('status', 'accepted');
+
+      if (error) {
+        console.error('TIMELINE_FOLLOWING_USERS_LOAD_ERROR', error);
+        return;
+      }
+
+      setFollowingUserIds((data ?? []).map((item) => item.following_id));
+    })();
+  }, [session?.user.id]);
+
+  useEffect(() => {
     setSessionsBySpot((previous) => {
       const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
       for (const spot of spotNames) {
@@ -1363,44 +1382,62 @@ export default function App() {
   );
 
   const timelineSessions = useMemo(() => {
-    const withSortMinutes = sessions
+    const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
+
+    return dedupedSessions
       .filter((item) => isSessionCreatedToday(item))
+      .filter((item) => {
+        if (timelineFilter === 'buddies') {
+          return followingUserIds.includes(item.userId);
+        }
+        return true;
+      })
       .map((item) => {
-        const state = getSessionTimelineState(item);
+        const state = getTimelineState(item);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
-        const checkInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+        const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+        const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
         const fallbackMinutes = getLocalMinutesFromIso(item.createdAt) ?? timelineStartMinutes;
-        const sortMinutes = startMinutes ?? checkInMinutes ?? fallbackMinutes;
+        const sortMinutes = checkedInMinutes ?? startMinutes ?? checkedOutMinutes ?? fallbackMinutes;
+
         return {
           item,
           state,
+          isBuddy: followingUserIds.includes(item.userId),
           sortMinutes,
         };
+      })
+      .sort((a, b) => {
+        if (a.isBuddy !== b.isBuddy) {
+          return a.isBuddy ? -1 : 1;
+        }
+
+        const byStatus = getTimelineStatusOrder(a.state) - getTimelineStatusOrder(b.state);
+        if (byStatus !== 0) {
+          return byStatus;
+        }
+
+        if (a.sortMinutes !== b.sortMinutes) {
+          return a.sortMinutes - b.sortMinutes;
+        }
+
+        return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
+  }, [followingUserIds, sessions, timelineFilter]);
+  const selectedTimelineSession = useMemo(
+    () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId)?.item ?? null,
+    [selectedTimelineSessionId, timelineSessions],
+  );
+  useEffect(() => {
+    if (!selectedTimelineSessionId) {
+      return;
+    }
 
-    const groupOrder: Record<'livePlanned' | 'liveUnplanned' | 'planned' | 'checkedOut', number> = {
-      livePlanned: 0,
-      liveUnplanned: 0,
-      planned: 1,
-      checkedOut: 2,
-    };
-
-    return withSortMinutes.sort((a, b) => {
-      const byGroup = groupOrder[a.state] - groupOrder[b.state];
-      if (byGroup !== 0) {
-        return byGroup;
-      }
-
-      const byStart = a.sortMinutes - b.sortMinutes;
-      if (byStart !== 0) {
-        return byStart;
-      }
-
-      const aCreated = a.item.createdAt ? new Date(a.item.createdAt).getTime() : 0;
-      const bCreated = b.item.createdAt ? new Date(b.item.createdAt).getTime() : 0;
-      return aCreated - bCreated;
-    });
-  }, [sessions]);
+    const exists = timelineSessions.some(({ item }) => item.id === selectedTimelineSessionId);
+    if (!exists) {
+      setSelectedTimelineSessionId(null);
+    }
+  }, [selectedTimelineSessionId, timelineSessions]);
   useEffect(() => {
     console.log('TIMELINE_FILTERED_SESSIONS', {
       selectedSpot,
@@ -2668,7 +2705,31 @@ export default function App() {
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 10 }}>Sessies</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>Sessies</Text>
+            <View style={{ flexDirection: 'row', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
+              {([
+                { key: 'everyone' as const, label: 'Iedereen' },
+                { key: 'buddies' as const, label: 'Buddies' },
+              ]).map((option) => {
+                const isActive = timelineFilter === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    onPress={() => setTimelineFilter(option.key)}
+                    style={{
+                      paddingHorizontal: 10,
+                      paddingVertical: 5,
+                      borderRadius: 999,
+                      backgroundColor: isActive ? theme.primary : 'transparent',
+                    }}
+                  >
+                    <Text style={{ color: isActive ? '#ffffff' : theme.textSoft, fontSize: 12, fontWeight: '700' }}>{option.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
           <View style={{ marginBottom: 10 }}>
             <View style={{ marginLeft: 98, flexDirection: 'row', justifyContent: 'space-between' }}>
               {timelineLabels.map((label) => (
@@ -2735,11 +2796,9 @@ export default function App() {
                   ) : null}
 
                   {timelineSessions.length > 0 ? (
-                    timelineSessions.map(({ item: timelineSession, state }) => {
+                    timelineSessions.map(({ item: timelineSession, state, isBuddy }) => {
                       const hasPlannedWindow = hasPlannedTimeWindow(timelineSession);
                       const checkedInMinutes = getLocalMinutesFromIso(timelineSession.checkedInAt);
-                      const checkedInLabel = formatToHourMinute(timelineSession.checkedInAt);
-                      const checkedOutLabel = formatToHourMinute(timelineSession.checkedOutAt);
                       const sessionStartMinutes = hasPlannedWindow ? toMinutes(timelineSession.start) : (checkedInMinutes ?? timelineStartMinutes);
                       const sessionEndMinutes = hasPlannedWindow
                         ? toMinutes(timelineSession.end)
@@ -2749,26 +2808,23 @@ export default function App() {
                       const leftPercent = clamp(((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
                       const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100, 6, 100 - leftPercent);
 
-                      const stateStyle: Record<'planned' | 'livePlanned' | 'liveUnplanned' | 'checkedOut', { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
+                      const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
                         planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
-                        livePlanned: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
-                        liveUnplanned: { bar: '#26b96f', text: '#ecfff5', border: '#6ef0a4' },
-                        checkedOut: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
+                        live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
+                        completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
                       };
-                      const timelineLabel = state === 'planned'
-                        ? `Gepland ${timelineSession.start}–${timelineSession.end}`
-                        : state === 'livePlanned'
-                          ? `Live ${timelineSession.start}–${timelineSession.end}`
-                          : state === 'liveUnplanned'
-                            ? `Live sinds ${checkedInLabel}`
-                            : `Klaar ${timelineSession.start}–${checkedOutLabel === '--:--' ? timelineSession.end : checkedOutLabel}`;
+                      const timelineLabel = getTimelineBarLabel(state);
+                      const isSelected = selectedTimelineSessionId === timelineSession.id;
 
                       return (
                         <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                          <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
+                          <Text numberOfLines={1} style={{ width: 90, color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, marginRight: 8, fontWeight: isBuddy ? '700' : '500' }}>
                             {timelineSession.userName}
                           </Text>
-                          <View style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
+                          <Pressable
+                            onPress={() => setSelectedTimelineSessionId(timelineSession.id)}
+                            style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
+                          >
                             <View
                               style={{
                                 position: 'absolute',
@@ -2790,14 +2846,31 @@ export default function App() {
                                 {timelineLabel}
                               </Text>
                             </View>
-                          </View>
+                          </Pressable>
                         </View>
                       );
                     })
                   ) : (
-                    <Text style={{ color: theme.textSoft, fontSize: 14 }}>Nog geen sessies op de tijdlijn</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 14 }}>
+                      {timelineFilter === 'buddies' ? 'Nog geen buddy-sessies op de tijdlijn' : 'Nog geen sessies op de tijdlijn'}
+                    </Text>
                   )}
                 </View>
+                {selectedTimelineSession ? (
+                  <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: 10 }}>
+                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>{selectedTimelineSession.userName}</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 2 }}>{getTimelineBarLabel(getTimelineState(selectedTimelineSession))}</Text>
+                    {getTimelineState(selectedTimelineSession) === 'planned' ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`${selectedTimelineSession.start}–${selectedTimelineSession.end}`}</Text>
+                    ) : null}
+                    {getTimelineState(selectedTimelineSession) === 'live' ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`ingecheckt om ${formatToHourMinute(selectedTimelineSession.checkedInAt)}`}</Text>
+                    ) : null}
+                    {getTimelineState(selectedTimelineSession) === 'completed' ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`${formatToHourMinute(selectedTimelineSession.checkedInAt)}–${formatToHourMinute(selectedTimelineSession.checkedOutAt)}`}</Text>
+                    ) : null}
+                  </View>
+                ) : null}
               </>
             );
           })()}
