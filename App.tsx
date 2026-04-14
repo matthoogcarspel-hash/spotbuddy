@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
@@ -369,6 +369,8 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
   };
 };
 const CHECK_IN_RADIUS_METERS = 1000;
+const AUTO_CHECK_OUT_RADIUS_METERS = 2000;
+const AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED = 2;
 const toRadians = (value: number) => value * (Math.PI / 180);
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
   const earthRadiusMeters = 6371_000;
@@ -732,6 +734,9 @@ export default function App() {
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
+  const [autoCheckoutNotice, setAutoCheckoutNotice] = useState<string | null>(null);
+  const autoCheckoutOutsideCountRef = useRef(0);
+  const autoCheckoutInFlightRef = useRef(false);
   const [buddyUsers, setBuddyUsers] = useState<BuddyUser[]>([]);
   const [searchUsersInput, setSearchUsersInput] = useState('');
   const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
@@ -1438,8 +1443,9 @@ export default function App() {
 
   useEffect(() => {
     let isCancelled = false;
+    let locationSubscription: Location.LocationSubscription | null = null;
 
-    const resolveNearestSpot = async () => {
+    const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
 
       try {
@@ -1456,19 +1462,45 @@ export default function App() {
           return;
         }
 
+        const applyCoordinates = (coordinates: SpotCoordinates) => {
+          setCurrentCoordinates(coordinates);
+          const nearest = getNearestSpot(coordinates, spotDefinitions);
+          setNearestSpotResult(nearest);
+          console.log('GPS_MONITORING_LOCATION_UPDATE', {
+            latitude: coordinates.latitude,
+            longitude: coordinates.longitude,
+            nearestSpot: nearest?.spot ?? null,
+            nearestSpotDistanceMeters: nearest?.distanceMeters ?? null,
+          });
+        };
+
         const currentPosition = await Location.getCurrentPositionAsync({});
         if (isCancelled) {
           return;
         }
 
-        const coordinates = {
+        applyCoordinates({
           latitude: currentPosition.coords.latitude,
           longitude: currentPosition.coords.longitude,
-        };
+        });
 
-        setCurrentCoordinates(coordinates);
-        const nearest = getNearestSpot(coordinates, spotDefinitions);
-        setNearestSpotResult(nearest);
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            timeInterval: 30_000,
+            distanceInterval: 50,
+          },
+          (position) => {
+            if (isCancelled) {
+              return;
+            }
+
+            applyCoordinates({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+        );
       } catch (error) {
         if (isCancelled) {
           return;
@@ -1476,7 +1508,7 @@ export default function App() {
 
         setCurrentCoordinates(null);
         setNearestSpotResult(null);
-        console.error('Failed to get location:', error);
+        console.error('Failed to monitor location:', error);
       } finally {
         if (!isCancelled) {
           setIsResolvingNearestSpot(false);
@@ -1484,10 +1516,11 @@ export default function App() {
       }
     };
 
-    void resolveNearestSpot();
+    void startLocationMonitoring();
 
     return () => {
       isCancelled = true;
+      locationSubscription?.remove();
     };
   }, [session?.user.id, spotDefinitions]);
 
@@ -1524,6 +1557,130 @@ export default function App() {
     const allSessions = Object.values(sessionsBySpot).flat();
     return getCurrentUserLiveSession(allSessions, session?.user.id);
   }, [session?.user.id, sessionsBySpot]);
+
+  useEffect(() => {
+    autoCheckoutOutsideCountRef.current = 0;
+  }, [activeCheckedInSession?.id]);
+
+  useEffect(() => {
+    if (!autoCheckoutNotice) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      setAutoCheckoutNotice(null);
+    }, 4500);
+
+    return () => clearTimeout(timeout);
+  }, [autoCheckoutNotice]);
+
+  useEffect(() => {
+    const runAutoCheckOutIfNeeded = async () => {
+      if (!session?.user.id || !currentCoordinates || !activeCheckedInSession) {
+        autoCheckoutOutsideCountRef.current = 0;
+        return;
+      }
+
+      const activeSpotDefinition = spotDefinitions.find(
+        (spot) => normalizeSpotName(spot.spot) === normalizeSpotName(activeCheckedInSession.spot),
+      );
+      if (!activeSpotDefinition) {
+        autoCheckoutOutsideCountRef.current = 0;
+        console.log('AUTO_CHECKOUT_SPOT_COORDINATES_MISSING', {
+          sessionId: activeCheckedInSession.id,
+          sessionSpot: activeCheckedInSession.spot,
+        });
+        return;
+      }
+
+      const spotCoordinates = {
+        latitude: activeSpotDefinition.latitude,
+        longitude: activeSpotDefinition.longitude,
+      };
+      const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
+      const isOutsideRadius = distanceMeters > AUTO_CHECK_OUT_RADIUS_METERS;
+
+      console.log('AUTO_CHECKOUT_EVALUATION', {
+        currentLiveSession: {
+          id: activeCheckedInSession.id,
+          spot: activeCheckedInSession.spot,
+          checkedInAt: activeCheckedInSession.checkedInAt,
+          checkedOutAt: activeCheckedInSession.checkedOutAt,
+        },
+        spotCoordinates,
+        userCoordinates: currentCoordinates,
+        distanceMeters,
+        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
+        autoCheckoutInFlight: autoCheckoutInFlightRef.current,
+      });
+
+      if (!isOutsideRadius) {
+        if (autoCheckoutOutsideCountRef.current !== 0) {
+          console.log('AUTO_CHECKOUT_OUTSIDE_COUNTER_RESET', {
+            reason: 'inside_radius',
+            distanceMeters,
+          });
+        }
+        autoCheckoutOutsideCountRef.current = 0;
+        return;
+      }
+
+      autoCheckoutOutsideCountRef.current += 1;
+      console.log('AUTO_CHECKOUT_OUTSIDE_COUNTER_INCREMENT', {
+        distanceMeters,
+        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
+        requiredOutsideCount: AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED,
+      });
+
+      if (autoCheckoutOutsideCountRef.current < AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED) {
+        return;
+      }
+
+      if (autoCheckoutInFlightRef.current) {
+        return;
+      }
+
+      autoCheckoutInFlightRef.current = true;
+      const nowIso = new Date().toISOString();
+      console.log('AUTO_CHECKOUT_TRIGGER', {
+        sessionId: activeCheckedInSession.id,
+        distanceMeters,
+        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
+      });
+
+      const result = await supabase
+        .from('sessions')
+        .update({
+          status: 'Uitchecken',
+          checked_out_at: nowIso,
+        })
+        .eq('id', activeCheckedInSession.id)
+        .eq('user_id', session.user.id)
+        .not('checked_in_at', 'is', null)
+        .is('checked_out_at', null);
+
+      if (result.error) {
+        autoCheckoutInFlightRef.current = false;
+        autoCheckoutOutsideCountRef.current = AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED - 1;
+        console.error('AUTO_CHECKOUT_ERROR', {
+          sessionId: activeCheckedInSession.id,
+          error: result.error,
+        });
+        return;
+      }
+
+      autoCheckoutInFlightRef.current = false;
+      autoCheckoutOutsideCountRef.current = 0;
+      console.log('AUTO_CHECKOUT_SUCCESS', {
+        sessionId: activeCheckedInSession.id,
+        checkedOutAt: nowIso,
+      });
+      setAutoCheckoutNotice('Automatically checked out\nYou appear to have left the spot');
+      await fetchSharedData();
+    };
+
+    void runAutoCheckOutIfNeeded();
+  }, [activeCheckedInSession, currentCoordinates, session?.user.id, spotDefinitions]);
   const blockingSession = useMemo(() => {
     if (allUserSessions.length === 0) {
       return null;
@@ -2886,11 +3043,18 @@ export default function App() {
       justifyContent: 'center',
       alignItems: 'center',
     } as const;
+    const autoCheckoutBanner = autoCheckoutNotice ? (
+      <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 }}>
+        <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
+        <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
+      </View>
+    ) : null;
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
+        {autoCheckoutBanner}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -3326,6 +3490,12 @@ export default function App() {
       </View>
 
       <View>
+        {autoCheckoutNotice ? (
+          <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
+            <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
+            <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
+          </View>
+        ) : null}
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ backgroundColor: theme.cardStrong, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Nearest spot</Text>
