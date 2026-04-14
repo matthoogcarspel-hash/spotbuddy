@@ -1443,7 +1443,6 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    let subscription: Location.LocationSubscription | null = null;
 
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
@@ -1484,28 +1483,11 @@ export default function App() {
           longitude: currentPosition.coords.longitude,
         });
 
-        subscription = await Location.watchPositionAsync(
-          {
-            accuracy: Location.Accuracy.Balanced,
-            timeInterval: 30_000,
-            distanceInterval: 50,
-          },
-          (position) => {
-            if (!active) {
-              return;
-            }
-
-            applyCoordinates({
-              latitude: position.coords.latitude,
-              longitude: position.coords.longitude,
-            });
-          },
-        );
-
-        if (!active) {
-          subscription?.remove?.();
-          return;
-        }
+        // TEMPORARY SAFETY DISABLE:
+        // Continuous GPS watcher is disabled because cleanup in the watcher chain
+        // triggers `LocationEventEmitter.removeSubscription` crashes on some runtimes.
+        // Keep one-time nearest-spot resolution so the app remains stable/renderable.
+        console.log('GPS_MONITORING_WATCHER_DISABLED_TEMPORARILY');
       } catch (error) {
         if (!active) {
           return;
@@ -1525,7 +1507,6 @@ export default function App() {
 
     return () => {
       active = false;
-      subscription?.remove?.();
     };
   }, [session?.user.id, spotDefinitions]);
 
