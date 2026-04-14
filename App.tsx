@@ -230,6 +230,16 @@ const hasPlannedTimeWindow = (sessionItem: SpotSession) => {
   const endMinutes = toMinutes(sessionItem.end);
   return endMinutes > startMinutes;
 };
+const parseHourMinuteParts = (hourMinute: string) => {
+  const [hourPart, minutePart] = hourMinute.split(':');
+  const parsedHour = Number.parseInt(hourPart ?? '', 10);
+  const parsedMinute = Number.parseInt(minutePart ?? '', 10);
+
+  return {
+    hour: Number.isNaN(parsedHour) ? null : parsedHour,
+    minute: Number.isNaN(parsedMinute) ? 0 : parsedMinute,
+  };
+};
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
@@ -1428,6 +1438,40 @@ export default function App() {
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId)?.item ?? null,
     [selectedTimelineSessionId, timelineSessions],
   );
+  const canJoinSelectedTimelineSession = useMemo(
+    () =>
+      Boolean(
+        session?.user.id
+        && selectedTimelineSession
+        && selectedTimelineSession.userId !== session.user.id
+        && hasPlannedTimeWindow(selectedTimelineSession),
+      ),
+    [selectedTimelineSession, session?.user.id],
+  );
+  const openPlanningFormWithPrefill = (startTime: string, endTime: string) => {
+    const parsedStart = parseHourMinuteParts(startTime);
+    const parsedEnd = parseHourMinuteParts(endTime);
+    setEditingSessionId(null);
+    setStartHour(parsedStart.hour);
+    setStartMinute(parsedStart.minute);
+    setEndHour(parsedEnd.hour);
+    setEndMinute(parsedEnd.minute);
+    setShowForm(true);
+    setActivePicker(null);
+    setFormError('');
+    setSessionActionError('');
+  };
+  const openEmptyPlanningForm = () => {
+    setEditingSessionId(null);
+    setStartHour(null);
+    setStartMinute(0);
+    setEndHour(null);
+    setEndMinute(0);
+    setShowForm(true);
+    setActivePicker(null);
+    setFormError('');
+    setSessionActionError('');
+  };
   useEffect(() => {
     if (!selectedTimelineSessionId) {
       return;
@@ -2526,15 +2570,7 @@ export default function App() {
                 setSessionActionError('Rond eerst je huidige sessie af');
                 return;
               }
-              setEditingSessionId(null);
-              setShowForm(true);
-              setActivePicker(null);
-              setStartHour(null);
-              setStartMinute(0);
-              setEndHour(null);
-              setEndMinute(0);
-              setFormError('');
-              setSessionActionError('');
+              openEmptyPlanningForm();
             }}
             style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
           >
@@ -2543,17 +2579,13 @@ export default function App() {
           {currentUserEditableSession ? (
             <Pressable
               onPress={() => {
-                const [startHourPart, startMinutePart] = currentUserEditableSession.start.split(':');
-                const [endHourPart, endMinutePart] = currentUserEditableSession.end.split(':');
-                const parsedStartHour = Number.parseInt(startHourPart ?? '', 10);
-                const parsedStartMinute = Number.parseInt(startMinutePart ?? '', 10);
-                const parsedEndHour = Number.parseInt(endHourPart ?? '', 10);
-                const parsedEndMinute = Number.parseInt(endMinutePart ?? '', 10);
                 setEditingSessionId(currentUserEditableSession.id);
-                setStartHour(Number.isNaN(parsedStartHour) ? null : parsedStartHour);
-                setStartMinute(Number.isNaN(parsedStartMinute) ? 0 : parsedStartMinute);
-                setEndHour(Number.isNaN(parsedEndHour) ? null : parsedEndHour);
-                setEndMinute(Number.isNaN(parsedEndMinute) ? 0 : parsedEndMinute);
+                const parsedStart = parseHourMinuteParts(currentUserEditableSession.start);
+                const parsedEnd = parseHourMinuteParts(currentUserEditableSession.end);
+                setStartHour(parsedStart.hour);
+                setStartMinute(parsedStart.minute);
+                setEndHour(parsedEnd.hour);
+                setEndMinute(parsedEnd.minute);
                 setShowForm(true);
                 setActivePicker(null);
                 setSessionActionError('');
@@ -2857,17 +2889,25 @@ export default function App() {
                   )}
                 </View>
                 {selectedTimelineSession ? (
-                  <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, padding: 10 }}>
-                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>{selectedTimelineSession.userName}</Text>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 2 }}>{getTimelineBarLabel(getTimelineState(selectedTimelineSession))}</Text>
-                    {getTimelineState(selectedTimelineSession) === 'planned' ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`${selectedTimelineSession.start}–${selectedTimelineSession.end}`}</Text>
-                    ) : null}
-                    {getTimelineState(selectedTimelineSession) === 'live' ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`ingecheckt om ${formatToHourMinute(selectedTimelineSession.checkedInAt)}`}</Text>
-                    ) : null}
-                    {getTimelineState(selectedTimelineSession) === 'completed' ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{`${formatToHourMinute(selectedTimelineSession.checkedInAt)}–${formatToHourMinute(selectedTimelineSession.checkedOutAt)}`}</Text>
+                  <View style={{ marginTop: 8, alignSelf: 'flex-start', minWidth: 170, maxWidth: '100%', backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 9 }}>
+                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
+                      {selectedTimelineSession.userName}
+                    </Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>
+                      {hasPlannedTimeWindow(selectedTimelineSession)
+                        ? `${selectedTimelineSession.start}–${selectedTimelineSession.end}`
+                        : 'Geen geplande tijd'}
+                    </Text>
+                    {canJoinSelectedTimelineSession ? (
+                      <Pressable
+                        onPress={() => {
+                          openPlanningFormWithPrefill(selectedTimelineSession.start, selectedTimelineSession.end);
+                          setSelectedTimelineSessionId(null);
+                        }}
+                        style={{ marginTop: 8, backgroundColor: theme.primary, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center' }}
+                      >
+                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Join</Text>
+                      </Pressable>
                     ) : null}
                   </View>
                 ) : null}
