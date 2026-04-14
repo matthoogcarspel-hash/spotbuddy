@@ -2689,7 +2689,8 @@ export default function App() {
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
         currentUserId: session.user.id,
-        clickedSessionOwnerUserId: sessionToJoin.userId,
+        clickedSessionUserId: sessionToJoin.userId,
+        insertedUserId: joinPayload.user_id,
         spot_name: exactSpotName,
         start_time: exactStartTime,
         end_time: exactEndTime,
@@ -2716,7 +2717,13 @@ export default function App() {
         return;
       }
 
-      console.log('SPOT_PAGE_JOIN_SUCCESS', { joinPayload, insertedSession: joinResult.data });
+      console.log('SPOT_PAGE_JOIN_SUCCESS', {
+        currentUserId: session.user.id,
+        clickedSessionUserId: sessionToJoin.userId,
+        insertedUserId: joinResult.data.user_id,
+        joinPayload,
+        insertedSession: joinResult.data,
+      });
       await fetchSharedData();
       setSelectedTimelineSessionId(null);
       setSessionActionError('');
