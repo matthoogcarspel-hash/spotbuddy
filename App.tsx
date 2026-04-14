@@ -358,6 +358,7 @@ export default function App() {
   const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showBuddies, setShowBuddies] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState('');
@@ -392,16 +393,128 @@ export default function App() {
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
+  const [buddyUsers, setBuddyUsers] = useState<Profile[]>([]);
+  const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [loadingBuddies, setLoadingBuddies] = useState(false);
+  const [buddyActionUserId, setBuddyActionUserId] = useState<string | null>(null);
+  const [buddiesError, setBuddiesError] = useState('');
 
   const resetFlow = () => {
     setSelectedSpot(null);
     setShowProfile(false);
+    setShowBuddies(false);
     setProfileNameInput('');
     setProfileAvatarInputUri(null);
     setProfileEditError('');
     setIsSavingProfile(false);
+    setBuddyUsers([]);
+    setFollowingUserIds([]);
+    setLoadingBuddies(false);
+    setBuddyActionUserId(null);
+    setBuddiesError('');
     setSessionsBySpot(createSpotRecord(spotNames, () => []));
     setMessagesBySpot(createSpotRecord(spotNames, () => []));
+  };
+
+  const fetchBuddiesData = async () => {
+    if (!session?.user.id) {
+      setBuddyUsers([]);
+      setFollowingUserIds([]);
+      return;
+    }
+
+    setLoadingBuddies(true);
+    setBuddiesError('');
+    console.log('BUDDIES_CURRENT_USER_ID', { userId: session.user.id });
+
+    const [usersResponse, followsResponse] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, created_at')
+        .neq('id', session.user.id)
+        .order('display_name', { ascending: true }),
+      supabase
+        .from('user_follows')
+        .select('follower_id, following_id')
+        .eq('follower_id', session.user.id),
+    ]);
+
+    if (usersResponse.error) {
+      console.error('BUDDIES_USERS_LOAD_ERROR', usersResponse.error);
+      setBuddiesError('Kon gebruikers niet laden');
+    } else {
+      console.log('BUDDIES_USERS_LOADED', usersResponse.data ?? []);
+      setBuddyUsers(usersResponse.data ?? []);
+    }
+
+    if (followsResponse.error) {
+      console.error('BUDDIES_FOLLOWING_LOAD_ERROR', followsResponse.error);
+      setBuddiesError('Kon buddies niet laden');
+    } else {
+      console.log('BUDDIES_FOLLOWING_RELATIONSHIPS_LOADED', followsResponse.data ?? []);
+      setFollowingUserIds((followsResponse.data ?? []).map((item) => item.following_id));
+    }
+
+    setLoadingBuddies(false);
+  };
+
+  const handleFollowUser = async (userIdToFollow: string) => {
+    if (!session?.user.id || userIdToFollow === session.user.id) {
+      return;
+    }
+
+    const payload = {
+      follower_id: session.user.id,
+      following_id: userIdToFollow,
+    };
+    console.log('BUDDIES_FOLLOW_ACTION_PAYLOAD', payload);
+    setBuddyActionUserId(userIdToFollow);
+    setFollowingUserIds((previous) => (previous.includes(userIdToFollow) ? previous : [...previous, userIdToFollow]));
+
+    const { error } = await supabase.from('user_follows').insert(payload);
+    if (error && error.code !== '23505') {
+      console.error('BUDDIES_FOLLOW_ERROR', error);
+      setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToFollow));
+      setBuddyActionUserId(null);
+      setBuddiesError('Volgen mislukt');
+      return;
+    }
+
+    console.log('BUDDIES_FOLLOW_SUCCESS', payload);
+    setBuddyActionUserId(null);
+    await fetchBuddiesData();
+  };
+
+  const handleUnfollowUser = async (userIdToUnfollow: string) => {
+    if (!session?.user.id || userIdToUnfollow === session.user.id) {
+      return;
+    }
+
+    const payload = {
+      follower_id: session.user.id,
+      following_id: userIdToUnfollow,
+    };
+    console.log('BUDDIES_UNFOLLOW_ACTION_PAYLOAD', payload);
+    setBuddyActionUserId(userIdToUnfollow);
+    setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToUnfollow));
+
+    const { error } = await supabase
+      .from('user_follows')
+      .delete()
+      .eq('follower_id', session.user.id)
+      .eq('following_id', userIdToUnfollow);
+
+    if (error) {
+      console.error('BUDDIES_UNFOLLOW_ERROR', error);
+      setFollowingUserIds((previous) => (previous.includes(userIdToUnfollow) ? previous : [...previous, userIdToUnfollow]));
+      setBuddyActionUserId(null);
+      setBuddiesError('Ontvolgen mislukt');
+      return;
+    }
+
+    console.log('BUDDIES_UNFOLLOW_SUCCESS', payload);
+    setBuddyActionUserId(null);
+    await fetchBuddiesData();
   };
 
   const fetchProfile = async (userId: string, options?: { showLoader?: boolean }) => {
@@ -605,6 +718,14 @@ export default function App() {
       setProfileNameInput(profile.display_name);
     }
   }, [showProfile, profile]);
+
+  useEffect(() => {
+    if (!showBuddies || !session?.user.id) {
+      return;
+    }
+
+    void fetchBuddiesData();
+  }, [showBuddies, session?.user.id]);
 
   useEffect(() => {
     setSessionsBySpot((previous) => {
@@ -1436,6 +1557,98 @@ export default function App() {
     return <NameSetupScreen userId={session.user.id} onSaved={setProfile} />;
   }
 
+  if (showBuddies) {
+    const followedUsers = buddyUsers.filter((userItem) => followingUserIds.includes(userItem.id));
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
+            <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Ik volg</Text>
+            {followedUsers.length === 0 ? (
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Je volgt nog niemand</Text>
+            ) : (
+              <View style={{ marginTop: 10 }}>
+                {followedUsers.map((userItem) => (
+                  <View key={`following-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Avatar uri={userItem.avatar_url} size={28} />
+                    <Text style={{ color: theme.text, marginLeft: 8, fontSize: 15 }}>{userItem.display_name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18 }}>Alle gebruikers</Text>
+            {loadingBuddies ? <Text style={{ color: theme.textSoft, marginTop: 8 }}>Laden...</Text> : null}
+            {buddiesError ? <Text style={{ color: '#ff7e7e', marginTop: 8 }}>{buddiesError}</Text> : null}
+            <View style={{ marginTop: 10 }}>
+              {buddyUsers.map((userItem) => {
+                const isFollowed = followingUserIds.includes(userItem.id);
+                const isActionInFlight = buddyActionUserId === userItem.id;
+
+                return (
+                  <View
+                    key={`buddy-user-${userItem.id}`}
+                    style={{
+                      backgroundColor: theme.bgElevated,
+                      borderRadius: 10,
+                      borderWidth: 1,
+                      borderColor: theme.border,
+                      paddingHorizontal: 12,
+                      paddingVertical: 10,
+                      marginBottom: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
+                      <Avatar uri={userItem.avatar_url} size={30} />
+                      <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, flexShrink: 1 }}>{userItem.display_name}</Text>
+                    </View>
+                    <Pressable
+                      disabled={isActionInFlight}
+                      onPress={() => {
+                        if (isFollowed) {
+                          void handleUnfollowUser(userItem.id);
+                          return;
+                        }
+                        void handleFollowUser(userItem.id);
+                      }}
+                      style={{
+                        backgroundColor: isFollowed ? '#7c2d12' : '#1d4ed8',
+                        borderRadius: 8,
+                        paddingHorizontal: 10,
+                        paddingVertical: 7,
+                        opacity: isActionInFlight ? 0.5 : 1,
+                      }}
+                    >
+                      <Text style={{ color: '#ffffff', fontWeight: '700' }}>
+                        {isActionInFlight ? '...' : isFollowed ? 'Ontvolgen' : 'Volgen'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+
+            <Pressable
+              onPress={() => {
+                setShowBuddies(false);
+                setBuddiesError('');
+              }}
+              style={{ marginTop: 6, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
+            >
+              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Terug</Text>
+            </Pressable>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (showProfile) {
     const handlePickProfileAvatar = async () => {
       setProfileEditError('');
@@ -1608,6 +1821,13 @@ export default function App() {
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
               {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
             </Text>
+          </Pressable>
+
+          <Pressable onPress={() => {
+            setShowProfile(false);
+            setShowBuddies(true);
+          }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Buddies</Text>
           </Pressable>
 
           <Pressable onPress={() => {
@@ -2255,10 +2475,18 @@ export default function App() {
             <Text style={{ color: theme.textSoft, fontSize: 16, fontWeight: '600', marginTop: 2 }}>Join the session</Text>
           </View>
         </View>
-        <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border, marginLeft: 10 }}>
-          <Avatar uri={profile.avatar_url} size={24} />
-          <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
-        </Pressable>
+        <View style={{ marginLeft: 10 }}>
+          <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
+            <Avatar uri={profile.avatar_url} size={24} />
+            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShowBuddies(true)}
+            style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
+          >
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>Buddies</Text>
+          </Pressable>
+        </View>
       </View>
 
       <View>
