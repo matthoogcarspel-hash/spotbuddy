@@ -68,6 +68,14 @@ type FollowRequestItem = {
   follower_id: string;
   requester: BuddyUser | null;
 };
+type IncomingFollowRelation = {
+  id: string;
+  follower_id: string;
+  following_id: string;
+  status: FollowStatus;
+  created_at: string | null;
+  responded_at: string | null;
+};
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -405,6 +413,7 @@ export default function App() {
   const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
   const [incomingFollowRequests, setIncomingFollowRequests] = useState<FollowRequestItem[]>([]);
+  const [followerUsers, setFollowerUsers] = useState<BuddyUser[]>([]);
   const [loadingBuddies, setLoadingBuddies] = useState(false);
   const [buddyActionUserId, setBuddyActionUserId] = useState<string | null>(null);
   const [followRequestActionId, setFollowRequestActionId] = useState<string | null>(null);
@@ -423,6 +432,7 @@ export default function App() {
     setOutgoingFollowStatusesByUserId({});
     setFollowingUserIds([]);
     setIncomingFollowRequests([]);
+    setFollowerUsers([]);
     setLoadingBuddies(false);
     setBuddyActionUserId(null);
     setFollowRequestActionId(null);
@@ -437,6 +447,7 @@ export default function App() {
       setOutgoingFollowStatusesByUserId({});
       setFollowingUserIds([]);
       setIncomingFollowRequests([]);
+      setFollowerUsers([]);
       return;
     }
 
@@ -444,7 +455,7 @@ export default function App() {
     setBuddiesError('');
     console.log('BUDDIES_CURRENT_USER_ID', { userId: session.user.id });
 
-    const [usersResponse, followsResponse, incomingRequestsResponse] = await Promise.all([
+    const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
@@ -452,13 +463,18 @@ export default function App() {
         .order('display_name', { ascending: true }),
       supabase
         .from('user_follows')
-        .select('id, follower_id, following_id, status')
+        .select('id, follower_id, following_id, status, created_at, responded_at')
         .eq('follower_id', session.user.id),
       supabase
         .from('user_follows')
-        .select('id, follower_id')
+        .select('id, follower_id, following_id, status, created_at, responded_at')
         .eq('following_id', session.user.id)
         .eq('status', 'pending'),
+      supabase
+        .from('user_follows')
+        .select('id, follower_id, following_id, status, created_at, responded_at')
+        .eq('following_id', session.user.id)
+        .eq('status', 'accepted'),
     ]);
 
     if (usersResponse.error) {
@@ -493,22 +509,30 @@ export default function App() {
       const acceptedFollowingUserIds = (followsResponse.data ?? [])
         .filter((item) => item.status === 'accepted')
         .map((item) => item.following_id);
+      console.log('BUDDIES_ACCEPTED_OUTGOING_FOLLOWS', (followsResponse.data ?? []).filter((item) => item.status === 'accepted'));
       console.log('BUDDIES_FOLLOWING_LIST_UPDATED', acceptedFollowingUserIds);
       setFollowingUserIds(acceptedFollowingUserIds);
     }
 
-    if (incomingRequestsResponse.error) {
+    if (incomingRequestsResponse.error || incomingAcceptedResponse.error) {
       console.error('BUDDIES_INCOMING_REQUESTS_LOAD_ERROR', incomingRequestsResponse.error);
+      console.error('BUDDIES_INCOMING_ACCEPTED_LOAD_ERROR', incomingAcceptedResponse.error);
       setBuddiesError('Kon volgverzoeken niet laden');
     } else {
-      const incomingRequesterIds = (incomingRequestsResponse.data ?? []).map((requestItem) => requestItem.follower_id);
+      const pendingIncomingRelations = (incomingRequestsResponse.data ?? []) as IncomingFollowRelation[];
+      const acceptedIncomingRelations = (incomingAcceptedResponse.data ?? []) as IncomingFollowRelation[];
+      console.log('BUDDIES_PENDING_INCOMING_REQUESTS', pendingIncomingRelations);
+      console.log('BUDDIES_ACCEPTED_INCOMING_FOLLOWS', acceptedIncomingRelations);
+      const incomingRequesterIds = pendingIncomingRelations.map((requestItem) => requestItem.follower_id);
+      const incomingAcceptedFollowerIds = acceptedIncomingRelations.map((relationItem) => relationItem.follower_id);
+      const allIncomingUserIds = Array.from(new Set([...incomingRequesterIds, ...incomingAcceptedFollowerIds]));
       const incomingUsersById: Record<string, BuddyUser> = {};
 
-      if (incomingRequesterIds.length > 0) {
+      if (allIncomingUserIds.length > 0) {
         const incomingUsersResponse = await supabase
           .from('profiles')
           .select('id, display_name, avatar_url')
-          .in('id', incomingRequesterIds);
+          .in('id', allIncomingUserIds);
 
         if (incomingUsersResponse.error) {
           console.error('BUDDIES_INCOMING_REQUESTS_USERS_LOAD_ERROR', incomingUsersResponse.error);
@@ -520,18 +544,25 @@ export default function App() {
           });
           setBuddiesError('Kon aanvragers niet laden');
         } else {
+          console.log('BUDDIES_JOINED_PROFILE_ROWS', incomingUsersResponse.data ?? []);
           (incomingUsersResponse.data ?? []).forEach((incomingUser) => {
             incomingUsersById[incomingUser.id] = incomingUser as BuddyUser;
           });
         }
       }
 
-      const incomingRequests = (incomingRequestsResponse.data ?? []).map((requestItem) => ({
+      const incomingRequests = pendingIncomingRelations.map((requestItem) => ({
         ...requestItem,
         requester: incomingUsersById[requestItem.follower_id] ?? null,
       }));
+      const incomingFollowers = acceptedIncomingRelations
+        .map((relationItem) => incomingUsersById[relationItem.follower_id] ?? null)
+        .filter((userItem): userItem is BuddyUser => Boolean(userItem))
+        .sort((a, b) => a.display_name.localeCompare(b.display_name));
       console.log('BUDDIES_INCOMING_REQUESTS_LOADED', incomingRequests);
+      console.log('BUDDIES_INCOMING_ACCEPTED_FOLLOWERS_LOADED', incomingFollowers);
       setIncomingFollowRequests(incomingRequests);
+      setFollowerUsers(incomingFollowers);
     }
 
     setLoadingBuddies(false);
@@ -1816,6 +1847,20 @@ export default function App() {
               <View style={{ marginTop: 10 }}>
                 {followedUsers.map((userItem) => (
                   <View key={`following-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                    <Avatar uri={userItem.avatar_url} size={28} />
+                    <Text style={{ color: theme.text, marginLeft: 8, fontSize: 15 }}>{userItem.display_name}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Volgers</Text>
+            {followerUsers.length === 0 ? (
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Je hebt nog geen volgers</Text>
+            ) : (
+              <View style={{ marginTop: 10 }}>
+                {followerUsers.map((userItem) => (
+                  <View key={`follower-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <Avatar uri={userItem.avatar_url} size={28} />
                     <Text style={{ color: theme.text, marginLeft: 8, fontSize: 15 }}>{userItem.display_name}</Text>
                   </View>
