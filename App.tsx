@@ -149,6 +149,7 @@ const toMinutes = (hourMinute: string) => {
 
   return hour * 60 + minute;
 };
+const hasTimeOverlap = (startA: string, endA: string, startB: string, endB: string) => toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
 const isCreatedToday = (value: string | null | undefined) => {
   if (!value) {
     return false;
@@ -260,8 +261,8 @@ const getTimelineBarLabel = (state: TimelineState) =>
   state === 'live' ? 'Live' : state === 'planned' ? 'Gaat' : 'Klaar';
 const getTimelineStatusOrder = (state: TimelineState) =>
   state === 'live' ? 0 : state === 'planned' ? 1 : 2;
-const timelineJoinButtonWidthPercent = 16;
-const timelineJoinButtonGapPercent = 1.4;
+const timelineJoinButtonWidthPercent = 11;
+const timelineJoinButtonGapPercent = 1.2;
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
@@ -505,21 +506,18 @@ function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButt
             position: 'absolute',
             left: `${joinPlacement.leftPercent}%`,
             width: `${timelineJoinButtonWidthPercent}%`,
-            top: 3,
-            bottom: 3,
+            top: 5,
+            bottom: 5,
             borderRadius: 999,
             backgroundColor: joinPlacement.placement === 'inside' ? '#2a8cff' : '#1a66c9',
             borderWidth: 1,
             borderColor: '#81c0ff',
             justifyContent: 'center',
             alignItems: 'center',
-            shadowColor: '#6cb4ff',
-            shadowOpacity: 0.4,
-            shadowRadius: 5,
-            shadowOffset: { width: 0, height: 0 },
+            paddingHorizontal: 4,
           }}
         >
-          <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>Join</Text>
+          <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>Join</Text>
         </Pressable>
       ) : null}
     </Pressable>
@@ -1698,19 +1696,6 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [followingUserIds, sessions, timelineFilter]);
-  const openPlanningFormWithPrefill = (startTime: string, endTime: string) => {
-    const parsedStart = parseHourMinuteParts(startTime);
-    const parsedEnd = parseHourMinuteParts(endTime);
-    setEditingSessionId(null);
-    setStartHour(parsedStart.hour);
-    setStartMinute(parsedStart.minute);
-    setEndHour(parsedEnd.hour);
-    setEndMinute(parsedEnd.minute);
-    setShowForm(true);
-    setActivePicker(null);
-    setFormError('');
-    setSessionActionError('');
-  };
   const openEmptyPlanningForm = () => {
     setEditingSessionId(null);
     setStartHour(null);
@@ -2580,6 +2565,50 @@ export default function App() {
   }
 
   if (selectedSpot) {
+    const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
+      if (!session?.user.id || !profile) {
+        setSessionActionError('Join is mislukt. Probeer opnieuw.');
+        return;
+      }
+
+      const exactSpotName = sessionToJoin.spot;
+      const exactStartTime = sessionToJoin.start;
+      const exactEndTime = sessionToJoin.end;
+      const hasDuplicateOverlap = sessions.some((existingSession) => {
+        if (existingSession.userId !== session.user.id || existingSession.spot !== exactSpotName || existingSession.checkedOutAt !== null) {
+          return false;
+        }
+
+        return hasTimeOverlap(existingSession.start, existingSession.end, exactStartTime, exactEndTime);
+      });
+      if (hasDuplicateOverlap) {
+        setSessionActionError('Je hebt al een sessie op dit tijdstip');
+        return;
+      }
+
+      const joinPayload = {
+        spot_name: exactSpotName,
+        user_id: session.user.id,
+        user_name: profile.display_name,
+        user_avatar_url: profile.avatar_url,
+        start_time: exactStartTime,
+        end_time: exactEndTime,
+        status: 'Gaat' as const,
+        checked_in_at: null,
+        checked_out_at: null,
+      };
+      const joinResult = await supabase.from('sessions').insert(joinPayload);
+      if (joinResult.error) {
+        setSessionActionError('Join is mislukt. Probeer opnieuw.');
+        console.log('SPOT_PAGE_JOIN_ERROR', { error: joinResult.error, joinPayload });
+        return;
+      }
+
+      console.log('SPOT_PAGE_JOIN_SUCCESS', { joinPayload });
+      await fetchSharedData();
+      setSelectedTimelineSessionId(null);
+      setSessionActionError('');
+    };
     const handleSave = async () => {
       console.log('SPOT_PAGE_PLANNING_SAVE_PRESSED');
       console.log('SPOT_PAGE_PLANNING_SELECTED_SPOT', { selectedSpot });
@@ -3030,8 +3059,7 @@ export default function App() {
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
             onJoinSession={(sessionItem) => {
-              openPlanningFormWithPrefill(sessionItem.start, sessionItem.end);
-              setSelectedTimelineSessionId(null);
+              void handleJoinTimelineSession(sessionItem);
             }}
           />
         </View>
