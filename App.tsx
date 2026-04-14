@@ -260,6 +260,8 @@ const getTimelineBarLabel = (state: TimelineState) =>
   state === 'live' ? 'Live' : state === 'planned' ? 'Gaat' : 'Klaar';
 const getTimelineStatusOrder = (state: TimelineState) =>
   state === 'live' ? 0 : state === 'planned' ? 1 : 2;
+const timelineJoinButtonWidthPercent = 16;
+const timelineJoinButtonGapPercent = 1.4;
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
@@ -306,6 +308,45 @@ const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
+
+type SessionBarJoinPlacement = {
+  leftPercent: number;
+  placement: 'inside' | 'after' | 'before';
+};
+const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): SessionBarJoinPlacement => {
+  const rightEdgePercent = leftPercent + widthPercent;
+  const insideFits = widthPercent >= timelineJoinButtonWidthPercent + timelineJoinButtonGapPercent;
+  if (insideFits) {
+    return {
+      placement: 'inside',
+      leftPercent: clamp(
+        rightEdgePercent - timelineJoinButtonWidthPercent - timelineJoinButtonGapPercent,
+        leftPercent,
+        Math.max(leftPercent, 100 - timelineJoinButtonWidthPercent),
+      ),
+    };
+  }
+
+  const availableAfter = 100 - rightEdgePercent;
+  if (availableAfter >= timelineJoinButtonWidthPercent + timelineJoinButtonGapPercent) {
+    return {
+      placement: 'after',
+      leftPercent: clamp(rightEdgePercent + timelineJoinButtonGapPercent, 0, 100 - timelineJoinButtonWidthPercent),
+    };
+  }
+
+  if (leftPercent >= timelineJoinButtonWidthPercent + timelineJoinButtonGapPercent) {
+    return {
+      placement: 'before',
+      leftPercent: clamp(leftPercent - timelineJoinButtonWidthPercent - timelineJoinButtonGapPercent, 0, 100 - timelineJoinButtonWidthPercent),
+    };
+  }
+
+  return {
+    placement: 'inside',
+    leftPercent: clamp(rightEdgePercent - timelineJoinButtonWidthPercent, leftPercent, 100 - timelineJoinButtonWidthPercent),
+  };
+};
 const CHECK_IN_RADIUS_METERS = 1000;
 const toRadians = (value: number) => value * (Math.PI / 180);
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
@@ -402,6 +443,229 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
       source={{ uri }}
       style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.cardStrong, borderWidth: 1, borderColor: theme.border }}
     />
+  );
+}
+
+type SessionBarProps = {
+  leftPercent: number;
+  widthPercent: number;
+  state: TimelineState;
+  isSelected: boolean;
+  showJoinButton: boolean;
+  onPress: () => void;
+  onJoin: () => void;
+};
+
+function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
+  const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
+    planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
+    live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
+    completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
+  };
+  const timelineLabel = getTimelineBarLabel(state);
+  const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
+
+  return (
+    <Pressable
+      onPress={(event) => {
+        event.stopPropagation();
+        onPress();
+      }}
+      style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
+    >
+      <View
+        style={{
+          position: 'absolute',
+          left: `${leftPercent}%`,
+          width: `${widthPercent}%`,
+          top: 3,
+          bottom: 3,
+          borderRadius: 999,
+          backgroundColor: stateStyle[state].bar,
+          borderWidth: 1,
+          borderColor: stateStyle[state].border,
+          borderStyle: stateStyle[state].borderStyle ?? 'solid',
+          opacity: stateStyle[state].opacity ?? 1,
+          justifyContent: 'center',
+          paddingHorizontal: 8,
+        }}
+      >
+        <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 11, fontWeight: '700' }}>
+          {timelineLabel}
+        </Text>
+      </View>
+
+      {showJoinButton ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            onJoin();
+          }}
+          style={{
+            position: 'absolute',
+            left: `${joinPlacement.leftPercent}%`,
+            width: `${timelineJoinButtonWidthPercent}%`,
+            top: 3,
+            bottom: 3,
+            borderRadius: 999,
+            backgroundColor: joinPlacement.placement === 'inside' ? '#2a8cff' : '#1a66c9',
+            borderWidth: 1,
+            borderColor: '#81c0ff',
+            justifyContent: 'center',
+            alignItems: 'center',
+            shadowColor: '#6cb4ff',
+            shadowOpacity: 0.4,
+            shadowRadius: 5,
+            shadowOffset: { width: 0, height: 0 },
+          }}
+        >
+          <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>Join</Text>
+        </Pressable>
+      ) : null}
+    </Pressable>
+  );
+}
+
+type SessionRowProps = {
+  timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
+  currentUserId: string | null | undefined;
+  isSelected: boolean;
+  onSelect: (sessionId: string) => void;
+  onJoin: (sessionItem: SpotSession) => void;
+};
+
+function SessionRow({ timelineSession, currentUserId, isSelected, onSelect, onJoin }: SessionRowProps) {
+  const { item, state, isBuddy } = timelineSession;
+  const hasPlannedWindow = hasPlannedTimeWindow(item);
+  const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+  const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
+  const sessionEndMinutes = hasPlannedWindow
+    ? toMinutes(item.end)
+    : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+  const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
+  const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineStartMinutes, timelineEndMinutes);
+  const leftPercent = clamp(((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
+  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100, 6, 100 - leftPercent);
+  const canShowJoin = Boolean(
+    isSelected
+    && currentUserId
+    && item.userId !== currentUserId
+    && state !== 'completed'
+    && hasPlannedWindow,
+  );
+
+  return (
+    <Pressable onPress={() => onSelect(item.id)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+      <Text numberOfLines={1} style={{ width: 90, color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, marginRight: 8, fontWeight: isBuddy ? '700' : '500' }}>
+        {item.userName}
+      </Text>
+      <SessionBar
+        leftPercent={leftPercent}
+        widthPercent={widthPercent}
+        state={state}
+        isSelected={isSelected}
+        showJoinButton={canShowJoin}
+        onPress={() => onSelect(item.id)}
+        onJoin={() => onJoin(item)}
+      />
+    </Pressable>
+  );
+}
+
+type SessionTimelineProps = {
+  timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
+  selectedTimelineSessionId: string | null;
+  currentUserId: string | null | undefined;
+  currentLocalMinutes: number;
+  timelineFilter: TimelineFilter;
+  onSelectSession: (sessionId: string) => void;
+  onJoinSession: (sessionItem: SpotSession) => void;
+  onClearSelection: () => void;
+};
+
+function SessionTimeline({
+  timelineSessions,
+  selectedTimelineSessionId,
+  currentUserId,
+  currentLocalMinutes,
+  timelineFilter,
+  onSelectSession,
+  onJoinSession,
+  onClearSelection,
+}: SessionTimelineProps) {
+  const totalRange = timelineEndMinutes - timelineStartMinutes;
+  const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineStartMinutes && currentLocalMinutes <= timelineEndMinutes;
+  const currentPercent = ((currentLocalMinutes - timelineStartMinutes) / totalRange) * 100;
+
+  return (
+    <Pressable onPress={onClearSelection}>
+      <View style={{ position: 'relative' }}>
+        {isCurrentTimeMarkerVisible ? (
+          <View
+            pointerEvents="none"
+            style={{
+              position: 'absolute',
+              left: 98,
+              right: 0,
+              top: 0,
+              bottom: 0,
+              zIndex: 10,
+            }}
+          >
+            <View
+              style={{
+                position: 'absolute',
+                left: `${currentPercent}%`,
+                top: 0,
+                bottom: 0,
+                width: 0,
+                alignItems: 'center',
+              }}
+            >
+              <View
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  backgroundColor: '#d8eeffcc',
+                  shadowColor: '#d8eeff',
+                  shadowOpacity: 0.28,
+                  shadowRadius: 5,
+                  shadowOffset: { width: 0, height: 0 },
+                }}
+              />
+              <View
+                style={{
+                  marginTop: 4,
+                  width: 1,
+                  flex: 1,
+                  borderLeftWidth: 1,
+                  borderStyle: 'dashed',
+                  borderColor: '#cfe6ff80',
+                }}
+              />
+            </View>
+          </View>
+        ) : null}
+
+        {timelineSessions.length > 0 ? (
+          timelineSessions.map((timelineSession) => (
+            <SessionRow
+              key={timelineSession.item.id}
+              timelineSession={timelineSession}
+              currentUserId={currentUserId}
+              isSelected={selectedTimelineSessionId === timelineSession.item.id}
+              onSelect={onSelectSession}
+              onJoin={onJoinSession}
+            />
+          ))
+        ) : (
+          <Text style={{ color: theme.textSoft, fontSize: 14 }}>
+            {timelineFilter === 'buddies' ? 'Nog geen buddy-sessies op de tijdlijn' : 'Nog geen sessies op de tijdlijn'}
+          </Text>
+        )}
+      </View>
+    </Pressable>
   );
 }
 
@@ -1434,20 +1698,6 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [followingUserIds, sessions, timelineFilter]);
-  const selectedTimelineSession = useMemo(
-    () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId)?.item ?? null,
-    [selectedTimelineSessionId, timelineSessions],
-  );
-  const canJoinSelectedTimelineSession = useMemo(
-    () =>
-      Boolean(
-        session?.user.id
-        && selectedTimelineSession
-        && selectedTimelineSession.userId !== session.user.id
-        && hasPlannedTimeWindow(selectedTimelineSession),
-      ),
-    [selectedTimelineSession, session?.user.id],
-  );
   const openPlanningFormWithPrefill = (startTime: string, endTime: string) => {
     const parsedStart = parseHourMinuteParts(startTime);
     const parsedEnd = parseHourMinuteParts(endTime);
@@ -2771,149 +3021,19 @@ export default function App() {
               ))}
             </View>
           </View>
-          {(() => {
-            const totalRange = timelineEndMinutes - timelineStartMinutes;
-            const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineStartMinutes && currentLocalMinutes <= timelineEndMinutes;
-            const currentPercent = ((currentLocalMinutes - timelineStartMinutes) / totalRange) * 100;
-
-            return (
-              <>
-                <View style={{ position: 'relative' }}>
-                  {isCurrentTimeMarkerVisible ? (
-                    <View
-                      pointerEvents="none"
-                      style={{
-                        position: 'absolute',
-                        left: 98,
-                        right: 0,
-                        top: 0,
-                        bottom: 0,
-                        zIndex: 10,
-                      }}
-                    >
-                      <View
-                        style={{
-                          position: 'absolute',
-                          left: `${currentPercent}%`,
-                          top: 0,
-                          bottom: 0,
-                          width: 0,
-                          alignItems: 'center',
-                        }}
-                      >
-                        <View
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 999,
-                            backgroundColor: '#d8eeffcc',
-                            shadowColor: '#d8eeff',
-                            shadowOpacity: 0.28,
-                            shadowRadius: 5,
-                            shadowOffset: { width: 0, height: 0 },
-                          }}
-                        />
-                        <View
-                          style={{
-                            marginTop: 4,
-                            width: 1,
-                            flex: 1,
-                            borderLeftWidth: 1,
-                            borderStyle: 'dashed',
-                            borderColor: '#cfe6ff80',
-                          }}
-                        />
-                      </View>
-                    </View>
-                  ) : null}
-
-                  {timelineSessions.length > 0 ? (
-                    timelineSessions.map(({ item: timelineSession, state, isBuddy }) => {
-                      const hasPlannedWindow = hasPlannedTimeWindow(timelineSession);
-                      const checkedInMinutes = getLocalMinutesFromIso(timelineSession.checkedInAt);
-                      const sessionStartMinutes = hasPlannedWindow ? toMinutes(timelineSession.start) : (checkedInMinutes ?? timelineStartMinutes);
-                      const sessionEndMinutes = hasPlannedWindow
-                        ? toMinutes(timelineSession.end)
-                        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-                      const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
-                      const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineStartMinutes, timelineEndMinutes);
-                      const leftPercent = clamp(((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
-                      const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100, 6, 100 - leftPercent);
-
-                      const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
-                        planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
-                        live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
-                        completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
-                      };
-                      const timelineLabel = getTimelineBarLabel(state);
-                      const isSelected = selectedTimelineSessionId === timelineSession.id;
-
-                      return (
-                        <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                          <Text numberOfLines={1} style={{ width: 90, color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, marginRight: 8, fontWeight: isBuddy ? '700' : '500' }}>
-                            {timelineSession.userName}
-                          </Text>
-                          <Pressable
-                            onPress={() => setSelectedTimelineSessionId(timelineSession.id)}
-                            style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
-                          >
-                            <View
-                              style={{
-                                position: 'absolute',
-                                left: `${leftPercent}%`,
-                                width: `${widthPercent}%`,
-                                top: 3,
-                                bottom: 3,
-                                borderRadius: 999,
-                                backgroundColor: stateStyle[state].bar,
-                                borderWidth: 1,
-                                borderColor: stateStyle[state].border,
-                                borderStyle: stateStyle[state].borderStyle ?? 'solid',
-                                opacity: stateStyle[state].opacity ?? 1,
-                                justifyContent: 'center',
-                                paddingHorizontal: 8,
-                              }}
-                            >
-                              <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 11, fontWeight: '700' }}>
-                                {timelineLabel}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        </View>
-                      );
-                    })
-                  ) : (
-                    <Text style={{ color: theme.textSoft, fontSize: 14 }}>
-                      {timelineFilter === 'buddies' ? 'Nog geen buddy-sessies op de tijdlijn' : 'Nog geen sessies op de tijdlijn'}
-                    </Text>
-                  )}
-                </View>
-                {selectedTimelineSession ? (
-                  <View style={{ marginTop: 8, alignSelf: 'flex-start', minWidth: 170, maxWidth: '100%', backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 9 }}>
-                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }} numberOfLines={1}>
-                      {selectedTimelineSession.userName}
-                    </Text>
-                    <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>
-                      {hasPlannedTimeWindow(selectedTimelineSession)
-                        ? `${selectedTimelineSession.start}–${selectedTimelineSession.end}`
-                        : 'Geen geplande tijd'}
-                    </Text>
-                    {canJoinSelectedTimelineSession ? (
-                      <Pressable
-                        onPress={() => {
-                          openPlanningFormWithPrefill(selectedTimelineSession.start, selectedTimelineSession.end);
-                          setSelectedTimelineSessionId(null);
-                        }}
-                        style={{ marginTop: 8, backgroundColor: theme.primary, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, alignItems: 'center' }}
-                      >
-                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Join</Text>
-                      </Pressable>
-                    ) : null}
-                  </View>
-                ) : null}
-              </>
-            );
-          })()}
+          <SessionTimeline
+            timelineSessions={timelineSessions}
+            selectedTimelineSessionId={selectedTimelineSessionId}
+            currentUserId={session?.user.id}
+            currentLocalMinutes={currentLocalMinutes}
+            timelineFilter={timelineFilter}
+            onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
+            onClearSelection={() => setSelectedTimelineSessionId(null)}
+            onJoinSession={(sessionItem) => {
+              openPlanningFormWithPrefill(sessionItem.start, sessionItem.end);
+              setSelectedTimelineSessionId(null);
+            }}
+          />
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
