@@ -77,7 +77,7 @@ type IncomingFollowRelation = {
   responded_at: string | null;
 };
 type TimelineFilter = 'everyone' | 'buddies';
-type TimelineState = 'live' | 'planned' | 'completed';
+type TimelineState = 'live' | 'planned' | 'planned_no_check_in' | 'completed';
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -104,9 +104,9 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
-  { label: 'Uit', value: 'off' },
-  { label: 'Volgt', value: 'following' },
-  { label: 'Iedereen', value: 'everyone' },
+  { label: 'Off', value: 'off' },
+  { label: 'Following', value: 'following' },
+  { label: 'Everyone', value: 'everyone' },
 ];
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
@@ -115,11 +115,11 @@ const getLocalDateKey = (dateValue: Date) => `${dateValue.getFullYear()}-${forma
 const getCurrentLocalDateKey = () => getLocalDateKey(new Date());
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
-    return 'Je kunt pas vanaf 08:00 inchecken';
+    return 'You can only check in from 08:00';
   }
 
   if (currentMinutes >= timelineEndMinutes) {
-    return 'Inchecken kan alleen tot 21:00';
+    return 'Check-in is only available until 21:00';
   }
 
   return null;
@@ -191,7 +191,7 @@ const formatToHourMinute = (value: string | null | undefined) => {
     return '--:--';
   }
 
-  return dateValue.toLocaleTimeString('nl-NL', {
+  return dateValue.toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
@@ -246,7 +246,7 @@ const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
   && sessionItem.checkedInAt === null
   && sessionItem.checkedOutAt === null;
-const getTimelineState = (sessionItem: SpotSession): TimelineState => {
+const getTimelineState = (sessionItem: SpotSession, currentMinutes: number): TimelineState => {
   if (sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null) {
     return 'live';
   }
@@ -255,12 +255,32 @@ const getTimelineState = (sessionItem: SpotSession): TimelineState => {
     return 'completed';
   }
 
+  if (hasPlannedTimeWindow(sessionItem) && sessionItem.checkedInAt === null) {
+    const sessionStartMinutes = toMinutes(sessionItem.start);
+    if (currentMinutes > sessionStartMinutes) {
+      return 'planned_no_check_in';
+    }
+  }
+
   return 'planned';
 };
-const getTimelineBarLabel = (state: TimelineState) =>
-  state === 'live' ? 'Live' : state === 'planned' ? 'Gaat' : 'Klaar';
+const getTimelineLabel = (state: TimelineState, compact = false) => {
+  if (state === 'live') {
+    return 'Live';
+  }
+
+  if (state === 'planned') {
+    return 'Planned';
+  }
+
+  if (state === 'planned_no_check_in') {
+    return compact ? 'No check-in' : 'Planned - no check in';
+  }
+
+  return 'Finished';
+};
 const getTimelineStatusOrder = (state: TimelineState) =>
-  state === 'live' ? 0 : state === 'planned' ? 1 : 2;
+  state === 'live' ? 0 : state === 'planned' ? 1 : state === 'planned_no_check_in' ? 2 : 3;
 const timelineJoinButtonWidthPercent = 11;
 const timelineJoinButtonGapPercent = 1.2;
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
@@ -293,15 +313,15 @@ const isProbablyThereSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Gaat' && nowMinutes >= toMinutes(sessionItem.start) && nowMinutes < toMinutes(sessionItem.end);
 const isCheckedInSession = (sessionItem: SpotSession, nowMinutes: number) =>
   sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
-const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): 'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt' | null => {
+const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): 'Planned' | 'Likely there' | 'Checked in' | null => {
   if (isGoingLaterSession(sessionItem, nowMinutes)) {
-    return 'Gaat nog';
+    return 'Planned';
   }
   if (isProbablyThereSession(sessionItem, nowMinutes)) {
-    return 'Waarschijnlijk er';
+    return 'Likely there';
   }
   if (isCheckedInSession(sessionItem, nowMinutes)) {
-    return 'Ingecheckt';
+    return 'Checked in';
   }
   return null;
 };
@@ -460,10 +480,11 @@ type SessionBarProps = {
 function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
   const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
     planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
+    planned_no_check_in: { bar: '#6c4f1c', text: '#fff2dd', border: '#d9a04c', borderStyle: 'dashed' },
     live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
     completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
   };
-  const timelineLabel = getTimelineBarLabel(state);
+  const timelineLabel = getTimelineLabel(state, true);
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
   return (
@@ -659,7 +680,7 @@ function SessionTimeline({
           ))
         ) : (
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
-            {timelineFilter === 'buddies' ? 'Nog geen buddy-sessies op de tijdlijn' : 'Nog geen sessies op de tijdlijn'}
+            {timelineFilter === 'buddies' ? 'No buddy sessions on the timeline yet' : 'No sessions on the timeline yet'}
           </Text>
         )}
       </View>
@@ -694,7 +715,7 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
-  const planningHelperText = 'Je bent pas live op de spot na inchecken.';
+  const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -790,7 +811,7 @@ export default function App() {
         hint: usersResponse.error.hint,
         code: usersResponse.error.code,
       });
-      setBuddiesError('Kon gebruikers niet laden');
+      setBuddiesError('Could not load users');
     } else {
       const loadedUsers = (usersResponse.data ?? []) as BuddyUser[];
       console.log('BUDDIES_PROFILES_QUERY_RESULT', loadedUsers);
@@ -803,7 +824,7 @@ export default function App() {
 
     if (followsResponse.error) {
       console.error('BUDDIES_FOLLOWING_LOAD_ERROR', followsResponse.error);
-      setBuddiesError('Kon buddies niet laden');
+      setBuddiesError('Could not load buddies');
     } else {
       console.log('BUDDIES_FOLLOWING_RELATIONSHIPS_LOADED', followsResponse.data ?? []);
       const outgoingStatuses = (followsResponse.data ?? []).reduce<Record<string, FollowStatus>>((acc, relation) => {
@@ -822,7 +843,7 @@ export default function App() {
     if (incomingRequestsResponse.error || incomingAcceptedResponse.error) {
       console.error('BUDDIES_INCOMING_REQUESTS_LOAD_ERROR', incomingRequestsResponse.error);
       console.error('BUDDIES_INCOMING_ACCEPTED_LOAD_ERROR', incomingAcceptedResponse.error);
-      setBuddiesError('Kon volgverzoeken niet laden');
+      setBuddiesError('Could not load follow requests');
     } else {
       const pendingIncomingRelations = (incomingRequestsResponse.data ?? []) as IncomingFollowRelation[];
       const acceptedIncomingRelations = (incomingAcceptedResponse.data ?? []) as IncomingFollowRelation[];
@@ -847,7 +868,7 @@ export default function App() {
             hint: incomingUsersResponse.error.hint,
             code: incomingUsersResponse.error.code,
           });
-          setBuddiesError('Kon aanvragers niet laden');
+          setBuddiesError('Could not load requesters');
         } else {
           console.log('BUDDIES_JOINED_PROFILE_ROWS', incomingUsersResponse.data ?? []);
           (incomingUsersResponse.data ?? []).forEach((incomingUser) => {
@@ -905,7 +926,7 @@ export default function App() {
         return nextValue;
       });
       setBuddyActionUserId(null);
-      setBuddiesError('Volgen mislukt');
+      setBuddiesError('Follow failed');
       return;
     }
 
@@ -943,7 +964,7 @@ export default function App() {
       setFollowingUserIds((previous) => (previous.includes(userIdToUnfollow) ? previous : [...previous, userIdToUnfollow]));
       setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToUnfollow]: 'accepted' }));
       setBuddyActionUserId(null);
-      setBuddiesError('Ontvolgen mislukt');
+      setBuddiesError('Unfollow failed');
       return;
     }
 
@@ -973,7 +994,7 @@ export default function App() {
 
     if (error) {
       console.error('BUDDIES_ACCEPT_ERROR', error);
-      setBuddiesError('Accepteren mislukt');
+      setBuddiesError('Accept failed');
       setFollowRequestActionId(null);
       return;
     }
@@ -1004,7 +1025,7 @@ export default function App() {
 
     if (error) {
       console.error('BUDDIES_REJECT_ERROR', error);
-      setBuddiesError('Afwijzen mislukt');
+      setBuddiesError('Decline failed');
       setFollowRequestActionId(null);
       return;
     }
@@ -1029,7 +1050,7 @@ export default function App() {
 
     if (error) {
       setProfile(null);
-      console.error('Profiel ophalen mislukt:', error);
+      console.error('Failed to load profile:', error);
     } else {
       setProfile(data ?? null);
     }
@@ -1061,7 +1082,7 @@ export default function App() {
       .select('*');
 
     if (error) {
-      console.error('Spots ophalen mislukt, fallback naar lokale spots:', error);
+      console.error('Failed to load spots, falling back to local spots:', error);
       return;
     }
 
@@ -1083,7 +1104,7 @@ export default function App() {
       .filter((spot): spot is SpotDefinition => Boolean(spot));
 
     if (mappedSpots.length === 0) {
-      console.warn('Spots tabel leeg of onleesbaar, fallback naar lokale spots');
+      console.warn('Spots table is empty or unreadable, falling back to local spots');
       return;
     }
 
@@ -1108,7 +1129,7 @@ export default function App() {
     ]);
 
     if (sessionsResponse.error) {
-      console.error('Sessies ophalen mislukt:', sessionsResponse.error);
+      console.error('Failed to load sessions:', sessionsResponse.error);
     } else {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
@@ -1158,7 +1179,7 @@ export default function App() {
     }
 
     if (messagesResponse.error) {
-      console.error('Berichten ophalen mislukt:', messagesResponse.error);
+      console.error('Failed to load messages:', messagesResponse.error);
     } else {
       const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
 
@@ -1368,9 +1389,9 @@ export default function App() {
       }
 
       if (error) {
-        console.error('Notificatievoorkeuren ophalen mislukt:', error);
+        console.error('Failed to load notification preferences:', error);
         setSpotNotificationPreferences(defaultSpotNotificationPreferences);
-        setNotificationPreferencesError('Kon meldingsvoorkeuren niet laden.');
+        setNotificationPreferencesError('Could not load notification preferences.');
         setLoadingSpotNotificationPreferences(false);
         return;
       }
@@ -1455,7 +1476,7 @@ export default function App() {
 
         setCurrentCoordinates(null);
         setNearestSpotResult(null);
-        console.error('Locatie ophalen mislukt:', error);
+        console.error('Failed to get location:', error);
       } finally {
         if (!isCancelled) {
           setIsResolvingNearestSpot(false);
@@ -1665,7 +1686,7 @@ export default function App() {
         return true;
       })
       .map((item) => {
-        const state = getTimelineState(item);
+        const state = getTimelineState(item, currentLocalMinutes);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
         const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
         const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
@@ -1695,7 +1716,11 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [followingUserIds, sessions, timelineFilter]);
+  }, [currentLocalMinutes, followingUserIds, sessions, timelineFilter]);
+  const selectedTimelineSession = useMemo(
+    () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
+    [selectedTimelineSessionId, timelineSessions],
+  );
   const openEmptyPlanningForm = () => {
     setEditingSessionId(null);
     setStartHour(null);
@@ -1753,7 +1778,7 @@ export default function App() {
         }),
     [sessions],
   );
-  const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} nu op de spot`;
+  const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
   const getSessionPersistenceErrorMessage = (error: {
     code?: string;
     message?: string;
@@ -1764,11 +1789,11 @@ export default function App() {
     }
 
     if (error.code === '23505') {
-      return 'Je hebt al een sessie op dit tijdstip';
+      return 'You already have a session at this time';
     }
 
     if (error.code === '23P01') {
-      return 'Je hebt al een overlappende sessie op deze spot';
+      return 'You already have an overlapping session at this spot';
     }
 
     if (error.details?.trim()) {
@@ -1838,8 +1863,8 @@ export default function App() {
     setSavingNotificationPreferenceKey(null);
 
     if (error) {
-      console.error('Notificatievoorkeur opslaan mislukt:', error);
-      setNotificationPreferencesError('Opslaan van meldingsvoorkeuren is mislukt.');
+      console.error('Failed to save notification preference:', error);
+      setNotificationPreferencesError('Saving notification preferences failed.');
       return false;
     }
 
@@ -1975,16 +2000,16 @@ export default function App() {
   };
   const mapCheckInFailureToMessage = (reason: string) => {
     if (reason === 'already_checked_in_same_spot') {
-      return 'Je bent al ingecheckt';
+      return 'You are already checked in';
     }
     if (reason.startsWith('already_checked_in_other_spot:')) {
       const spotName = reason.split(':')[1] ?? '';
-      return `Je bent al ingecheckt bij ${spotName}`;
+      return `You are already checked in at ${spotName}`;
     }
     if (reason === 'planned_session_other_spot' || reason === 'unique_constraint_live_session') {
-      return 'Rond eerst je huidige sessie af';
+      return 'Finish your current session first';
     }
-    return 'Inchecken is mislukt. Probeer opnieuw.';
+    return 'Check-in failed. Please try again.';
   };
   const handleCheckInWithSharedFlow = async ({
     spot,
@@ -2036,7 +2061,7 @@ export default function App() {
         return;
       }
       if (!selectedSpotWithinCheckInRadius) {
-        setSessionActionError('Je bent te ver van de spot (>1km)');
+        setSessionActionError('You are too far from the spot (&gt;1 km)');
         return;
       }
       const errorMessage = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
@@ -2051,7 +2076,7 @@ export default function App() {
     const latestOpenSessionResponse = await getLatestOpenSession();
     if (latestOpenSessionResponse.error) {
       console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: latestOpenSessionResponse.error });
-      setSessionActionError('Uitchecken is mislukt. Probeer opnieuw.');
+      setSessionActionError('Check-out failed. Please try again.');
       return;
     }
 
@@ -2072,7 +2097,7 @@ export default function App() {
 
     if (result.error) {
       console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: result.error });
-      setSessionActionError('Uitchecken is mislukt. Probeer opnieuw.');
+      setSessionActionError('Check-out failed. Please try again.');
       return;
     }
 
@@ -2111,7 +2136,7 @@ export default function App() {
       && nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS,
     );
     if (!isPressedSpotWithinRange) {
-      setHomeQuickCheckInError('Je bent te ver van de spot (>1km)');
+      setHomeQuickCheckInError('You are too far from the spot (&gt;1 km)');
       console.log('HOME_QUICK_CHECKIN_RESULT', {
         ok: false,
         reason: 'out_of_range',
@@ -2168,7 +2193,7 @@ export default function App() {
 
     if (result.error) {
       console.log('HOME_QUICK_CHECKOUT_FAILURE', { error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
-      setHomeQuickCheckInError('Uitchecken is mislukt. Probeer opnieuw.');
+      setHomeQuickCheckInError('Check-out failed. Please try again.');
       console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: false, error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
       return;
     }
@@ -2182,7 +2207,7 @@ export default function App() {
   if (loadingSession || loadingProfile || loadingData) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: theme.text }}>Laden...</Text>
+        <Text style={{ color: theme.text }}>Loading...</Text>
       </SafeAreaView>
     );
   }
@@ -2229,9 +2254,9 @@ export default function App() {
           <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Volgverzoeken</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Follow requests</Text>
             {incomingFollowRequests.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Geen open volgverzoeken</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>No open follow requests</Text>
             ) : (
               <View style={{ marginTop: 10 }}>
                 {incomingFollowRequests.map((requestItem) => {
@@ -2250,7 +2275,7 @@ export default function App() {
                       }}
                     >
                       <Text style={{ color: theme.text, fontSize: 15, marginBottom: 8 }}>
-                        {requestItem.requester?.display_name ?? 'Onbekende gebruiker'}
+                        {requestItem.requester?.display_name ?? 'Unknown user'}
                       </Text>
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         <Pressable
@@ -2266,7 +2291,7 @@ export default function App() {
                             opacity: isRequestInFlight ? 0.5 : 1,
                           }}
                         >
-                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Accepteren</Text>
+                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Accept</Text>
                         </Pressable>
                         <Pressable
                           disabled={isRequestInFlight}
@@ -2281,7 +2306,7 @@ export default function App() {
                             opacity: isRequestInFlight ? 0.5 : 1,
                           }}
                         >
-                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Afwijzen</Text>
+                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Decline</Text>
                         </Pressable>
                       </View>
                     </View>
@@ -2290,9 +2315,9 @@ export default function App() {
               </View>
             )}
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Ik volg</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Following</Text>
             {followedUsers.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Je volgt nog niemand</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>You are not following anyone yet</Text>
             ) : (
               <View style={{ marginTop: 10 }}>
                 {followedUsers.map((userItem) => (
@@ -2304,9 +2329,9 @@ export default function App() {
               </View>
             )}
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Volgers</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Followers</Text>
             {followerUsers.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Je hebt nog geen volgers</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>You do not have followers yet</Text>
             ) : (
               <View style={{ marginTop: 10 }}>
                 {followerUsers.map((userItem) => (
@@ -2318,11 +2343,11 @@ export default function App() {
               </View>
             )}
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18 }}>Alle gebruikers</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18 }}>All users</Text>
             <TextInput
               value={searchUsersInput}
               onChangeText={setSearchUsersInput}
-              placeholder="Zoek gebruikers"
+              placeholder="Search users"
               placeholderTextColor={theme.textMuted}
               style={{
                 marginTop: 10,
@@ -2335,7 +2360,7 @@ export default function App() {
                 backgroundColor: theme.bgElevated,
               }}
             />
-            {loadingBuddies ? <Text style={{ color: theme.textSoft, marginTop: 8 }}>Laden...</Text> : null}
+            {loadingBuddies ? <Text style={{ color: theme.textSoft, marginTop: 8 }}>Loading...</Text> : null}
             {buddiesError ? <Text style={{ color: '#ff7e7e', marginTop: 8 }}>{buddiesError}</Text> : null}
             <View style={{ marginTop: 10 }}>
               {filteredBuddyUsers.map((userItem) => {
@@ -2343,7 +2368,7 @@ export default function App() {
                 const isFollowed = followStatus === 'accepted';
                 const isPending = followStatus === 'pending';
                 const isActionInFlight = buddyActionUserId === userItem.id;
-                const actionLabel = isPending ? 'Aangevraagd' : isFollowed ? 'Ontvolgen' : 'Volgverzoek sturen';
+                const actionLabel = isPending ? 'Requested' : isFollowed ? 'Unfollow' : 'Send follow request';
 
                 return (
                   <View
@@ -2398,7 +2423,7 @@ export default function App() {
               }}
               style={{ marginTop: 6, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
             >
-              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Terug</Text>
+              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Back</Text>
             </Pressable>
           </View>
         </ScrollView>
@@ -2411,7 +2436,7 @@ export default function App() {
       setProfileEditError('');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        setProfileEditError("Geef toegang tot je foto's om een profielfoto te kiezen");
+        setProfileEditError("Allow photo access to choose a profile photo");
         return;
       }
 
@@ -2431,17 +2456,17 @@ export default function App() {
       const trimmedName = profileNameInput.trim();
 
       if (!trimmedName) {
-        setProfileEditError('Naam is verplicht');
+        setProfileEditError('Name is required');
         return;
       }
 
       if (trimmedName.length < 2) {
-        setProfileEditError('Naam moet minimaal 2 tekens zijn');
+        setProfileEditError('Name must be at least 2 characters');
         return;
       }
 
       if (trimmedName.length > 20) {
-        setProfileEditError('Naam mag maximaal 20 tekens zijn');
+        setProfileEditError('Name can be at most 20 characters');
         return;
       }
 
@@ -2463,7 +2488,7 @@ export default function App() {
 
       if (existingProfile) {
         setIsSavingProfile(false);
-        setProfileEditError('Deze naam is al bezet');
+        setProfileEditError('This name is already taken');
         return;
       }
 
@@ -2472,12 +2497,12 @@ export default function App() {
         const { error: uploadError, publicUrl } = await uploadAvatar(session.user.id, profileAvatarInputUri);
         if (uploadError) {
           setIsSavingProfile(false);
-          setProfileEditError('Foto uploaden mislukt');
+          setProfileEditError('Photo upload failed');
           return;
         }
         if (!publicUrl) {
           setIsSavingProfile(false);
-          setProfileEditError('Avatar URL ontbreekt');
+          setProfileEditError('Avatar URL is missing');
           return;
         }
         avatarUrl = publicUrl;
@@ -2499,11 +2524,11 @@ export default function App() {
       if (updateError) {
         setIsSavingProfile(false);
         if (updateError.code === '23505') {
-          setProfileEditError('Deze naam is al bezet');
+          setProfileEditError('This name is already taken');
           return;
         }
         if (updateError.code === '42501') {
-          setProfileEditError('Je profiel mag niet worden bijgewerkt');
+          setProfileEditError('Your profile cannot be updated');
           return;
         }
         setProfileEditError(updateError.message);
@@ -2536,7 +2561,7 @@ export default function App() {
             <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
               <Text style={{ color: theme.text, fontSize: 24, fontWeight: '700' }}>{profileNameInput || profile.display_name}</Text>
-              <Text style={{ color: theme.textSoft, marginTop: 4 }}>Ingelogd</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 4 }}>Logged in</Text>
             </View>
           </View>
 
@@ -2559,7 +2584,7 @@ export default function App() {
             }}
             style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
           >
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Foto wijzigen</Text>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Change photo</Text>
           </Pressable>
 
           <Pressable
@@ -2576,7 +2601,7 @@ export default function App() {
             }}
           >
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
-              {isSavingProfile ? 'Opslaan...' : 'Opslaan'}
+              {isSavingProfile ? 'Save...' : 'Save'}
             </Text>
           </Pressable>
 
@@ -2591,7 +2616,7 @@ export default function App() {
             resetFlow();
             void supabase.auth.signOut();
           }} style={{ marginTop: 16, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Log out</Text>
           </Pressable>
 
           <Pressable onPress={() => {
@@ -2599,7 +2624,7 @@ export default function App() {
             setProfileAvatarInputUri(null);
             setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Terug</Text>
+            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Back</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -2609,7 +2634,7 @@ export default function App() {
   if (selectedSpot) {
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
       if (!session?.user.id || !profile) {
-        const errorMessage = 'Sessie kon niet worden opgeslagen';
+        const errorMessage = 'Session could not be saved';
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
           selectedSourceSession: sessionToJoin,
@@ -2664,7 +2689,7 @@ export default function App() {
         exactDuplicateForCurrentUser,
       });
       if (exactDuplicateForCurrentUser) {
-        const errorReason = `Join geblokkeerd. currentUser=${currentAuthenticatedUserId}, clickedUser=${clickedSessionUserId ?? 'null'}, candidates=${duplicateCandidates.length}, exactDuplicates=${exactDuplicateCandidatesForCurrentUser.length}`;
+        const errorReason = `Join blocked. currentUser=${currentAuthenticatedUserId}, clickedUser=${clickedSessionUserId ?? 'null'}, candidates=${duplicateCandidates.length}, exactDuplicates=${exactDuplicateCandidatesForCurrentUser.length}`;
         setSessionActionError(errorReason);
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
@@ -2713,7 +2738,7 @@ export default function App() {
       });
       const joinResult = await createPlannedSession(joinPayload);
       if (joinResult.error) {
-        const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Sessie kon niet worden opgeslagen');
+        const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Session could not be saved');
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ERROR', {
           selectedSourceSession: sessionToJoin,
@@ -2758,45 +2783,45 @@ export default function App() {
       });
 
       if (startHour === null) {
-        setFormError('Kies eerst een starttijd.');
+        setFormError('Choose a start time first.');
         return;
       }
 
       if (endHour === null) {
-        setFormError('Kies eerst een eindtijd.');
+        setFormError('Choose an end time first.');
         return;
       }
 
       const startTotalMinutes = startHour * 60 + startMinute;
       const endTotalMinutes = endHour * 60 + endMinute;
       if (startTotalMinutes < timelineStartMinutes) {
-        setFormError('Je kunt pas vanaf 08:00 plannen');
+        setFormError('You can only plan from 08:00');
         return;
       }
 
       if (endTotalMinutes > timelineEndMinutes) {
-        setFormError('Je kunt niet later dan 21:00 plannen');
+        setFormError('You cannot plan later than 21:00');
         return;
       }
 
       if (endTotalMinutes <= startTotalMinutes) {
-        setFormError('Eindtijd moet later zijn dan starttijd');
+        setFormError('End time must be later than start time');
         return;
       }
 
       if (!editingSessionId && startTotalMinutes < currentLocalMinutes) {
-        setFormError('Starttijd kan niet eerder zijn dan nu.');
+        setFormError('Start time cannot be earlier than now.');
         return;
       }
 
       console.log('BLOCKING_SESSION', blockingSession);
       if (!editingSessionId && blockingSession) {
-        setFormError('Rond eerst je huidige sessie af');
+        setFormError('Finish your current session first');
         return;
       }
 
       if (!session?.user.id || !profile) {
-        setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
+        setFormError('Planning the session failed. Please try again.');
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
           reason: 'missing_auth_or_profile',
           selectedSpot,
@@ -2832,7 +2857,7 @@ export default function App() {
           .single()
         : await createPlannedSession(payload);
       if (result.error) {
-        setFormError(getSessionPersistenceErrorMessage(result.error, 'Sessie plannen is mislukt. Probeer opnieuw.'));
+        setFormError(getSessionPersistenceErrorMessage(result.error, 'Planning the session failed. Please try again.'));
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload, editingSessionId });
         return;
       }
@@ -2864,7 +2889,7 @@ export default function App() {
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
-          <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Terug naar spots</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
@@ -2887,7 +2912,7 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Meldingen</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
               <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
@@ -2913,12 +2938,12 @@ export default function App() {
                 shadowOffset: { width: 0, height: 6 },
               }}
             >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Meldingen voor deze spot</Text>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
 
               {[
                 {
                   key: 'sessionPlanning' as const,
-                  label: 'Sessie gepland',
+                  label: 'Session planned',
                   preferenceField: 'session_planning_notification_mode' as const,
                 },
                 {
@@ -2928,7 +2953,7 @@ export default function App() {
                 },
                 {
                   key: 'chat' as const,
-                  label: 'Chatberichten',
+                  label: 'Chat messages',
                   preferenceField: 'chat_notification_mode' as const,
                 },
               ].map((notificationType, index) => (
@@ -2980,14 +3005,14 @@ export default function App() {
             disabled={!canPlanSession}
             onPress={() => {
               if (!canPlanSession) {
-                setSessionActionError('Rond eerst je huidige sessie af');
+                setSessionActionError('Finish your current session first');
                 return;
               }
               openEmptyPlanningForm();
             }}
             style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
           >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
           </Pressable>
           {currentUserEditableSession ? (
             <Pressable
@@ -3006,10 +3031,10 @@ export default function App() {
               }}
               style={{ marginTop: 8, ...primaryButtonStyle, backgroundColor: '#1e3a8a' }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Aanpassen</Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
             </Pressable>
           ) : null}
-          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
+          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
@@ -3023,7 +3048,7 @@ export default function App() {
                 opacity: canCheckIn && selectedSpotWithinCheckInRadius ? 1 : 0.45,
               }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check in</Text>
             </Pressable>
             <Pressable
               disabled={!canCheckOut}
@@ -3032,26 +3057,26 @@ export default function App() {
               }}
               style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Uitchecken</Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
             </Pressable>
           </View>
 
-          {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
+          {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>You already have an active session</Text> : null}
           {canCheckIn && !selectedSpotWithinCheckInRadius ? (
-            <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>Je bent te ver van de spot (&gt;1km)</Text>
+            <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>You are too far from the spot (&gt;1 km)</Text>
           ) : null}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
             <View style={{ marginTop: 14 }}>
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Starttijd</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Start time</Text>
 
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
                 <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Uur: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
                 </Pressable>
                 <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Minuut: {formatTimePart(startMinute)}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(startMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'startHour' ? (
@@ -3073,13 +3098,13 @@ export default function App() {
                 </View>
               ) : null}
 
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Eindtijd</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>End time</Text>
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
                 <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Uur: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
                 </Pressable>
                 <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Minuut: {formatTimePart(endMinute)}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(endMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'endHour' ? (
@@ -3115,10 +3140,10 @@ export default function App() {
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable onPress={handleSave} style={{ ...primaryButtonStyle, flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{editingSessionId ? 'Bijwerken' : 'Opslaan'}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{editingSessionId ? 'Update' : 'Save'}</Text>
                 </Pressable>
                 <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, flex: 1, backgroundColor: theme.bgElevated }}>
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Annuleren</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Cancel</Text>
                 </Pressable>
               </View>
             </View>
@@ -3126,7 +3151,7 @@ export default function App() {
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Nu op de spot</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
 
           {liveCheckedInSessions.length > 0 ? (
             <>
@@ -3138,23 +3163,23 @@ export default function App() {
                       {liveSession.userName}
                     </Text>
                     <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                      {`ingecheckt om ${formatToHourMinute(liveSession.checkedInAt)}`}
+                      {`checked in at ${formatToHourMinute(liveSession.checkedInAt)}`}
                     </Text>
                   </View>
                 ))}
               </View>
             </>
           ) : (
-            <Text style={{ color: theme.textMuted, fontSize: 14 }}>Nog niemand op de spot</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 14 }}>No one at the spot yet</Text>
           )}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>Sessies</Text>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>Sessions</Text>
             <View style={{ flexDirection: 'row', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
               {([
-                { key: 'everyone' as const, label: 'Iedereen' },
+                { key: 'everyone' as const, label: 'Everyone' },
                 { key: 'buddies' as const, label: 'Buddies' },
               ]).map((option) => {
                 const isActive = timelineFilter === option.key;
@@ -3196,6 +3221,16 @@ export default function App() {
               void handleJoinTimelineSession(sessionItem);
             }}
           />
+          {selectedTimelineSession ? (
+            <View style={{ marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
+                {selectedTimelineSession.item.userName} · {selectedTimelineSession.item.start}–{selectedTimelineSession.item.end}
+              </Text>
+              <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>
+                Status: {getTimelineLabel(selectedTimelineSession.state, false)}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
@@ -3204,7 +3239,7 @@ export default function App() {
           <TextInput
             value={messageInput}
             onChangeText={setMessageInput}
-            placeholder="Typ een bericht"
+            placeholder="Type a message"
             placeholderTextColor={theme.textMuted}
             style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
           />
@@ -3225,7 +3260,7 @@ export default function App() {
               });
 
               if (error) {
-                console.error('Bericht opslaan mislukt:', error);
+                console.error('Failed to save message:', error);
                 return;
               }
 
@@ -3235,7 +3270,7 @@ export default function App() {
             }}
             style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
           >
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Verstuur</Text>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send</Text>
           </Pressable>
 
           {newestFirstMessages.length > 0 ? (
@@ -3253,7 +3288,7 @@ export default function App() {
               ))}
             </View>
           ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>Nog geen berichten</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>No messages yet</Text>
           )}
         </View>
 
@@ -3293,13 +3328,13 @@ export default function App() {
       <View>
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ backgroundColor: theme.cardStrong, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Dichtstbijzijnde spot</Text>
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Nearest spot</Text>
           {isResolvingNearestSpot ? (
-            <Text style={{ color: theme.textSoft, marginTop: 8 }}>Locatie ophalen...</Text>
+            <Text style={{ color: theme.textSoft, marginTop: 8 }}>Getting location...</Text>
           ) : nearestSpotResult && nearestSpotDistanceLabel ? (
             <>
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>{nearestSpotResult.spot}</Text>
-              <Text style={{ color: theme.textSoft, marginTop: 2 }}>Afstand: {nearestSpotDistanceLabel}</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 2 }}>Distance: {nearestSpotDistanceLabel}</Text>
               {activeCheckedInSession ? (
                 <>
                   <Pressable
@@ -3317,12 +3352,12 @@ export default function App() {
                     }}
                   >
                     <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                      {homeQuickCheckOutInFlight ? 'Uitchecken...' : 'Hier uitchecken'}
+                      {homeQuickCheckOutInFlight ? 'Check out...' : 'Check out here'}
                     </Text>
                   </Pressable>
                   {activeCheckedInSession.spot !== nearestSpotResult.spot ? (
                     <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>
-                      Je bent ingecheckt bij {activeCheckedInSession.spot}
+                      You are checked in at {activeCheckedInSession.spot}
                     </Text>
                   ) : null}
                 </>
@@ -3342,19 +3377,19 @@ export default function App() {
                   }}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                    {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Inchecken...' : 'Hier inchecken'}
+                    {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Check in...' : 'Check in here'}
                   </Text>
                 </Pressable>
               )}
               {!nearestSpotWithinRange ? (
-                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>Je bent te ver van de spot (&gt;1km)</Text>
+                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>You are too far from the spot (&gt;1 km)</Text>
               ) : null}
             </>
           ) : (
             <>
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Geen spot in de buurt</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>No nearby spot</Text>
               {locationPermissionStatus !== 'granted' ? (
-                <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>Locatietoegang is nodig om dichtbij te kunnen inchecken.</Text>
+                <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>Location access is required to check in nearby.</Text>
               ) : null}
             </>
           )}
@@ -3380,19 +3415,19 @@ export default function App() {
             >
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
-                Afstand: {distanceMeters === null ? 'Onbekend' : formatDistance(distanceMeters)}
+                Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
               </Text>
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Gaat nog</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Planned</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{goingLaterCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#0c2130', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>Waarschijnlijk er</Text>
+                  <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '600' }}>Likely there</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{probablyThereCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Ingecheckt</Text>
+                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Checked in</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
                 </View>
               </View>

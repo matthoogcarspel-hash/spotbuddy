@@ -33,7 +33,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      setError("Geef toegang tot je foto's om een profielfoto te kiezen");
+      setError("Allow photo access to choose a profile photo");
       return;
     }
 
@@ -51,7 +51,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
   const handleSave = async () => {
     console.log('SAVE_BUTTON_CLICKED');
-    setSaveStatusText('Opslaan knop werkt');
+    setSaveStatusText('Save button works');
     setSaveButtonClicked(true);
 
     setTimeout(() => {
@@ -61,7 +61,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     const trimmedName = displayName.trim();
 
     if (!trimmedName) {
-      setError('Display name is verplicht');
+      setError('Display name is required');
       return;
     }
 
@@ -77,13 +77,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
     if (existingProfileError) {
       setIsLoading(false);
-      setError('Er ging iets mis. Probeer het opnieuw.');
+      setError('Something went wrong. Please try again.');
       return;
     }
 
     if (existingProfile) {
       setIsLoading(false);
-      setError('Deze naam is al bezet');
+      setError('This name is already taken');
       return;
     }
 
@@ -93,13 +93,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       const { error: uploadError, publicUrl } = await uploadAvatar(userId, avatarUri);
       if (uploadError) {
         setIsLoading(false);
-        setError('Foto uploaden mislukt');
+        setError('Photo upload failed');
         return;
       }
 
       if (!publicUrl) {
         setIsLoading(false);
-        setError('Avatar URL ontbreekt');
+        setError('Avatar URL is missing');
         return;
       }
 
@@ -123,9 +123,9 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     setIsLoading(false);
 
     if (upsertError) {
-      console.error('Profiel opslaan mislukt:', upsertError);
+      console.error('Failed to save profile:', upsertError);
       if (upsertError.code === '23505') {
-        setError('Deze naam is al bezet');
+        setError('This name is already taken');
         return;
       }
 
@@ -139,7 +139,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
       <View style={{ marginTop: 40, backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
-        <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '700', marginBottom: 16 }}>Maak je profiel</Text>
+        <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '700', marginBottom: 16 }}>Create your profile</Text>
 
         <TextInput
           value={displayName}
@@ -154,7 +154,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
           onPress={pickAvatar}
           style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 12 }}
         >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Upload profielfoto</Text>
+          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Upload profile photo</Text>
         </Pressable>
 
         {avatarUri ? (
@@ -179,7 +179,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
           }}
         >
           <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {saveButtonClicked ? 'Geklikt' : isLoading ? 'Opslaan...' : 'Opslaan'}
+            {saveButtonClicked ? 'Clicked' : isLoading ? 'Saving...' : 'Save'}
           </Text>
         </TouchableOpacity>
 

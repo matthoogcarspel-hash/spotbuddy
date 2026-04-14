@@ -20,14 +20,14 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
         <Pressable onPress={() => setShowProfile(false)} style={{ marginBottom: 16 }}>
-          <Text style={{ color: '#9db0c7' }}>← Terug</Text>
+          <Text style={{ color: '#9db0c7' }}>← Back</Text>
         </Pressable>
         <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
           <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{profile.display_name}</Text>
-          <Text style={{ color: '#9db0c7', marginTop: 4 }}>Ingelogd</Text>
+          <Text style={{ color: '#9db0c7', marginTop: 4 }}>Logged in</Text>
 
           <Pressable onPress={onLogout} style={{ marginTop: 16, backgroundColor: '#0b0f14', borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Uitloggen</Text>
+            <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Log out</Text>
           </Pressable>
         </View>
       </SafeAreaView>
@@ -83,7 +83,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
               }}
             >
               <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '600' }}>{spot}</Text>
-              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>Gepland: {plannedCount}</Text>
+              <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 4 }}>Planned: {plannedCount}</Text>
               <Text style={{ color: '#9db0c7', fontSize: 14, marginTop: 2 }}>Live: {liveCount}</Text>
             </Pressable>
           );

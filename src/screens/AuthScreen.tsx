@@ -7,22 +7,22 @@ type AuthScreenProps = {
   onSignupSuccess: () => void;
 };
 
-const toDutchAuthError = (message: string) => {
+const toEnglishAuthError = (message: string) => {
   const lower = message.toLowerCase();
 
   if (lower.includes('invalid login credentials')) {
-    return 'Onjuiste e-mail of wachtwoord';
+    return 'Incorrect email or password';
   }
 
   if (lower.includes('password should be at least')) {
-    return 'Wachtwoord is te kort';
+    return 'Password is too short';
   }
 
   if (lower.includes('already registered') || lower.includes('user already registered')) {
-    return 'Dit e-mailadres is al geregistreerd';
+    return 'This email address is already registered';
   }
 
-  return 'Er ging iets mis. Probeer het opnieuw.';
+  return 'Something went wrong. Please try again.';
 };
 
 export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
@@ -35,7 +35,7 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
 
   const validateInputs = () => {
     if (!normalizedEmail || !password) {
-      setError('Vul je e-mail en wachtwoord in');
+      setError('Enter your email and password');
       return false;
     }
 
@@ -58,7 +58,7 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
     setLoadingAction(null);
 
     if (signInError) {
-      setError(toDutchAuthError(signInError.message));
+      setError(toEnglishAuthError(signInError.message));
     }
   };
 
@@ -78,7 +78,7 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
     setLoadingAction(null);
 
     if (signUpError) {
-      setError(toDutchAuthError(signUpError.message));
+      setError(toEnglishAuthError(signUpError.message));
       return;
     }
 
@@ -124,7 +124,7 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
           }}
         >
           <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {loadingAction === 'login' ? 'Bezig...' : 'Inloggen'}
+            {loadingAction === 'login' ? 'Loading...' : 'Log in'}
           </Text>
         </Pressable>
 
@@ -134,7 +134,7 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
           style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, opacity: loadingAction !== null ? 0.6 : 1 }}
         >
           <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {loadingAction === 'signup' ? 'Bezig...' : 'Account aanmaken'}
+            {loadingAction === 'signup' ? 'Loading...' : 'Create account'}
           </Text>
         </Pressable>
       </View>
