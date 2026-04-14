@@ -62,7 +62,7 @@ type SpotNotificationPreferences = {
 };
 type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
-type BuddyUser = Profile & { username?: string | null };
+type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -447,7 +447,7 @@ export default function App() {
     const [usersResponse, followsResponse, incomingRequestsResponse] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, created_at, username')
+        .select('id, display_name, avatar_url')
         .neq('id', session.user.id)
         .order('display_name', { ascending: true }),
       supabase
@@ -463,10 +463,21 @@ export default function App() {
 
     if (usersResponse.error) {
       console.error('BUDDIES_USERS_LOAD_ERROR', usersResponse.error);
+      console.log('BUDDIES_USERS_QUERY_ERROR_DETAIL', {
+        message: usersResponse.error.message,
+        details: usersResponse.error.details,
+        hint: usersResponse.error.hint,
+        code: usersResponse.error.code,
+      });
       setBuddiesError('Kon gebruikers niet laden');
     } else {
-      console.log('BUDDIES_USERS_LOADED', usersResponse.data ?? []);
-      setBuddyUsers((usersResponse.data ?? []) as BuddyUser[]);
+      const loadedUsers = (usersResponse.data ?? []) as BuddyUser[];
+      console.log('BUDDIES_PROFILES_QUERY_RESULT', loadedUsers);
+      console.log('BUDDIES_FILTERED_USERS_SHOWN', {
+        currentUserId: session.user.id,
+        userIds: loadedUsers.map((userItem) => userItem.id),
+      });
+      setBuddyUsers(loadedUsers);
     }
 
     if (followsResponse.error) {
@@ -496,11 +507,17 @@ export default function App() {
       if (incomingRequesterIds.length > 0) {
         const incomingUsersResponse = await supabase
           .from('profiles')
-          .select('id, display_name, avatar_url, created_at, username')
+          .select('id, display_name, avatar_url')
           .in('id', incomingRequesterIds);
 
         if (incomingUsersResponse.error) {
           console.error('BUDDIES_INCOMING_REQUESTS_USERS_LOAD_ERROR', incomingUsersResponse.error);
+          console.log('BUDDIES_INCOMING_REQUESTS_USERS_QUERY_ERROR_DETAIL', {
+            message: incomingUsersResponse.error.message,
+            details: incomingUsersResponse.error.details,
+            hint: incomingUsersResponse.error.hint,
+            code: incomingUsersResponse.error.code,
+          });
           setBuddiesError('Kon aanvragers niet laden');
         } else {
           (incomingUsersResponse.data ?? []).forEach((incomingUser) => {
@@ -1712,13 +1729,16 @@ export default function App() {
       }
 
       const searchableName = userItem.display_name.toLowerCase();
-      const searchableUsername = (userItem.username ?? '').toLowerCase();
-      return searchableName.includes(trimmedSearch) || searchableUsername.includes(trimmedSearch);
+      return searchableName.includes(trimmedSearch);
     });
     console.log('BUDDIES_SEARCH_RESULTS', {
       query: searchUsersInput,
+      normalizedQuery: trimmedSearch,
       resultCount: filteredBuddyUsers.length,
-      userIds: filteredBuddyUsers.map((userItem) => userItem.id),
+      results: filteredBuddyUsers.map((userItem) => ({
+        id: userItem.id,
+        display_name: userItem.display_name,
+      })),
     });
     const followedUsers = buddyUsers.filter((userItem) => followingUserIds.includes(userItem.id));
 
