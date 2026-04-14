@@ -61,6 +61,13 @@ type SpotNotificationPreferences = {
   chat_notification_mode: SpotNotificationMode;
 };
 type SpotNotificationMode = 'off' | 'following' | 'everyone';
+type FollowStatus = 'pending' | 'accepted' | 'rejected';
+type BuddyUser = Profile & { username?: string | null };
+type FollowRequestItem = {
+  id: string;
+  follower_id: string;
+  requester: BuddyUser | null;
+};
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -393,10 +400,14 @@ export default function App() {
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
-  const [buddyUsers, setBuddyUsers] = useState<Profile[]>([]);
+  const [buddyUsers, setBuddyUsers] = useState<BuddyUser[]>([]);
+  const [searchUsersInput, setSearchUsersInput] = useState('');
+  const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [incomingFollowRequests, setIncomingFollowRequests] = useState<FollowRequestItem[]>([]);
   const [loadingBuddies, setLoadingBuddies] = useState(false);
   const [buddyActionUserId, setBuddyActionUserId] = useState<string | null>(null);
+  const [followRequestActionId, setFollowRequestActionId] = useState<string | null>(null);
   const [buddiesError, setBuddiesError] = useState('');
 
   const resetFlow = () => {
@@ -408,9 +419,13 @@ export default function App() {
     setProfileEditError('');
     setIsSavingProfile(false);
     setBuddyUsers([]);
+    setSearchUsersInput('');
+    setOutgoingFollowStatusesByUserId({});
     setFollowingUserIds([]);
+    setIncomingFollowRequests([]);
     setLoadingBuddies(false);
     setBuddyActionUserId(null);
+    setFollowRequestActionId(null);
     setBuddiesError('');
     setSessionsBySpot(createSpotRecord(spotNames, () => []));
     setMessagesBySpot(createSpotRecord(spotNames, () => []));
@@ -419,7 +434,9 @@ export default function App() {
   const fetchBuddiesData = async () => {
     if (!session?.user.id) {
       setBuddyUsers([]);
+      setOutgoingFollowStatusesByUserId({});
       setFollowingUserIds([]);
+      setIncomingFollowRequests([]);
       return;
     }
 
@@ -427,16 +444,21 @@ export default function App() {
     setBuddiesError('');
     console.log('BUDDIES_CURRENT_USER_ID', { userId: session.user.id });
 
-    const [usersResponse, followsResponse] = await Promise.all([
+    const [usersResponse, followsResponse, incomingRequestsResponse] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, created_at')
+        .select('id, display_name, avatar_url, created_at, username')
         .neq('id', session.user.id)
         .order('display_name', { ascending: true }),
       supabase
         .from('user_follows')
-        .select('follower_id, following_id')
+        .select('id, follower_id, following_id, status')
         .eq('follower_id', session.user.id),
+      supabase
+        .from('user_follows')
+        .select('id, follower_id')
+        .eq('following_id', session.user.id)
+        .eq('status', 'pending'),
     ]);
 
     if (usersResponse.error) {
@@ -444,7 +466,7 @@ export default function App() {
       setBuddiesError('Kon gebruikers niet laden');
     } else {
       console.log('BUDDIES_USERS_LOADED', usersResponse.data ?? []);
-      setBuddyUsers(usersResponse.data ?? []);
+      setBuddyUsers((usersResponse.data ?? []) as BuddyUser[]);
     }
 
     if (followsResponse.error) {
@@ -452,7 +474,47 @@ export default function App() {
       setBuddiesError('Kon buddies niet laden');
     } else {
       console.log('BUDDIES_FOLLOWING_RELATIONSHIPS_LOADED', followsResponse.data ?? []);
-      setFollowingUserIds((followsResponse.data ?? []).map((item) => item.following_id));
+      const outgoingStatuses = (followsResponse.data ?? []).reduce<Record<string, FollowStatus>>((acc, relation) => {
+        acc[relation.following_id] = relation.status as FollowStatus;
+        return acc;
+      }, {});
+      setOutgoingFollowStatusesByUserId(outgoingStatuses);
+      const acceptedFollowingUserIds = (followsResponse.data ?? [])
+        .filter((item) => item.status === 'accepted')
+        .map((item) => item.following_id);
+      console.log('BUDDIES_FOLLOWING_LIST_UPDATED', acceptedFollowingUserIds);
+      setFollowingUserIds(acceptedFollowingUserIds);
+    }
+
+    if (incomingRequestsResponse.error) {
+      console.error('BUDDIES_INCOMING_REQUESTS_LOAD_ERROR', incomingRequestsResponse.error);
+      setBuddiesError('Kon volgverzoeken niet laden');
+    } else {
+      const incomingRequesterIds = (incomingRequestsResponse.data ?? []).map((requestItem) => requestItem.follower_id);
+      const incomingUsersById: Record<string, BuddyUser> = {};
+
+      if (incomingRequesterIds.length > 0) {
+        const incomingUsersResponse = await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, created_at, username')
+          .in('id', incomingRequesterIds);
+
+        if (incomingUsersResponse.error) {
+          console.error('BUDDIES_INCOMING_REQUESTS_USERS_LOAD_ERROR', incomingUsersResponse.error);
+          setBuddiesError('Kon aanvragers niet laden');
+        } else {
+          (incomingUsersResponse.data ?? []).forEach((incomingUser) => {
+            incomingUsersById[incomingUser.id] = incomingUser as BuddyUser;
+          });
+        }
+      }
+
+      const incomingRequests = (incomingRequestsResponse.data ?? []).map((requestItem) => ({
+        ...requestItem,
+        requester: incomingUsersById[requestItem.follower_id] ?? null,
+      }));
+      console.log('BUDDIES_INCOMING_REQUESTS_LOADED', incomingRequests);
+      setIncomingFollowRequests(incomingRequests);
     }
 
     setLoadingBuddies(false);
@@ -466,15 +528,29 @@ export default function App() {
     const payload = {
       follower_id: session.user.id,
       following_id: userIdToFollow,
+      status: 'pending' as FollowStatus,
+      responded_at: null as string | null,
     };
-    console.log('BUDDIES_FOLLOW_ACTION_PAYLOAD', payload);
+    const previousStatus = outgoingFollowStatusesByUserId[userIdToFollow];
+    console.log('BUDDIES_OUTGOING_FOLLOW_REQUEST_PAYLOAD', payload);
     setBuddyActionUserId(userIdToFollow);
-    setFollowingUserIds((previous) => (previous.includes(userIdToFollow) ? previous : [...previous, userIdToFollow]));
+    setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToFollow]: 'pending' }));
+    setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToFollow));
 
-    const { error } = await supabase.from('user_follows').insert(payload);
-    if (error && error.code !== '23505') {
+    const { error } = await supabase
+      .from('user_follows')
+      .upsert(payload, { onConflict: 'follower_id,following_id' });
+    if (error) {
       console.error('BUDDIES_FOLLOW_ERROR', error);
-      setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToFollow));
+      setOutgoingFollowStatusesByUserId((previous) => {
+        const nextValue = { ...previous };
+        if (previousStatus) {
+          nextValue[userIdToFollow] = previousStatus;
+        } else {
+          delete nextValue[userIdToFollow];
+        }
+        return nextValue;
+      });
       setBuddyActionUserId(null);
       setBuddiesError('Volgen mislukt');
       return;
@@ -497,6 +573,11 @@ export default function App() {
     console.log('BUDDIES_UNFOLLOW_ACTION_PAYLOAD', payload);
     setBuddyActionUserId(userIdToUnfollow);
     setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToUnfollow));
+    setOutgoingFollowStatusesByUserId((previous) => {
+      const nextValue = { ...previous };
+      delete nextValue[userIdToUnfollow];
+      return nextValue;
+    });
 
     const { error } = await supabase
       .from('user_follows')
@@ -507,6 +588,7 @@ export default function App() {
     if (error) {
       console.error('BUDDIES_UNFOLLOW_ERROR', error);
       setFollowingUserIds((previous) => (previous.includes(userIdToUnfollow) ? previous : [...previous, userIdToUnfollow]));
+      setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToUnfollow]: 'accepted' }));
       setBuddyActionUserId(null);
       setBuddiesError('Ontvolgen mislukt');
       return;
@@ -514,6 +596,68 @@ export default function App() {
 
     console.log('BUDDIES_UNFOLLOW_SUCCESS', payload);
     setBuddyActionUserId(null);
+    await fetchBuddiesData();
+  };
+
+  const handleAcceptFollowRequest = async (requestItem: FollowRequestItem) => {
+    if (!session?.user.id) {
+      return;
+    }
+
+    const payload = {
+      id: requestItem.id,
+      follower_id: requestItem.follower_id,
+      following_id: session.user.id,
+      status: 'accepted' as FollowStatus,
+      responded_at: new Date().toISOString(),
+    };
+    console.log('BUDDIES_ACCEPT_PAYLOAD', payload);
+    setFollowRequestActionId(requestItem.id);
+    const { error } = await supabase
+      .from('user_follows')
+      .update({ status: 'accepted', responded_at: payload.responded_at })
+      .eq('id', requestItem.id);
+
+    if (error) {
+      console.error('BUDDIES_ACCEPT_ERROR', error);
+      setBuddiesError('Accepteren mislukt');
+      setFollowRequestActionId(null);
+      return;
+    }
+
+    console.log('BUDDIES_ACCEPT_SUCCESS', payload);
+    setFollowRequestActionId(null);
+    await fetchBuddiesData();
+  };
+
+  const handleRejectFollowRequest = async (requestItem: FollowRequestItem) => {
+    if (!session?.user.id) {
+      return;
+    }
+
+    const payload = {
+      id: requestItem.id,
+      follower_id: requestItem.follower_id,
+      following_id: session.user.id,
+      status: 'rejected' as FollowStatus,
+      responded_at: new Date().toISOString(),
+    };
+    console.log('BUDDIES_REJECT_PAYLOAD', payload);
+    setFollowRequestActionId(requestItem.id);
+    const { error } = await supabase
+      .from('user_follows')
+      .update({ status: 'rejected', responded_at: payload.responded_at })
+      .eq('id', requestItem.id);
+
+    if (error) {
+      console.error('BUDDIES_REJECT_ERROR', error);
+      setBuddiesError('Afwijzen mislukt');
+      setFollowRequestActionId(null);
+      return;
+    }
+
+    console.log('BUDDIES_REJECT_SUCCESS', payload);
+    setFollowRequestActionId(null);
     await fetchBuddiesData();
   };
 
@@ -1355,8 +1499,11 @@ export default function App() {
     console.log('CHECKIN_SHARED_FLOW_SPOT_USED', { source, spot });
     const checkInResult = await runCheckInFlowForSpot({ spot, source });
     if (!checkInResult.ok) {
-      console.log('CHECKIN_SHARED_FLOW_ERROR_RESULT', { source, spot, reason: checkInResult.reason, error: checkInResult.error ?? null });
-      return mapCheckInFailureToMessage(checkInResult.reason);
+      const failureResult = checkInResult as { ok: false; reason: string; error?: unknown };
+      const failureReason = failureResult.reason;
+      const failureError = failureResult.error ?? null;
+      console.log('CHECKIN_SHARED_FLOW_ERROR_RESULT', { source, spot, reason: failureReason, error: failureError });
+      return mapCheckInFailureToMessage(failureReason);
     }
 
     console.log('CHECKIN_SHARED_FLOW_SUCCESS_RESULT', { source, spot });
@@ -1558,6 +1705,21 @@ export default function App() {
   }
 
   if (showBuddies) {
+    const trimmedSearch = searchUsersInput.trim().toLowerCase();
+    const filteredBuddyUsers = buddyUsers.filter((userItem) => {
+      if (!trimmedSearch) {
+        return true;
+      }
+
+      const searchableName = userItem.display_name.toLowerCase();
+      const searchableUsername = (userItem.username ?? '').toLowerCase();
+      return searchableName.includes(trimmedSearch) || searchableUsername.includes(trimmedSearch);
+    });
+    console.log('BUDDIES_SEARCH_RESULTS', {
+      query: searchUsersInput,
+      resultCount: filteredBuddyUsers.length,
+      userIds: filteredBuddyUsers.map((userItem) => userItem.id),
+    });
     const followedUsers = buddyUsers.filter((userItem) => followingUserIds.includes(userItem.id));
 
     return (
@@ -1565,6 +1727,67 @@ export default function App() {
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Volgverzoeken</Text>
+            {incomingFollowRequests.length === 0 ? (
+              <Text style={{ color: theme.textSoft, marginTop: 8 }}>Geen open volgverzoeken</Text>
+            ) : (
+              <View style={{ marginTop: 10 }}>
+                {incomingFollowRequests.map((requestItem) => {
+                  const isRequestInFlight = followRequestActionId === requestItem.id;
+                  return (
+                    <View
+                      key={`incoming-follow-request-${requestItem.id}`}
+                      style={{
+                        backgroundColor: theme.bgElevated,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        paddingHorizontal: 12,
+                        paddingVertical: 10,
+                        marginBottom: 10,
+                      }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 15, marginBottom: 8 }}>
+                        {requestItem.requester?.display_name ?? 'Onbekende gebruiker'}
+                      </Text>
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable
+                          disabled={isRequestInFlight}
+                          onPress={() => {
+                            void handleAcceptFollowRequest(requestItem);
+                          }}
+                          style={{
+                            flex: 1,
+                            backgroundColor: '#166534',
+                            borderRadius: 8,
+                            paddingVertical: 7,
+                            opacity: isRequestInFlight ? 0.5 : 1,
+                          }}
+                        >
+                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Accepteren</Text>
+                        </Pressable>
+                        <Pressable
+                          disabled={isRequestInFlight}
+                          onPress={() => {
+                            void handleRejectFollowRequest(requestItem);
+                          }}
+                          style={{
+                            flex: 1,
+                            backgroundColor: '#991b1b',
+                            borderRadius: 8,
+                            paddingVertical: 7,
+                            opacity: isRequestInFlight ? 0.5 : 1,
+                          }}
+                        >
+                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Afwijzen</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            )}
 
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Ik volg</Text>
             {followedUsers.length === 0 ? (
@@ -1581,12 +1804,31 @@ export default function App() {
             )}
 
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18 }}>Alle gebruikers</Text>
+            <TextInput
+              value={searchUsersInput}
+              onChangeText={setSearchUsersInput}
+              placeholder="Zoek gebruikers"
+              placeholderTextColor={theme.textMuted}
+              style={{
+                marginTop: 10,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: 10,
+                paddingHorizontal: 12,
+                paddingVertical: 9,
+                color: theme.text,
+                backgroundColor: theme.bgElevated,
+              }}
+            />
             {loadingBuddies ? <Text style={{ color: theme.textSoft, marginTop: 8 }}>Laden...</Text> : null}
             {buddiesError ? <Text style={{ color: '#ff7e7e', marginTop: 8 }}>{buddiesError}</Text> : null}
             <View style={{ marginTop: 10 }}>
-              {buddyUsers.map((userItem) => {
-                const isFollowed = followingUserIds.includes(userItem.id);
+              {filteredBuddyUsers.map((userItem) => {
+                const followStatus = outgoingFollowStatusesByUserId[userItem.id];
+                const isFollowed = followStatus === 'accepted';
+                const isPending = followStatus === 'pending';
                 const isActionInFlight = buddyActionUserId === userItem.id;
+                const actionLabel = isPending ? 'Aangevraagd' : isFollowed ? 'Ontvolgen' : 'Volgverzoek sturen';
 
                 return (
                   <View
@@ -1609,7 +1851,7 @@ export default function App() {
                       <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, flexShrink: 1 }}>{userItem.display_name}</Text>
                     </View>
                     <Pressable
-                      disabled={isActionInFlight}
+                      disabled={isActionInFlight || isPending}
                       onPress={() => {
                         if (isFollowed) {
                           void handleUnfollowUser(userItem.id);
@@ -1618,7 +1860,7 @@ export default function App() {
                         void handleFollowUser(userItem.id);
                       }}
                       style={{
-                        backgroundColor: isFollowed ? '#7c2d12' : '#1d4ed8',
+                        backgroundColor: isPending ? '#334155' : isFollowed ? '#7c2d12' : '#1d4ed8',
                         borderRadius: 8,
                         paddingHorizontal: 10,
                         paddingVertical: 7,
@@ -1626,7 +1868,7 @@ export default function App() {
                       }}
                     >
                       <Text style={{ color: '#ffffff', fontWeight: '700' }}>
-                        {isActionInFlight ? '...' : isFollowed ? 'Ontvolgen' : 'Volgen'}
+                        {isActionInFlight ? '...' : actionLabel}
                       </Text>
                     </Pressable>
                   </View>
