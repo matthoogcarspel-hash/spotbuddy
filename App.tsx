@@ -2695,6 +2695,11 @@ export default function App() {
         checked_in_at: null,
         checked_out_at: null,
       };
+      console.log('JOIN_INSERT_VALUES', {
+        currentUserId: currentAuthenticatedUserId,
+        clickedSessionUserId,
+        insertUserId: joinPayload.user_id,
+      });
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
         currentUserId: currentAuthenticatedUserId,
