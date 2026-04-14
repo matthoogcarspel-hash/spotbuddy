@@ -2626,21 +2626,30 @@ export default function App() {
       const exactSpotName = sessionToJoin.spot;
       const exactStartTime = sessionToJoin.start;
       const exactEndTime = sessionToJoin.end;
-      const duplicateOverlapMatches = sessions.filter((existingSession) => {
-        if (existingSession.userId !== session.user.id || existingSession.spot !== exactSpotName || existingSession.checkedOutAt !== null) {
-          return false;
-        }
-
-        return hasTimeOverlap(existingSession.start, existingSession.end, exactStartTime, exactEndTime);
-      });
-      console.log('SPOT_PAGE_JOIN_OVERLAP_CHECK', {
+      const sessionsForCurrentUserDuplicateCheck = sessions.filter((existingSession) => existingSession.userId === session.user.id);
+      const exactDuplicateMatches = sessionsForCurrentUserDuplicateCheck.filter((existingSession) => (
+        existingSession.spot === exactSpotName
+        && existingSession.start === exactStartTime
+        && existingSession.end === exactEndTime
+      ));
+      console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
         currentUserId: session.user.id,
+        clickedSessionOwnerUserId: sessionToJoin.userId,
         spot_name: exactSpotName,
         start_time: exactStartTime,
         end_time: exactEndTime,
-        overlapMatchCount: duplicateOverlapMatches.length,
-        overlapMatches: duplicateOverlapMatches.map((match) => ({
+        sessionsForCurrentUserDuplicateCheck: sessionsForCurrentUserDuplicateCheck.map((match) => ({
+          id: match.id,
+          spot: match.spot,
+          userId: match.userId,
+          start: match.start,
+          end: match.end,
+          checkedOutAt: match.checkedOutAt,
+          status: match.status,
+        })),
+        exactDuplicateCount: exactDuplicateMatches.length,
+        exactDuplicateMatches: exactDuplicateMatches.map((match) => ({
           id: match.id,
           spot: match.spot,
           userId: match.userId,
@@ -2650,8 +2659,19 @@ export default function App() {
           status: match.status,
         })),
       });
-      if (duplicateOverlapMatches.length > 0) {
-        setSessionActionError('Je hebt al een sessie op dit tijdstip');
+      if (exactDuplicateMatches.length > 0) {
+        const errorReason = 'Je hebt al een sessie op dit tijdstip';
+        setSessionActionError(errorReason);
+        console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
+          selectedSourceSession: sessionToJoin,
+          currentUserId: session.user.id,
+          clickedSessionOwnerUserId: sessionToJoin.userId,
+          spot_name: exactSpotName,
+          start_time: exactStartTime,
+          end_time: exactEndTime,
+          exactDuplicateCount: exactDuplicateMatches.length,
+          exactErrorReasonShownToUI: errorReason,
+        });
         return;
       }
 
@@ -2669,6 +2689,7 @@ export default function App() {
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
         currentUserId: session.user.id,
+        clickedSessionOwnerUserId: sessionToJoin.userId,
         spot_name: exactSpotName,
         start_time: exactStartTime,
         end_time: exactEndTime,
@@ -2681,13 +2702,16 @@ export default function App() {
         console.log('SPOT_PAGE_JOIN_ERROR', {
           selectedSourceSession: sessionToJoin,
           currentUserId: session.user.id,
+          clickedSessionOwnerUserId: sessionToJoin.userId,
           spot_name: exactSpotName,
           start_time: exactStartTime,
           end_time: exactEndTime,
-          overlapMatchCount: duplicateOverlapMatches.length,
-          overlapMatches: duplicateOverlapMatches,
+          sessionsForCurrentUserDuplicateCheck,
+          exactDuplicateCount: exactDuplicateMatches.length,
+          exactDuplicateMatches,
           supabaseError: joinResult.error,
           joinPayload,
+          exactErrorReasonShownToUI: errorMessage,
         });
         return;
       }
