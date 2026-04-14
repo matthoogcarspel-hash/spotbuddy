@@ -1444,6 +1444,15 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
+    if (Platform.OS === 'web') {
+      console.log('GPS_WATCH_SKIPPED_ON_WEB');
+      setIsResolvingNearestSpot(false);
+
+      return () => {
+        active = false;
+      };
+    }
+
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
 
