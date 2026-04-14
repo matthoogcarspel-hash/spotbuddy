@@ -2623,22 +2623,38 @@ export default function App() {
         return;
       }
 
+      const currentAuthenticatedUserId = session.user.id;
+      const currentAuthenticatedDisplayName = profile.display_name;
       const exactSpotName = sessionToJoin.spot;
       const exactStartTime = sessionToJoin.start;
       const exactEndTime = sessionToJoin.end;
-      const sessionsForCurrentUserDuplicateCheck = sessions.filter((existingSession) => existingSession.userId === session.user.id);
-      const exactDuplicateMatches = sessionsForCurrentUserDuplicateCheck.filter((existingSession) => (
-        existingSession.spot === exactSpotName
-        && existingSession.start === exactStartTime
-        && existingSession.end === exactEndTime
-      ));
+      const duplicateCandidates = sessions.map((candidateSession) => ({
+        id: candidateSession.id,
+        user_id: candidateSession.userId,
+        spot_name: candidateSession.spot,
+        start_time: candidateSession.start,
+        end_time: candidateSession.end,
+        belongsToCurrentAuthenticatedUser: candidateSession.userId === currentAuthenticatedUserId,
+      }));
+      const sessionsForCurrentUserDuplicateCheck = sessions.filter(
+        (existingSession) => existingSession.userId === currentAuthenticatedUserId,
+      );
+      const exactDuplicateMatches = sessionsForCurrentUserDuplicateCheck.filter(
+        (existingSession) => (
+          existingSession.spot === exactSpotName
+          && existingSession.start === exactStartTime
+          && existingSession.end === exactEndTime
+        ),
+      );
       console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
-        currentUserId: session.user.id,
-        clickedSessionOwnerUserId: sessionToJoin.userId,
+        currentAuthenticatedUserId,
+        currentAuthenticatedDisplayName,
+        clickedSessionUserId: sessionToJoin.userId,
         spot_name: exactSpotName,
         start_time: exactStartTime,
         end_time: exactEndTime,
+        duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
         sessionsForCurrentUserDuplicateCheck: sessionsForCurrentUserDuplicateCheck.map((match) => ({
           id: match.id,
           spot: match.spot,
@@ -2660,15 +2676,17 @@ export default function App() {
         })),
       });
       if (exactDuplicateMatches.length > 0) {
-        const errorReason = 'Je hebt al een sessie op dit tijdstip';
+        const errorReason = `Je hebt al een sessie op dit tijdstip (Duplicate blocked for user ${currentAuthenticatedUserId})`;
         setSessionActionError(errorReason);
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
-          currentUserId: session.user.id,
-          clickedSessionOwnerUserId: sessionToJoin.userId,
+          currentAuthenticatedUserId,
+          currentAuthenticatedDisplayName,
+          clickedSessionUserId: sessionToJoin.userId,
           spot_name: exactSpotName,
           start_time: exactStartTime,
           end_time: exactEndTime,
+          duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
           exactDuplicateCount: exactDuplicateMatches.length,
           exactErrorReasonShownToUI: errorReason,
         });
@@ -2688,7 +2706,8 @@ export default function App() {
       };
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
-        currentUserId: session.user.id,
+        currentUserId: currentAuthenticatedUserId,
+        currentAuthenticatedDisplayName,
         clickedSessionUserId: sessionToJoin.userId,
         insertedUserId: joinPayload.user_id,
         spot_name: exactSpotName,
@@ -2702,11 +2721,13 @@ export default function App() {
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ERROR', {
           selectedSourceSession: sessionToJoin,
-          currentUserId: session.user.id,
+          currentUserId: currentAuthenticatedUserId,
+          currentAuthenticatedDisplayName,
           clickedSessionOwnerUserId: sessionToJoin.userId,
           spot_name: exactSpotName,
           start_time: exactStartTime,
           end_time: exactEndTime,
+          duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
           sessionsForCurrentUserDuplicateCheck,
           exactDuplicateCount: exactDuplicateMatches.length,
           exactDuplicateMatches,
@@ -2718,7 +2739,8 @@ export default function App() {
       }
 
       console.log('SPOT_PAGE_JOIN_SUCCESS', {
-        currentUserId: session.user.id,
+        currentUserId: currentAuthenticatedUserId,
+        currentAuthenticatedDisplayName,
         clickedSessionUserId: sessionToJoin.userId,
         insertedUserId: joinResult.data.user_id,
         joinPayload,
