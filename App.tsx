@@ -1520,7 +1520,9 @@ export default function App() {
 
     return () => {
       isCancelled = true;
-      locationSubscription?.remove();
+      if (locationSubscription && locationSubscription.remove) {
+        locationSubscription.remove();
+      }
     };
   }, [session?.user.id, spotDefinitions]);
 
