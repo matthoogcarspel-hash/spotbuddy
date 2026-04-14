@@ -251,7 +251,7 @@ const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
-const nearbySpotThresholdMeters = 5000;
+const CHECK_IN_RADIUS_METERS = 1000;
 const toRadians = (value: number) => value * (Math.PI / 180);
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
   const earthRadiusMeters = 6371_000;
@@ -875,7 +875,23 @@ export default function App() {
   const canCheckOut = Boolean(activeCheckedInSession);
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !quickCheckInWindowError;
-  const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters : false;
+  const selectedSpotDefinition = useMemo(
+    () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
+    [selectedSpot, spotDefinitions],
+  );
+  const selectedSpotDistanceMeters = useMemo(
+    () => (currentCoordinates && selectedSpotDefinition
+      ? getDistanceMeters(currentCoordinates, {
+        latitude: selectedSpotDefinition.latitude,
+        longitude: selectedSpotDefinition.longitude,
+      })
+      : null),
+    [currentCoordinates, selectedSpotDefinition],
+  );
+  const selectedSpotWithinCheckInRadius = selectedSpotDistanceMeters !== null
+    ? selectedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS
+    : false;
+  const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   useEffect(() => {
     if (!homeQuickCheckInError) {
@@ -1254,6 +1270,10 @@ export default function App() {
         console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot });
         return;
       }
+      if (!selectedSpotWithinCheckInRadius) {
+        setSessionActionError('Je bent te ver van de spot (>1km)');
+        return;
+      }
       const errorMessage = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
       if (errorMessage) {
         setSessionActionError(errorMessage);
@@ -1322,10 +1342,10 @@ export default function App() {
     const isPressedSpotWithinRange = Boolean(
       nearestSpotResult
       && normalizeSpotName(nearestSpotResult.spot) === normalizeSpotName(spot)
-      && nearestSpotResult.distanceMeters <= nearbySpotThresholdMeters,
+      && nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS,
     );
     if (!isPressedSpotWithinRange) {
-      setHomeQuickCheckInError('Je bent nog niet dicht genoeg bij een spot');
+      setHomeQuickCheckInError('Je bent te ver van de spot (>1km)');
       console.log('HOME_QUICK_CHECKIN_RESULT', {
         ok: false,
         reason: 'out_of_range',
@@ -1795,11 +1815,15 @@ export default function App() {
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
             <Pressable
-              disabled={!canCheckIn}
+              disabled={!canCheckIn || !selectedSpotWithinCheckInRadius}
               onPress={() => {
                 void handleUpdateSessionStatus('Is er al');
               }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
+              style={{
+                ...sessionActionButtonBaseStyle,
+                backgroundColor: '#15803d',
+                opacity: canCheckIn && selectedSpotWithinCheckInRadius ? 1 : 0.45,
+              }}
             >
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Inchecken</Text>
             </Pressable>
@@ -1815,6 +1839,9 @@ export default function App() {
           </View>
 
           {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Je hebt al een actieve sessie</Text> : null}
+          {canCheckIn && !selectedSpotWithinCheckInRadius ? (
+            <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>Je bent te ver van de spot (&gt;1km)</Text>
+          ) : null}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
@@ -2291,7 +2318,7 @@ export default function App() {
                 </Pressable>
               )}
               {!nearestSpotWithinRange ? (
-                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>Je bent nog niet dicht genoeg bij een spot</Text>
+                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>Je bent te ver van de spot (&gt;1km)</Text>
               ) : null}
             </>
           ) : (
