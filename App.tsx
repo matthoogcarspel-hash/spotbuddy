@@ -1715,9 +1715,7 @@ export default function App() {
     return (
       [...sessions]
         .filter((sessionItem) => sessionItem.userId === session.user.id)
-        .filter((sessionItem) => sessionItem.checkedOutAt === null)
-        .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
-        .filter((sessionItem) => !isDirectCheckIn(sessionItem))
+        .filter((sessionItem) => isPlannedSession(sessionItem))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -1725,6 +1723,61 @@ export default function App() {
         })[0] ?? null
     );
   }, [selectedSpot, session?.user.id, sessions]);
+  const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
+    console.log('SPOT_PAGE_CANCEL_CLICKED');
+    console.log('SPOT_PAGE_CANCEL_SESSION_ID', { sessionId: sessionToCancel.id });
+    console.log('SPOT_PAGE_CANCEL_CURRENT_AUTH_USER_ID', { userId: session?.user.id ?? null });
+
+    if (!session?.user.id) {
+      setSessionActionError('Could not cancel session');
+      return;
+    }
+
+    if (sessionToCancel.userId !== session.user.id || !isPlannedSession(sessionToCancel)) {
+      setSessionActionError('Could not cancel session');
+      console.log('SPOT_PAGE_CANCEL_BLOCKED', {
+        sessionId: sessionToCancel.id,
+        sessionUserId: sessionToCancel.userId,
+        currentUserId: session.user.id,
+        isPlannedSession: isPlannedSession(sessionToCancel),
+      });
+      return;
+    }
+
+    const deleteResult = await supabase
+      .from('sessions')
+      .delete()
+      .eq('id', sessionToCancel.id)
+      .eq('user_id', session.user.id)
+      .is('checked_in_at', null)
+      .is('checked_out_at', null)
+      .not('start_time', 'is', null)
+      .not('end_time', 'is', null)
+      .select('id, user_id, start_time, end_time, checked_in_at, checked_out_at');
+
+    if (deleteResult.error) {
+      setSessionActionError('Could not cancel session');
+      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', deleteResult.error);
+      return;
+    }
+
+    if (!deleteResult.data || deleteResult.data.length === 0) {
+      setSessionActionError('Could not cancel session');
+      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', {
+        message: 'No planned session row deleted',
+        sessionId: sessionToCancel.id,
+      });
+      return;
+    }
+
+    console.log('SPOT_PAGE_CANCEL_DELETE_RESULT', deleteResult.data);
+    await fetchSharedData();
+    setSessionActionError('');
+    setEditingSessionId(null);
+    if (editingSessionId === sessionToCancel.id) {
+      resetForm();
+    }
+  };
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !quickCheckInWindowError;
   const selectedSpotDefinition = useMemo(
@@ -3179,24 +3232,34 @@ export default function App() {
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
           </Pressable>
           {currentUserEditableSession ? (
-            <Pressable
-              onPress={() => {
-                setEditingSessionId(currentUserEditableSession.id);
-                const parsedStart = parseHourMinuteParts(currentUserEditableSession.start);
-                const parsedEnd = parseHourMinuteParts(currentUserEditableSession.end);
-                setStartHour(parsedStart.hour);
-                setStartMinute(parsedStart.minute);
-                setEndHour(parsedEnd.hour);
-                setEndMinute(parsedEnd.minute);
-                setShowForm(true);
-                setActivePicker(null);
-                setSessionActionError('');
-                setFormError('');
-              }}
-              style={{ marginTop: 8, ...primaryButtonStyle, backgroundColor: '#1e3a8a' }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
-            </Pressable>
+            <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <Pressable
+                onPress={() => {
+                  setEditingSessionId(currentUserEditableSession.id);
+                  const parsedStart = parseHourMinuteParts(currentUserEditableSession.start);
+                  const parsedEnd = parseHourMinuteParts(currentUserEditableSession.end);
+                  setStartHour(parsedStart.hour);
+                  setStartMinute(parsedStart.minute);
+                  setEndHour(parsedEnd.hour);
+                  setEndMinute(parsedEnd.minute);
+                  setShowForm(true);
+                  setActivePicker(null);
+                  setSessionActionError('');
+                  setFormError('');
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  void handleCancelPlannedSession(currentUserEditableSession);
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
+              >
+                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+              </Pressable>
+            </View>
           ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
 
