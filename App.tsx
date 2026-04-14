@@ -1443,7 +1443,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    let locationSubscription: Location.LocationSubscription | null = null;
+    let subscription: Location.LocationSubscription | null = null;
 
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
@@ -1484,7 +1484,7 @@ export default function App() {
           longitude: currentPosition.coords.longitude,
         });
 
-        const subscription = await Location.watchPositionAsync(
+        subscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
             timeInterval: 30_000,
@@ -1506,8 +1506,6 @@ export default function App() {
           subscription?.remove?.();
           return;
         }
-
-        locationSubscription = subscription;
       } catch (error) {
         if (!active) {
           return;
@@ -1527,8 +1525,7 @@ export default function App() {
 
     return () => {
       active = false;
-      console.log('GPS_SUBSCRIPTION_CLEANUP');
-      locationSubscription?.remove?.();
+      subscription?.remove?.();
     };
   }, [session?.user.id, spotDefinitions]);
 
