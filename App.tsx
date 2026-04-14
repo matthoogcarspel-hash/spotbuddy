@@ -1442,7 +1442,7 @@ export default function App() {
   }, [selectedSpot]);
 
   useEffect(() => {
-    let isCancelled = false;
+    let active = true;
     let locationSubscription: Location.LocationSubscription | null = null;
 
     const startLocationMonitoring = async () => {
@@ -1450,7 +1450,7 @@ export default function App() {
 
       try {
         const permissionResponse = await Location.requestForegroundPermissionsAsync();
-        if (isCancelled) {
+        if (!active) {
           return;
         }
 
@@ -1475,7 +1475,7 @@ export default function App() {
         };
 
         const currentPosition = await Location.getCurrentPositionAsync({});
-        if (isCancelled) {
+        if (!active) {
           return;
         }
 
@@ -1484,14 +1484,14 @@ export default function App() {
           longitude: currentPosition.coords.longitude,
         });
 
-        locationSubscription = await Location.watchPositionAsync(
+        const subscription = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
             timeInterval: 30_000,
             distanceInterval: 50,
           },
           (position) => {
-            if (isCancelled) {
+            if (!active) {
               return;
             }
 
@@ -1501,8 +1501,15 @@ export default function App() {
             });
           },
         );
+
+        if (!active) {
+          subscription?.remove?.();
+          return;
+        }
+
+        locationSubscription = subscription;
       } catch (error) {
-        if (isCancelled) {
+        if (!active) {
           return;
         }
 
@@ -1510,7 +1517,7 @@ export default function App() {
         setNearestSpotResult(null);
         console.error('Failed to monitor location:', error);
       } finally {
-        if (!isCancelled) {
+        if (active) {
           setIsResolvingNearestSpot(false);
         }
       }
@@ -1519,7 +1526,7 @@ export default function App() {
     void startLocationMonitoring();
 
     return () => {
-      isCancelled = true;
+      active = false;
       console.log('GPS_SUBSCRIPTION_CLEANUP');
       locationSubscription?.remove?.();
     };
