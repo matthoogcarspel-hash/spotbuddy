@@ -1754,6 +1754,48 @@ export default function App() {
     [sessions],
   );
   const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} nu op de spot`;
+  const getSessionPersistenceErrorMessage = (error: {
+    code?: string;
+    message?: string;
+    details?: string;
+  } | null | undefined, fallbackMessage: string) => {
+    if (!error) {
+      return fallbackMessage;
+    }
+
+    if (error.code === '23505') {
+      return 'Je hebt al een sessie op dit tijdstip';
+    }
+
+    if (error.code === '23P01') {
+      return 'Je hebt al een overlappende sessie op deze spot';
+    }
+
+    if (error.details?.trim()) {
+      return error.details;
+    }
+
+    if (error.message?.trim()) {
+      return error.message;
+    }
+
+    return fallbackMessage;
+  };
+  const createPlannedSession = async (payload: {
+    spot_name: string;
+    user_id: string;
+    user_name: string;
+    user_avatar_url: string | null;
+    start_time: string;
+    end_time: string;
+    status: 'Gaat';
+    checked_in_at: null;
+    checked_out_at: null;
+  }) => supabase
+    .from('sessions')
+    .insert(payload)
+    .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id')
+    .single();
 
   const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
     if (!selectedSpot || !session?.user.id) {
@@ -2567,21 +2609,48 @@ export default function App() {
   if (selectedSpot) {
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
       if (!session?.user.id || !profile) {
-        setSessionActionError('Join is mislukt. Probeer opnieuw.');
+        const errorMessage = 'Sessie kon niet worden opgeslagen';
+        setSessionActionError(errorMessage);
+        console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
+          selectedSourceSession: sessionToJoin,
+          currentUserId: session?.user.id ?? null,
+          spot_name: sessionToJoin.spot,
+          start_time: sessionToJoin.start,
+          end_time: sessionToJoin.end,
+          hasProfile: Boolean(profile),
+          reason: errorMessage,
+        });
         return;
       }
 
       const exactSpotName = sessionToJoin.spot;
       const exactStartTime = sessionToJoin.start;
       const exactEndTime = sessionToJoin.end;
-      const hasDuplicateOverlap = sessions.some((existingSession) => {
+      const duplicateOverlapMatches = sessions.filter((existingSession) => {
         if (existingSession.userId !== session.user.id || existingSession.spot !== exactSpotName || existingSession.checkedOutAt !== null) {
           return false;
         }
 
         return hasTimeOverlap(existingSession.start, existingSession.end, exactStartTime, exactEndTime);
       });
-      if (hasDuplicateOverlap) {
+      console.log('SPOT_PAGE_JOIN_OVERLAP_CHECK', {
+        selectedSourceSession: sessionToJoin,
+        currentUserId: session.user.id,
+        spot_name: exactSpotName,
+        start_time: exactStartTime,
+        end_time: exactEndTime,
+        overlapMatchCount: duplicateOverlapMatches.length,
+        overlapMatches: duplicateOverlapMatches.map((match) => ({
+          id: match.id,
+          spot: match.spot,
+          userId: match.userId,
+          start: match.start,
+          end: match.end,
+          checkedOutAt: match.checkedOutAt,
+          status: match.status,
+        })),
+      });
+      if (duplicateOverlapMatches.length > 0) {
         setSessionActionError('Je hebt al een sessie op dit tijdstip');
         return;
       }
@@ -2597,14 +2666,33 @@ export default function App() {
         checked_in_at: null,
         checked_out_at: null,
       };
-      const joinResult = await supabase.from('sessions').insert(joinPayload);
+      console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
+        selectedSourceSession: sessionToJoin,
+        currentUserId: session.user.id,
+        spot_name: exactSpotName,
+        start_time: exactStartTime,
+        end_time: exactEndTime,
+        joinPayload,
+      });
+      const joinResult = await createPlannedSession(joinPayload);
       if (joinResult.error) {
-        setSessionActionError('Join is mislukt. Probeer opnieuw.');
-        console.log('SPOT_PAGE_JOIN_ERROR', { error: joinResult.error, joinPayload });
+        const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Sessie kon niet worden opgeslagen');
+        setSessionActionError(errorMessage);
+        console.log('SPOT_PAGE_JOIN_ERROR', {
+          selectedSourceSession: sessionToJoin,
+          currentUserId: session.user.id,
+          spot_name: exactSpotName,
+          start_time: exactStartTime,
+          end_time: exactEndTime,
+          overlapMatchCount: duplicateOverlapMatches.length,
+          overlapMatches: duplicateOverlapMatches,
+          supabaseError: joinResult.error,
+          joinPayload,
+        });
         return;
       }
 
-      console.log('SPOT_PAGE_JOIN_SUCCESS', { joinPayload });
+      console.log('SPOT_PAGE_JOIN_SUCCESS', { joinPayload, insertedSession: joinResult.data });
       await fetchSharedData();
       setSelectedTimelineSessionId(null);
       setSessionActionError('');
@@ -2692,13 +2780,9 @@ export default function App() {
           .eq('user_id', session.user.id)
           .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
           .single()
-        : await supabase
-          .from('sessions')
-          .insert(payload)
-          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
-          .single();
+        : await createPlannedSession(payload);
       if (result.error) {
-        setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
+        setFormError(getSessionPersistenceErrorMessage(result.error, 'Sessie plannen is mislukt. Probeer opnieuw.'));
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload, editingSessionId });
         return;
       }
