@@ -1520,9 +1520,8 @@ export default function App() {
 
     return () => {
       isCancelled = true;
-      if (locationSubscription && locationSubscription.remove) {
-        locationSubscription.remove();
-      }
+      console.log('GPS_SUBSCRIPTION_CLEANUP');
+      locationSubscription?.remove?.();
     };
   }, [session?.user.id, spotDefinitions]);
 
