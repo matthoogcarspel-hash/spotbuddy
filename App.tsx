@@ -219,12 +219,42 @@ const isDirectCheckIn = (sessionItem: SpotSession) => {
 
   return Math.abs(checkedInMs - createdMs) <= 90_000;
 };
+const hasPlannedTimeWindow = (sessionItem: SpotSession) => {
+  if (!sessionItem.start || !sessionItem.end) {
+    return false;
+  }
+
+  const startMinutes = toMinutes(sessionItem.start);
+  const endMinutes = toMinutes(sessionItem.end);
+  return endMinutes > startMinutes;
+};
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
 const isPlannedSession = (sessionItem: SpotSession) =>
-  sessionItem.start !== ''
-  && sessionItem.end !== ''
+  hasPlannedTimeWindow(sessionItem)
   && sessionItem.checkedInAt === null
   && sessionItem.checkedOutAt === null;
+const isPlannedCheckedInSession = (sessionItem: SpotSession) =>
+  hasPlannedTimeWindow(sessionItem)
+  && sessionItem.checkedInAt !== null
+  && sessionItem.checkedOutAt === null
+  && !isDirectCheckIn(sessionItem);
+const isLiveWithoutPlanningSession = (sessionItem: SpotSession) =>
+  sessionItem.checkedInAt !== null
+  && sessionItem.checkedOutAt === null
+  && !hasPlannedTimeWindow(sessionItem);
+const isCheckedOutSession = (sessionItem: SpotSession) => sessionItem.checkedOutAt !== null;
+const getSessionTimelineState = (sessionItem: SpotSession): 'planned' | 'livePlanned' | 'liveUnplanned' | 'checkedOut' => {
+  if (isCheckedOutSession(sessionItem)) {
+    return 'checkedOut';
+  }
+  if (isPlannedCheckedInSession(sessionItem)) {
+    return 'livePlanned';
+  }
+  if (sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null) {
+    return 'liveUnplanned';
+  }
+  return 'planned';
+};
 const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
@@ -395,6 +425,7 @@ export default function App() {
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState<number | null>(null);
   const [endMinute, setEndMinute] = useState(0);
+  const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const planningHelperText = 'Je bent pas live op de spot na inchecken.';
   const [sessionActionError, setSessionActionError] = useState('');
@@ -799,7 +830,6 @@ export default function App() {
         .from('sessions')
         .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
         .in('spot_name', [...spotNames])
-        .is('checked_out_at', null)
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
@@ -1208,6 +1238,24 @@ export default function App() {
   );
   const canCheckIn = !isCheckedIn && !hasPlannedSession;
   const canCheckOut = Boolean(activeCheckedInSession);
+  const currentUserEditableSession = useMemo(() => {
+    if (!session?.user.id || !selectedSpot) {
+      return null;
+    }
+
+    return (
+      [...sessions]
+        .filter((sessionItem) => sessionItem.userId === session.user.id)
+        .filter((sessionItem) => sessionItem.checkedOutAt === null)
+        .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
+        .filter((sessionItem) => !isDirectCheckIn(sessionItem))
+        .sort((a, b) => {
+          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return bTime - aTime;
+        })[0] ?? null
+    );
+  }, [selectedSpot, session?.user.id, sessions]);
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !quickCheckInWindowError;
   const selectedSpotDefinition = useMemo(
@@ -1314,50 +1362,45 @@ export default function App() {
     [currentLocalDateKey, messages],
   );
 
-  const timelineSessions = useMemo(() => sessions
-    .filter((item) => {
-      if (!isSessionCreatedToday(item)) {
-        return false;
+  const timelineSessions = useMemo(() => {
+    const withSortMinutes = sessions
+      .filter((item) => isSessionCreatedToday(item))
+      .map((item) => {
+        const state = getSessionTimelineState(item);
+        const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
+        const checkInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+        const fallbackMinutes = getLocalMinutesFromIso(item.createdAt) ?? timelineStartMinutes;
+        const sortMinutes = startMinutes ?? checkInMinutes ?? fallbackMinutes;
+        return {
+          item,
+          state,
+          sortMinutes,
+        };
+      });
+
+    const groupOrder: Record<'livePlanned' | 'liveUnplanned' | 'planned' | 'checkedOut', number> = {
+      livePlanned: 0,
+      liveUnplanned: 0,
+      planned: 1,
+      checkedOut: 2,
+    };
+
+    return withSortMinutes.sort((a, b) => {
+      const byGroup = groupOrder[a.state] - groupOrder[b.state];
+      if (byGroup !== 0) {
+        return byGroup;
       }
 
-      if (item.status !== 'Gaat' && item.status !== 'Is er al') {
-        return false;
+      const byStart = a.sortMinutes - b.sortMinutes;
+      if (byStart !== 0) {
+        return byStart;
       }
 
-      const directCheckIn = isDirectCheckIn(item);
-      const checkInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-      if (directCheckIn) {
-        if (checkInMinutes === null || checkInMinutes < timelineStartMinutes || checkInMinutes > timelineEndMinutes) {
-          return false;
-        }
-
-        return true;
-      }
-
-      const startMinutes = toMinutes(item.start);
-      const endMinutes = toMinutes(item.end);
-
-      if (startMinutes < timelineStartMinutes || endMinutes > timelineEndMinutes) {
-        return false;
-      }
-
-      if (endMinutes <= startMinutes) {
-        return false;
-      }
-
-      if (currentLocalMinutes >= endMinutes) {
-        return false;
-      }
-
-      return true;
-    })
-    .sort((a, b) => {
-      const aDirectCheckIn = isDirectCheckIn(a);
-      const bDirectCheckIn = isDirectCheckIn(b);
-      const aMinutes = aDirectCheckIn ? (getLocalMinutesFromIso(a.checkedInAt) ?? toMinutes(a.start)) : toMinutes(a.start);
-      const bMinutes = bDirectCheckIn ? (getLocalMinutesFromIso(b.checkedInAt) ?? toMinutes(b.start)) : toMinutes(b.start);
-      return aMinutes - bMinutes;
-    }), [currentLocalMinutes, sessions]);
+      const aCreated = a.item.createdAt ? new Date(a.item.createdAt).getTime() : 0;
+      const bCreated = b.item.createdAt ? new Date(b.item.createdAt).getTime() : 0;
+      return aCreated - bCreated;
+    });
+  }, [sessions]);
   useEffect(() => {
     console.log('TIMELINE_FILTERED_SESSIONS', {
       selectedSpot,
@@ -1374,9 +1417,10 @@ export default function App() {
         end: item.end,
         checkedInAt: item.checkedInAt,
       })),
-      timelineSessions: timelineSessions.map((item) => ({
+      timelineSessions: timelineSessions.map(({ item, state }) => ({
         id: item.id,
         status: item.status,
+        timelineState: state,
         start: item.start,
         end: item.end,
         checkedInAt: item.checkedInAt,
@@ -1686,6 +1730,7 @@ export default function App() {
     setStartMinute(0);
     setEndHour(null);
     setEndMinute(0);
+    setEditingSessionId(null);
     setFormError('');
   };
 
@@ -2241,8 +2286,13 @@ export default function App() {
         return;
       }
 
+      if (!editingSessionId && startTotalMinutes < currentLocalMinutes) {
+        setFormError('Starttijd kan niet eerder zijn dan nu.');
+        return;
+      }
+
       console.log('BLOCKING_SESSION', blockingSession);
-      if (blockingSession) {
+      if (!editingSessionId && blockingSession) {
         setFormError('Rond eerst je huidige sessie af');
         return;
       }
@@ -2271,14 +2321,25 @@ export default function App() {
       };
 
       console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', payload);
-      const result = await supabase
-        .from('sessions')
-        .insert(payload)
-        .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
-        .single();
+      const result = editingSessionId
+        ? await supabase
+          .from('sessions')
+          .update({
+            start_time: payload.start_time,
+            end_time: payload.end_time,
+          })
+          .eq('id', editingSessionId)
+          .eq('user_id', session.user.id)
+          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
+          .single()
+        : await supabase
+          .from('sessions')
+          .insert(payload)
+          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
+          .single();
       if (result.error) {
         setFormError('Sessie plannen is mislukt. Probeer opnieuw.');
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload });
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload, editingSessionId });
         return;
       }
 
@@ -2428,8 +2489,13 @@ export default function App() {
                 setSessionActionError('Rond eerst je huidige sessie af');
                 return;
               }
+              setEditingSessionId(null);
               setShowForm(true);
               setActivePicker(null);
+              setStartHour(null);
+              setStartMinute(0);
+              setEndHour(null);
+              setEndMinute(0);
               setFormError('');
               setSessionActionError('');
             }}
@@ -2437,6 +2503,30 @@ export default function App() {
           >
             <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Sessie plannen</Text>
           </Pressable>
+          {currentUserEditableSession ? (
+            <Pressable
+              onPress={() => {
+                const [startHourPart, startMinutePart] = currentUserEditableSession.start.split(':');
+                const [endHourPart, endMinutePart] = currentUserEditableSession.end.split(':');
+                const parsedStartHour = Number.parseInt(startHourPart ?? '', 10);
+                const parsedStartMinute = Number.parseInt(startMinutePart ?? '', 10);
+                const parsedEndHour = Number.parseInt(endHourPart ?? '', 10);
+                const parsedEndMinute = Number.parseInt(endMinutePart ?? '', 10);
+                setEditingSessionId(currentUserEditableSession.id);
+                setStartHour(Number.isNaN(parsedStartHour) ? null : parsedStartHour);
+                setStartMinute(Number.isNaN(parsedStartMinute) ? 0 : parsedStartMinute);
+                setEndHour(Number.isNaN(parsedEndHour) ? null : parsedEndHour);
+                setEndMinute(Number.isNaN(parsedEndMinute) ? 0 : parsedEndMinute);
+                setShowForm(true);
+                setActivePicker(null);
+                setSessionActionError('');
+                setFormError('');
+              }}
+              style={{ marginTop: 8, ...primaryButtonStyle, backgroundColor: '#1e3a8a' }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Aanpassen</Text>
+            </Pressable>
+          ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Formulier open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
@@ -2543,7 +2633,7 @@ export default function App() {
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <Pressable onPress={handleSave} style={{ ...primaryButtonStyle, flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Opslaan</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{editingSessionId ? 'Bijwerken' : 'Opslaan'}</Text>
                 </Pressable>
                 <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, flex: 1, backgroundColor: theme.bgElevated }}>
                   <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Annuleren</Text>
@@ -2645,151 +2735,61 @@ export default function App() {
                   ) : null}
 
                   {timelineSessions.length > 0 ? (
-                    timelineSessions.map((timelineSession) => {
-                      const directCheckIn = isDirectCheckIn(timelineSession);
+                    timelineSessions.map(({ item: timelineSession, state }) => {
+                      const hasPlannedWindow = hasPlannedTimeWindow(timelineSession);
                       const checkedInMinutes = getLocalMinutesFromIso(timelineSession.checkedInAt);
-                      const checkedInLocalHourMinute = formatToHourMinute(timelineSession.checkedInAt);
-                      const checkInMarkerPercent = checkedInMinutes === null
-                        ? null
-                        : clamp(((checkedInMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
-
-                      const timelineStateStyle: Record<'Gaat nog' | 'Waarschijnlijk er' | 'Ingecheckt', { bar: string; text: string }> = {
-                        'Gaat nog': { bar: '#3f5f85', text: '#e8f0ff' },
-                        'Waarschijnlijk er': { bar: '#9b6a3c', text: '#fff4e8' },
-                        Ingecheckt: { bar: '#27835a', text: '#eafff3' },
-                      };
-
-                      if (directCheckIn) {
-                        if (checkInMarkerPercent === null || checkedInLocalHourMinute === '--:--') {
-                          return null;
-                        }
-
-                        return (
-                          <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                            <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
-                              {timelineSession.userName}
-                            </Text>
-                            <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
-                              <View
-                                style={{
-                                  position: 'absolute',
-                                  left: `${checkInMarkerPercent}%`,
-                                  top: 4,
-                                  bottom: 4,
-                                  width: 0,
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                }}
-                              >
-                                <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: theme.live }} />
-                              </View>
-                              <Text
-                                style={{
-                                  position: 'absolute',
-                                  left: `${clamp(checkInMarkerPercent + 2, 0, 94)}%`,
-                                  top: 6,
-                                  color: '#b4f7d4',
-                                  fontSize: 11,
-                                  fontWeight: '700',
-                                }}
-                              >
-                                {checkedInLocalHourMinute}
-                              </Text>
-                            </View>
-                          </View>
-                        );
-                      }
-
-                      const sessionStartMinutes = toMinutes(timelineSession.start);
-                      let sessionEndMinutes = toMinutes(timelineSession.end);
-                      if (sessionEndMinutes <= sessionStartMinutes) {
-                        sessionEndMinutes += 24 * 60;
-                      }
+                      const checkedInLabel = formatToHourMinute(timelineSession.checkedInAt);
+                      const checkedOutLabel = formatToHourMinute(timelineSession.checkedOutAt);
+                      const sessionStartMinutes = hasPlannedWindow ? toMinutes(timelineSession.start) : (checkedInMinutes ?? timelineStartMinutes);
+                      const sessionEndMinutes = hasPlannedWindow
+                        ? toMinutes(timelineSession.end)
+                        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
                       const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
-                      const clampedEndMinutes = clamp(sessionEndMinutes, timelineStartMinutes, timelineEndMinutes);
-                      const rawLeftPercent = ((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100;
-                      const rawWidthPercent = ((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100;
-                      const leftPercent = clamp(rawLeftPercent, 0, 100);
-                      const maxWidthPercent = Math.max(0, 100 - leftPercent);
-                      const widthPercent = clamp(rawWidthPercent, 0, maxWidthPercent);
-                      const displayState = getSessionDisplayState(timelineSession, currentLocalMinutes);
-                      if (!displayState) {
-                        return null;
-                      }
-                      const showLabelOutside = widthPercent < 18;
-                      const labelText = `${timelineSession.start}–${timelineSession.end}`;
-                      const labelLeftPercent = clamp(leftPercent + widthPercent, 0, 96);
+                      const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineStartMinutes, timelineEndMinutes);
+                      const leftPercent = clamp(((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
+                      const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100, 6, 100 - leftPercent);
+
+                      const stateStyle: Record<'planned' | 'livePlanned' | 'liveUnplanned' | 'checkedOut', { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
+                        planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
+                        livePlanned: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
+                        liveUnplanned: { bar: '#26b96f', text: '#ecfff5', border: '#6ef0a4' },
+                        checkedOut: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
+                      };
+                      const timelineLabel = state === 'planned'
+                        ? `Gepland ${timelineSession.start}–${timelineSession.end}`
+                        : state === 'livePlanned'
+                          ? `Live ${timelineSession.start}–${timelineSession.end}`
+                          : state === 'liveUnplanned'
+                            ? `Live sinds ${checkedInLabel}`
+                            : `Klaar ${timelineSession.start}–${checkedOutLabel === '--:--' ? timelineSession.end : checkedOutLabel}`;
 
                       return (
                         <View key={timelineSession.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
                           <Text numberOfLines={1} style={{ width: 90, color: theme.textSoft, fontSize: 13, marginRight: 8 }}>
                             {timelineSession.userName}
                           </Text>
-                          <View style={{ flex: 1, height: 26, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'visible' }}>
+                          <View style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, overflow: 'hidden' }}>
                             <View
                               style={{
                                 position: 'absolute',
                                 left: `${leftPercent}%`,
                                 width: `${widthPercent}%`,
-                                top: 2,
-                                bottom: 2,
+                                top: 3,
+                                bottom: 3,
                                 borderRadius: 999,
-                                backgroundColor: timelineStateStyle[displayState].bar,
+                                backgroundColor: stateStyle[state].bar,
+                                borderWidth: 1,
+                                borderColor: stateStyle[state].border,
+                                borderStyle: stateStyle[state].borderStyle ?? 'solid',
+                                opacity: stateStyle[state].opacity ?? 1,
                                 justifyContent: 'center',
-                                alignItems: showLabelOutside ? 'flex-end' : 'center',
-                                paddingHorizontal: showLabelOutside ? 8 : 10,
-                                overflow: 'visible',
+                                paddingHorizontal: 8,
                               }}
                             >
-                              {!showLabelOutside ? (
-                                <Text style={{ color: timelineStateStyle[displayState].text, fontSize: 11, fontWeight: '600', lineHeight: 14 }}>
-                                  {labelText}
-                                </Text>
-                              ) : null}
-                            </View>
-                            {showLabelOutside ? (
-                              <Text
-                                style={{
-                                  position: 'absolute',
-                                  left: `${labelLeftPercent}%`,
-                                  top: -17,
-                                  color: theme.textSoft,
-                                  fontSize: 11,
-                                  fontWeight: '600',
-                                }}
-                              >
-                                {labelText}
+                              <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 11, fontWeight: '700' }}>
+                                {timelineLabel}
                               </Text>
-                            ) : null}
-                            {timelineSession.status === 'Is er al' && checkInMarkerPercent !== null && checkedInLocalHourMinute !== '--:--' ? (
-                              <>
-                                <View
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${checkInMarkerPercent}%`,
-                                    top: 2,
-                                    bottom: 2,
-                                    width: 0,
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                  }}
-                                >
-                                  <View style={{ width: 10, height: 10, borderRadius: 999, backgroundColor: theme.live, borderWidth: 1, borderColor: '#ddffe8' }} />
-                                </View>
-                                <Text
-                                  style={{
-                                    position: 'absolute',
-                                    left: `${clamp(checkInMarkerPercent + 1.5, 0, 92)}%`,
-                                    top: -16,
-                                    color: '#b4f7d4',
-                                    fontSize: 10,
-                                    fontWeight: '700',
-                                  }}
-                                >
-                                  {`in ${checkedInLocalHourMinute}`}
-                                </Text>
-                              </>
-                            ) : null}
+                            </View>
                           </View>
                         </View>
                       );
