@@ -2625,81 +2625,72 @@ export default function App() {
 
       const currentAuthenticatedUserId = session.user.id;
       const currentAuthenticatedDisplayName = profile.display_name;
-      const exactSpotName = sessionToJoin.spot;
-      const exactStartTime = sessionToJoin.start;
-      const exactEndTime = sessionToJoin.end;
+      const clickedSessionUserId = sessionToJoin.userId;
+      const clickedSpotName = sessionToJoin.spot;
+      const clickedStartTime = sessionToJoin.start;
+      const clickedEndTime = sessionToJoin.end;
       const duplicateCandidates = sessions.map((candidateSession) => ({
         id: candidateSession.id,
         user_id: candidateSession.userId,
         spot_name: candidateSession.spot,
         start_time: candidateSession.start,
         end_time: candidateSession.end,
-        belongsToCurrentAuthenticatedUser: candidateSession.userId === currentAuthenticatedUserId,
+        user_id_matches_current_auth_user: candidateSession.userId === currentAuthenticatedUserId,
+        spot_name_matches_clicked_session: candidateSession.spot === clickedSpotName,
+        start_time_matches_clicked_session: candidateSession.start === clickedStartTime,
+        end_time_matches_clicked_session: candidateSession.end === clickedEndTime,
       }));
-      const sessionsForCurrentUserDuplicateCheck = sessions.filter(
-        (existingSession) => existingSession.userId === currentAuthenticatedUserId,
-      );
-      const exactDuplicateMatches = sessionsForCurrentUserDuplicateCheck.filter(
-        (existingSession) => (
-          existingSession.spot === exactSpotName
-          && existingSession.start === exactStartTime
-          && existingSession.end === exactEndTime
+      const exactDuplicateCandidatesForCurrentUser = duplicateCandidates.filter(
+        (candidate) => (
+          candidate.user_id === currentAuthenticatedUserId
+          && candidate.spot_name === clickedSpotName
+          && candidate.start_time === clickedStartTime
+          && candidate.end_time === clickedEndTime
         ),
       );
+      const exactDuplicateForCurrentUser = exactDuplicateCandidatesForCurrentUser.length > 0;
       console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
         currentAuthenticatedUserId,
         currentAuthenticatedDisplayName,
-        clickedSessionUserId: sessionToJoin.userId,
-        spot_name: exactSpotName,
-        start_time: exactStartTime,
-        end_time: exactEndTime,
-        duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
-        sessionsForCurrentUserDuplicateCheck: sessionsForCurrentUserDuplicateCheck.map((match) => ({
-          id: match.id,
-          spot: match.spot,
-          userId: match.userId,
-          start: match.start,
-          end: match.end,
-          checkedOutAt: match.checkedOutAt,
-          status: match.status,
-        })),
-        exactDuplicateCount: exactDuplicateMatches.length,
-        exactDuplicateMatches: exactDuplicateMatches.map((match) => ({
-          id: match.id,
-          spot: match.spot,
-          userId: match.userId,
-          start: match.start,
-          end: match.end,
-          checkedOutAt: match.checkedOutAt,
-          status: match.status,
-        })),
+        clickedSessionUserId,
+        spot_name: clickedSpotName,
+        start_time: clickedStartTime,
+        end_time: clickedEndTime,
+        duplicateCandidateCount: duplicateCandidates.length,
+        duplicateCandidates,
+        exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
+        exactDuplicateCandidatesForCurrentUser,
+        exactDuplicateForCurrentUser,
       });
-      if (exactDuplicateMatches.length > 0) {
-        const errorReason = `Je hebt al een sessie op dit tijdstip (Duplicate blocked for user ${currentAuthenticatedUserId})`;
+      if (exactDuplicateForCurrentUser) {
+        const errorReason = `Join geblokkeerd. currentUser=${currentAuthenticatedUserId}, clickedUser=${clickedSessionUserId ?? 'null'}, candidates=${duplicateCandidates.length}, exactDuplicates=${exactDuplicateCandidatesForCurrentUser.length}`;
         setSessionActionError(errorReason);
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
           currentAuthenticatedUserId,
           currentAuthenticatedDisplayName,
-          clickedSessionUserId: sessionToJoin.userId,
-          spot_name: exactSpotName,
-          start_time: exactStartTime,
-          end_time: exactEndTime,
-          duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
-          exactDuplicateCount: exactDuplicateMatches.length,
+          clickedSessionUserId,
+          spot_name: clickedSpotName,
+          start_time: clickedStartTime,
+          end_time: clickedEndTime,
+          duplicateCandidateCount: duplicateCandidates.length,
+          duplicateCandidates,
+          exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
+          exactDuplicateCandidatesForCurrentUser,
+          exactDuplicateForCurrentUser,
           exactErrorReasonShownToUI: errorReason,
         });
         return;
       }
 
       const joinPayload = {
-        spot_name: exactSpotName,
-        user_id: session.user.id,
+        spot_name: clickedSpotName,
+        user_id: currentAuthenticatedUserId,
         user_name: profile.display_name,
         user_avatar_url: profile.avatar_url,
-        start_time: exactStartTime,
-        end_time: exactEndTime,
+        start_time: clickedStartTime,
+        end_time: clickedEndTime,
         status: 'Gaat' as const,
         checked_in_at: null,
         checked_out_at: null,
@@ -2708,11 +2699,11 @@ export default function App() {
         selectedSourceSession: sessionToJoin,
         currentUserId: currentAuthenticatedUserId,
         currentAuthenticatedDisplayName,
-        clickedSessionUserId: sessionToJoin.userId,
+        clickedSessionUserId,
         insertedUserId: joinPayload.user_id,
-        spot_name: exactSpotName,
-        start_time: exactStartTime,
-        end_time: exactEndTime,
+        spot_name: clickedSpotName,
+        start_time: clickedStartTime,
+        end_time: clickedEndTime,
         joinPayload,
       });
       const joinResult = await createPlannedSession(joinPayload);
@@ -2723,14 +2714,15 @@ export default function App() {
           selectedSourceSession: sessionToJoin,
           currentUserId: currentAuthenticatedUserId,
           currentAuthenticatedDisplayName,
-          clickedSessionOwnerUserId: sessionToJoin.userId,
-          spot_name: exactSpotName,
-          start_time: exactStartTime,
-          end_time: exactEndTime,
-          duplicateCandidatesConsideredBeforeBlocking: duplicateCandidates,
-          sessionsForCurrentUserDuplicateCheck,
-          exactDuplicateCount: exactDuplicateMatches.length,
-          exactDuplicateMatches,
+          clickedSessionOwnerUserId: clickedSessionUserId,
+          spot_name: clickedSpotName,
+          start_time: clickedStartTime,
+          end_time: clickedEndTime,
+          duplicateCandidateCount: duplicateCandidates.length,
+          duplicateCandidates,
+          exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
+          exactDuplicateCandidatesForCurrentUser,
+          exactDuplicateForCurrentUser,
           supabaseError: joinResult.error,
           joinPayload,
           exactErrorReasonShownToUI: errorMessage,
@@ -2741,7 +2733,7 @@ export default function App() {
       console.log('SPOT_PAGE_JOIN_SUCCESS', {
         currentUserId: currentAuthenticatedUserId,
         currentAuthenticatedDisplayName,
-        clickedSessionUserId: sessionToJoin.userId,
+        clickedSessionUserId,
         insertedUserId: joinResult.data.user_id,
         joinPayload,
         insertedSession: joinResult.data,
