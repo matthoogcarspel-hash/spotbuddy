@@ -1649,28 +1649,30 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    const userId = session?.user?.id ?? null;
-    const allSessions = Object.values(sessionsBySpot || {}).flat();
+    const userId = session?.user?.id;
+    if (!userId) {
+      return null;
+    }
 
-    console.log('PLANNED_DEBUG_ALL_SESSIONS_COUNT', allSessions.length);
-    console.log('PLANNED_DEBUG_USER_ID', userId);
-    console.log('PLANNED_DEBUG_ALL_SESSIONS', allSessions);
+    const currentDateKey = getCurrentLocalDateKey();
 
-    const userSessions = allSessions.filter((item) => item.userId === userId);
+    return Object.values(sessionsBySpot)
+      .flat()
+      .filter((item) => item.userId === userId)
+      .filter((item) => item.status === 'Gaat')
+      .filter((item) => isPlannedSession(item))
+      .filter((item) => isCreatedOnLocalDate(item.createdAt, currentDateKey))
+      .sort((a, b) => {
+        const startDiff = toMinutes(a.start) - toMinutes(b.start);
+        if (startDiff !== 0) {
+          return startDiff;
+        }
 
-    console.log('PLANNED_DEBUG_USER_SESSIONS', userSessions);
-
-    const candidate = userSessions[0] ?? null;
-
-    console.log('PLANNED_DEBUG_CANDIDATE', candidate);
-
-    return candidate;
+        const aCreatedAt = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return bCreatedAt - aCreatedAt;
+      })[0] ?? null;
   }, [sessionsBySpot, session?.user?.id]);
-  console.log('PLANNED_SESSION_DEBUG', {
-    plannedSession,
-    sessions: sessionsBySpot,
-    userId: session?.user?.id
-  });
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
@@ -3729,10 +3731,6 @@ export default function App() {
     );
   }
 
-  console.log('PLANNED_SESSION_RENDER', {
-    hasPlannedSession: Boolean(plannedSession),
-    plannedSpot: plannedSession?.spot ?? null,
-  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
@@ -3749,10 +3747,6 @@ export default function App() {
           </View>
         </View>
         <View style={{ marginLeft: 10 }}>
-          {console.log('PLANNED_SESSION_RENDER_CHECK', {
-            exists: Boolean(plannedSession),
-            spot: plannedSession?.spot
-          })}
           <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
