@@ -695,6 +695,7 @@ function SessionTimeline({
 }
 
 export default function App() {
+  const isWebPlatform = Platform.OS === 'web';
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loadingSession, setLoadingSession] = useState(true);
@@ -1514,7 +1515,7 @@ export default function App() {
       gpsWatcherRef.current = null;
     };
 
-    if (Platform.OS === 'web') {
+    if (isWebPlatform) {
       console.log('GPS_SKIPPED_ON_WEB');
       setIsResolvingNearestSpot(false);
       stopWatcher();
@@ -1613,7 +1614,7 @@ export default function App() {
       active = false;
       stopWatcher();
     };
-  }, [sessionsBySpot, session?.user.id, spotDefinitions]);
+  }, [isWebPlatform, sessionsBySpot, session?.user.id, spotDefinitions]);
 
   useEffect(() => {
     console.log('HOME_NEAREST_SPOT_NAME', {
@@ -1673,6 +1674,13 @@ export default function App() {
 
   useEffect(() => {
     const runAutoCheckOutIfNeeded = async () => {
+      if (isWebPlatform) {
+        autoCheckoutOutsideCountRef.current = 0;
+        autoCheckoutOutsideSinceRef.current = null;
+        console.log('AUTO_CHECKOUT_DISABLED_ON_WEB');
+        return;
+      }
+
       const isActiveLiveStatus = activeCheckedInSession?.status === 'live' || activeCheckedInSession?.status === 'Is er al';
       if (!session?.user.id || !currentCoordinates || !activeCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
@@ -1778,7 +1786,7 @@ export default function App() {
     };
 
     void runAutoCheckOutIfNeeded();
-  }, [activeCheckedInSession, currentCoordinates, session?.user.id, spotDefinitions]);
+  }, [activeCheckedInSession, currentCoordinates, isWebPlatform, session?.user.id, spotDefinitions]);
   const blockingSession = useMemo(() => {
     if (allUserSessions.length === 0) {
       return null;
@@ -3200,12 +3208,18 @@ export default function App() {
         <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
       </View>
     ) : null;
+    const webGpsNoticeBanner = isWebPlatform ? (
+      <View style={{ backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 }}>
+        <Text style={{ color: theme.textMuted, fontSize: 12 }}>GPS auto checkout works only on mobile</Text>
+      </View>
+    ) : null;
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
         {autoCheckoutBanner}
+        {webGpsNoticeBanner}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -3668,6 +3682,11 @@ export default function App() {
       </View>
 
       <View>
+        {isWebPlatform ? (
+          <View style={{ backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>GPS auto checkout works only on mobile</Text>
+          </View>
+        ) : null}
         {autoCheckoutNotice ? (
           <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
             <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
