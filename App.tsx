@@ -150,6 +150,17 @@ const toMinutes = (hourMinute: string) => {
   return hour * 60 + minute;
 };
 const hasTimeOverlap = (startA: string, endA: string, startB: string, endB: string) => toMinutes(startA) < toMinutes(endB) && toMinutes(endA) > toMinutes(startB);
+const isSessionStatusBlockingForPlanning = (sessionItem: SpotSession) => {
+  if (sessionItem.checkedOutAt) {
+    return false;
+  }
+
+  if (sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
+    return false;
+  }
+
+  return true;
+};
 const isCreatedToday = (value: string | null | undefined) => {
   if (!value) {
     return false;
@@ -1882,29 +1893,42 @@ export default function App() {
 
     void runAutoCheckOutIfNeeded();
   }, [activeCheckedInSession, currentCoordinates, isNativePlatform, session?.user.id, spotDefinitions]);
-  const blockingSession = useMemo(() => {
-    if (allUserSessions.length === 0) {
+  const currentPlanningStart = startHour === null ? null : `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
+  const currentPlanningEnd = endHour === null ? null : `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
+  const planningOverlapBlockingSession = useMemo(() => {
+    if (!session?.user.id || !currentPlanningStart || !currentPlanningEnd) {
       return null;
     }
 
+    if (toMinutes(currentPlanningEnd) <= toMinutes(currentPlanningStart)) {
+      return null;
+    }
+
+    const currentDateKey = getCurrentLocalDateKey();
+
     return (
-      [...allUserSessions]
-        .filter((sessionItem) => (sessionItem.status === 'Gaat' || sessionItem.status === 'Is er al'))
-        .filter((sessionItem) => !sessionItem.checkedOutAt)
-        .sort((a, b) => {
-          const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-          const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-          return bTime - aTime;
-        })[0] ?? null
+      allUserSessions
+        .filter((sessionItem) => sessionItem.userId === session.user.id)
+        .filter((sessionItem) => !editingSessionId || sessionItem.id !== editingSessionId)
+        .filter((sessionItem) => isSessionStatusBlockingForPlanning(sessionItem))
+        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey))
+        .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
+        .find((sessionItem) => hasTimeOverlap(currentPlanningStart, currentPlanningEnd, sessionItem.start, sessionItem.end))
+      ?? null
     );
-  }, [allUserSessions]);
-  const canPlanSession = !blockingSession;
+  }, [allUserSessions, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
+  const canPlanSession = true;
   const isCheckedIn = Boolean(activeCheckedInSession);
   const hasPlannedSession = Boolean(
-    blockingSession
-      && blockingSession.status === 'Gaat'
-      && !blockingSession.checkedInAt
-      && !blockingSession.checkedOutAt,
+    allUserSessions
+      .some(
+        (sessionItem) =>
+          sessionItem.status === 'Gaat'
+          && !sessionItem.checkedInAt
+          && !sessionItem.checkedOutAt
+          && hasPlannedTimeWindow(sessionItem)
+          && isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey),
+      ),
   );
   const canCheckIn = !isCheckedIn && !hasPlannedSession;
   const canCheckOut = Boolean(activeCheckedInSession);
@@ -2069,10 +2093,10 @@ export default function App() {
     console.log('ACTIVE_SESSION_LOAD', {
       activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
       activeSpot: activeCheckedInSession?.spot ?? null,
-      blockingSessionId: blockingSession?.id ?? null,
-      blockingStatus: blockingSession?.status ?? null,
+      blockingSessionId: planningOverlapBlockingSession?.id ?? null,
+      blockingStatus: planningOverlapBlockingSession?.status ?? null,
     });
-  }, [activeCheckedInSession, blockingSession]);
+  }, [activeCheckedInSession, planningOverlapBlockingSession]);
   const newestFirstMessages = useMemo(
     () =>
       messages
@@ -3225,9 +3249,9 @@ export default function App() {
         return;
       }
 
-      console.log('BLOCKING_SESSION', blockingSession);
-      if (!editingSessionId && blockingSession) {
-        setFormError('Finish your current session first');
+      console.log('BLOCKING_SESSION', planningOverlapBlockingSession);
+      if (planningOverlapBlockingSession) {
+        setFormError('You already have a session at this time');
         return;
       }
 
@@ -3569,6 +3593,11 @@ export default function App() {
                   }}
                 >
                   {formError}
+                </Text>
+              ) : null}
+              {formError === 'You already have a session at this time' && planningOverlapBlockingSession ? (
+                <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
+                  {`Blocking session: ${planningOverlapBlockingSession.spot} ${planningOverlapBlockingSession.start}-${planningOverlapBlockingSession.end} ${planningOverlapBlockingSession.status}`}
                 </Text>
               ) : null}
 
