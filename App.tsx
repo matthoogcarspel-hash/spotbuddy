@@ -161,6 +161,21 @@ const isSessionStatusBlockingForPlanning = (sessionItem: SpotSession) => {
 
   return true;
 };
+const isSessionStillRelevantForPlanning = (sessionItem: SpotSession, currentMinutes: number) => {
+  if (!hasPlannedTimeWindow(sessionItem)) {
+    return false;
+  }
+
+  if (!isSessionStatusBlockingForPlanning(sessionItem)) {
+    return false;
+  }
+
+  if (sessionItem.status === 'Gaat') {
+    return toMinutes(sessionItem.end) > currentMinutes;
+  }
+
+  return true;
+};
 const isCreatedToday = (value: string | null | undefined) => {
   if (!value) {
     return false;
@@ -1091,6 +1106,10 @@ export default function App() {
       return 'Uitchecken';
     }
 
+    if (status === 'cancelled' || status === 'canceled' || status === 'geannuleerd') {
+      return 'Uitchecken';
+    }
+
     if (status === 'Is er al' || status === 'Uitchecken' || status === 'live') {
       if (status === 'live') {
         return 'Is er al';
@@ -1904,19 +1923,18 @@ export default function App() {
       return null;
     }
 
-    const currentDateKey = getCurrentLocalDateKey();
+    const selectedPlanningDateKey = currentLocalDateKey;
 
     return (
       allUserSessions
         .filter((sessionItem) => sessionItem.userId === session.user.id)
         .filter((sessionItem) => !editingSessionId || sessionItem.id !== editingSessionId)
-        .filter((sessionItem) => isSessionStatusBlockingForPlanning(sessionItem))
-        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey))
-        .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
+        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey))
+        .filter((sessionItem) => isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes))
         .find((sessionItem) => hasTimeOverlap(currentPlanningStart, currentPlanningEnd, sessionItem.start, sessionItem.end))
       ?? null
     );
-  }, [allUserSessions, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
+  }, [allUserSessions, currentLocalDateKey, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
   const canPlanSession = true;
   const isCheckedIn = Boolean(activeCheckedInSession);
   const hasPlannedSession = Boolean(
