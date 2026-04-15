@@ -1647,6 +1647,7 @@ export default function App() {
     const allSessions = Object.values(sessionsBySpot).flat();
     return getCurrentUserLiveSession(allSessions, session?.user.id);
   }, [session?.user.id, sessionsBySpot]);
+  // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
     if (!session?.user.id) return null;
 
