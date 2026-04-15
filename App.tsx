@@ -1650,35 +1650,67 @@ export default function App() {
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
     if (!session?.user?.id) {
-      console.log('PLANNED_SESSION_RESULT', 'NO_USER');
       return null;
     }
 
-    const allSessions = Object.values(sessionsBySpot || {}).flat();
-
-    console.log('PLANNED_SESSION_SOURCE', {
-      totalSessions: allSessions.length,
-      userId: session.user.id,
-    });
-
-    const userSessions = allSessions.filter(
-      (s) => s.userId === session.user.id
-    );
-
-    console.log('PLANNED_SESSION_USER_SESSIONS', userSessions);
-
-    if (userSessions.length === 0) {
-      console.log('PLANNED_SESSION_RESULT', 'NO_USER_SESSIONS');
+    const allSessions = Object.values(sessionsBySpot ?? {}).flat();
+    if (allSessions.length === 0) {
       return null;
     }
 
-    // TEMP: just take first session to prove rendering works
-    const first = userSessions[0];
+    const nowMinutes = getCurrentLocalMinutes();
+    const currentDateKey = getCurrentLocalDateKey();
+    const userId = session.user.id;
 
-    console.log('PLANNED_SESSION_RESULT', first);
+    const upcomingPlannedSessions = allSessions
+      .filter((sessionItem) => {
+        if (sessionItem.userId !== userId) {
+          return false;
+        }
 
-    return first;
+        const isPlannedStatus = sessionItem.status === 'Gaat' || String(sessionItem.status).toLowerCase() === 'planned';
+        if (!isPlannedStatus || !isPlannedSession(sessionItem)) {
+          return false;
+        }
+
+        if (!sessionItem.createdAt) {
+          return toMinutes(sessionItem.start) > nowMinutes;
+        }
+
+        const createdDate = new Date(sessionItem.createdAt);
+        if (Number.isNaN(createdDate.getTime())) {
+          return false;
+        }
+
+        const sessionDateKey = getLocalDateKey(createdDate);
+        if (sessionDateKey > currentDateKey) {
+          return true;
+        }
+
+        if (sessionDateKey < currentDateKey) {
+          return false;
+        }
+
+        return toMinutes(sessionItem.start) > nowMinutes;
+      })
+      .sort((a, b) => {
+        const aDateKey = a.createdAt ? getLocalDateKey(new Date(a.createdAt)) : currentDateKey;
+        const bDateKey = b.createdAt ? getLocalDateKey(new Date(b.createdAt)) : currentDateKey;
+
+        if (aDateKey !== bDateKey) {
+          return aDateKey.localeCompare(bDateKey);
+        }
+
+        return toMinutes(a.start) - toMinutes(b.start);
+      });
+
+    return upcomingPlannedSessions[0] ?? null;
   }, [sessionsBySpot, session?.user?.id]);
+  console.log('PLANNED_SESSION_DEBUG', {
+    plannedSession,
+    sessions: sessionsBySpot,
+    userId: session?.user?.id
+  });
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
@@ -3757,6 +3789,10 @@ export default function App() {
           </View>
         </View>
         <View style={{ marginLeft: 10 }}>
+          {console.log('PLANNED_SESSION_RENDER_CHECK', {
+            exists: Boolean(plannedSession),
+            spot: plannedSession?.spot
+          })}
           <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
