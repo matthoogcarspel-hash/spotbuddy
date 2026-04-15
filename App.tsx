@@ -143,6 +143,7 @@ const getQuickCheckInEndTime = () => {
   const endTime = proposedEndTime > cappedEndTime ? cappedEndTime : proposedEndTime;
   return formatLocalHourMinute(endTime);
 };
+const duplicatePlannedSessionMessage = 'This planned session already exists.';
 const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
 const toMinutes = (hourMinute: string) => {
@@ -2252,6 +2253,9 @@ export default function App() {
     }
 
     if (error.code === '23505') {
+      if (error.message?.includes('sessions_unique') || error.details?.includes('sessions_unique')) {
+        return duplicatePlannedSessionMessage;
+      }
       return error.details?.trim() || error.message?.trim() || 'You already have an open session. Finish it first.';
     }
 
@@ -3309,6 +3313,47 @@ export default function App() {
         checked_in_at: null,
         checked_out_at: null,
       };
+      const exactDuplicateQuery = supabase
+        .from('sessions')
+        .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
+        .eq('user_id', payload.user_id)
+        .eq('spot_name', payload.spot_name)
+        .eq('start_time', payload.start_time)
+        .eq('end_time', payload.end_time)
+        .eq('status', payload.status)
+        .is('checked_in_at', null)
+        .is('checked_out_at', null);
+
+      const exactDuplicateResult = editingSessionId
+        ? await exactDuplicateQuery.neq('id', editingSessionId).maybeSingle()
+        : await exactDuplicateQuery.maybeSingle();
+
+      if (exactDuplicateResult.error) {
+        setFormError('Planning the session failed. Please try again.');
+        setSaveError({
+          message: exactDuplicateResult.error.message,
+          details: exactDuplicateResult.error.details,
+          hint: exactDuplicateResult.error.hint,
+          code: exactDuplicateResult.error.code,
+          response: exactDuplicateResult,
+        });
+        console.log('SPOT_PAGE_PLANNING_SAVE_DUPLICATE_QUERY_ERROR', { error: exactDuplicateResult.error, payload, editingSessionId });
+        return;
+      }
+
+      if (exactDuplicateResult.data) {
+        setFormError(duplicatePlannedSessionMessage);
+        setSaveError({
+          message: 'sessions_unique',
+          details: `duplicate_planned_session_id:${exactDuplicateResult.data.id}`,
+        });
+        console.log('SPOT_PAGE_PLANNING_SAVE_BLOCKED_DUPLICATE', {
+          payload,
+          editingSessionId,
+          duplicateSessionId: exactDuplicateResult.data.id,
+        });
+        return;
+      }
 
       console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', {
         payload,
@@ -3654,6 +3699,11 @@ export default function App() {
               {formError === 'You already have a session at this time' && planningOverlapBlockingSession ? (
                 <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
                   {`Blocking session: ${planningOverlapBlockingSession.spot} ${planningOverlapBlockingSession.start}-${planningOverlapBlockingSession.end} ${planningOverlapBlockingSession.status}`}
+                </Text>
+              ) : null}
+              {formError === duplicatePlannedSessionMessage ? (
+                <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
+                  This planned session already exists.
                 </Text>
               ) : null}
               {saveError ? (
