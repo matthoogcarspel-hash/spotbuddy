@@ -143,7 +143,6 @@ const getQuickCheckInEndTime = () => {
   const endTime = proposedEndTime > cappedEndTime ? cappedEndTime : proposedEndTime;
   return formatLocalHourMinute(endTime);
 };
-const duplicatePlannedSessionMessage = 'This planned session already exists.';
 const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
 const toMinutes = (hourMinute: string) => {
@@ -1688,8 +1687,8 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    const userId = session?.user?.id;
-    if (!userId) {
+    const currentUserId = session?.user?.id;
+    if (!currentUserId) {
       return null;
     }
 
@@ -1697,10 +1696,11 @@ export default function App() {
 
     return Object.values(sessionsBySpot)
       .flat()
-      .filter((item) => item.userId === userId)
-      .filter((item) => item.status === 'Gaat')
-      .filter((item) => isPlannedSession(item))
-      .filter((item) => isCreatedOnLocalDate(item.createdAt, currentDateKey))
+      .filter((sessionItem) => sessionItem.userId === currentUserId)
+      .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey))
+      .filter((sessionItem) => sessionItem.status !== 'Uitchecken' && sessionItem.status !== 'finished')
+      .filter((sessionItem) => sessionItem.checkedOutAt === null)
+      .filter((sessionItem) => isPlannedSession(sessionItem))
       .sort((a, b) => {
         const startDiff = toMinutes(a.start) - toMinutes(b.start);
         if (startDiff !== 0) {
@@ -3342,7 +3342,7 @@ export default function App() {
       }
 
       if (exactDuplicateResult.data) {
-        setFormError(duplicatePlannedSessionMessage);
+        setFormError('You already have a session at this time');
         setSaveError({
           message: 'sessions_unique',
           details: `duplicate_planned_session_id:${exactDuplicateResult.data.id}`,
@@ -3694,16 +3694,6 @@ export default function App() {
                   }}
                 >
                   {formError}
-                </Text>
-              ) : null}
-              {formError === 'You already have a session at this time' && planningOverlapBlockingSession ? (
-                <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
-                  {`Blocking session: ${planningOverlapBlockingSession.spot} ${planningOverlapBlockingSession.start}-${planningOverlapBlockingSession.end} ${planningOverlapBlockingSession.status}`}
-                </Text>
-              ) : null}
-              {formError === duplicatePlannedSessionMessage ? (
-                <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
-                  This planned session already exists.
                 </Text>
               ) : null}
               {saveError ? (
