@@ -1086,6 +1086,59 @@ export default function App() {
     }
     return 'Gaat';
   };
+  const getSessionAutoCloseTimestamp = (sessionDate: Date) => {
+    const now = new Date();
+    const endOfSessionDate = new Date(sessionDate);
+    endOfSessionDate.setHours(23, 59, 59, 999);
+    const safeCloseDate = endOfSessionDate.getTime() > now.getTime() ? now : endOfSessionDate;
+    return safeCloseDate.toISOString();
+  };
+  const normalizeLoadedSession = (row: {
+    id: string;
+    status: string;
+    created_at: string | null;
+    checked_in_at: string | null;
+    checked_out_at: string | null;
+  }) => {
+    const mappedStatus = mapSessionStatus(row.status);
+    const isActiveStatus = mappedStatus === 'Is er al' || row.status === 'live';
+    const isStillOpen = row.checked_out_at === null;
+
+    const staleReferenceIso = row.checked_in_at ?? row.created_at;
+    const staleReferenceDate = staleReferenceIso ? new Date(staleReferenceIso) : null;
+    const isValidStaleReference = staleReferenceDate !== null && !Number.isNaN(staleReferenceDate.getTime());
+    const isStaleByDate = isValidStaleReference
+      ? getLocalDateKey(staleReferenceDate) < getCurrentLocalDateKey()
+      : false;
+
+    if (!isActiveStatus || !isStillOpen || !isStaleByDate) {
+      return {
+        status: mappedStatus,
+        checkedInAt: row.checked_in_at,
+        checkedOutAt: row.checked_out_at,
+      };
+    }
+
+    console.log('STALE_SESSION_DETECTED', {
+      sessionId: row.id,
+      originalStatus: row.status,
+      checkedInAt: row.checked_in_at,
+      createdAt: row.created_at,
+    });
+
+    const autoClosedAt = getSessionAutoCloseTimestamp(staleReferenceDate);
+    console.log('STALE_SESSION_AUTO_CLOSED', {
+      sessionId: row.id,
+      checkedOutAt: autoClosedAt,
+      nextStatus: 'Uitchecken',
+    });
+
+    return {
+      status: 'Uitchecken' as SessionStatus,
+      checkedInAt: row.checked_in_at,
+      checkedOutAt: autoClosedAt,
+    };
+  };
 
   const fetchSpotDefinitions = async () => {
     const { data, error } = await supabase
@@ -1150,15 +1203,17 @@ export default function App() {
           continue;
         }
 
+        const normalizedSession = normalizeLoadedSession(row);
+
         nextSessionsBySpot[spot].push({
           id: row.id,
           spot,
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
-          status: mapSessionStatus(row.status),
+          status: normalizedSession.status,
           createdAt: row.created_at,
-          checkedInAt: row.checked_in_at,
-          checkedOutAt: row.checked_out_at,
+          checkedInAt: normalizedSession.checkedInAt,
+          checkedOutAt: normalizedSession.checkedOutAt,
           userId: row.user_id,
           userName: row.user_name,
           userAvatarUrl: row.user_avatar_url,
