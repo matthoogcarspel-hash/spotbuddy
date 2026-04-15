@@ -1517,6 +1517,10 @@ export default function App() {
     };
 
     if (!isNativePlatform) {
+      console.log('GPS_SKIPPED_ON_WEB', {
+        feature: 'LOCATION_MONITORING',
+        platform: Platform.OS,
+      });
       console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
         reason: 'NON_NATIVE_PLATFORM',
         platform: Platform.OS,
@@ -1668,7 +1672,7 @@ export default function App() {
   const upcomingPlannedSession = useMemo(() => {
     const nowMinutes = getCurrentLocalMinutes();
     return allUserSessions
-      .filter((sessionItem) => isSessionCreatedToday(sessionItem) && isGoingLaterSession(sessionItem, nowMinutes))
+      .filter((sessionItem) => isPlannedSession(sessionItem) && toMinutes(sessionItem.start) > nowMinutes)
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0] ?? null;
   }, [allUserSessions]);
   useEffect(() => {
@@ -1693,6 +1697,10 @@ export default function App() {
       if (!isNativePlatform) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
+        console.log('GPS_SKIPPED_ON_WEB', {
+          feature: 'AUTO_CHECKOUT',
+          platform: Platform.OS,
+        });
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'NON_NATIVE_PLATFORM',
           platform: Platform.OS,
