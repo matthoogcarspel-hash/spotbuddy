@@ -360,6 +360,7 @@ const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): '
 };
 const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
+const planningEndMinutes = 22 * 60;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
 
@@ -3269,8 +3270,8 @@ export default function App() {
         return;
       }
 
-      if (endTotalMinutes > timelineEndMinutes) {
-        setFormError('You cannot plan later than 21:00');
+      if (endTotalMinutes > planningEndMinutes) {
+        setFormError('You cannot plan later than 22:00');
         return;
       }
 
@@ -3668,7 +3669,7 @@ export default function App() {
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {hours.filter((hour) => hour >= 8 && hour <= 21).map((hour) => (
+                  {hours.filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
                     <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
