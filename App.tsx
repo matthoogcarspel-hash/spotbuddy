@@ -1647,6 +1647,25 @@ export default function App() {
     const allSessions = Object.values(sessionsBySpot).flat();
     return getCurrentUserLiveSession(allSessions, session?.user.id);
   }, [session?.user.id, sessionsBySpot]);
+  const plannedSession = useMemo(() => {
+    if (!session?.user.id) return null;
+
+    const allSessions = Object.values(sessionsBySpot).flat();
+
+    const upcoming = allSessions
+      .filter(
+        (s) =>
+          s.userId === session.user.id &&
+          s.status === 'planned'
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.startTime).getTime() -
+          new Date(b.startTime).getTime()
+      );
+
+    return upcoming[0] || null;
+  }, [sessionsBySpot, session?.user.id]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
@@ -3699,6 +3718,25 @@ export default function App() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
+      {plannedSession && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 10,
+            right: 10,
+            background: '#000',
+            color: '#fff',
+            padding: '6px 10px',
+            borderRadius: 8,
+            fontSize: 12,
+            cursor: 'pointer',
+            zIndex: 999,
+          }}
+          onClick={() => setSelectedSpot(plannedSession.spot)}
+        >
+          Planned: {plannedSession.spot}
+        </div>
+      )}
       <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 20, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Image
