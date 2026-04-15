@@ -3757,41 +3757,19 @@ export default function App() {
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
-          <View style={{ backgroundColor: 'red', padding: 10, marginTop: 10 }}>
-            <Text style={{ color: 'white' }}>
-              DEBUG PLANNED: {plannedSession ? plannedSession.spot : 'NONE'}
-            </Text>
-          </View>
-          {plannedSession ? (
-            <Pressable
-              onPress={() => setSelectedSpot(plannedSession.spot)}
-              style={{
-                marginTop: 8,
-                marginBottom: 8,
-                backgroundColor: 'red',
-                paddingVertical: 12,
-                paddingHorizontal: 12,
-                borderRadius: 12,
-                width: '100%',
-                minHeight: 44,
-                justifyContent: 'center',
-                alignItems: 'center',
-                display: 'flex',
-                opacity: 1,
-              }}
-            >
-              <Text
-                style={{
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                }}
-              >
-                Planned: {plannedSession.spot}
+          {plannedSession && (
+            <View style={{
+              backgroundColor: 'red',
+              padding: 20,
+              margin: 20,
+              borderWidth: 5,
+              borderColor: 'yellow'
+            }}>
+              <Text style={{ color: 'white', fontSize: 20 }}>
+                🚨 PLANNED SESSION: {plannedSession?.spot}
               </Text>
-            </Pressable>
-          ) : null}
+            </View>
+          )}
           <View style={{ position: 'relative' }}>
             <Pressable
               onPress={() => setShowBuddies(true)}
