@@ -3817,20 +3817,25 @@ export default function App() {
               style={{
                 marginTop: 8,
                 marginBottom: 8,
-                backgroundColor: theme.bgElevated,
-                borderRadius: 10,
-                paddingVertical: 7,
-                paddingHorizontal: 12,
-                borderWidth: 1,
-                borderColor: theme.border,
+                backgroundColor: '#111',
+                paddingVertical: 6,
+                paddingHorizontal: 10,
+                borderRadius: 12,
+                width: '100%',
               }}
             >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+              <Text
+                style={{
+                  color: '#fff',
+                  fontSize: 12,
+                  textAlign: 'center',
+                }}
+              >
                 Planned: {plannedSession.spot}
               </Text>
             </Pressable>
           ) : null}
-          <div style={{ position: 'relative' }}>
+          <View style={{ position: 'relative' }}>
             <Pressable
               onPress={() => setShowBuddies(true)}
               style={{ backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
@@ -3839,19 +3844,19 @@ export default function App() {
             </Pressable>
 
             {pendingBuddyRequestsCount > 0 && (
-              <div
+              <View
                 style={{
                   position: 'absolute',
                   top: 6,
                   right: 10,
                   width: 10,
                   height: 10,
-                  background: 'red',
-                  borderRadius: '50%',
+                  backgroundColor: 'red',
+                  borderRadius: 999,
                 }}
               />
             )}
-          </div>
+          </View>
         </View>
       </View>
 
