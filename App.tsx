@@ -20,7 +20,7 @@ type SpotDefinition = {
   latitude: number;
   longitude: number;
 };
-type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken';
+type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken' | 'live' | 'finished';
 type SpotSession = {
   id: string;
   spot: SpotName;
@@ -371,13 +371,14 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
 const CHECK_IN_RADIUS_METERS = 1000;
 const AUTO_CHECK_OUT_RADIUS_METERS = 2000;
 const AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED = 2;
+const AUTO_CHECK_OUT_CONFIRMATION_MS = 60_000;
 const toRadians = (value: number) => value * (Math.PI / 180);
-const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
+const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
   const earthRadiusMeters = 6371_000;
-  const latitudeDelta = toRadians(end.latitude - start.latitude);
-  const longitudeDelta = toRadians(end.longitude - start.longitude);
-  const startLatitudeRadians = toRadians(start.latitude);
-  const endLatitudeRadians = toRadians(end.latitude);
+  const latitudeDelta = toRadians(lat2 - lat1);
+  const longitudeDelta = toRadians(lon2 - lon1);
+  const startLatitudeRadians = toRadians(lat1);
+  const endLatitudeRadians = toRadians(lat2);
 
   const haversine =
     Math.sin(latitudeDelta / 2) * Math.sin(latitudeDelta / 2)
@@ -385,6 +386,9 @@ const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
 
   const angularDistance = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
   return earthRadiusMeters * angularDistance;
+};
+const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
+  return getDistanceInMeters(start.latitude, start.longitude, end.latitude, end.longitude);
 };
 const formatDistance = (distanceMeters: number) => {
   if (distanceMeters < 1000) {
@@ -736,7 +740,9 @@ export default function App() {
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
   const [autoCheckoutNotice, setAutoCheckoutNotice] = useState<string | null>(null);
   const autoCheckoutOutsideCountRef = useRef(0);
+  const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
+  const gpsWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const [buddyUsers, setBuddyUsers] = useState<BuddyUser[]>([]);
   const [searchUsersInput, setSearchUsersInput] = useState('');
   const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
@@ -1068,7 +1074,7 @@ export default function App() {
   };
 
   const mapSessionStatus = (status: string): SessionStatus => {
-    if (status === 'Ik ben geweest') {
+    if (status === 'Ik ben geweest' || status === 'finished') {
       return 'Uitchecken';
     }
 
@@ -1444,10 +1450,19 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    if (Platform.OS === 'web') {
-      console.log('GPS_WATCH_SKIPPED_ON_WEB');
-      setIsResolvingNearestSpot(false);
+    const stopWatcher = () => {
+      if (!gpsWatcherRef.current) {
+        return;
+      }
 
+      gpsWatcherRef.current.remove();
+      gpsWatcherRef.current = null;
+    };
+
+    if (Platform.OS === 'web') {
+      console.log('GPS_SKIPPED_ON_WEB');
+      setIsResolvingNearestSpot(false);
+      stopWatcher();
       return () => {
         active = false;
       };
@@ -1464,6 +1479,7 @@ export default function App() {
 
         setLocationPermissionStatus(permissionResponse.status);
         if (permissionResponse.status !== 'granted') {
+          stopWatcher();
           setCurrentCoordinates(null);
           setNearestSpotResult(null);
           setIsResolvingNearestSpot(false);
@@ -1474,12 +1490,6 @@ export default function App() {
           setCurrentCoordinates(coordinates);
           const nearest = getNearestSpot(coordinates, spotDefinitions);
           setNearestSpotResult(nearest);
-          console.log('GPS_MONITORING_LOCATION_UPDATE', {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            nearestSpot: nearest?.spot ?? null,
-            nearestSpotDistanceMeters: nearest?.distanceMeters ?? null,
-          });
         };
 
         const currentPosition = await Location.getCurrentPositionAsync({});
@@ -1492,16 +1502,41 @@ export default function App() {
           longitude: currentPosition.coords.longitude,
         });
 
-        // TEMPORARY SAFETY DISABLE:
-        // Continuous GPS watcher is disabled because cleanup in the watcher chain
-        // triggers `LocationEventEmitter.removeSubscription` crashes on some runtimes.
-        // Keep one-time nearest-spot resolution so the app remains stable/renderable.
-        console.log('GPS_MONITORING_WATCHER_DISABLED_TEMPORARILY');
+        const shouldRunGpsWatcher = Boolean(
+          activeCheckedInSession
+          && (activeCheckedInSession.status === 'live' || activeCheckedInSession.status === 'Is er al'),
+        );
+        if (!shouldRunGpsWatcher) {
+          stopWatcher();
+          return;
+        }
+
+        stopWatcher();
+        gpsWatcherRef.current = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.Balanced,
+            distanceInterval: 75,
+          },
+          (position) => {
+            if (!active) {
+              return;
+            }
+
+            applyCoordinates({
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+            });
+          },
+        );
+        if (active) {
+          console.log('GPS_STARTED');
+        }
       } catch (error) {
         if (!active) {
           return;
         }
 
+        stopWatcher();
         setCurrentCoordinates(null);
         setNearestSpotResult(null);
         console.error('Failed to monitor location:', error);
@@ -1516,8 +1551,9 @@ export default function App() {
 
     return () => {
       active = false;
+      stopWatcher();
     };
-  }, [session?.user.id, spotDefinitions]);
+  }, [activeCheckedInSession, spotDefinitions]);
 
   useEffect(() => {
     console.log('HOME_NEAREST_SPOT_NAME', {
@@ -1555,6 +1591,7 @@ export default function App() {
 
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
+    autoCheckoutOutsideSinceRef.current = null;
   }, [activeCheckedInSession?.id]);
 
   useEffect(() => {
@@ -1571,8 +1608,10 @@ export default function App() {
 
   useEffect(() => {
     const runAutoCheckOutIfNeeded = async () => {
-      if (!session?.user.id || !currentCoordinates || !activeCheckedInSession) {
+      const isActiveLiveStatus = activeCheckedInSession?.status === 'live' || activeCheckedInSession?.status === 'Is er al';
+      if (!session?.user.id || !currentCoordinates || !activeCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
+        autoCheckoutOutsideSinceRef.current = null;
         return;
       }
 
@@ -1581,6 +1620,7 @@ export default function App() {
       );
       if (!activeSpotDefinition) {
         autoCheckoutOutsideCountRef.current = 0;
+        autoCheckoutOutsideSinceRef.current = null;
         console.log('AUTO_CHECKOUT_SPOT_COORDINATES_MISSING', {
           sessionId: activeCheckedInSession.id,
           sessionSpot: activeCheckedInSession.spot,
@@ -1594,40 +1634,35 @@ export default function App() {
       };
       const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
       const isOutsideRadius = distanceMeters > AUTO_CHECK_OUT_RADIUS_METERS;
-
-      console.log('AUTO_CHECKOUT_EVALUATION', {
-        currentLiveSession: {
-          id: activeCheckedInSession.id,
-          spot: activeCheckedInSession.spot,
-          checkedInAt: activeCheckedInSession.checkedInAt,
-          checkedOutAt: activeCheckedInSession.checkedOutAt,
-        },
-        spotCoordinates,
-        userCoordinates: currentCoordinates,
-        distanceMeters,
-        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
-        autoCheckoutInFlight: autoCheckoutInFlightRef.current,
-      });
+      const nowMs = Date.now();
 
       if (!isOutsideRadius) {
-        if (autoCheckoutOutsideCountRef.current !== 0) {
-          console.log('AUTO_CHECKOUT_OUTSIDE_COUNTER_RESET', {
-            reason: 'inside_radius',
+        if (autoCheckoutOutsideCountRef.current !== 0 || autoCheckoutOutsideSinceRef.current !== null) {
+          console.log('GPS_BACK_INSIDE', {
+            sessionId: activeCheckedInSession.id,
             distanceMeters,
           });
         }
         autoCheckoutOutsideCountRef.current = 0;
+        autoCheckoutOutsideSinceRef.current = null;
         return;
       }
 
+      if (autoCheckoutOutsideSinceRef.current === null) {
+        autoCheckoutOutsideSinceRef.current = nowMs;
+      }
       autoCheckoutOutsideCountRef.current += 1;
-      console.log('AUTO_CHECKOUT_OUTSIDE_COUNTER_INCREMENT', {
+      const outsideDurationMs = nowMs - autoCheckoutOutsideSinceRef.current;
+      console.log('GPS_OUTSIDE_RADIUS', {
+        sessionId: activeCheckedInSession.id,
         distanceMeters,
         outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
-        requiredOutsideCount: AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED,
+        outsideDurationMs,
       });
 
-      if (autoCheckoutOutsideCountRef.current < AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED) {
+      const reachedConsecutiveThreshold = autoCheckoutOutsideCountRef.current >= AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED;
+      const reachedDurationThreshold = outsideDurationMs >= AUTO_CHECK_OUT_CONFIRMATION_MS;
+      if (!reachedConsecutiveThreshold && !reachedDurationThreshold) {
         return;
       }
 
@@ -1637,16 +1672,17 @@ export default function App() {
 
       autoCheckoutInFlightRef.current = true;
       const nowIso = new Date().toISOString();
-      console.log('AUTO_CHECKOUT_TRIGGER', {
+      console.log('AUTO_CHECKOUT_TRIGGERED', {
         sessionId: activeCheckedInSession.id,
         distanceMeters,
         outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
+        outsideDurationMs,
       });
 
       const result = await supabase
         .from('sessions')
         .update({
-          status: 'Uitchecken',
+          status: 'finished',
           checked_out_at: nowIso,
         })
         .eq('id', activeCheckedInSession.id)
@@ -1657,6 +1693,7 @@ export default function App() {
       if (result.error) {
         autoCheckoutInFlightRef.current = false;
         autoCheckoutOutsideCountRef.current = AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED - 1;
+        autoCheckoutOutsideSinceRef.current = nowMs - AUTO_CHECK_OUT_CONFIRMATION_MS;
         console.error('AUTO_CHECKOUT_ERROR', {
           sessionId: activeCheckedInSession.id,
           error: result.error,
@@ -1666,10 +1703,11 @@ export default function App() {
 
       autoCheckoutInFlightRef.current = false;
       autoCheckoutOutsideCountRef.current = 0;
-      console.log('AUTO_CHECKOUT_SUCCESS', {
-        sessionId: activeCheckedInSession.id,
-        checkedOutAt: nowIso,
-      });
+      autoCheckoutOutsideSinceRef.current = null;
+      if (gpsWatcherRef.current) {
+        gpsWatcherRef.current.remove();
+        gpsWatcherRef.current = null;
+      }
       setAutoCheckoutNotice('Automatically checked out\nYou appear to have left the spot');
       await fetchSharedData();
     };
