@@ -1756,6 +1756,8 @@ export default function App() {
     if (!buddyRequests) return 0;
     return buddyRequests.filter((r) => r.status === 'pending').length;
   }, [buddyRequests]);
+  const pendingRequestsCount: number | null = Number.isFinite(pendingBuddyRequestsCount) ? pendingBuddyRequestsCount : null;
+  const hasPendingRequests = (pendingRequestsCount ?? 0) > 0;
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
     autoCheckoutOutsideSinceRef.current = null;
@@ -3919,18 +3921,24 @@ export default function App() {
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>Your Buddies</Text>
             </Pressable>
 
-            {pendingBuddyRequestsCount > 0 && (
+            {hasPendingRequests && (
               <View
                 style={{
                   position: 'absolute',
-                  top: 6,
-                  right: 10,
-                  width: 10,
-                  height: 10,
+                  top: -4,
+                  right: -4,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 8,
                   backgroundColor: 'red',
-                  borderRadius: 999,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-              />
+              >
+                {pendingRequestsCount !== null ? (
+                  <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>{pendingRequestsCount}</Text>
+                ) : null}
+              </View>
             )}
           </View>
         </View>
