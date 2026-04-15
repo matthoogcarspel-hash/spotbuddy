@@ -1549,6 +1549,69 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
 
   useEffect(() => {
+    if (isNativePlatform) {
+      return;
+    }
+
+    let active = true;
+    setIsResolvingNearestSpot(true);
+    console.log('WEB_GPS_REQUEST_STARTED');
+
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setCurrentCoordinates(null);
+      setNearestSpotResult(null);
+      setIsResolvingNearestSpot(false);
+      const error = {
+        reason: 'GEOLOCATION_UNAVAILABLE',
+        platform: Platform.OS,
+      };
+      console.log('WEB_GPS_LOCATION_ERROR', error);
+      return () => {
+        active = false;
+      };
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        if (!active) {
+          return;
+        }
+
+        const latitude = position.coords.latitude;
+        const longitude = position.coords.longitude;
+        const coordinates = {
+          latitude,
+          longitude,
+        };
+        setCurrentCoordinates(coordinates);
+        const nearest = getNearestSpot(coordinates, spotDefinitions);
+        setNearestSpotResult(nearest);
+        console.log('WEB_GPS_LOCATION_SUCCESS', { latitude, longitude });
+        setIsResolvingNearestSpot(false);
+      },
+      (error) => {
+        if (!active) {
+          return;
+        }
+
+        setCurrentCoordinates(null);
+        setNearestSpotResult(null);
+        setIsResolvingNearestSpot(false);
+        console.log('WEB_GPS_LOCATION_ERROR', error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12_000,
+        maximumAge: 45_000,
+      },
+    );
+
+    return () => {
+      active = false;
+    };
+  }, [isNativePlatform, spotDefinitions]);
+
+  useEffect(() => {
     let active = true;
 
     const stopWatcher = () => {
@@ -1562,66 +1625,10 @@ export default function App() {
 
     if (!isNativePlatform) {
       stopWatcher();
-      setIsResolvingNearestSpot(true);
-      console.log('WEB_GPS_REQUEST_STARTED', {
+      console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
+        reason: 'NON_NATIVE_PLATFORM',
         platform: Platform.OS,
       });
-
-      if (typeof navigator === 'undefined' || !navigator.geolocation) {
-        setCurrentCoordinates(null);
-        setNearestSpotResult(null);
-        setIsResolvingNearestSpot(false);
-        console.log('WEB_GPS_LOCATION_ERROR', {
-          reason: 'GEOLOCATION_UNAVAILABLE',
-          platform: Platform.OS,
-        });
-        return () => {
-          active = false;
-        };
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          if (!active) {
-            return;
-          }
-
-          const coordinates = {
-            latitude: position.coords.latitude,
-            longitude: position.coords.longitude,
-          };
-          setCurrentCoordinates(coordinates);
-          const nearest = getNearestSpot(coordinates, spotDefinitions);
-          setNearestSpotResult(nearest);
-          console.log('WEB_GPS_LOCATION_SUCCESS', {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            nearestSpot: nearest?.spot ?? null,
-            nearestDistanceMeters: nearest?.distanceMeters ?? null,
-          });
-          setIsResolvingNearestSpot(false);
-        },
-        (error) => {
-          if (!active) {
-            return;
-          }
-
-          setCurrentCoordinates(null);
-          setNearestSpotResult(null);
-          setIsResolvingNearestSpot(false);
-          console.log('WEB_GPS_LOCATION_ERROR', {
-            code: error.code,
-            message: error.message,
-            platform: Platform.OS,
-          });
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 12_000,
-          maximumAge: 45_000,
-        },
-      );
-
       return () => {
         active = false;
       };
@@ -1833,10 +1840,6 @@ export default function App() {
       if (!isNativePlatform) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
-        console.log('GPS_SKIPPED_ON_WEB', {
-          feature: 'AUTO_CHECKOUT',
-          platform: Platform.OS,
-        });
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'NON_NATIVE_PLATFORM',
           platform: Platform.OS,
