@@ -1649,7 +1649,7 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    if (!session?.user.id) return null;
+    if (!session?.user?.id) return null;
 
     const allSessions = Object.values(sessionsBySpot).flat();
 
@@ -1666,7 +1666,7 @@ export default function App() {
       );
 
     return upcoming[0] || null;
-  }, [sessionsBySpot, session?.user.id]);
+  }, [sessionsBySpot, session?.user?.id]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
