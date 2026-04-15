@@ -3744,8 +3744,9 @@ export default function App() {
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
-          {plannedSession && (
+          {plannedSession ? (
             <div
+              onClick={() => setSelectedSpot(plannedSession.spot)}
               style={{
                 marginTop: 8,
                 marginBottom: 8,
@@ -3758,12 +3759,12 @@ export default function App() {
                 cursor: 'pointer',
                 width: '100%',
                 boxSizing: 'border-box',
+                display: 'block',
               }}
-              onClick={() => setSelectedSpot(plannedSession.spot)}
             >
               Planned: {plannedSession.spot}
             </div>
-          )}
+          ) : null}
           <div style={{ position: 'relative' }}>
             <Pressable
               onPress={() => setShowBuddies(true)}
