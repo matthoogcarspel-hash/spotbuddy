@@ -1649,62 +1649,22 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    if (!session?.user?.id) {
-      return null;
-    }
+    const userId = session?.user?.id ?? null;
+    const allSessions = Object.values(sessionsBySpot || {}).flat();
 
-    const allSessions = Object.values(sessionsBySpot ?? {}).flat();
-    if (allSessions.length === 0) {
-      return null;
-    }
+    console.log('PLANNED_DEBUG_ALL_SESSIONS_COUNT', allSessions.length);
+    console.log('PLANNED_DEBUG_USER_ID', userId);
+    console.log('PLANNED_DEBUG_ALL_SESSIONS', allSessions);
 
-    const nowMinutes = getCurrentLocalMinutes();
-    const currentDateKey = getCurrentLocalDateKey();
-    const userId = session.user.id;
+    const userSessions = allSessions.filter((item) => item.userId === userId);
 
-    const upcomingPlannedSessions = allSessions
-      .filter((sessionItem) => {
-        if (sessionItem.userId !== userId) {
-          return false;
-        }
+    console.log('PLANNED_DEBUG_USER_SESSIONS', userSessions);
 
-        const isPlannedStatus = sessionItem.status === 'Gaat' || String(sessionItem.status).toLowerCase() === 'planned';
-        if (!isPlannedStatus || !isPlannedSession(sessionItem)) {
-          return false;
-        }
+    const candidate = userSessions[0] ?? null;
 
-        if (!sessionItem.createdAt) {
-          return toMinutes(sessionItem.start) > nowMinutes;
-        }
+    console.log('PLANNED_DEBUG_CANDIDATE', candidate);
 
-        const createdDate = new Date(sessionItem.createdAt);
-        if (Number.isNaN(createdDate.getTime())) {
-          return false;
-        }
-
-        const sessionDateKey = getLocalDateKey(createdDate);
-        if (sessionDateKey > currentDateKey) {
-          return true;
-        }
-
-        if (sessionDateKey < currentDateKey) {
-          return false;
-        }
-
-        return toMinutes(sessionItem.start) > nowMinutes;
-      })
-      .sort((a, b) => {
-        const aDateKey = a.createdAt ? getLocalDateKey(new Date(a.createdAt)) : currentDateKey;
-        const bDateKey = b.createdAt ? getLocalDateKey(new Date(b.createdAt)) : currentDateKey;
-
-        if (aDateKey !== bDateKey) {
-          return aDateKey.localeCompare(bDateKey);
-        }
-
-        return toMinutes(a.start) - toMinutes(b.start);
-      });
-
-    return upcomingPlannedSessions[0] ?? null;
+    return candidate;
   }, [sessionsBySpot, session?.user?.id]);
   console.log('PLANNED_SESSION_DEBUG', {
     plannedSession,
