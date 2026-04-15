@@ -1671,8 +1671,15 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   const upcomingPlannedSession = useMemo(() => {
     const nowMinutes = getCurrentLocalMinutes();
+    const currentDateKey = getCurrentLocalDateKey();
+
     return allUserSessions
-      .filter((sessionItem) => isPlannedSession(sessionItem) && toMinutes(sessionItem.start) > nowMinutes)
+      .filter(
+        (sessionItem) =>
+          isPlannedSession(sessionItem)
+          && isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey)
+          && toMinutes(sessionItem.start) > nowMinutes,
+      )
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0] ?? null;
   }, [allUserSessions]);
   useEffect(() => {
