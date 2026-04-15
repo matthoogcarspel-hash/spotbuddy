@@ -1468,6 +1468,11 @@ export default function App() {
       };
     }
 
+    const gpsActiveCheckedInSession = getCurrentUserLiveSession(
+      Object.values(sessionsBySpot).flat(),
+      session?.user.id,
+    );
+
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
 
@@ -1503,8 +1508,8 @@ export default function App() {
         });
 
         const shouldRunGpsWatcher = Boolean(
-          activeCheckedInSession
-          && (activeCheckedInSession.status === 'live' || activeCheckedInSession.status === 'Is er al'),
+          gpsActiveCheckedInSession
+          && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
         );
         if (!shouldRunGpsWatcher) {
           stopWatcher();
@@ -1553,7 +1558,7 @@ export default function App() {
       active = false;
       stopWatcher();
     };
-  }, [activeCheckedInSession, spotDefinitions]);
+  }, [sessionsBySpot, session?.user.id, spotDefinitions]);
 
   useEffect(() => {
     console.log('HOME_NEAREST_SPOT_NAME', {
