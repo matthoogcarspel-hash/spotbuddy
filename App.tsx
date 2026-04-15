@@ -3742,7 +3742,7 @@ export default function App() {
         <View style={{ marginLeft: 10 }}>
           <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
             <Avatar uri={profile.avatar_url} size={24} />
-            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
+            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
           {plannedSession && (
             <div
@@ -3756,6 +3756,8 @@ export default function App() {
                 fontSize: 12,
                 textAlign: 'center',
                 cursor: 'pointer',
+                width: '100%',
+                boxSizing: 'border-box',
               }}
               onClick={() => setSelectedSpot(plannedSession.spot)}
             >
