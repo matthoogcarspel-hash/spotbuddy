@@ -1708,7 +1708,7 @@ export default function App() {
       .filter((item) => !item.isCompleted && item.isUpcoming && item.startTimestamp !== null)
       .sort((a, b) => (a.startTimestamp ?? Number.MAX_SAFE_INTEGER) - (b.startTimestamp ?? Number.MAX_SAFE_INTEGER))[0]?.session ?? null;
 
-    console.log('PLANNED_SESSION_RESULT', result
+    const plannedSessionLikeData = result
       ? {
         id: result.id,
         spot: result.spot,
@@ -1718,7 +1718,9 @@ export default function App() {
         checkedInAt: result.checkedInAt,
         checkedOutAt: result.checkedOutAt,
       }
-      : null);
+      : null;
+
+    console.log('PLANNED_SESSION_RESULT', plannedSessionLikeData);
 
     return result;
   }, [sessionsBySpot, session?.user?.id]);
@@ -3780,17 +3782,10 @@ export default function App() {
     );
   }
 
-  console.log('PLANNED_SESSION_RENDER', plannedSession
-    ? {
-      id: plannedSession.id,
-      spot: plannedSession.spot,
-      status: plannedSession.status,
-      start: plannedSession.start,
-      createdAt: plannedSession.createdAt,
-      checkedInAt: plannedSession.checkedInAt,
-      checkedOutAt: plannedSession.checkedOutAt,
-    }
-    : null);
+  console.log('PLANNED_SESSION_RENDER', {
+    hasPlannedSession: Boolean(plannedSession),
+    plannedSpot: plannedSession?.spot ?? null,
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
@@ -3817,17 +3812,23 @@ export default function App() {
               style={{
                 marginTop: 8,
                 marginBottom: 8,
-                backgroundColor: '#111',
-                paddingVertical: 6,
-                paddingHorizontal: 10,
+                backgroundColor: 'red',
+                paddingVertical: 12,
+                paddingHorizontal: 12,
                 borderRadius: 12,
                 width: '100%',
+                minHeight: 44,
+                justifyContent: 'center',
+                alignItems: 'center',
+                display: 'flex',
+                opacity: 1,
               }}
             >
               <Text
                 style={{
                   color: '#fff',
-                  fontSize: 12,
+                  fontSize: 14,
+                  fontWeight: '700',
                   textAlign: 'center',
                 }}
               >
