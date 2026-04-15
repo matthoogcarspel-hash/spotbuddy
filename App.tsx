@@ -1543,6 +1543,11 @@ export default function App() {
     };
   }, [selectedSpot]);
 
+  const gpsActiveCheckedInSession = useMemo(() => {
+    const allSessions = Object.values(sessionsBySpot).flat();
+    return getCurrentUserLiveSession(allSessions, session?.user.id);
+  }, [session?.user.id, sessionsBySpot]);
+
   useEffect(() => {
     let active = true;
 
@@ -1571,10 +1576,22 @@ export default function App() {
       };
     }
 
-    const gpsActiveCheckedInSession = getCurrentUserLiveSession(
-      Object.values(sessionsBySpot).flat(),
-      session?.user.id,
+    const shouldRunGpsWatcher = Boolean(
+      gpsActiveCheckedInSession
+      && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
     );
+    if (!shouldRunGpsWatcher) {
+      console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
+        reason: 'NO_LIVE_SESSION_FOR_MONITORING',
+      });
+      setCurrentCoordinates(null);
+      setNearestSpotResult(null);
+      setIsResolvingNearestSpot(false);
+      stopWatcher();
+      return () => {
+        active = false;
+      };
+    }
 
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
@@ -1615,18 +1632,6 @@ export default function App() {
           latitude: currentPosition.coords.latitude,
           longitude: currentPosition.coords.longitude,
         });
-
-        const shouldRunGpsWatcher = Boolean(
-          gpsActiveCheckedInSession
-          && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
-        );
-        if (!shouldRunGpsWatcher) {
-          console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-            reason: 'NO_LIVE_SESSION_FOR_MONITORING',
-          });
-          stopWatcher();
-          return;
-        }
 
         stopWatcher();
         gpsWatcherRef.current = await Location.watchPositionAsync(
@@ -1673,7 +1678,7 @@ export default function App() {
       active = false;
       stopWatcher();
     };
-  }, [isNativePlatform, sessionsBySpot, session?.user.id, spotDefinitions]);
+  }, [gpsActiveCheckedInSession, isNativePlatform, spotDefinitions]);
 
   useEffect(() => {
     console.log('HOME_NEAREST_SPOT_NAME', {
@@ -1682,10 +1687,7 @@ export default function App() {
     });
   }, [nearestSpotResult]);
 
-  const activeCheckedInSession = useMemo(() => {
-    const allSessions = Object.values(sessionsBySpot).flat();
-    return getCurrentUserLiveSession(allSessions, session?.user.id);
-  }, [session?.user.id, sessionsBySpot]);
+  const activeCheckedInSession = gpsActiveCheckedInSession;
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
     const currentUserId = session?.user?.id;
