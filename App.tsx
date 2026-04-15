@@ -1567,6 +1567,10 @@ export default function App() {
     });
   }, [nearestSpotResult]);
 
+  const activeCheckedInSession = useMemo(() => {
+    const allSessions = Object.values(sessionsBySpot).flat();
+    return getCurrentUserLiveSession(allSessions, session?.user.id);
+  }, [session?.user.id, sessionsBySpot]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
@@ -1589,11 +1593,6 @@ export default function App() {
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
   }, [session?.user.id, sessionsBySpot]);
-  const activeCheckedInSession = useMemo(() => {
-    const allSessions = Object.values(sessionsBySpot).flat();
-    return getCurrentUserLiveSession(allSessions, session?.user.id);
-  }, [session?.user.id, sessionsBySpot]);
-
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
     autoCheckoutOutsideSinceRef.current = null;
