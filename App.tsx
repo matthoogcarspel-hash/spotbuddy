@@ -1649,23 +1649,78 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    if (!session?.user?.id) return null;
+    const currentUserId = session?.user?.id ?? null;
+    if (!currentUserId) {
+      console.log('PLANNED_SESSION_SOURCE', {
+        currentUserId: null,
+        sourceCount: 0,
+        sourceSessions: [],
+      });
+      console.log('PLANNED_SESSION_RESULT', null);
+      return null;
+    }
 
+    const nowTimestamp = Date.now();
     const allSessions = Object.values(sessionsBySpot).flat();
+    const sourceSessions = allSessions
+      .filter((item) => item.userId === currentUserId)
+      .map((item) => {
+        const [startHourPart, startMinutePart] = item.start.split(':');
+        const parsedStartHour = Number.parseInt(startHourPart ?? '', 10);
+        const parsedStartMinute = Number.parseInt(startMinutePart ?? '', 10);
+        const baseDate = item.createdAt ? new Date(item.createdAt) : new Date();
+        const hasValidBaseDate = !Number.isNaN(baseDate.getTime());
+        const hasValidTime = Number.isFinite(parsedStartHour) && Number.isFinite(parsedStartMinute);
+        const startDate = new Date(baseDate);
+        if (hasValidTime) {
+          startDate.setHours(parsedStartHour, parsedStartMinute, 0, 0);
+        }
+        const startTimestamp = hasValidBaseDate && hasValidTime ? startDate.getTime() : null;
+        const isCompleted = item.checkedOutAt !== null || item.status === 'Uitchecken' || item.status === 'finished';
+        const isUpcoming = startTimestamp !== null && startTimestamp >= nowTimestamp;
 
-    const upcoming = allSessions
-      .filter(
-        (s) =>
-          s.userId === session.user.id &&
-          s.status === 'planned'
-      )
-      .sort(
-        (a, b) =>
-          new Date(a.startTime).getTime() -
-          new Date(b.startTime).getTime()
-      );
+        return {
+          session: item,
+          startTimestamp,
+          isCompleted,
+          isUpcoming,
+        };
+      });
 
-    return upcoming[0] || null;
+    console.log('PLANNED_SESSION_SOURCE', {
+      currentUserId,
+      sourceCount: sourceSessions.length,
+      sourceSessions: sourceSessions.map((item) => ({
+        id: item.session.id,
+        spot: item.session.spot,
+        status: item.session.status,
+        start: item.session.start,
+        createdAt: item.session.createdAt,
+        checkedInAt: item.session.checkedInAt,
+        checkedOutAt: item.session.checkedOutAt,
+        startTimestamp: item.startTimestamp,
+        isCompleted: item.isCompleted,
+        isUpcoming: item.isUpcoming,
+      })),
+    });
+
+    const result = sourceSessions
+      .filter((item) => !item.isCompleted && item.isUpcoming && item.startTimestamp !== null)
+      .sort((a, b) => (a.startTimestamp ?? Number.MAX_SAFE_INTEGER) - (b.startTimestamp ?? Number.MAX_SAFE_INTEGER))[0]?.session ?? null;
+
+    console.log('PLANNED_SESSION_RESULT', result
+      ? {
+        id: result.id,
+        spot: result.spot,
+        status: result.status,
+        start: result.start,
+        createdAt: result.createdAt,
+        checkedInAt: result.checkedInAt,
+        checkedOutAt: result.checkedOutAt,
+      }
+      : null);
+
+    return result;
   }, [sessionsBySpot, session?.user?.id]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
@@ -3725,6 +3780,18 @@ export default function App() {
     );
   }
 
+  console.log('PLANNED_SESSION_RENDER', plannedSession
+    ? {
+      id: plannedSession.id,
+      spot: plannedSession.spot,
+      status: plannedSession.status,
+      start: plannedSession.start,
+      createdAt: plannedSession.createdAt,
+      checkedInAt: plannedSession.checkedInAt,
+      checkedOutAt: plannedSession.checkedOutAt,
+    }
+    : null);
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
       <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 20, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -3745,25 +3812,23 @@ export default function App() {
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
           {plannedSession ? (
-            <div
-              onClick={() => setSelectedSpot(plannedSession.spot)}
+            <Pressable
+              onPress={() => setSelectedSpot(plannedSession.spot)}
               style={{
                 marginTop: 8,
                 marginBottom: 8,
-                background: '#111',
-                color: '#fff',
-                padding: '6px 10px',
-                borderRadius: 12,
-                fontSize: 12,
-                textAlign: 'center',
-                cursor: 'pointer',
-                width: '100%',
-                boxSizing: 'border-box',
-                display: 'block',
+                backgroundColor: theme.bgElevated,
+                borderRadius: 10,
+                paddingVertical: 7,
+                paddingHorizontal: 12,
+                borderWidth: 1,
+                borderColor: theme.border,
               }}
             >
-              Planned: {plannedSession.spot}
-            </div>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>
+                Planned: {plannedSession.spot}
+              </Text>
+            </Pressable>
           ) : null}
           <div style={{ position: 'relative' }}>
             <Pressable
