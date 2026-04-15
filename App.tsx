@@ -1702,6 +1702,14 @@ export default function App() {
       )
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0] ?? null;
   }, [allUserSessions]);
+  const buddyRequests = useMemo(
+    () => incomingFollowRequests.map((requestItem) => ({ ...requestItem, status: 'pending' as const })),
+    [incomingFollowRequests],
+  );
+  const pendingBuddyRequestsCount = useMemo(() => {
+    if (!buddyRequests) return 0;
+    return buddyRequests.filter((r) => r.status === 'pending').length;
+  }, [buddyRequests]);
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
     autoCheckoutOutsideSinceRef.current = null;
@@ -3719,25 +3727,6 @@ export default function App() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
-      {plannedSession && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 10,
-            right: 10,
-            background: '#000',
-            color: '#fff',
-            padding: '6px 10px',
-            borderRadius: 8,
-            fontSize: 12,
-            cursor: 'pointer',
-            zIndex: 999,
-          }}
-          onClick={() => setSelectedSpot(plannedSession.spot)}
-        >
-          Planned: {plannedSession.spot}
-        </div>
-      )}
       <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 20, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Image
@@ -3772,12 +3761,46 @@ export default function App() {
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
           </Pressable>
-          <Pressable
-            onPress={() => setShowBuddies(true)}
-            style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
-          >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>Buddies</Text>
-          </Pressable>
+          {plannedSession && (
+            <div
+              style={{
+                marginTop: 8,
+                marginBottom: 8,
+                background: '#111',
+                color: '#fff',
+                padding: '6px 10px',
+                borderRadius: 12,
+                fontSize: 12,
+                textAlign: 'center',
+                cursor: 'pointer',
+              }}
+              onClick={() => setSelectedSpot(plannedSession.spot)}
+            >
+              Planned: {plannedSession.spot}
+            </div>
+          )}
+          <div style={{ position: 'relative' }}>
+            <Pressable
+              onPress={() => setShowBuddies(true)}
+              style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
+            >
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>Your Buddies</Text>
+            </Pressable>
+
+            {pendingBuddyRequestsCount > 0 && (
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 6,
+                  right: 10,
+                  width: 10,
+                  height: 10,
+                  background: 'red',
+                  borderRadius: '50%',
+                }}
+              />
+            )}
+          </div>
         </View>
       </View>
 
