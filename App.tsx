@@ -1649,80 +1649,35 @@ export default function App() {
   }, [session?.user.id, sessionsBySpot]);
   // Home-screen shortcut for the user's next planned session.
   const plannedSession = useMemo(() => {
-    const currentUserId = session?.user?.id ?? null;
-    if (!currentUserId) {
-      console.log('PLANNED_SESSION_SOURCE', {
-        currentUserId: null,
-        sourceCount: 0,
-        sourceSessions: [],
-      });
-      console.log('PLANNED_SESSION_RESULT', null);
+    if (!session?.user?.id) {
+      console.log('PLANNED_SESSION_RESULT', 'NO_USER');
       return null;
     }
 
-    const nowTimestamp = Date.now();
-    const allSessions = Object.values(sessionsBySpot).flat();
-    const sourceSessions = allSessions
-      .filter((item) => item.userId === currentUserId)
-      .map((item) => {
-        const [startHourPart, startMinutePart] = item.start.split(':');
-        const parsedStartHour = Number.parseInt(startHourPart ?? '', 10);
-        const parsedStartMinute = Number.parseInt(startMinutePart ?? '', 10);
-        const baseDate = item.createdAt ? new Date(item.createdAt) : new Date();
-        const hasValidBaseDate = !Number.isNaN(baseDate.getTime());
-        const hasValidTime = Number.isFinite(parsedStartHour) && Number.isFinite(parsedStartMinute);
-        const startDate = new Date(baseDate);
-        if (hasValidTime) {
-          startDate.setHours(parsedStartHour, parsedStartMinute, 0, 0);
-        }
-        const startTimestamp = hasValidBaseDate && hasValidTime ? startDate.getTime() : null;
-        const isCompleted = item.checkedOutAt !== null || item.status === 'Uitchecken' || item.status === 'finished';
-        const isUpcoming = startTimestamp !== null && startTimestamp >= nowTimestamp;
-
-        return {
-          session: item,
-          startTimestamp,
-          isCompleted,
-          isUpcoming,
-        };
-      });
+    const allSessions = Object.values(sessionsBySpot || {}).flat();
 
     console.log('PLANNED_SESSION_SOURCE', {
-      currentUserId,
-      sourceCount: sourceSessions.length,
-      sourceSessions: sourceSessions.map((item) => ({
-        id: item.session.id,
-        spot: item.session.spot,
-        status: item.session.status,
-        start: item.session.start,
-        createdAt: item.session.createdAt,
-        checkedInAt: item.session.checkedInAt,
-        checkedOutAt: item.session.checkedOutAt,
-        startTimestamp: item.startTimestamp,
-        isCompleted: item.isCompleted,
-        isUpcoming: item.isUpcoming,
-      })),
+      totalSessions: allSessions.length,
+      userId: session.user.id,
     });
 
-    const result = sourceSessions
-      .filter((item) => !item.isCompleted && item.isUpcoming && item.startTimestamp !== null)
-      .sort((a, b) => (a.startTimestamp ?? Number.MAX_SAFE_INTEGER) - (b.startTimestamp ?? Number.MAX_SAFE_INTEGER))[0]?.session ?? null;
+    const userSessions = allSessions.filter(
+      (s) => s.userId === session.user.id
+    );
 
-    const plannedSessionLikeData = result
-      ? {
-        id: result.id,
-        spot: result.spot,
-        status: result.status,
-        start: result.start,
-        createdAt: result.createdAt,
-        checkedInAt: result.checkedInAt,
-        checkedOutAt: result.checkedOutAt,
-      }
-      : null;
+    console.log('PLANNED_SESSION_USER_SESSIONS', userSessions);
 
-    console.log('PLANNED_SESSION_RESULT', plannedSessionLikeData);
+    if (userSessions.length === 0) {
+      console.log('PLANNED_SESSION_RESULT', 'NO_USER_SESSIONS');
+      return null;
+    }
 
-    return result;
+    // TEMP: just take first session to prove rendering works
+    const first = userSessions[0];
+
+    console.log('PLANNED_SESSION_RESULT', first);
+
+    return first;
   }, [sessionsBySpot, session?.user?.id]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
@@ -3806,6 +3761,11 @@ export default function App() {
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
+          <View style={{ backgroundColor: 'red', padding: 10, marginTop: 10 }}>
+            <Text style={{ color: 'white' }}>
+              DEBUG PLANNED: {plannedSession ? plannedSession.spot : 'NONE'}
+            </Text>
+          </View>
           {plannedSession ? (
             <Pressable
               onPress={() => setSelectedSpot(plannedSession.spot)}
