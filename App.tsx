@@ -3740,23 +3740,6 @@ export default function App() {
           </View>
         </View>
         <View style={{ marginLeft: 10 }}>
-          {upcomingPlannedSession ? (
-            <Pressable
-              onPress={() => setSelectedSpot(upcomingPlannedSession.spot)}
-              style={{
-                alignSelf: 'flex-end',
-                marginBottom: 8,
-                backgroundColor: theme.bgElevated,
-                borderRadius: 999,
-                paddingVertical: 6,
-                paddingHorizontal: 10,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-            >
-              <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Planned: {upcomingPlannedSession.spot}</Text>
-            </Pressable>
-          ) : null}
           <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
             <Avatar uri={profile.avatar_url} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>{profile.display_name}</Text>
