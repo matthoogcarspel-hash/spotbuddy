@@ -78,6 +78,13 @@ type IncomingFollowRelation = {
 };
 type TimelineFilter = 'everyone' | 'buddies';
 type TimelineState = 'live' | 'planned' | 'planned_no_check_in' | 'completed';
+type SaveDebugError = {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+  response?: unknown;
+} | null;
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
@@ -749,6 +756,7 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
+  const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
@@ -2183,6 +2191,7 @@ export default function App() {
     setShowForm(true);
     setActivePicker(null);
     setFormError('');
+    setSaveError(null);
     setSessionActionError('');
   };
   useEffect(() => {
@@ -2236,13 +2245,14 @@ export default function App() {
     code?: string;
     message?: string;
     details?: string;
+    hint?: string;
   } | null | undefined, fallbackMessage: string) => {
     if (!error) {
       return fallbackMessage;
     }
 
     if (error.code === '23505') {
-      return 'You already have a session at this time';
+      return error.details?.trim() || error.message?.trim() || 'You already have an open session. Finish it first.';
     }
 
     if (error.code === '23P01') {
@@ -2568,6 +2578,7 @@ export default function App() {
     setEndMinute(0);
     setEditingSessionId(null);
     setFormError('');
+    setSaveError(null);
   };
 
   const handleQuickCheckIn = async (spot: SpotName) => {
@@ -3227,12 +3238,14 @@ export default function App() {
     };
     const handleSave = async () => {
       console.log('SPOT_PAGE_PLANNING_SAVE_PRESSED');
+      setSaveError(null);
       console.log('SPOT_PAGE_PLANNING_SELECTED_SPOT', { selectedSpot });
       console.log('SPOT_PAGE_PLANNING_TIME_PAYLOAD', {
         startHour,
         startMinute,
         endHour,
         endMinute,
+        selectedPlanningDateKey: currentLocalDateKey,
       });
 
       if (startHour === null) {
@@ -3275,6 +3288,7 @@ export default function App() {
 
       if (!session?.user.id || !profile) {
         setFormError('Planning the session failed. Please try again.');
+        setSaveError({ message: 'missing_auth_or_profile' });
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
           reason: 'missing_auth_or_profile',
           selectedSpot,
@@ -3296,7 +3310,19 @@ export default function App() {
         checked_out_at: null,
       };
 
-      console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', payload);
+      console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', {
+        payload,
+        payloadInspection: {
+          userId: payload.user_id,
+          spot: payload.spot_name,
+          dateDaySource: currentLocalDateKey,
+          start: payload.start_time,
+          end: payload.end_time,
+          status: payload.status,
+          checkedInAt: payload.checked_in_at,
+          checkedOutAt: payload.checked_out_at,
+        },
+      });
       const result = editingSessionId
         ? await supabase
           .from('sessions')
@@ -3311,7 +3337,18 @@ export default function App() {
         : await createPlannedSession(payload);
       if (result.error) {
         setFormError(getSessionPersistenceErrorMessage(result.error, 'Planning the session failed. Please try again.'));
+        setSaveError({
+          message: result.error.message,
+          details: result.error.details,
+          hint: result.error.hint,
+          code: result.error.code,
+          response: result,
+        });
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload, editingSessionId });
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_MESSAGE', result.error.message ?? null);
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_DETAILS', result.error.details ?? null);
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_HINT', result.error.hint ?? null);
+        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_FULL_RESPONSE', result);
         return;
       }
 
@@ -3495,6 +3532,7 @@ export default function App() {
                   setActivePicker(null);
                   setSessionActionError('');
                   setFormError('');
+                  setSaveError(null);
                 }}
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
               >
@@ -3616,6 +3654,11 @@ export default function App() {
               {formError === 'You already have a session at this time' && planningOverlapBlockingSession ? (
                 <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
                   {`Blocking session: ${planningOverlapBlockingSession.spot} ${planningOverlapBlockingSession.start}-${planningOverlapBlockingSession.end} ${planningOverlapBlockingSession.status}`}
+                </Text>
+              ) : null}
+              {saveError ? (
+                <Text style={{ color: '#ffb3b3', fontSize: 12, marginBottom: 10 }}>
+                  {`Save error: ${saveError.message || saveError.details || 'unknown'}`}
                 </Text>
               ) : null}
 
