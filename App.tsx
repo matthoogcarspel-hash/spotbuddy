@@ -3767,7 +3767,7 @@ export default function App() {
           <div style={{ position: 'relative' }}>
             <Pressable
               onPress={() => setShowBuddies(true)}
-              style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
+              style={{ backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 12, borderWidth: 1, borderColor: theme.border }}
             >
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', textAlign: 'center' }}>Your Buddies</Text>
             </Pressable>
