@@ -3758,17 +3758,33 @@ export default function App() {
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
           </Pressable>
           {plannedSession && (
-            <View style={{
-              backgroundColor: 'red',
-              padding: 20,
-              margin: 20,
-              borderWidth: 5,
-              borderColor: 'yellow'
-            }}>
-              <Text style={{ color: 'white', fontSize: 20 }}>
-                🚨 PLANNED SESSION: {plannedSession?.spot}
+            <Pressable
+              onPress={() => {
+                setSelectedSpot(plannedSession.spot);
+              }}
+              style={{
+                marginTop: 8,
+                marginBottom: 8,
+                backgroundColor: theme.cardStrong,
+                borderWidth: 1,
+                borderColor: theme.border,
+                borderRadius: 12,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                width: '100%',
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.text,
+                  fontSize: 13,
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}
+              >
+                🚨 Planned: {plannedSession.spot}
               </Text>
-            </View>
+            </Pressable>
           )}
           <View style={{ position: 'relative' }}>
             <Pressable
