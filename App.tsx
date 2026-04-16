@@ -2196,7 +2196,11 @@ export default function App() {
     setEndHour(adjustedEnd.hour);
     setEndMinute(adjustedEnd.minute);
   }, [endHour, endMinute, showForm, startHour, startMinute]);
-  const isCheckedIn = Boolean(activeCheckedInSession);
+  const isCheckedInAtSelectedSpot = Boolean(
+    selectedSpot
+    && activeCheckedInSession
+    && normalizeSpotName(activeCheckedInSession.spot) === normalizeSpotName(selectedSpot),
+  );
   const hasPlannedSession = Boolean(
     allUserSessions
       .some(
@@ -2208,8 +2212,12 @@ export default function App() {
           && isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey),
       ),
   );
-  const canCheckIn = !isCheckedIn && !hasPlannedSession;
-  const canCheckOut = Boolean(activeCheckedInSession);
+  const shouldShowSpotCheckIn = !isCheckedInAtSelectedSpot;
+  const shouldShowSpotCheckOut = isCheckedInAtSelectedSpot;
+  const canCheckIn = shouldShowSpotCheckIn && !hasPlannedSession;
+  const canCheckOut = shouldShowSpotCheckOut;
+  console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
+  console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
   const currentUserEditableSession = useMemo(() => {
     if (!session?.user.id || !selectedSpot) {
       return null;
@@ -3962,29 +3970,33 @@ export default function App() {
           ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
-            <Pressable
-              disabled={!canCheckIn || !selectedSpotWithinCheckInRadius}
-              onPress={() => {
-                void handleUpdateSessionStatus('Is er al');
-              }}
-              style={{
-                ...sessionActionButtonBaseStyle,
-                backgroundColor: '#15803d',
-                opacity: canCheckIn && selectedSpotWithinCheckInRadius ? 1 : 0.45,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check in</Text>
-            </Pressable>
-            <Pressable
-              disabled={!canCheckOut}
-              onPress={() => {
-                void handleUpdateSessionStatus('Uitchecken');
-              }}
-              style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
-            </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+            {shouldShowSpotCheckIn ? (
+              <Pressable
+                disabled={!canCheckIn || !selectedSpotWithinCheckInRadius}
+                onPress={() => {
+                  void handleUpdateSessionStatus('Is er al');
+                }}
+                style={{
+                  ...sessionActionButtonBaseStyle,
+                  backgroundColor: '#15803d',
+                  opacity: canCheckIn && selectedSpotWithinCheckInRadius ? 1 : 0.45,
+                }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check in</Text>
+              </Pressable>
+            ) : null}
+            {shouldShowSpotCheckOut ? (
+              <Pressable
+                disabled={!canCheckOut}
+                onPress={() => {
+                  void handleUpdateSessionStatus('Uitchecken');
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>You already have an active session</Text> : null}
