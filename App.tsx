@@ -4251,30 +4251,34 @@ export default function App() {
           <Pressable
             onPress={() => {
               void (async () => {
-                const text = messageInput.trim();
-                if (!text) {
+                const messageText = messageInput.trim();
+                if (!messageText || !selectedSpot) {
                   return;
                 }
 
                 const { data: authData, error: authError } = await supabase.auth.getUser();
-                if (authError || !authData.user?.id) {
+                const user_id = authData.user?.id;
+                if (authError || !user_id) {
                   console.error('Failed to resolve authenticated user for message:', authError);
                   return;
                 }
 
+                const spot_name = selectedSpot;
+                const text = messageText;
+                console.log('SENDING MESSAGE', { user_id, text, spot_name });
                 const { error } = await supabase.from('messages').insert({
-                  spot_name: selectedSpot,
-                  user_id: authData.user.id,
+                  user_id,
                   text,
+                  spot_name,
                 });
 
                 if (error) {
-                  console.error('Failed to save message:', error);
+                  console.error('MESSAGE INSERT ERROR', error);
                   return;
                 }
 
-                await fetchSharedData();
                 setMessageInput('');
+                await fetchSharedData();
               })();
             }}
             style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
