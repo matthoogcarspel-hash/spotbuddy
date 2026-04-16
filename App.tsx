@@ -785,9 +785,9 @@ export default function App() {
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
   const [autoCheckoutNotice, setAutoCheckoutNotice] = useState<string | null>(null);
-  const [autoCheckInPromptVisible, setAutoCheckInPromptVisible] = useState(false);
+  const [showAutoCheckinPrompt, setShowAutoCheckinPrompt] = useState(false);
   const [autoCheckInPromptDismissed, setAutoCheckInPromptDismissed] = useState(false);
-  const [autoCheckInPromptShownInSession, setAutoCheckInPromptShownInSession] = useState(false);
+  const autoCheckInPromptShownRef = useRef(false);
   const autoCheckoutOutsideCountRef = useRef(0);
   const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
@@ -2204,17 +2204,6 @@ export default function App() {
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
-  const autoCheckInSuggestionCandidate = useMemo(() => {
-    if (!nearestSpotResult || activeCheckedInSession || autoCheckInPromptDismissed || autoCheckInPromptShownInSession) {
-      return null;
-    }
-
-    if (nearestSpotResult.distanceMeters > AUTO_CHECK_IN_SUGGEST_RADIUS_METERS) {
-      return null;
-    }
-
-    return nearestSpotResult;
-  }, [activeCheckedInSession, autoCheckInPromptDismissed, autoCheckInPromptShownInSession, nearestSpotResult]);
   useEffect(() => {
     if (!homeQuickCheckInError) {
       return;
@@ -2225,47 +2214,34 @@ export default function App() {
     }
   }, [activeCheckedInSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
   useEffect(() => {
-    if (!nearestSpotName || distanceMeters === null) {
-      return;
-    }
-
-    console.log('AUTO_CHECKIN_DISTANCE', {
+    console.log('AUTO_CHECKIN_DEBUG', {
       nearestSpotName,
       distanceMeters,
-      thresholdMeters: AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
-      withinThreshold: distanceMeters <= AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
+      activeCheckedInSession,
     });
-  }, [distanceMeters, nearestSpotName]);
-  useEffect(() => {
-    if (!nearestSpotName || distanceMeters === null) {
+
+    if (autoCheckInPromptShownRef.current || autoCheckInPromptDismissed) {
       return;
     }
 
-    console.log('AUTO_CHECKIN_CANDIDATE', {
-      nearestSpotName,
-      distanceMeters,
-      suggestionRadiusMeters: AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
-      isWithinSuggestionRadius: distanceMeters <= AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
-      hasActiveCheckedInSession: Boolean(activeCheckedInSession),
-      dismissed: autoCheckInPromptDismissed,
-      alreadyShownInSession: autoCheckInPromptShownInSession,
-    });
-  }, [activeCheckedInSession, autoCheckInPromptDismissed, autoCheckInPromptShownInSession, distanceMeters, nearestSpotName]);
-  useEffect(() => {
-    if (!autoCheckInSuggestionCandidate) {
-      setAutoCheckInPromptVisible(false);
-      return;
-    }
-
-    if (!autoCheckInPromptVisible) {
-      setAutoCheckInPromptVisible(true);
-      setAutoCheckInPromptShownInSession(true);
+    if (
+      nearestSpotName &&
+      distanceMeters !== null &&
+      distanceMeters <= 300 &&
+      !activeCheckedInSession
+    ) {
       console.log('AUTO_CHECKIN_PROMPT_SHOWN', {
-        nearestSpotName: autoCheckInSuggestionCandidate.spot,
-        distanceMeters: autoCheckInSuggestionCandidate.distanceMeters,
+        nearestSpotName,
+        distanceMeters,
       });
+      console.log('AUTO_CHECKIN_CANDIDATE', {
+        spot: nearestSpotName,
+        distanceMeters,
+      });
+      setShowAutoCheckinPrompt(true);
+      autoCheckInPromptShownRef.current = true;
     }
-  }, [autoCheckInPromptVisible, autoCheckInSuggestionCandidate]);
+  }, [activeCheckedInSession, autoCheckInPromptDismissed, distanceMeters, nearestSpotName]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const spotsWithDistance = spotDefinitions.map((spot) => ({
@@ -2841,23 +2817,23 @@ export default function App() {
   };
   const handleAutoCheckInDismiss = () => {
     setAutoCheckInPromptDismissed(true);
-    setAutoCheckInPromptVisible(false);
+    setShowAutoCheckinPrompt(false);
     console.log('AUTO_CHECKIN_DISMISSED', {
       nearestSpotName,
       distanceMeters,
     });
   };
   const handleAutoCheckInConfirm = async () => {
-    if (!autoCheckInSuggestionCandidate) {
+    if (!nearestSpotName || distanceMeters === null) {
       return;
     }
 
-    setAutoCheckInPromptVisible(false);
+    setShowAutoCheckinPrompt(false);
     console.log('AUTO_CHECKIN_CONFIRMED', {
-      nearestSpotName: autoCheckInSuggestionCandidate.spot,
-      distanceMeters: autoCheckInSuggestionCandidate.distanceMeters,
+      nearestSpotName,
+      distanceMeters,
     });
-    await handleQuickCheckIn(autoCheckInSuggestionCandidate.spot);
+    await handleQuickCheckIn(nearestSpotName);
   };
 
   const handleQuickCheckOut = async () => {
@@ -4180,10 +4156,10 @@ export default function App() {
             <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
           </View>
         ) : null}
-        {autoCheckInPromptVisible && autoCheckInSuggestionCandidate ? (
+        {showAutoCheckinPrompt && nearestSpotName ? (
           <View style={{ backgroundColor: '#10243b', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
             <Text style={{ color: '#d9eeff', fontSize: 13 }}>
-              {`You're near ${autoCheckInSuggestionCandidate.spot}. Check in?`}
+              {`You're near ${nearestSpotName}. Check in?`}
             </Text>
             <View style={{ flexDirection: 'row', gap: 8, marginTop: 9 }}>
               <Pressable
