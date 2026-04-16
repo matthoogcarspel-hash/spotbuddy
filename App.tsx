@@ -466,13 +466,21 @@ const registerForPushNotifications = async (userId: string) => {
   console.log('push token saved');
 };
 const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: SpotDefinition[]): NearestSpotResult | null => {
+  console.log('NEAREST_SPOT_DEBUG_USER_COORDINATES', currentCoordinates);
   let nearestSpot: SpotName | null = null;
   let nearestDistanceMeters = Number.POSITIVE_INFINITY;
 
   for (const spot of spotDefinitions) {
-    const distanceMeters = getDistanceMeters(currentCoordinates, {
+    const spotCoordinates = {
       latitude: spot.latitude,
       longitude: spot.longitude,
+    };
+    const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
+    console.log('NEAREST_SPOT_DEBUG_SPOT_DISTANCE', {
+      spot: spot.spot,
+      userCoordinates: currentCoordinates,
+      spotCoordinates,
+      distanceMeters,
     });
     if (distanceMeters < nearestDistanceMeters) {
       nearestSpot = spot.spot;
@@ -1194,8 +1202,55 @@ export default function App() {
     const mappedSpots = (data ?? [])
       .map((row) => {
         const spotName = (row.spot_name ?? row.name ?? row.spot ?? '').toString().trim();
-        const latitudeValue = Number(row.latitude ?? row.lat ?? null);
-        const longitudeValue = Number(row.longitude ?? row.lng ?? row.lon ?? null);
+        const rawLatitudeValue = Number(row.latitude ?? row.lat ?? null);
+        const rawLongitudeValue = Number(row.longitude ?? row.lng ?? row.lon ?? null);
+        const fallbackSpot = fallbackSpots.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(spotName)) ?? null;
+
+        const coordinatesInNormalOrderAreValid = Number.isFinite(rawLatitudeValue)
+          && Number.isFinite(rawLongitudeValue)
+          && Math.abs(rawLatitudeValue) <= 90
+          && Math.abs(rawLongitudeValue) <= 180;
+        const coordinatesInSwappedOrderAreValid = Number.isFinite(rawLatitudeValue)
+          && Number.isFinite(rawLongitudeValue)
+          && Math.abs(rawLongitudeValue) <= 90
+          && Math.abs(rawLatitudeValue) <= 180;
+
+        let latitudeValue = rawLatitudeValue;
+        let longitudeValue = rawLongitudeValue;
+
+        if (!coordinatesInNormalOrderAreValid && coordinatesInSwappedOrderAreValid) {
+          latitudeValue = rawLongitudeValue;
+          longitudeValue = rawLatitudeValue;
+        } else if (coordinatesInNormalOrderAreValid && coordinatesInSwappedOrderAreValid && fallbackSpot) {
+          const distanceToFallbackFromNormalOrder = getDistanceInMeters(
+            rawLatitudeValue,
+            rawLongitudeValue,
+            fallbackSpot.latitude,
+            fallbackSpot.longitude,
+          );
+          const distanceToFallbackFromSwappedOrder = getDistanceInMeters(
+            rawLongitudeValue,
+            rawLatitudeValue,
+            fallbackSpot.latitude,
+            fallbackSpot.longitude,
+          );
+
+          if (distanceToFallbackFromSwappedOrder < distanceToFallbackFromNormalOrder) {
+            latitudeValue = rawLongitudeValue;
+            longitudeValue = rawLatitudeValue;
+          }
+        }
+
+        console.log('SPOTS_COORDINATES_DEBUG', {
+          spotName,
+          rawLatitudeValue,
+          rawLongitudeValue,
+          normalizedLatitudeValue: latitudeValue,
+          normalizedLongitudeValue: longitudeValue,
+          fallbackLatitudeValue: fallbackSpot?.latitude ?? null,
+          fallbackLongitudeValue: fallbackSpot?.longitude ?? null,
+        });
+
         if (!spotName || Number.isNaN(latitudeValue) || Number.isNaN(longitudeValue)) {
           return null;
         }
