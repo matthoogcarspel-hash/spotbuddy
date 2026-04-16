@@ -4256,24 +4256,24 @@ export default function App() {
                   return;
                 }
 
-                const { data: authData, error: authError } = await supabase.auth.getUser();
-                const user_id = authData.user?.id;
-                if (authError || !user_id) {
-                  console.error('Failed to resolve authenticated user for message:', authError);
+                const {
+                  data: { user },
+                } = await supabase.auth.getUser();
+                if (!user) {
+                  console.error('NO AUTH USER');
                   return;
                 }
 
-                const spot_name = selectedSpot;
-                const text = messageText;
-                console.log('SENDING MESSAGE', { user_id, text, spot_name });
+                console.log('USER ID', user.id);
+                console.log('SENDING MESSAGE', { user_id: user.id, text: messageText, spot_name: selectedSpot });
                 const { error } = await supabase.from('messages').insert({
-                  user_id,
-                  text,
-                  spot_name,
+                  user_id: user.id,
+                  text: messageText,
+                  spot_name: selectedSpot,
                 });
 
                 if (error) {
-                  console.error('MESSAGE INSERT ERROR', error);
+                  console.error('MESSAGE INSERT ERROR', error.message, error.details);
                   return;
                 }
 
