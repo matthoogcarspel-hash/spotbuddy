@@ -4145,53 +4145,16 @@ export default function App() {
       </View>
 
       <View>
-        {isWebPlatform ? (
-          <View style={{ backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 10 }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>GPS auto checkout works only on mobile</Text>
-          </View>
-        ) : null}
         {autoCheckoutNotice ? (
           <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
             <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
             <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
           </View>
         ) : null}
-        {showAutoCheckinPrompt && nearestSpotName ? (
-          <View style={{ backgroundColor: '#10243b', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
-            <Text style={{ color: '#d9eeff', fontSize: 13 }}>
-              {`You're near ${nearestSpotName}. Check in?`}
-            </Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginTop: 9 }}>
-              <Pressable
-                disabled={quickCheckInSpotInFlight !== null}
-                onPress={() => {
-                  void handleAutoCheckInConfirm();
-                }}
-                style={{
-                  borderRadius: 8,
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  backgroundColor: '#15803d',
-                  opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
-                }}
-              >
-                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Check in</Text>
-              </Pressable>
-              <Pressable
-                onPress={handleAutoCheckInDismiss}
-                style={{
-                  borderRadius: 8,
-                  paddingVertical: 8,
-                  paddingHorizontal: 12,
-                  backgroundColor: '#1b2d44',
-                  borderWidth: 1,
-                  borderColor: '#395a7a',
-                }}
-              >
-                <Text style={{ color: '#cfe6ff', fontSize: 13, fontWeight: '600' }}>Dismiss</Text>
-              </Pressable>
-            </View>
-          </View>
+        {!isWebPlatform && showAutoCheckinPrompt && nearestSpotName ? (
+          <Text style={{ color: theme.textSoft, marginBottom: 10, fontSize: 13 }}>
+            {`You're near ${nearestSpotName}.`}
+          </Text>
         ) : null}
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ backgroundColor: theme.cardStrong, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
