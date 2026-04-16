@@ -1319,29 +1319,26 @@ export default function App() {
     setLoadingData(true);
     console.log("MESSAGES QUERY START", { selectedSpot });
 
-    const [sessionsResponse, messagesResponse] = await Promise.all([
-      supabase
-        .from('sessions')
-        .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
-        .in('spot_name', [...spotNames])
-        .order('created_at', { ascending: true }),
-      supabase
-        .from('messages')
-        .select(`
-          id,
-          user_id,
-          text,
-          spot_name,
-          created_at,
-          profiles (
-            display_name,
-            avatar_url
-          )
-        `)
-        .eq('spot_name', selectedSpot)
-        .order('created_at', { ascending: true }),
-    ]);
-    const { data, error } = messagesResponse;
+    const sessionsResponse = await supabase
+      .from('sessions')
+      .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
+      .in('spot_name', [...spotNames])
+      .order('created_at', { ascending: true });
+    const { data, error } = await supabase
+      .from('messages')
+      .select(`
+        id,
+        user_id,
+        text,
+        spot_name,
+        created_at,
+        profiles (
+          display_name,
+          avatar_url
+        )
+      `)
+      .eq('spot_name', selectedSpot)
+      .order('created_at', { ascending: true });
     console.log("MESSAGES QUERY RESULT", data);
 
     if (sessionsResponse.error) {
