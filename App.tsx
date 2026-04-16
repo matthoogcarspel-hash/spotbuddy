@@ -1326,7 +1326,7 @@ export default function App() {
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
-        .select('id, spot_name, user_id, user_name, user_avatar_url, text, created_at')
+        .select('id, spot_name, user_id, text, created_at, profiles(display_name, avatar_url)')
         .in('spot_name', [...spotNames])
         .order('created_at', { ascending: true }),
     ]);
@@ -1393,13 +1393,14 @@ export default function App() {
         if (!spotNames.includes(spot)) {
           continue;
         }
+        const profileRow = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
 
         nextMessagesBySpot[spot].push({
           id: row.id,
           text: row.text,
           userId: row.user_id,
-          userName: row.user_name,
-          userAvatarUrl: row.user_avatar_url,
+          userName: profileRow?.display_name ?? 'Unknown',
+          userAvatarUrl: profileRow?.avatar_url ?? null,
           createdAt: row.created_at,
         });
       }
@@ -4250,26 +4251,30 @@ export default function App() {
           <Pressable
             onPress={() => {
               void (async () => {
-              const text = messageInput.trim();
-              if (!text) {
-                return;
-              }
+                const text = messageInput.trim();
+                if (!text) {
+                  return;
+                }
 
-              const { error } = await supabase.from('messages').insert({
-                spot_name: selectedSpot,
-                user_id: session.user.id,
-                user_name: profile.display_name,
-                user_avatar_url: profile.avatar_url,
-                text,
-              });
+                const { data: authData, error: authError } = await supabase.auth.getUser();
+                if (authError || !authData.user?.id) {
+                  console.error('Failed to resolve authenticated user for message:', authError);
+                  return;
+                }
 
-              if (error) {
-                console.error('Failed to save message:', error);
-                return;
-              }
+                const { error } = await supabase.from('messages').insert({
+                  spot_name: selectedSpot,
+                  user_id: authData.user.id,
+                  text,
+                });
 
-              await fetchSharedData();
-              setMessageInput('');
+                if (error) {
+                  console.error('Failed to save message:', error);
+                  return;
+                }
+
+                await fetchSharedData();
+                setMessageInput('');
               })();
             }}
             style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
