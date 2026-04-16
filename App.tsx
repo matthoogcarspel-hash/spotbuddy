@@ -2096,7 +2096,6 @@ export default function App() {
       ?? null
     );
   }, [allUserSessions, currentLocalDateKey, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
-  const canPlanSession = true;
   const isCheckedIn = Boolean(activeCheckedInSession);
   const hasPlannedSession = Boolean(
     allUserSessions
@@ -2127,6 +2126,22 @@ export default function App() {
         })[0] ?? null
     );
   }, [selectedSpot, session?.user.id, sessions]);
+  const hasPlannedSessionAtSelectedSpot = Boolean(currentUserEditableSession);
+  const canPlanSession = !hasPlannedSessionAtSelectedSpot;
+  const shouldHidePlanSessionButton = hasPlannedSessionAtSelectedSpot;
+  const shouldDisablePlanSessionButton = !shouldHidePlanSessionButton && !canPlanSession;
+
+  console.log('SPOT_PAGE_HAS_PLANNED_SESSION', {
+    selectedSpot,
+    hasPlannedSessionAtSelectedSpot,
+    editableSessionId: currentUserEditableSession?.id ?? null,
+  });
+  if (shouldHidePlanSessionButton) {
+    console.log('SPOT_PAGE_PLAN_BUTTON_HIDDEN', { selectedSpot });
+  }
+  if (shouldDisablePlanSessionButton) {
+    console.log('SPOT_PAGE_PLAN_BUTTON_DISABLED', { selectedSpot });
+  }
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
     console.log('SPOT_PAGE_CANCEL_CLICKED');
     console.log('SPOT_PAGE_CANCEL_SESSION_ID', { sessionId: sessionToCancel.id });
@@ -3775,19 +3790,21 @@ export default function App() {
             </View>
           ) : null}
 
-          <Pressable
-            disabled={!canPlanSession}
-            onPress={() => {
-              if (!canPlanSession) {
-                setSessionActionError('Finish your current session first');
-                return;
-              }
-              openEmptyPlanningForm();
-            }}
-            style={{ marginTop: 14, ...primaryButtonStyle, opacity: canPlanSession ? 1 : 0.45 }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
-          </Pressable>
+          {!shouldHidePlanSessionButton ? (
+            <Pressable
+              disabled={shouldDisablePlanSessionButton}
+              onPress={() => {
+                if (shouldDisablePlanSessionButton) {
+                  setSessionActionError('Finish your current session first');
+                  return;
+                }
+                openEmptyPlanningForm();
+              }}
+              style={{ marginTop: 14, ...primaryButtonStyle, opacity: shouldDisablePlanSessionButton ? 0.45 : 1 }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
+            </Pressable>
+          ) : null}
           {currentUserEditableSession ? (
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable
