@@ -433,7 +433,7 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
   };
 };
 const CHECK_IN_RADIUS_METERS = 1000;
-const AUTO_CHECK_IN_SUGGEST_RADIUS_METERS = 300;
+const AUTO_CHECKIN_RADIUS_METERS = 4000;
 const AUTO_CHECK_OUT_RADIUS_METERS = 2000;
 const AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED = 2;
 const AUTO_CHECK_OUT_CONFIRMATION_MS = 60_000;
@@ -2342,6 +2342,11 @@ export default function App() {
       distanceMeters,
       activeCheckedInSession,
     });
+    const isWithinAutoCheckInRadius = distanceMeters !== null && distanceMeters <= AUTO_CHECKIN_RADIUS_METERS;
+    console.log('AUTO_CHECKIN_DISTANCE_CHECK', {
+      distance: distanceMeters,
+      threshold: AUTO_CHECKIN_RADIUS_METERS,
+    });
 
     if (autoCheckInPromptShownRef.current || autoCheckInPromptDismissed) {
       return;
@@ -2349,8 +2354,7 @@ export default function App() {
 
     if (
       nearestSpotName &&
-      distanceMeters !== null &&
-      distanceMeters <= 300 &&
+      isWithinAutoCheckInRadius &&
       !activeCheckedInSession
     ) {
       console.log('AUTO_CHECKIN_PROMPT_SHOWN', {
