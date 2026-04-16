@@ -2359,27 +2359,30 @@ export default function App() {
     console.log('SPOT_PAGE_CANCEL_SESSION_ID', { sessionId: sessionToCancel.id });
     console.log('SPOT_PAGE_CANCEL_CURRENT_AUTH_USER_ID', { userId: session?.user.id ?? null });
 
-    if (!session?.user.id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) {
       setSessionActionError('Could not cancel session');
       return;
     }
+    const authUserId = user.id;
 
-    if (sessionToCancel.userId !== session.user.id || !isPlannedSession(sessionToCancel)) {
+    if (sessionToCancel.userId !== authUserId || !isPlannedSession(sessionToCancel)) {
       setSessionActionError('Could not cancel session');
       console.log('SPOT_PAGE_CANCEL_BLOCKED', {
         sessionId: sessionToCancel.id,
         sessionUserId: sessionToCancel.userId,
-        currentUserId: session.user.id,
+        currentUserId: authUserId,
         isPlannedSession: isPlannedSession(sessionToCancel),
       });
       return;
     }
 
+    console.log("SESSIONS WRITE PATH ACTIVE");
     const deleteResult = await supabase
       .from('sessions')
       .delete()
       .eq('id', sessionToCancel.id)
-      .eq('user_id', session.user.id)
+      .eq('user_id', authUserId)
       .is('checked_in_at', null)
       .is('checked_out_at', null)
       .not('start_time', 'is', null)
@@ -2809,6 +2812,7 @@ export default function App() {
         .limit(1)
         .maybeSingle();
     const deleteGhostSessionsForUser = async (userId: string) => {
+      console.log("SESSIONS WRITE PATH ACTIVE");
       const cleanupResponse = await supabase
         .from('sessions')
         .delete()
@@ -2844,6 +2848,7 @@ export default function App() {
           plannedSpot: latestOpenSession.spot_name,
           targetSpot: canonicalSpot,
         });
+        console.log("SESSIONS WRITE PATH ACTIVE");
         const clearPlannedResult = await supabase
           .from('sessions')
           .delete()
@@ -3009,6 +3014,7 @@ export default function App() {
       return;
     }
 
+    console.log("SESSIONS WRITE PATH ACTIVE");
     const result = await supabase
       .from('sessions')
       .update({
@@ -3118,9 +3124,11 @@ export default function App() {
     console.log('HOME_QUICK_CHECKOUT_PRESSED', { activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
-    if (!session?.user.id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) {
       return;
     }
+    const authUserId = user.id;
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
@@ -3129,6 +3137,7 @@ export default function App() {
     }
 
     setHomeQuickCheckOutInFlight(true);
+    console.log("SESSIONS WRITE PATH ACTIVE");
     const result = await supabase
       .from('sessions')
       .update({
@@ -3136,7 +3145,7 @@ export default function App() {
         checked_out_at: new Date().toISOString(),
       })
       .eq('id', activeCheckedInSession.id)
-      .eq('user_id', session.user.id);
+      .eq('user_id', authUserId);
 
     setHomeQuickCheckOutInFlight(false);
 
