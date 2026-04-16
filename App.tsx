@@ -2534,7 +2534,7 @@ export default function App() {
   }: {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
-  }): Promise<{ ok: true } | { ok: false; reason: string; error?: unknown }> => {
+  }): Promise<{ ok: true; spot: SpotName } | { ok: false; reason: string; error?: unknown }> => {
     const { data } = await supabase.auth.getUser();
     const authUserId = data.user?.id;
     if (!authUserId || !session?.user.id || !profile) {
@@ -2589,8 +2589,31 @@ export default function App() {
 
     if (latestOpenSession?.status === 'Gaat') {
       if (normalizeSpotName(latestOpenSession.spot_name) !== normalizeSpotName(canonicalSpot)) {
-        return { ok: false, reason: 'planned_session_other_spot' };
-      }
+        console.log('CHECKIN_OVERRIDE_PLANNED_SESSION_FOUND', {
+          source,
+          plannedSessionId: latestOpenSession.id,
+          plannedSpot: latestOpenSession.spot_name,
+          targetSpot: canonicalSpot,
+        });
+        const clearPlannedResult = await supabase
+          .from('sessions')
+          .delete()
+          .eq('id', latestOpenSession.id)
+          .eq('user_id', authUserId);
+
+        if (clearPlannedResult.error) {
+          console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'clear_planned_session_other_spot', error: clearPlannedResult.error, source });
+          return { ok: false, reason: 'clear_planned_session_other_spot_failed', error: clearPlannedResult.error };
+        }
+
+        console.log('CHECKIN_OVERRIDE_PLANNED_SESSION_CLEARED', {
+          source,
+          clearedSessionId: latestOpenSession.id,
+          clearedSpot: latestOpenSession.spot_name,
+          targetSpot: canonicalSpot,
+        });
+        await deleteGhostSessionsForUser(authUserId);
+      } else {
 
       const updatePayload = {
         status: 'Is er al',
@@ -2614,7 +2637,8 @@ export default function App() {
 
       console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'updated_planned_session', sessionId: latestOpenSession.id, selectedSpot: canonicalSpot, source });
       await fetchSharedData();
-      return { ok: true };
+      return { ok: true, spot: canonicalSpot };
+      }
     }
 
     await deleteGhostSessionsForUser(authUserId);
@@ -2646,7 +2670,7 @@ export default function App() {
 
     console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSpot, source });
     await fetchSharedData();
-    return { ok: true };
+    return { ok: true, spot: canonicalSpot };
   };
   const mapCheckInFailureToMessage = (reason: string) => {
     if (reason === 'already_checked_in_same_spot') {
@@ -2667,7 +2691,7 @@ export default function App() {
   }: {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
-  }): Promise<string | null> => {
+  }): Promise<{ errorMessage: string | null; checkedInSpot: SpotName | null }> => {
     console.log('CHECKIN_SHARED_FLOW_SPOT_USED', { source, spot });
     const checkInResult = await runCheckInFlowForSpot({ spot, source });
     if (!checkInResult.ok) {
@@ -2675,11 +2699,11 @@ export default function App() {
       const failureReason = failureResult.reason;
       const failureError = failureResult.error ?? null;
       console.log('CHECKIN_SHARED_FLOW_ERROR_RESULT', { source, spot, reason: failureReason, error: failureError });
-      return mapCheckInFailureToMessage(failureReason);
+      return { errorMessage: mapCheckInFailureToMessage(failureReason), checkedInSpot: null };
     }
 
-    console.log('CHECKIN_SHARED_FLOW_SUCCESS_RESULT', { source, spot });
-    return null;
+    console.log('CHECKIN_SHARED_FLOW_SUCCESS_RESULT', { source, spot: checkInResult.spot });
+    return { errorMessage: null, checkedInSpot: checkInResult.spot };
   };
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
@@ -2714,7 +2738,7 @@ export default function App() {
         setSessionActionError('You are too far from the spot (&gt;1 km)');
         return;
       }
-      const errorMessage = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
+      const { errorMessage } = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
       if (errorMessage) {
         setSessionActionError(errorMessage);
         return;
@@ -2770,6 +2794,7 @@ export default function App() {
 
   const handleQuickCheckIn = async (spot: SpotName) => {
     console.log('HOME_QUICK_CHECKIN_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
+    console.log('CHECKIN_HERE_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
     if (quickCheckInWindowError) {
@@ -2801,7 +2826,7 @@ export default function App() {
 
     setQuickCheckInSpotInFlight(spot);
     console.log('HOME_QUICK_CHECKIN_SELECTED_SPOT', { spot });
-    const checkInErrorMessage = await handleCheckInWithSharedFlow({ spot, source: 'home_quick' });
+    const { errorMessage: checkInErrorMessage, checkedInSpot } = await handleCheckInWithSharedFlow({ spot, source: 'home_quick' });
     setQuickCheckInSpotInFlight(null);
 
     if (checkInErrorMessage) {
@@ -2811,9 +2836,13 @@ export default function App() {
       return;
     }
 
+    const resolvedSpot = checkedInSpot ?? spot;
+    setSelectedSpot(resolvedSpot);
+    console.log('CHECKIN_HERE_SUCCESS', { spot: resolvedSpot });
+    console.log('CHECKIN_HERE_NAVIGATE_TO_SPOT', { spot: resolvedSpot });
     setHomeQuickCheckInError('');
-    console.log('HOME_QUICK_CHECKIN_SUCCESS_RESULT', { spot });
-    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot });
+    console.log('HOME_QUICK_CHECKIN_SUCCESS_RESULT', { spot: resolvedSpot });
+    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot: resolvedSpot });
   };
   const handleAutoCheckInDismiss = () => {
     setAutoCheckInPromptDismissed(true);
