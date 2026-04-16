@@ -112,7 +112,7 @@ const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined):
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
   { label: 'Off', value: 'off' },
-  { label: 'Following', value: 'following' },
+  { label: 'Buddies', value: 'following' },
   { label: 'Everyone', value: 'everyone' },
 ];
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
@@ -3015,7 +3015,7 @@ export default function App() {
               </View>
             )}
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Following</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Buddies</Text>
             {followedUsers.length === 0 ? (
               <Text style={{ color: theme.textSoft, marginTop: 8 }}>You are not following anyone yet</Text>
             ) : (
