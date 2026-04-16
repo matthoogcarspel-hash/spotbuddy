@@ -1324,6 +1324,14 @@ export default function App() {
       .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
+
+    if (!selectedSpot) {
+      console.log("MESSAGES QUERY SKIPPED", { reason: "NO_SELECTED_SPOT", selectedSpot });
+      setMessagesBySpot((prev) => prev);
+      setLoadingData(false);
+      return;
+    }
+
     const { data, error } = await supabase
       .from('messages')
       .select(`
