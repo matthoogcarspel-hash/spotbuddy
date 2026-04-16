@@ -1146,6 +1146,12 @@ export default function App() {
       console.error('Failed to load profile:', error);
     } else {
       setProfile(data ?? null);
+      console.log('PROFILE_STATE_LOADED', {
+        requestedUserId: userId,
+        profileUserId: data?.id ?? null,
+        displayName: data?.display_name ?? null,
+        avatarUrl: data?.avatar_url ?? null,
+      });
     }
 
     if (showLoader) {
@@ -1412,26 +1418,52 @@ export default function App() {
 
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
+      console.log('AUTH_STATE_CHANGED', {
+        event: 'INITIAL_SESSION',
+        userId: nextSession?.user.id ?? null,
+      });
       setSession(nextSession);
+      setCurrentUserId(nextSession?.user.id ?? null);
       setLoadingSession(false);
 
       if (nextSession) {
+        setProfile(null);
+        console.log('PROFILE_STATE_RESET', {
+          reason: 'auth_session_initialized',
+          previousUserId: profile?.id ?? null,
+          nextUserId: nextSession.user.id,
+        });
         void fetchSpotDefinitions();
         void fetchProfile(nextSession.user.id);
         void fetchSharedData();
       } else {
         setProfile(null);
+        console.log('PROFILE_STATE_RESET', {
+          reason: 'no_session_on_init',
+          previousUserId: profile?.id ?? null,
+          nextUserId: null,
+        });
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      console.log('AUTH_STATE_CHANGED', {
+        event,
+        userId: nextSession?.user.id ?? null,
+      });
       setSession(nextSession);
       setCurrentUserId(nextSession?.user.id ?? null);
 
+      console.log('PROFILE_STATE_RESET', {
+        reason: nextSession ? 'auth_user_changed' : 'logout',
+        previousUserId: profile?.id ?? null,
+        nextUserId: nextSession?.user.id ?? null,
+      });
+      setProfile(null);
+
       if (!nextSession) {
-        setProfile(null);
         resetFlow();
         return;
       }
@@ -1445,6 +1477,23 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, []);
+
+  const headerProfile = profile
+    ? {
+      userId: profile.id,
+      displayName: profile.display_name,
+      avatarUrl: profile.avatar_url,
+    }
+    : null;
+
+  useEffect(() => {
+    console.log('HEADER_PROFILE_RENDER', {
+      sessionUserId: session?.user.id ?? null,
+      profileUserId: headerProfile?.userId ?? null,
+      displayName: headerProfile?.displayName ?? null,
+      avatarUrl: headerProfile?.avatarUrl ?? null,
+    });
+  }, [headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId, session?.user.id]);
 
   useEffect(() => {
     if (showProfile && profile) {
@@ -4268,9 +4317,15 @@ export default function App() {
           </View>
         </View>
         <View style={{ marginLeft: 10 }}>
-          <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
-            <Avatar uri={profile.avatar_url} size={24} />
-            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>Admin</Text>
+          <Pressable
+            key={headerProfile?.userId ?? 'header-profile-empty'}
+            onPress={() => setShowProfile(true)}
+            style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}
+          >
+            <Avatar uri={headerProfile?.avatarUrl ?? null} size={24} />
+            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>
+              {headerProfile?.displayName ?? 'Profile'}
+            </Text>
           </Pressable>
           {plannedSession && (
             <Pressable
