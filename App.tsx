@@ -788,6 +788,8 @@ export default function App() {
   const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
   const gpsWatcherRef = useRef<Location.LocationSubscription | null>(null);
+  const gpsWatcherSessionIdRef = useRef<string | null>(null);
+  const gpsWatcherStartTokenRef = useRef(0);
   const [buddyUsers, setBuddyUsers] = useState<BuddyUser[]>([]);
   const [searchUsersInput, setSearchUsersInput] = useState('');
   const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
@@ -1669,17 +1671,22 @@ export default function App() {
   useEffect(() => {
     let active = true;
 
-    const stopWatcher = () => {
+    const stopWatcher = (reason: string) => {
       if (!gpsWatcherRef.current) {
+        gpsWatcherSessionIdRef.current = null;
         return;
       }
 
       gpsWatcherRef.current.remove();
       gpsWatcherRef.current = null;
+      gpsWatcherSessionIdRef.current = null;
+      console.log('GPS_MONITORING_STOPPED', {
+        reason,
+      });
     };
 
     if (!isNativePlatform) {
-      stopWatcher();
+      stopWatcher('NON_NATIVE_PLATFORM');
       console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
         reason: 'NON_NATIVE_PLATFORM',
         platform: Platform.OS,
@@ -1693,31 +1700,46 @@ export default function App() {
       gpsActiveCheckedInSession
       && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
     );
-    if (!shouldRunGpsWatcher) {
+    if (!shouldRunGpsWatcher || !gpsActiveCheckedInSession) {
       console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
         reason: 'NO_LIVE_SESSION_FOR_MONITORING',
       });
       setCurrentCoordinates(null);
       setNearestSpotResult(null);
       setIsResolvingNearestSpot(false);
-      stopWatcher();
+      stopWatcher('NO_ACTIVE_SESSION');
       return () => {
         active = false;
       };
     }
+
+    if (gpsWatcherRef.current && gpsWatcherSessionIdRef.current === gpsActiveCheckedInSession.id) {
+      return () => {
+        active = false;
+      };
+    }
+
+    const startToken = gpsWatcherStartTokenRef.current + 1;
+    gpsWatcherStartTokenRef.current = startToken;
 
     const startLocationMonitoring = async () => {
       setIsResolvingNearestSpot(true);
 
       try {
         const permissionResponse = await Location.requestForegroundPermissionsAsync();
-        if (!active) {
+        if (!active || gpsWatcherStartTokenRef.current !== startToken) {
           return;
         }
 
         setLocationPermissionStatus(permissionResponse.status);
+        console.log('GPS_NATIVE_PERMISSION_STATUS', {
+          status: permissionResponse.status,
+          canAskAgain: permissionResponse.canAskAgain,
+          granted: permissionResponse.granted,
+        });
+
         if (permissionResponse.status !== 'granted') {
-          stopWatcher();
+          stopWatcher('PERMISSION_NOT_GRANTED');
           setCurrentCoordinates(null);
           setNearestSpotResult(null);
           setIsResolvingNearestSpot(false);
@@ -1737,7 +1759,7 @@ export default function App() {
         };
 
         const currentPosition = await Location.getCurrentPositionAsync({});
-        if (!active) {
+        if (!active || gpsWatcherStartTokenRef.current !== startToken) {
           return;
         }
 
@@ -1746,14 +1768,14 @@ export default function App() {
           longitude: currentPosition.coords.longitude,
         });
 
-        stopWatcher();
-        gpsWatcherRef.current = await Location.watchPositionAsync(
+        stopWatcher('RESTART_MONITORING');
+        const nextWatcher = await Location.watchPositionAsync(
           {
             accuracy: Location.Accuracy.Balanced,
             distanceInterval: 75,
           },
           (position) => {
-            if (!active) {
+            if (!active || gpsWatcherStartTokenRef.current !== startToken) {
               return;
             }
 
@@ -1763,18 +1785,24 @@ export default function App() {
             });
           },
         );
-        if (active) {
-          console.log('GPS_MONITORING_STARTED', {
-            sessionId: gpsActiveCheckedInSession.id,
-            distanceIntervalMeters: 75,
-          });
+
+        if (!active || gpsWatcherStartTokenRef.current !== startToken) {
+          nextWatcher.remove();
+          return;
         }
+
+        gpsWatcherRef.current = nextWatcher;
+        gpsWatcherSessionIdRef.current = gpsActiveCheckedInSession.id;
+        console.log('GPS_MONITORING_STARTED', {
+          sessionId: gpsActiveCheckedInSession.id,
+          distanceIntervalMeters: 75,
+        });
       } catch (error) {
         if (!active) {
           return;
         }
 
-        stopWatcher();
+        stopWatcher('MONITORING_ERROR');
         setCurrentCoordinates(null);
         setNearestSpotResult(null);
         console.error('Failed to monitor location:', error);
@@ -1789,7 +1817,9 @@ export default function App() {
 
     return () => {
       active = false;
-      stopWatcher();
+      if (gpsWatcherSessionIdRef.current === gpsActiveCheckedInSession.id) {
+        stopWatcher('EFFECT_CLEANUP');
+      }
     };
   }, [gpsActiveCheckedInSession, isNativePlatform, spotDefinitions]);
 
@@ -1876,7 +1906,7 @@ export default function App() {
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
     autoCheckoutOutsideSinceRef.current = null;
-  }, [activeCheckedInSession?.id]);
+  }, [gpsActiveCheckedInSession?.id]);
 
   useEffect(() => {
     if (!autoCheckoutNotice) {
@@ -1902,30 +1932,30 @@ export default function App() {
         return;
       }
 
-      const isActiveLiveStatus = activeCheckedInSession?.status === 'live' || activeCheckedInSession?.status === 'Is er al';
-      if (!session?.user.id || !currentCoordinates || !activeCheckedInSession || !isActiveLiveStatus) {
+      const isActiveLiveStatus = gpsActiveCheckedInSession?.status === 'live' || gpsActiveCheckedInSession?.status === 'Is er al';
+      if (!session?.user.id || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'MISSING_REQUIREMENTS',
           hasUser: Boolean(session?.user.id),
           hasCoordinates: Boolean(currentCoordinates),
-          hasActiveCheckedInSession: Boolean(activeCheckedInSession),
+          hasActiveCheckedInSession: Boolean(gpsActiveCheckedInSession),
           isActiveLiveStatus,
         });
         return;
       }
 
       const activeSpotDefinition = spotDefinitions.find(
-        (spot) => normalizeSpotName(spot.spot) === normalizeSpotName(activeCheckedInSession.spot),
+        (spot) => normalizeSpotName(spot.spot) === normalizeSpotName(gpsActiveCheckedInSession.spot),
       );
       if (!activeSpotDefinition) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'SPOT_COORDINATES_MISSING',
-          sessionId: activeCheckedInSession.id,
-          sessionSpot: activeCheckedInSession.spot,
+          sessionId: gpsActiveCheckedInSession.id,
+          sessionSpot: gpsActiveCheckedInSession.spot,
         });
         return;
       }
@@ -1938,8 +1968,8 @@ export default function App() {
       const isOutsideRadius = distanceMeters > AUTO_CHECK_OUT_RADIUS_METERS;
       const nowMs = Date.now();
       console.log('GPS_DISTANCE_FROM_SPOT', {
-        sessionId: activeCheckedInSession.id,
-        spot: activeCheckedInSession.spot,
+        sessionId: gpsActiveCheckedInSession.id,
+        spot: gpsActiveCheckedInSession.spot,
         distanceMeters,
         outsideRadiusMeters: AUTO_CHECK_OUT_RADIUS_METERS,
         isOutsideRadius,
@@ -1948,7 +1978,7 @@ export default function App() {
       if (!isOutsideRadius) {
         if (autoCheckoutOutsideCountRef.current !== 0 || autoCheckoutOutsideSinceRef.current !== null) {
           console.log('GPS_BACK_INSIDE', {
-            sessionId: activeCheckedInSession.id,
+            sessionId: gpsActiveCheckedInSession.id,
             distanceMeters,
           });
         }
@@ -1963,7 +1993,7 @@ export default function App() {
       autoCheckoutOutsideCountRef.current += 1;
       const outsideDurationMs = nowMs - autoCheckoutOutsideSinceRef.current;
       console.log('GPS_OUTSIDE_RADIUS', {
-        sessionId: activeCheckedInSession.id,
+        sessionId: gpsActiveCheckedInSession.id,
         distanceMeters,
         outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
         outsideDurationMs,
@@ -1974,7 +2004,7 @@ export default function App() {
       if (!reachedConsecutiveThreshold && !reachedDurationThreshold) {
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'THRESHOLD_NOT_REACHED',
-          sessionId: activeCheckedInSession.id,
+          sessionId: gpsActiveCheckedInSession.id,
           outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
           outsideDurationMs,
           requiredConsecutiveOutside: AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED,
@@ -1986,7 +2016,7 @@ export default function App() {
       if (autoCheckoutInFlightRef.current) {
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'CHECKOUT_ALREADY_IN_FLIGHT',
-          sessionId: activeCheckedInSession.id,
+          sessionId: gpsActiveCheckedInSession.id,
         });
         return;
       }
@@ -1994,7 +2024,7 @@ export default function App() {
       autoCheckoutInFlightRef.current = true;
       const nowIso = new Date().toISOString();
       console.log('GPS_AUTO_CHECKOUT_TRIGGERED', {
-        sessionId: activeCheckedInSession.id,
+        sessionId: gpsActiveCheckedInSession.id,
         distanceMeters,
         outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
         outsideDurationMs,
@@ -2006,7 +2036,7 @@ export default function App() {
           status: 'finished',
           checked_out_at: nowIso,
         })
-        .eq('id', activeCheckedInSession.id)
+        .eq('id', gpsActiveCheckedInSession.id)
         .eq('user_id', session.user.id)
         .not('checked_in_at', 'is', null)
         .is('checked_out_at', null);
@@ -2016,7 +2046,7 @@ export default function App() {
         autoCheckoutOutsideCountRef.current = AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED - 1;
         autoCheckoutOutsideSinceRef.current = nowMs - AUTO_CHECK_OUT_CONFIRMATION_MS;
         console.error('AUTO_CHECKOUT_ERROR', {
-          sessionId: activeCheckedInSession.id,
+          sessionId: gpsActiveCheckedInSession.id,
           error: result.error,
         });
         return;
@@ -2028,13 +2058,17 @@ export default function App() {
       if (gpsWatcherRef.current) {
         gpsWatcherRef.current.remove();
         gpsWatcherRef.current = null;
+        gpsWatcherSessionIdRef.current = null;
+        console.log('GPS_MONITORING_STOPPED', {
+          reason: 'AUTO_CHECKOUT_COMPLETED',
+        });
       }
       setAutoCheckoutNotice('Automatically checked out\nYou appear to have left the spot');
       await fetchSharedData();
     };
 
     void runAutoCheckOutIfNeeded();
-  }, [activeCheckedInSession, currentCoordinates, isNativePlatform, session?.user.id, spotDefinitions]);
+  }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, session?.user.id, spotDefinitions]);
   const currentPlanningStart = startHour === null ? null : `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
   const currentPlanningEnd = endHour === null ? null : `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
   const planningOverlapBlockingSession = useMemo(() => {
