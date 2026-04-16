@@ -433,8 +433,8 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
   };
 };
 const CHECK_IN_RADIUS_METERS = 1000;
-const AUTO_CHECKIN_RADIUS_METERS = 4000;
-const AUTO_CHECK_OUT_RADIUS_METERS = 2000;
+const AUTO_CHECKIN_PROMPT_RADIUS_METERS = 300;
+const AUTO_CHECKOUT_RADIUS_METERS = 3000;
 const AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED = 2;
 const AUTO_CHECK_OUT_CONFIRMATION_MS = 60_000;
 const toRadians = (value: number) => value * (Math.PI / 180);
@@ -1999,13 +1999,18 @@ export default function App() {
         longitude: activeSpotDefinition.longitude,
       };
       const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
-      const isOutsideRadius = distanceMeters > AUTO_CHECK_OUT_RADIUS_METERS;
+      const isOutsideRadius = distanceMeters > AUTO_CHECKOUT_RADIUS_METERS;
       const nowMs = Date.now();
+      console.log('AUTO_CHECKOUT_DISTANCE_CHECK', {
+        distanceMeters,
+        thresholdMeters: AUTO_CHECKOUT_RADIUS_METERS,
+        selectedSpot: gpsActiveCheckedInSession.spot,
+      });
       console.log('GPS_DISTANCE_FROM_SPOT', {
         sessionId: gpsActiveCheckedInSession.id,
         spot: gpsActiveCheckedInSession.spot,
         distanceMeters,
-        outsideRadiusMeters: AUTO_CHECK_OUT_RADIUS_METERS,
+        outsideRadiusMeters: AUTO_CHECKOUT_RADIUS_METERS,
         isOutsideRadius,
       });
 
@@ -2342,10 +2347,10 @@ export default function App() {
       distanceMeters,
       activeCheckedInSession,
     });
-    const isWithinAutoCheckInRadius = distanceMeters !== null && distanceMeters <= AUTO_CHECKIN_RADIUS_METERS;
+    const isWithinAutoCheckInRadius = distanceMeters !== null && distanceMeters <= AUTO_CHECKIN_PROMPT_RADIUS_METERS;
     console.log('AUTO_CHECKIN_DISTANCE_CHECK', {
       distance: distanceMeters,
-      threshold: AUTO_CHECKIN_RADIUS_METERS,
+      threshold: AUTO_CHECKIN_PROMPT_RADIUS_METERS,
     });
 
     if (autoCheckInPromptShownRef.current || autoCheckInPromptDismissed) {
