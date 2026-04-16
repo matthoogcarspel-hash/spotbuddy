@@ -38,8 +38,8 @@ type ChatMessage = {
   id: string;
   text: string;
   userId: string;
-  userName: string;
-  userAvatarUrl: string | null;
+  display_name: string;
+  avatar_url: string | null;
   createdAt: string | null;
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
@@ -1332,22 +1332,22 @@ export default function App() {
       return;
     }
 
-    const { data, error } = await supabase
+    const { data: messagesData, error: messagesError } = await supabase
       .from('messages')
-      .select(`
-        id,
-        user_id,
-        text,
-        spot_name,
-        created_at,
-        profiles (
-          display_name,
-          avatar_url
-        )
-      `)
+      .select('id, user_id, text, spot_name, created_at')
       .eq('spot_name', selectedSpot)
       .order('created_at', { ascending: true });
-    console.log("MESSAGES QUERY RESULT", data);
+    console.log("MESSAGES RAW RESULT", messagesData);
+
+    const userIds = [...new Set((messagesData ?? []).map((m) => m.user_id).filter(Boolean))];
+
+    const { data: profilesData, error: profilesError } = userIds.length
+      ? await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url')
+          .in('id', userIds)
+      : { data: [], error: null };
+    console.log("PROFILES RAW RESULT", profilesData);
 
     if (sessionsResponse.error) {
       console.error('Failed to load sessions:', sessionsResponse.error);
@@ -1401,30 +1401,54 @@ export default function App() {
       setSessionsBySpot(nextSessionsBySpot);
     }
 
-    if (error) {
-      console.error("MESSAGES QUERY ERROR", error);
-      console.error('Failed to load messages:', error);
-    } else {
+    if (messagesError) {
+      console.error("MESSAGES QUERY ERROR", messagesError);
+      console.error('Failed to load messages:', messagesError);
+    }
+
+    if (profilesError) {
+      console.error("PROFILES QUERY ERROR", profilesError);
+      console.error('Failed to load profiles:', profilesError);
+    }
+
+    if (messagesError || profilesError) {
+      setLoadingData(false);
+      return;
+    }
+
+    if (!messagesError && !profilesError) {
+      const profilesById = new Map((profilesData ?? []).map((profile) => [profile.id, profile]));
+      const mergedMessages = (messagesData ?? []).map((message) => {
+        const profile = message.user_id ? profilesById.get(message.user_id) : null;
+        return {
+          ...message,
+          display_name: profile?.display_name?.trim() || 'Unknown rider',
+          avatar_url: profile?.avatar_url ?? null,
+        };
+      });
+      console.log("MESSAGES MERGED RESULT", mergedMessages);
+
       const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
 
-      for (const row of data ?? []) {
+      for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
         if (!spotNames.includes(spot)) {
           continue;
         }
-        const profileRow = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
 
         nextMessagesBySpot[spot].push({
           id: row.id,
           text: row.text,
           userId: row.user_id,
-          userName: profileRow?.display_name?.trim() || 'Unknown rider',
-          userAvatarUrl: profileRow?.avatar_url ?? null,
+          display_name: row.display_name,
+          avatar_url: row.avatar_url,
           createdAt: row.created_at,
         });
       }
 
       setMessagesBySpot(nextMessagesBySpot);
+    } else {
+      console.log("MESSAGES MERGED RESULT", []);
     }
 
     setLoadingData(false);
@@ -4315,10 +4339,10 @@ export default function App() {
             <View style={{ marginTop: 12 }}>
               {newestFirstMessages.map((message) => (
                 <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <Avatar uri={message.userAvatarUrl} size={24} />
+                  <Avatar uri={message.avatar_url} size={24} />
                   <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
                     <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                      {message.userName} · {formatToHourMinute(message.createdAt)}
+                      {message.display_name} · {formatToHourMinute(message.createdAt)}
                     </Text>
                     <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
                   </View>
