@@ -3659,18 +3659,12 @@ export default function App() {
         <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
       </View>
     ) : null;
-    const webGpsNoticeBanner = isWebPlatform ? (
-      <View style={{ backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 }}>
-        <Text style={{ color: theme.textMuted, fontSize: 12 }}>GPS auto checkout works only on mobile</Text>
-      </View>
-    ) : null;
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
         {autoCheckoutBanner}
-        {webGpsNoticeBanner}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
