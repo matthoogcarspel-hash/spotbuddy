@@ -1317,7 +1317,7 @@ export default function App() {
 
   const fetchSharedData = async () => {
     setLoadingData(true);
-    console.log('MESSAGES QUERY START', { selectedSpot });
+    console.log("MESSAGES QUERY START", { selectedSpot });
 
     const [sessionsResponse, messagesResponse] = await Promise.all([
       supabase
@@ -1341,7 +1341,8 @@ export default function App() {
         .eq('spot_name', selectedSpot)
         .order('created_at', { ascending: true }),
     ]);
-    console.log('MESSAGES QUERY RESULT', messagesResponse.data);
+    const { data, error } = messagesResponse;
+    console.log("MESSAGES QUERY RESULT", data);
 
     if (sessionsResponse.error) {
       console.error('Failed to load sessions:', sessionsResponse.error);
@@ -1395,13 +1396,13 @@ export default function App() {
       setSessionsBySpot(nextSessionsBySpot);
     }
 
-    if (messagesResponse.error) {
-      console.error('MESSAGES QUERY ERROR', messagesResponse.error);
-      console.error('Failed to load messages:', messagesResponse.error);
+    if (error) {
+      console.error("MESSAGES QUERY ERROR", error);
+      console.error('Failed to load messages:', error);
     } else {
       const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
 
-      for (const row of messagesResponse.data) {
+      for (const row of data ?? []) {
         const spot = row.spot_name as SpotName;
         if (!spotNames.includes(spot)) {
           continue;
