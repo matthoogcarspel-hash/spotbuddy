@@ -2229,6 +2229,18 @@ export default function App() {
       return;
     }
 
+    console.log('AUTO_CHECKIN_DISTANCE', {
+      nearestSpotName,
+      distanceMeters,
+      thresholdMeters: AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
+      withinThreshold: distanceMeters <= AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
+    });
+  }, [distanceMeters, nearestSpotName]);
+  useEffect(() => {
+    if (!nearestSpotName || distanceMeters === null) {
+      return;
+    }
+
     console.log('AUTO_CHECKIN_CANDIDATE', {
       nearestSpotName,
       distanceMeters,
