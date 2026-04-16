@@ -56,8 +56,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
             resizeMode="contain"
           />
           <View style={{ justifyContent: 'center' }}>
-            <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '800' }}>See who’s riding</Text>
-            <Text style={{ color: '#9db0c7', fontSize: 16, fontWeight: '600', marginTop: 4 }}>Join the session</Text>
+            <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '800' }}>See who’s going. Ride together.</Text>
           </View>
         </View>
         <Pressable onPress={() => setShowProfile(true)} style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 10 }}>
