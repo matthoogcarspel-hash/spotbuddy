@@ -1317,6 +1317,7 @@ export default function App() {
 
   const fetchSharedData = async () => {
     setLoadingData(true);
+    console.log('MESSAGES QUERY START', { selectedSpot });
 
     const [sessionsResponse, messagesResponse] = await Promise.all([
       supabase
@@ -1326,10 +1327,11 @@ export default function App() {
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
-        .select('id, spot_name, user_id, text, created_at, profiles(display_name, avatar_url)')
+        .select('id, user_id, text, spot_name, created_at, profiles:profiles!messages_user_id_fkey(display_name, avatar_url)')
         .in('spot_name', [...spotNames])
         .order('created_at', { ascending: true }),
     ]);
+    console.log('MESSAGES QUERY RESULT', messagesResponse.data);
 
     if (sessionsResponse.error) {
       console.error('Failed to load sessions:', sessionsResponse.error);
@@ -1384,6 +1386,7 @@ export default function App() {
     }
 
     if (messagesResponse.error) {
+      console.error('MESSAGES QUERY ERROR', messagesResponse.error);
       console.error('Failed to load messages:', messagesResponse.error);
     } else {
       const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
@@ -1399,7 +1402,7 @@ export default function App() {
           id: row.id,
           text: row.text,
           userId: row.user_id,
-          userName: profileRow?.display_name ?? 'Unknown',
+          userName: profileRow?.display_name?.trim() || 'Unknown rider',
           userAvatarUrl: profileRow?.avatar_url ?? null,
           createdAt: row.created_at,
         });
