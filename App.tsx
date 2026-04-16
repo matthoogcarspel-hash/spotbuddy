@@ -821,6 +821,7 @@ export default function App() {
   const autoCheckoutOutsideCountRef = useRef(0);
   const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
+  const hasAutoCheckedOutRef = useRef(false);
   const gpsWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const gpsWatcherSessionIdRef = useRef<string | null>(null);
   const gpsWatcherStartTokenRef = useRef(0);
@@ -1940,6 +1941,7 @@ export default function App() {
   useEffect(() => {
     autoCheckoutOutsideCountRef.current = 0;
     autoCheckoutOutsideSinceRef.current = null;
+    hasAutoCheckedOutRef.current = false;
   }, [gpsActiveCheckedInSession?.id]);
 
   useEffect(() => {
@@ -1970,6 +1972,9 @@ export default function App() {
       if (!session?.user.id || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
+        console.log('AUTO_CHECKOUT_SKIPPED', {
+          reason: 'not_checked_in',
+        });
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'MISSING_REQUIREMENTS',
           hasUser: Boolean(session?.user.id),
@@ -2000,7 +2005,7 @@ export default function App() {
       };
       const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
       const isOutsideRadius = distanceMeters > AUTO_CHECKOUT_RADIUS_METERS;
-      const nowMs = Date.now();
+      const spotId = gpsActiveCheckedInSession.id;
       console.log('AUTO_CHECKOUT_DISTANCE_CHECK', {
         distanceMeters,
         thresholdMeters: AUTO_CHECKOUT_RADIUS_METERS,
@@ -2015,6 +2020,9 @@ export default function App() {
       });
 
       if (!isOutsideRadius) {
+        console.log('AUTO_CHECKOUT_SKIPPED', {
+          reason: 'still_inside_radius',
+        });
         if (autoCheckoutOutsideCountRef.current !== 0 || autoCheckoutOutsideSinceRef.current !== null) {
           console.log('GPS_BACK_INSIDE', {
             sessionId: gpsActiveCheckedInSession.id,
@@ -2023,31 +2031,13 @@ export default function App() {
         }
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
+        hasAutoCheckedOutRef.current = false;
         return;
       }
 
-      if (autoCheckoutOutsideSinceRef.current === null) {
-        autoCheckoutOutsideSinceRef.current = nowMs;
-      }
-      autoCheckoutOutsideCountRef.current += 1;
-      const outsideDurationMs = nowMs - autoCheckoutOutsideSinceRef.current;
-      console.log('GPS_OUTSIDE_RADIUS', {
-        sessionId: gpsActiveCheckedInSession.id,
-        distanceMeters,
-        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
-        outsideDurationMs,
-      });
-
-      const reachedConsecutiveThreshold = autoCheckoutOutsideCountRef.current >= AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED;
-      const reachedDurationThreshold = outsideDurationMs >= AUTO_CHECK_OUT_CONFIRMATION_MS;
-      if (!reachedConsecutiveThreshold && !reachedDurationThreshold) {
-        console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-          reason: 'THRESHOLD_NOT_REACHED',
-          sessionId: gpsActiveCheckedInSession.id,
-          outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
-          outsideDurationMs,
-          requiredConsecutiveOutside: AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED,
-          requiredDurationMs: AUTO_CHECK_OUT_CONFIRMATION_MS,
+      if (hasAutoCheckedOutRef.current) {
+        console.log('AUTO_CHECKOUT_SKIPPED', {
+          reason: 'already_auto_checked_out',
         });
         return;
       }
@@ -2061,32 +2051,22 @@ export default function App() {
       }
 
       autoCheckoutInFlightRef.current = true;
-      const nowIso = new Date().toISOString();
-      console.log('GPS_AUTO_CHECKOUT_TRIGGERED', {
-        sessionId: gpsActiveCheckedInSession.id,
+      hasAutoCheckedOutRef.current = true;
+      console.log('AUTO_CHECKOUT_TRIGGERED', {
         distanceMeters,
-        outsideRadiusCounter: autoCheckoutOutsideCountRef.current,
-        outsideDurationMs,
+        threshold: AUTO_CHECKOUT_RADIUS_METERS,
+        spotId,
       });
+      console.log('GPS_AUTO_CHECKOUT_TRIGGERED', { sessionId: gpsActiveCheckedInSession.id, distanceMeters });
 
-      const result = await supabase
-        .from('sessions')
-        .update({
-          status: 'finished',
-          checked_out_at: nowIso,
-        })
-        .eq('id', gpsActiveCheckedInSession.id)
-        .eq('user_id', session.user.id)
-        .not('checked_in_at', 'is', null)
-        .is('checked_out_at', null);
-
-      if (result.error) {
+      await handleQuickCheckOut();
+      const autoCheckoutFailed = activeCheckedInSession?.id === gpsActiveCheckedInSession.id;
+      if (autoCheckoutFailed) {
         autoCheckoutInFlightRef.current = false;
-        autoCheckoutOutsideCountRef.current = AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED - 1;
-        autoCheckoutOutsideSinceRef.current = nowMs - AUTO_CHECK_OUT_CONFIRMATION_MS;
+        hasAutoCheckedOutRef.current = false;
         console.error('AUTO_CHECKOUT_ERROR', {
           sessionId: gpsActiveCheckedInSession.id,
-          error: result.error,
+          error: 'CHECKOUT_HANDLER_DID_NOT_CLOSE_SESSION',
         });
         return;
       }
