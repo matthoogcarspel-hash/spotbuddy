@@ -360,16 +360,40 @@ const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): '
 };
 const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
+const timelinePastWindowMinutes = 2 * 60;
 const planningEndMinutes = 22 * 60;
 const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
 const latestPlanningStartMinutes = planningEndMinutes - planningMinuteStep;
-const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
-const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
 const roundMinutesUpToStep = (minutes: number, step: number) => Math.ceil(minutes / step) * step;
 const minuteValueToHourMinute = (totalMinutes: number) => ({
   hour: Math.floor(totalMinutes / 60),
   minute: totalMinutes % 60,
 });
+const formatMinutesAsHourMinute = (totalMinutes: number) => `${formatTimePart(Math.floor(totalMinutes / 60))}:${formatTimePart(totalMinutes % 60)}`;
+const getTimelineLabelsForRange = (windowStartMinutes: number, windowEndMinutes: number) => {
+  if (windowEndMinutes <= windowStartMinutes) {
+    return [formatMinutesAsHourMinute(windowStartMinutes)];
+  }
+
+  const labels: string[] = [formatMinutesAsHourMinute(windowStartMinutes)];
+  const stepMinutes = 120;
+  let nextMinutes = Math.ceil(windowStartMinutes / stepMinutes) * stepMinutes;
+  if (nextMinutes <= windowStartMinutes) {
+    nextMinutes += stepMinutes;
+  }
+
+  while (nextMinutes < windowEndMinutes) {
+    labels.push(formatMinutesAsHourMinute(nextMinutes));
+    nextMinutes += stepMinutes;
+  }
+
+  const endLabel = formatMinutesAsHourMinute(windowEndMinutes);
+  if (labels[labels.length - 1] !== endLabel) {
+    labels.push(endLabel);
+  }
+
+  return labels;
+};
 const getPlanningNowReference = (selectedPlanningDateKey: string, nowMinutes: number) => {
   const todayDateKey = getCurrentLocalDateKey();
   const isToday = selectedPlanningDateKey === todayDateKey;
@@ -627,12 +651,14 @@ function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButt
 type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
   currentUserId: string | null | undefined;
+  timelineWindowStartMinutes: number;
+  timelineWindowEndMinutes: number;
   isSelected: boolean;
   onSelect: (sessionId: string) => void;
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentUserId, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const hasPlannedWindow = hasPlannedTimeWindow(item);
   const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
@@ -640,10 +666,11 @@ function SessionRow({ timelineSession, currentUserId, isSelected, onSelect, onJo
   const sessionEndMinutes = hasPlannedWindow
     ? toMinutes(item.end)
     : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-  const clampedStartMinutes = clamp(sessionStartMinutes, timelineStartMinutes, timelineEndMinutes);
-  const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineStartMinutes, timelineEndMinutes);
-  const leftPercent = clamp(((clampedStartMinutes - timelineStartMinutes) / timelineTotalMinutes) * 100, 0, 100);
-  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / timelineTotalMinutes) * 100, 6, 100 - leftPercent);
+  const clampedStartMinutes = clamp(sessionStartMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
+  const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
+  const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
+  const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
+  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
   const canShowJoin = Boolean(
     isSelected
     && currentUserId
@@ -675,6 +702,8 @@ type SessionTimelineProps = {
   selectedTimelineSessionId: string | null;
   currentUserId: string | null | undefined;
   currentLocalMinutes: number;
+  timelineWindowStartMinutes: number;
+  timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (sessionItem: SpotSession) => void;
@@ -686,14 +715,40 @@ function SessionTimeline({
   selectedTimelineSessionId,
   currentUserId,
   currentLocalMinutes,
+  timelineWindowStartMinutes,
+  timelineWindowEndMinutes,
   timelineFilter,
   onSelectSession,
   onJoinSession,
   onClearSelection,
 }: SessionTimelineProps) {
-  const totalRange = timelineEndMinutes - timelineStartMinutes;
-  const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineStartMinutes && currentLocalMinutes <= timelineEndMinutes;
-  const currentPercent = ((currentLocalMinutes - timelineStartMinutes) / totalRange) * 100;
+  const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
+  const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
+  const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
+  const visibleTimelineSessions = useMemo(
+    () =>
+      timelineSessions.filter(({ item }) => {
+        const hasPlannedWindow = hasPlannedTimeWindow(item);
+        const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+        const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
+        const sessionEndMinutes = hasPlannedWindow
+          ? toMinutes(item.end)
+          : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+        return sessionEndMinutes >= timelineWindowStartMinutes && sessionStartMinutes <= timelineWindowEndMinutes;
+      }),
+    [timelineSessions, timelineWindowEndMinutes, timelineWindowStartMinutes],
+  );
+
+  useEffect(() => {
+    console.log('TIMELINE_RENDER_RANGE', {
+      timelineWindowStartMinutes,
+      timelineWindowEndMinutes,
+      rangeStart: formatMinutesAsHourMinute(timelineWindowStartMinutes),
+      rangeEnd: formatMinutesAsHourMinute(timelineWindowEndMinutes),
+      renderedSessionCount: visibleTimelineSessions.length,
+      totalSessionCount: timelineSessions.length,
+    });
+  }, [timelineSessions.length, timelineWindowEndMinutes, timelineWindowStartMinutes, visibleTimelineSessions.length]);
 
   return (
     <Pressable onPress={onClearSelection}>
@@ -732,6 +787,7 @@ function SessionTimeline({
                   shadowOffset: { width: 0, height: 0 },
                 }}
               />
+              <Text style={{ marginTop: 2, color: '#cfe6ffcc', fontSize: 10, fontWeight: '600' }}>Now</Text>
               <View
                 style={{
                   marginTop: 4,
@@ -746,12 +802,14 @@ function SessionTimeline({
           </View>
         ) : null}
 
-        {timelineSessions.length > 0 ? (
-          timelineSessions.map((timelineSession) => (
+        {visibleTimelineSessions.length > 0 ? (
+          visibleTimelineSessions.map((timelineSession) => (
             <SessionRow
               key={timelineSession.item.id}
               timelineSession={timelineSession}
               currentUserId={currentUserId}
+              timelineWindowStartMinutes={timelineWindowStartMinutes}
+              timelineWindowEndMinutes={timelineWindowEndMinutes}
               isSelected={selectedTimelineSessionId === timelineSession.item.id}
               onSelect={onSelectSession}
               onJoin={onJoinSession}
@@ -2212,6 +2270,47 @@ export default function App() {
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
     [currentLocalMinutes, selectedPlanningDateKey],
   );
+  const timelineNowReference = useMemo(() => {
+    const todayDateKey = getCurrentLocalDateKey();
+    const isToday = selectedPlanningDateKey === todayDateKey;
+    return {
+      selectedPlanningDateKey,
+      todayDateKey,
+      isToday,
+      currentLocalMinutes,
+      nowLabel: formatMinutesAsHourMinute(currentLocalMinutes),
+    };
+  }, [currentLocalMinutes, selectedPlanningDateKey]);
+  const timelineWindow = useMemo(() => {
+    if (!timelineNowReference.isToday) {
+      return {
+        startMinutes: timelineStartMinutes,
+        endMinutes: timelineEndMinutes,
+      };
+    }
+
+    const anchoredStartMinutes = currentLocalMinutes - timelinePastWindowMinutes;
+    const startMinutes = clamp(anchoredStartMinutes, timelineStartMinutes, timelineEndMinutes);
+    const endMinutes = timelineEndMinutes;
+    return {
+      startMinutes,
+      endMinutes,
+    };
+  }, [currentLocalMinutes, timelineNowReference.isToday]);
+  const timelineLabels = useMemo(
+    () => getTimelineLabelsForRange(timelineWindow.startMinutes, timelineWindow.endMinutes),
+    [timelineWindow.endMinutes, timelineWindow.startMinutes],
+  );
+  useEffect(() => {
+    console.log('TIMELINE_NOW_REFERENCE', timelineNowReference);
+  }, [timelineNowReference]);
+  useEffect(() => {
+    console.log('TIMELINE_WINDOW_COMPUTED', {
+      ...timelineWindow,
+      startLabel: formatMinutesAsHourMinute(timelineWindow.startMinutes),
+      endLabel: formatMinutesAsHourMinute(timelineWindow.endMinutes),
+    });
+  }, [timelineWindow]);
   const startHourOptions = useMemo(
     () =>
       hours
@@ -4293,6 +4392,8 @@ export default function App() {
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentUserId={session?.user.id}
             currentLocalMinutes={currentLocalMinutes}
+            timelineWindowStartMinutes={timelineWindow.startMinutes}
+            timelineWindowEndMinutes={timelineWindow.endMinutes}
             timelineFilter={timelineFilter}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
