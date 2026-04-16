@@ -403,6 +403,7 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
   };
 };
 const CHECK_IN_RADIUS_METERS = 1000;
+const AUTO_CHECK_IN_SUGGEST_RADIUS_METERS = 300;
 const AUTO_CHECK_OUT_RADIUS_METERS = 2000;
 const AUTO_CHECK_OUT_CONSECUTIVE_OUTSIDE_REQUIRED = 2;
 const AUTO_CHECK_OUT_CONFIRMATION_MS = 60_000;
@@ -784,6 +785,9 @@ export default function App() {
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
   const [autoCheckoutNotice, setAutoCheckoutNotice] = useState<string | null>(null);
+  const [autoCheckInPromptVisible, setAutoCheckInPromptVisible] = useState(false);
+  const [autoCheckInPromptDismissed, setAutoCheckInPromptDismissed] = useState(false);
+  const [autoCheckInPromptShownInSession, setAutoCheckInPromptShownInSession] = useState(false);
   const autoCheckoutOutsideCountRef = useRef(0);
   const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
@@ -2196,8 +2200,21 @@ export default function App() {
   const selectedSpotWithinCheckInRadius = selectedSpotDistanceMeters !== null
     ? selectedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS
     : false;
+  const nearestSpotName = nearestSpotResult?.spot ?? null;
+  const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
+  const autoCheckInSuggestionCandidate = useMemo(() => {
+    if (!nearestSpotResult || activeCheckedInSession || autoCheckInPromptDismissed || autoCheckInPromptShownInSession) {
+      return null;
+    }
+
+    if (nearestSpotResult.distanceMeters > AUTO_CHECK_IN_SUGGEST_RADIUS_METERS) {
+      return null;
+    }
+
+    return nearestSpotResult;
+  }, [activeCheckedInSession, autoCheckInPromptDismissed, autoCheckInPromptShownInSession, nearestSpotResult]);
   useEffect(() => {
     if (!homeQuickCheckInError) {
       return;
@@ -2207,6 +2224,36 @@ export default function App() {
       setHomeQuickCheckInError('');
     }
   }, [activeCheckedInSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
+  useEffect(() => {
+    if (!nearestSpotName || distanceMeters === null) {
+      return;
+    }
+
+    console.log('AUTO_CHECKIN_CANDIDATE', {
+      nearestSpotName,
+      distanceMeters,
+      suggestionRadiusMeters: AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
+      isWithinSuggestionRadius: distanceMeters <= AUTO_CHECK_IN_SUGGEST_RADIUS_METERS,
+      hasActiveCheckedInSession: Boolean(activeCheckedInSession),
+      dismissed: autoCheckInPromptDismissed,
+      alreadyShownInSession: autoCheckInPromptShownInSession,
+    });
+  }, [activeCheckedInSession, autoCheckInPromptDismissed, autoCheckInPromptShownInSession, distanceMeters, nearestSpotName]);
+  useEffect(() => {
+    if (!autoCheckInSuggestionCandidate) {
+      setAutoCheckInPromptVisible(false);
+      return;
+    }
+
+    if (!autoCheckInPromptVisible) {
+      setAutoCheckInPromptVisible(true);
+      setAutoCheckInPromptShownInSession(true);
+      console.log('AUTO_CHECKIN_PROMPT_SHOWN', {
+        nearestSpotName: autoCheckInSuggestionCandidate.spot,
+        distanceMeters: autoCheckInSuggestionCandidate.distanceMeters,
+      });
+    }
+  }, [autoCheckInPromptVisible, autoCheckInSuggestionCandidate]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const spotsWithDistance = spotDefinitions.map((spot) => ({
@@ -2779,6 +2826,26 @@ export default function App() {
     setHomeQuickCheckInError('');
     console.log('HOME_QUICK_CHECKIN_SUCCESS_RESULT', { spot });
     console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot });
+  };
+  const handleAutoCheckInDismiss = () => {
+    setAutoCheckInPromptDismissed(true);
+    setAutoCheckInPromptVisible(false);
+    console.log('AUTO_CHECKIN_DISMISSED', {
+      nearestSpotName,
+      distanceMeters,
+    });
+  };
+  const handleAutoCheckInConfirm = async () => {
+    if (!autoCheckInSuggestionCandidate) {
+      return;
+    }
+
+    setAutoCheckInPromptVisible(false);
+    console.log('AUTO_CHECKIN_CONFIRMED', {
+      nearestSpotName: autoCheckInSuggestionCandidate.spot,
+      distanceMeters: autoCheckInSuggestionCandidate.distanceMeters,
+    });
+    await handleQuickCheckIn(autoCheckInSuggestionCandidate.spot);
   };
 
   const handleQuickCheckOut = async () => {
@@ -4099,6 +4166,43 @@ export default function App() {
           <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
             <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
             <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
+          </View>
+        ) : null}
+        {autoCheckInPromptVisible && autoCheckInSuggestionCandidate ? (
+          <View style={{ backgroundColor: '#10243b', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
+            <Text style={{ color: '#d9eeff', fontSize: 13 }}>
+              {`You're near ${autoCheckInSuggestionCandidate.spot}. Check in?`}
+            </Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 9 }}>
+              <Pressable
+                disabled={quickCheckInSpotInFlight !== null}
+                onPress={() => {
+                  void handleAutoCheckInConfirm();
+                }}
+                style={{
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  backgroundColor: '#15803d',
+                  opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ color: '#fff', fontSize: 13, fontWeight: '700' }}>Check in</Text>
+              </Pressable>
+              <Pressable
+                onPress={handleAutoCheckInDismiss}
+                style={{
+                  borderRadius: 8,
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  backgroundColor: '#1b2d44',
+                  borderWidth: 1,
+                  borderColor: '#395a7a',
+                }}
+              >
+                <Text style={{ color: '#cfe6ff', fontSize: 13, fontWeight: '600' }}>Dismiss</Text>
+              </Pressable>
+            </View>
           </View>
         ) : null}
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
