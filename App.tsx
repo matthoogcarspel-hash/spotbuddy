@@ -1327,8 +1327,18 @@ export default function App() {
         .order('created_at', { ascending: true }),
       supabase
         .from('messages')
-        .select('id, user_id, text, spot_name, created_at, profiles:profiles!messages_user_id_fkey(display_name, avatar_url)')
-        .in('spot_name', [...spotNames])
+        .select(`
+          id,
+          user_id,
+          text,
+          spot_name,
+          created_at,
+          profiles (
+            display_name,
+            avatar_url
+          )
+        `)
+        .eq('spot_name', selectedSpot)
         .order('created_at', { ascending: true }),
     ]);
     console.log('MESSAGES QUERY RESULT', messagesResponse.data);
