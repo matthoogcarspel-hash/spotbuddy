@@ -4392,8 +4392,7 @@ export default function App() {
             resizeMode="contain"
           />
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={{ color: theme.text, fontSize: 30, fontWeight: '800' }}>See who’s riding</Text>
-            <Text style={{ color: theme.textSoft, fontSize: 16, fontWeight: '600', marginTop: 2 }}>Join the session</Text>
+            <Text style={{ color: theme.text, fontSize: 30, fontWeight: '800' }}>See who’s going. Ride together.</Text>
           </View>
         </View>
         <View style={{ marginLeft: 10 }}>
