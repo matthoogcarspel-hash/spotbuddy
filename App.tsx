@@ -1322,9 +1322,11 @@ export default function App() {
 
     const sessionsResponse = await supabase
       .from('sessions')
-      .select('id, spot_name, user_id, user_name, user_avatar_url, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
+      .select('id, spot_name, user_id, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
+    const sessionsData = sessionsResponse.data ?? [];
+    console.log("SESSIONS RAW RESULT", sessionsData);
 
     if (!selectedSpot) {
       console.log("MESSAGES QUERY SKIPPED", { reason: "NO_SELECTED_SPOT", selectedSpot });
@@ -1339,22 +1341,32 @@ export default function App() {
       .order('created_at', { ascending: true });
     console.log("MESSAGES RAW RESULT", messagesData);
 
-    const userIds = [...new Set((messagesData ?? []).map((m) => m.user_id).filter(Boolean))];
-
-    const { data: profilesData, error: profilesError } = userIds.length
+    const sessionUserIds = [...new Set(sessionsData.map((sessionRow) => sessionRow.user_id).filter(Boolean))];
+    const { data: profilesData, error: profilesError } = sessionUserIds.length
       ? await supabase
           .from('profiles')
           .select('id, display_name, avatar_url')
-          .in('id', userIds)
+          .in('id', sessionUserIds)
       : { data: [], error: null };
-    console.log("PROFILES RAW RESULT", profilesData);
+    console.log("SESSION PROFILES RAW RESULT", profilesData);
 
     if (sessionsResponse.error) {
       console.error('Failed to load sessions:', sessionsResponse.error);
     } else {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
-      for (const row of sessionsResponse.data) {
+      const profilesById = new Map((profilesData ?? []).map((profile) => [profile.id, profile]));
+      const mergedSessions = sessionsData.map((row) => {
+        const profile = row.user_id ? profilesById.get(row.user_id) : null;
+        return {
+          ...row,
+          display_name: profile?.display_name?.trim() || 'Unknown rider',
+          avatar_url: profile?.avatar_url ?? null,
+        };
+      });
+      console.log("SESSIONS MERGED RESULT", mergedSessions);
+
+      for (const row of mergedSessions) {
         const spot = row.spot_name as SpotName;
         if (!spotNames.includes(spot)) {
           continue;
@@ -1372,8 +1384,8 @@ export default function App() {
           checkedInAt: normalizedSession.checkedInAt,
           checkedOutAt: normalizedSession.checkedOutAt,
           userId: row.user_id,
-          userName: row.user_name,
-          userAvatarUrl: row.user_avatar_url,
+          userName: row.display_name,
+          userAvatarUrl: row.avatar_url,
         });
       }
 
@@ -1416,8 +1428,22 @@ export default function App() {
       return;
     }
 
-    if (!messagesError && !profilesError) {
-      const profilesById = new Map((profilesData ?? []).map((profile) => [profile.id, profile]));
+    if (!messagesError) {
+      const messageUserIds = [...new Set((messagesData ?? []).map((message) => message.user_id).filter(Boolean))];
+      const { data: messageProfilesData, error: messageProfilesError } = messageUserIds.length
+        ? await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_url')
+            .in('id', messageUserIds)
+        : { data: [], error: null };
+
+      if (messageProfilesError) {
+        console.error('Failed to load message profiles:', messageProfilesError);
+        setLoadingData(false);
+        return;
+      }
+
+      const profilesById = new Map((messageProfilesData ?? []).map((profile) => [profile.id, profile]));
       const mergedMessages = (messagesData ?? []).map((message) => {
         const profile = message.user_id ? profilesById.get(message.user_id) : null;
         return {
@@ -2681,18 +2707,19 @@ export default function App() {
   const createPlannedSession = async (payload: {
     spot_name: string;
     user_id: string;
-    user_name: string;
-    user_avatar_url: string | null;
     start_time: string;
     end_time: string;
     status: 'Gaat';
     checked_in_at: null;
     checked_out_at: null;
-  }) => supabase
-    .from('sessions')
-    .insert(payload)
-    .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id')
-    .single();
+  }) => {
+    console.log("SESSIONS WRITE PATH ACTIVE");
+    return supabase
+      .from('sessions')
+      .insert(payload)
+      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id')
+      .single();
+  };
 
   const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
     if (!selectedSpot || !session?.user.id) {
@@ -2757,11 +2784,11 @@ export default function App() {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
   }): Promise<{ ok: true; spot: SpotName } | { ok: false; reason: string; error?: unknown }> => {
-    const { data } = await supabase.auth.getUser();
-    const authUserId = data.user?.id;
-    if (!authUserId || !session?.user.id || !profile) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user?.id) {
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
+    const authUserId = user.id;
 
     const canonicalSpot =
       spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
@@ -2846,6 +2873,7 @@ export default function App() {
       if (source === 'home_quick') {
         console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, spot: canonicalSpot });
       }
+      console.log("SESSIONS WRITE PATH ACTIVE");
       const checkInResponse = await supabase
         .from('sessions')
         .update(updatePayload)
@@ -2867,15 +2895,14 @@ export default function App() {
 
     const insertPayload = {
       spot_name: canonicalSpot,
-      user_id: session.user.id,
-      user_name: profile.display_name,
-      user_avatar_url: profile.avatar_url,
+      user_id: user.id,
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
       checked_in_at: nowIso,
       checked_out_at: null,
     };
+    console.log("SESSIONS WRITE PATH ACTIVE");
     console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
     if (source === 'home_quick') {
       console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'insert', payload: insertPayload, spot: canonicalSpot });
@@ -3555,7 +3582,8 @@ export default function App() {
 
   if (selectedSpot) {
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
-      if (!session?.user.id || !profile) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
         const errorMessage = 'Session could not be saved';
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
@@ -3570,8 +3598,7 @@ export default function App() {
         return;
       }
 
-      const currentAuthenticatedUserId = session.user.id;
-      const currentAuthenticatedDisplayName = profile.display_name;
+      const currentAuthenticatedUserId = user.id;
       const clickedSessionUserId = sessionToJoin.userId;
       const clickedSpotName = sessionToJoin.spot;
       const clickedStartTime = sessionToJoin.start;
@@ -3599,7 +3626,6 @@ export default function App() {
       console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
         currentAuthenticatedUserId,
-        currentAuthenticatedDisplayName,
         clickedSessionUserId,
         spot_name: clickedSpotName,
         start_time: clickedStartTime,
@@ -3616,7 +3642,6 @@ export default function App() {
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
           currentAuthenticatedUserId,
-          currentAuthenticatedDisplayName,
           clickedSessionUserId,
           spot_name: clickedSpotName,
           start_time: clickedStartTime,
@@ -3634,8 +3659,6 @@ export default function App() {
       const joinPayload = {
         spot_name: clickedSpotName,
         user_id: currentAuthenticatedUserId,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
         start_time: clickedStartTime,
         end_time: clickedEndTime,
         status: 'Gaat' as const,
@@ -3650,7 +3673,6 @@ export default function App() {
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
         currentUserId: currentAuthenticatedUserId,
-        currentAuthenticatedDisplayName,
         clickedSessionUserId,
         insertedUserId: joinPayload.user_id,
         spot_name: clickedSpotName,
@@ -3665,7 +3687,6 @@ export default function App() {
         console.log('SPOT_PAGE_JOIN_ERROR', {
           selectedSourceSession: sessionToJoin,
           currentUserId: currentAuthenticatedUserId,
-          currentAuthenticatedDisplayName,
           clickedSessionOwnerUserId: clickedSessionUserId,
           spot_name: clickedSpotName,
           start_time: clickedStartTime,
@@ -3684,7 +3705,6 @@ export default function App() {
 
       console.log('SPOT_PAGE_JOIN_SUCCESS', {
         currentUserId: currentAuthenticatedUserId,
-        currentAuthenticatedDisplayName,
         clickedSessionUserId,
         insertedUserId: joinResult.data.user_id,
         joinPayload,
@@ -3751,23 +3771,21 @@ export default function App() {
         return;
       }
 
-      if (!session?.user.id || !profile) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.id) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
           reason: 'missing_auth_or_profile',
           selectedSpot,
-          hasSessionUserId: Boolean(session?.user.id),
-          hasProfile: Boolean(profile),
+          hasSessionUserId: Boolean(user?.id),
         });
         return;
       }
 
       const payload = {
         spot_name: selectedSpot,
-        user_id: session.user.id,
-        user_name: profile.display_name,
-        user_avatar_url: profile.avatar_url,
+        user_id: user.id,
         start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
         end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         status: 'Gaat' as const,
@@ -3829,18 +3847,22 @@ export default function App() {
           checkedOutAt: payload.checked_out_at,
         },
       });
-      const result = editingSessionId
-        ? await supabase
+      let result;
+      if (editingSessionId) {
+        console.log("SESSIONS WRITE PATH ACTIVE");
+        result = await supabase
           .from('sessions')
           .update({
             start_time: payload.start_time,
             end_time: payload.end_time,
           })
           .eq('id', editingSessionId)
-          .eq('user_id', session.user.id)
+          .eq('user_id', user.id)
           .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
-          .single()
-        : await createPlannedSession(payload);
+          .single();
+      } else {
+        result = await createPlannedSession(payload);
+      }
       if (result.error) {
         setFormError(getSessionPersistenceErrorMessage(result.error, 'Planning the session failed. Please try again.'));
         setSaveError({
