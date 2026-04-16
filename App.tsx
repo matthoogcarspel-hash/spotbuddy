@@ -361,8 +361,38 @@ const getSessionDisplayState = (sessionItem: SpotSession, nowMinutes: number): '
 const timelineStartMinutes = 8 * 60;
 const timelineEndMinutes = 21 * 60;
 const planningEndMinutes = 22 * 60;
+const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
+const latestPlanningStartMinutes = planningEndMinutes - planningMinuteStep;
 const timelineTotalMinutes = timelineEndMinutes - timelineStartMinutes;
 const timelineLabels = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '21:00'];
+const roundMinutesUpToStep = (minutes: number, step: number) => Math.ceil(minutes / step) * step;
+const minuteValueToHourMinute = (totalMinutes: number) => ({
+  hour: Math.floor(totalMinutes / 60),
+  minute: totalMinutes % 60,
+});
+const getPlanningNowReference = (selectedPlanningDateKey: string, nowMinutes: number) => {
+  const todayDateKey = getCurrentLocalDateKey();
+  const isToday = selectedPlanningDateKey === todayDateKey;
+  const roundedNowMinutes = roundMinutesUpToStep(nowMinutes, planningMinuteStep);
+  const earliestStartMinutes = isToday ? Math.max(timelineStartMinutes, roundedNowMinutes) : timelineStartMinutes;
+  const hasValidStartSlot = earliestStartMinutes <= latestPlanningStartMinutes;
+
+  return {
+    selectedPlanningDateKey,
+    todayDateKey,
+    isToday,
+    nowMinutes,
+    roundedNowMinutes,
+    earliestStartMinutes,
+    latestPlanningStartMinutes,
+    hasValidStartSlot,
+  };
+};
+const getDefaultEndMinutesForStart = (startMinutes: number) =>
+  Math.min(
+    planningEndMinutes,
+    Math.max(startMinutes + 60, startMinutes + planningMinuteStep),
+  );
 
 type SessionBarJoinPlacement = {
   leftPercent: number;
@@ -2073,6 +2103,25 @@ export default function App() {
 
     void runAutoCheckOutIfNeeded();
   }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, session?.user.id, spotDefinitions]);
+  const selectedPlanningDateKey = currentLocalDateKey;
+  const planningNowReference = useMemo(
+    () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
+    [currentLocalMinutes, selectedPlanningDateKey],
+  );
+  const startHourOptions = useMemo(
+    () =>
+      hours
+        .filter((hour) => hour >= 8 && hour <= 20)
+        .filter((hour) => {
+          if (!planningNowReference.isToday) {
+            return true;
+          }
+          const hourMinMinutes = hour * 60;
+          const hourMaxMinutes = hourMinMinutes + Math.max(...minuteOptions);
+          return hourMaxMinutes >= planningNowReference.earliestStartMinutes && hourMinMinutes <= planningNowReference.latestPlanningStartMinutes;
+        }),
+    [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
+  );
   const currentPlanningStart = startHour === null ? null : `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
   const currentPlanningEnd = endHour === null ? null : `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
   const planningOverlapBlockingSession = useMemo(() => {
@@ -2084,8 +2133,6 @@ export default function App() {
       return null;
     }
 
-    const selectedPlanningDateKey = currentLocalDateKey;
-
     return (
       allUserSessions
         .filter((sessionItem) => sessionItem.userId === session.user.id)
@@ -2096,6 +2143,59 @@ export default function App() {
       ?? null
     );
   }, [allUserSessions, currentLocalDateKey, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
+  useEffect(() => {
+    console.log('PLANNING_NOW_REFERENCE', planningNowReference);
+  }, [planningNowReference]);
+  useEffect(() => {
+    if (!showForm || !planningNowReference.isToday || startHour === null) {
+      return;
+    }
+
+    const startTotalMinutes = startHour * 60 + startMinute;
+    if (startTotalMinutes >= planningNowReference.earliestStartMinutes) {
+      return;
+    }
+
+    const adjustedStart = minuteValueToHourMinute(planningNowReference.earliestStartMinutes);
+    console.log('PLANNING_START_TIME_ADJUSTED', {
+      reason: 'start_in_past_for_today',
+      from: startTotalMinutes,
+      to: planningNowReference.earliestStartMinutes,
+    });
+    setStartHour(adjustedStart.hour);
+    setStartMinute(adjustedStart.minute);
+  }, [planningNowReference.earliestStartMinutes, planningNowReference.isToday, showForm, startHour, startMinute]);
+  useEffect(() => {
+    if (!showForm || startHour === null) {
+      return;
+    }
+
+    const startTotalMinutes = startHour * 60 + startMinute;
+    const minEndMinutes = startTotalMinutes + planningMinuteStep;
+    if (minEndMinutes > planningEndMinutes) {
+      if (endHour !== null) {
+        setEndHour(null);
+        setEndMinute(0);
+      }
+      return;
+    }
+
+    const currentEndTotalMinutes = endHour === null ? null : endHour * 60 + endMinute;
+    if (currentEndTotalMinutes !== null && currentEndTotalMinutes > startTotalMinutes && currentEndTotalMinutes <= planningEndMinutes) {
+      return;
+    }
+
+    const adjustedEndMinutes = getDefaultEndMinutesForStart(startTotalMinutes);
+    const adjustedEnd = minuteValueToHourMinute(adjustedEndMinutes);
+    console.log('PLANNING_START_TIME_ADJUSTED', {
+      reason: 'end_realigned_after_start_change',
+      start: startTotalMinutes,
+      previousEnd: currentEndTotalMinutes,
+      nextEnd: adjustedEndMinutes,
+    });
+    setEndHour(adjustedEnd.hour);
+    setEndMinute(adjustedEnd.minute);
+  }, [endHour, endMinute, showForm, startHour, startMinute]);
   const isCheckedIn = Boolean(activeCheckedInSession);
   const hasPlannedSession = Boolean(
     allUserSessions
@@ -2382,14 +2482,31 @@ export default function App() {
     [selectedTimelineSessionId, timelineSessions],
   );
   const openEmptyPlanningForm = () => {
+    const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
     setEditingSessionId(null);
-    setStartHour(null);
-    setStartMinute(0);
-    setEndHour(null);
-    setEndMinute(0);
+    if (nowReference.isToday && nowReference.hasValidStartSlot) {
+      const defaultStart = minuteValueToHourMinute(nowReference.earliestStartMinutes);
+      const defaultEndMinutes = getDefaultEndMinutesForStart(nowReference.earliestStartMinutes);
+      const defaultEnd = minuteValueToHourMinute(defaultEndMinutes);
+      console.log('PLANNING_START_TIME_ADJUSTED', {
+        reason: 'default_start_when_opening_today_form',
+        selectedPlanningDateKey,
+        defaultStartMinutes: nowReference.earliestStartMinutes,
+        defaultEndMinutes,
+      });
+      setStartHour(defaultStart.hour);
+      setStartMinute(defaultStart.minute);
+      setEndHour(defaultEnd.hour);
+      setEndMinute(defaultEnd.minute);
+    } else {
+      setStartHour(null);
+      setStartMinute(0);
+      setEndHour(null);
+      setEndMinute(0);
+    }
     setShowForm(true);
     setActivePicker(null);
-    setFormError('');
+    setFormError(nowReference.isToday && !nowReference.hasValidStartSlot ? 'No valid planning time left today.' : '');
     setSaveError(null);
     setSessionActionError('');
   };
@@ -3526,8 +3643,15 @@ export default function App() {
         return;
       }
 
-      if (!editingSessionId && startTotalMinutes < currentLocalMinutes) {
-        setFormError('Start time cannot be earlier than now.');
+      const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
+      if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
+        console.log('PLANNING_PAST_TIME_BLOCKED', {
+          startTotalMinutes,
+          earliestStartMinutes: nowReference.earliestStartMinutes,
+          selectedPlanningDateKey,
+          editingSessionId,
+        });
+        setFormError('Start time cannot be in the past.');
         return;
       }
 
@@ -3883,8 +4007,20 @@ export default function App() {
               </View>
               {activePicker === 'startHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {hours.filter((hour) => hour >= 8 && hour <= 20).map((hour) => (
-                    <Pressable key={`start-hour-${hour}`} onPress={() => setStartHour(hour)} style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                  {startHourOptions.map((hour) => (
+                    <Pressable
+                      key={`start-hour-${hour}`}
+                      onPress={() => {
+                        setStartHour(hour);
+                        if (planningNowReference.isToday) {
+                          const earliestMinuteForHour = minuteOptions.find((minute) => (hour * 60) + minute >= planningNowReference.earliestStartMinutes);
+                          if (earliestMinuteForHour !== undefined && startMinute < earliestMinuteForHour) {
+                            setStartMinute(earliestMinuteForHour);
+                          }
+                        }
+                      }}
+                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}
+                    >
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
                   ))}
@@ -3892,11 +4028,22 @@ export default function App() {
               ) : null}
               {activePicker === 'startMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {minuteOptions.map((minute) => (
+                  {minuteOptions
+                    .filter((minute) => {
+                      if (startHour === null) {
+                        return true;
+                      }
+                      const selectedStartMinutes = (startHour * 60) + minute;
+                      if (planningNowReference.isToday && selectedStartMinutes < planningNowReference.earliestStartMinutes) {
+                        return false;
+                      }
+                      return selectedStartMinutes <= planningNowReference.latestPlanningStartMinutes;
+                    })
+                    .map((minute) => (
                     <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
-                  ))}
+                    ))}
                 </View>
               ) : null}
 
