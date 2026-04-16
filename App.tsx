@@ -4259,21 +4259,27 @@ export default function App() {
                 const {
                   data: { user },
                 } = await supabase.auth.getUser();
+                console.log('USER OBJECT', user);
+                const payload = {
+                  user_id: user?.id,
+                  text: messageText,
+                  spot_name: selectedSpot,
+                };
+                console.log('INSERT PAYLOAD', payload);
                 if (!user) {
                   console.error('NO AUTH USER');
                   return;
                 }
 
                 console.log('USER ID', user.id);
-                console.log('SENDING MESSAGE', { user_id: user.id, text: messageText, spot_name: selectedSpot });
-                const { error } = await supabase.from('messages').insert({
-                  user_id: user.id,
-                  text: messageText,
-                  spot_name: selectedSpot,
-                });
+                console.log('SENDING MESSAGE', payload);
+                const { error } = await supabase.from('messages').insert(payload);
 
                 if (error) {
-                  console.error('MESSAGE INSERT ERROR', error.message, error.details);
+                  console.error('FULL ERROR', error);
+                  console.error('ERROR MESSAGE', error.message);
+                  console.error('ERROR DETAILS', error.details);
+                  console.error('ERROR HINT', error.hint);
                   return;
                 }
 
