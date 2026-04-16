@@ -1317,6 +1317,7 @@ export default function App() {
 
   const fetchSharedData = async () => {
     setLoadingData(true);
+    console.log("MESSAGES QUERY PATH ACTIVE");
     console.log("MESSAGES QUERY START", { selectedSpot });
 
     const sessionsResponse = await supabase
@@ -1327,7 +1328,6 @@ export default function App() {
 
     if (!selectedSpot) {
       console.log("MESSAGES QUERY SKIPPED", { reason: "NO_SELECTED_SPOT", selectedSpot });
-      setMessagesBySpot((prev) => prev);
       setLoadingData(false);
       return;
     }
