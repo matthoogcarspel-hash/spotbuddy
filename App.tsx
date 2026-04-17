@@ -1152,39 +1152,45 @@ export default function App() {
   }, []);
 
   const addSelectedSpot = (spotName: SpotName) => {
-    const currentCount = favoriteSpots.length;
-    console.log("SPOT_ADD_ATTEMPT", { spotName, currentCount });
-    if (favoriteSpots.includes(spotName)) {
-      setHomeSpotsLimitMessage('');
-      setHomeSpotSearchQuery('');
-      return;
-    }
-    if (currentCount >= HOME_SPOTS_LIMIT) {
-      console.log("SPOT_ADD_BLOCKED_LIMIT", { spotName, currentCount });
-      setHomeSpotsLimitMessage('Your home screen can show up to 5 spots. Remove one to add another.');
-      return;
-    }
-
-    setHomeSpotsLimitMessage('');
+    console.log("SPOT_ADD_HANDLER_ACTIVE");
     setFavoriteSpots((previousFavoriteSpots) => {
-      const nextSelectedSpots = [...previousFavoriteSpots, spotName];
-      console.log("SPOT_SELECTED", spotName);
+      const selectedSpots = previousFavoriteSpots;
+      const currentCount = selectedSpots.length;
+      console.log("SPOT_ADD_ATTEMPT", { spotName, currentCount, selectedSpots });
+
+      if (selectedSpots.includes(spotName)) {
+        console.log("SPOT_ADD_DUPLICATE_BLOCKED", { spotName });
+        setHomeSpotsLimitMessage('');
+        setHomeSpotSearchQuery('');
+        return previousFavoriteSpots;
+      }
+
+      console.log("SPOT_ADD_LIMIT_CHECK", { currentCount, limit: HOME_SPOTS_LIMIT });
+      if (currentCount >= HOME_SPOTS_LIMIT) {
+        console.log("SPOT_ADD_BLOCKED_LIMIT", { spotName, currentCount });
+        setHomeSpotsLimitMessage('Your home screen can show up to 5 spots. Remove one to add another.');
+        return previousFavoriteSpots;
+      }
+
+      const nextSelectedSpots = [...selectedSpots, spotName];
+      console.log("SPOT_ADD_SUCCESS", { spotName, nextSelectedSpots });
+      setHomeSpotsLimitMessage('');
+      setManualOrder((previousManualOrder) => {
+        if (previousManualOrder.includes(spotName)) {
+          return previousManualOrder;
+        }
+        const nextManualOrder = [...previousManualOrder, spotName];
+        void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
+          console.error('Failed to persist spot manual order', error);
+        });
+        return nextManualOrder;
+      });
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
+      setHomeSpotSearchQuery('');
       return nextSelectedSpots;
     });
-    setManualOrder((previousManualOrder) => {
-      if (previousManualOrder.includes(spotName)) {
-        return previousManualOrder;
-      }
-      const nextManualOrder = [...previousManualOrder, spotName];
-      void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
-        console.error('Failed to persist spot manual order', error);
-      });
-      return nextManualOrder;
-    });
-    setHomeSpotSearchQuery('');
   };
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
