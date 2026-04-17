@@ -1375,6 +1375,7 @@ export default function App() {
 
   const fetchSharedData = async () => {
     setLoadingData(true);
+    console.log("SESSIONS VISIBILITY BUG PATH ACTIVE");
     console.log("MESSAGES QUERY PATH ACTIVE");
     console.log("MESSAGES QUERY START", { selectedSpot });
 
@@ -1385,18 +1386,18 @@ export default function App() {
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
     console.log("SESSIONS RAW RESULT", sessionsData);
-
+    const messagesResponse = selectedSpot
+      ? await supabase
+          .from('messages')
+          .select('id, user_id, text, spot_name, created_at')
+          .eq('spot_name', selectedSpot)
+          .order('created_at', { ascending: true })
+      : { data: [], error: null };
+    const messagesData = messagesResponse.data ?? [];
+    const messagesError = messagesResponse.error;
     if (!selectedSpot) {
       console.log("MESSAGES QUERY SKIPPED", { reason: "NO_SELECTED_SPOT", selectedSpot });
-      setLoadingData(false);
-      return;
     }
-
-    const { data: messagesData, error: messagesError } = await supabase
-      .from('messages')
-      .select('id, user_id, text, spot_name, created_at')
-      .eq('spot_name', selectedSpot)
-      .order('created_at', { ascending: true });
     console.log("MESSAGES RAW RESULT", messagesData);
 
     const sessionUserIds = [...new Set(sessionsData.map((sessionRow) => sessionRow.user_id).filter(Boolean))];
@@ -2609,7 +2610,7 @@ export default function App() {
   );
   useEffect(() => {
     const homeLiveSessions = Object.values(sessionsBySpot).flat();
-    console.log('HOME_LIVE_SESSIONS_SOURCE', {
+    const homeSessionsSource = {
       totalSessions: homeLiveSessions.length,
       liveSessions: getLiveSessions(homeLiveSessions).map((sessionItem) => ({
         id: sessionItem.id,
@@ -2618,7 +2619,8 @@ export default function App() {
         checkedInAt: sessionItem.checkedInAt,
         checkedOutAt: sessionItem.checkedOutAt,
       })),
-    });
+    };
+    console.log("HOME LIVE COUNT SOURCE", homeSessionsSource);
   }, [sessionsBySpot]);
   useEffect(() => {
     console.log('HOME_LIVE_COUNT_BY_SPOT', homeLiveCountBySpot);
@@ -2654,15 +2656,19 @@ export default function App() {
 
   const timelineSessions = useMemo(() => {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
+    const toggleMode = timelineFilter;
+    console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: session?.user.id ?? null, toggleMode });
+    const filteredBySpot = dedupedSessions.filter((item) => isSessionCreatedToday(item));
+    console.log("SESSIONS AFTER SPOT FILTER", filteredBySpot);
+    const visibleSessions = filteredBySpot.filter((item) => {
+      if (timelineFilter === 'buddies') {
+        return followingUserIds.includes(item.userId);
+      }
+      return true;
+    });
+    console.log("SESSIONS AFTER VISIBILITY FILTER", visibleSessions);
 
-    return dedupedSessions
-      .filter((item) => isSessionCreatedToday(item))
-      .filter((item) => {
-        if (timelineFilter === 'buddies') {
-          return followingUserIds.includes(item.userId);
-        }
-        return true;
-      })
+    return visibleSessions
       .map((item) => {
         const state = getTimelineState(item, currentLocalMinutes);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
@@ -2694,7 +2700,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [currentLocalMinutes, followingUserIds, sessions, timelineFilter]);
+  }, [currentLocalMinutes, followingUserIds, selectedSpot, session?.user.id, sessions, timelineFilter]);
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
