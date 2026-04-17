@@ -151,6 +151,33 @@ const getTomorrowLocalDateKey = () => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   return getLocalDateKey(tomorrow);
 };
+const getIsoDateFromLocalDateKey = (localDateKey: string) => {
+  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
+  if (!yearPart || !monthPart || !dayPart) {
+    return null;
+  }
+
+  const isoDate = new Date();
+  isoDate.setFullYear(yearPart, monthPart - 1, dayPart);
+  isoDate.setHours(12, 0, 0, 0);
+  return isoDate.toISOString();
+};
+const getIsoDateRangeForLocalDateKey = (localDateKey: string) => {
+  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
+  if (!yearPart || !monthPart || !dayPart) {
+    return null;
+  }
+
+  const dayStart = new Date();
+  dayStart.setFullYear(yearPart, monthPart - 1, dayPart);
+  dayStart.setHours(0, 0, 0, 0);
+  const dayEnd = new Date(dayStart);
+  dayEnd.setDate(dayEnd.getDate() + 1);
+  return {
+    dayStartIso: dayStart.toISOString(),
+    dayEndIso: dayEnd.toISOString(),
+  };
+};
 const quickCheckInEndMinutes = 21 * 60;
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
@@ -1249,7 +1276,7 @@ export default function App() {
     console.log("HOME_SELECTED_SPOTS_COUNT", favoriteSpots.length);
   }, [favoriteSpots]);
   useEffect(() => {
-    console.log("HOME_ACTIVE_DAY", activeDay);
+    console.log("ACTIVE_DAY_SOURCE_OF_TRUTH", activeDay);
   }, [activeDay]);
 
   useEffect(() => {
@@ -2939,11 +2966,7 @@ export default function App() {
   }, [nowReference]);
   const timelineMode = windowInfo.mode;
   useEffect(() => {
-    console.log("HOME_TIMELINE_DAY_CONTEXT", {
-      activeDay,
-      now: new Date(),
-      timelineMode,
-    });
+    console.log("TIMELINE_ACTIVE_DAY_CONTEXT", { activeDay, now: new Date() });
   }, [activeDay, timelineMode]);
   const timelineWindow = useMemo(
     () => ({
@@ -3340,26 +3363,44 @@ export default function App() {
       blockingStatus: planningOverlapBlockingSession?.status ?? null,
     });
   }, [activeCheckedInSession, planningOverlapBlockingSession]);
+  const filteredMessages = useMemo(
+    () => messages.filter((message) => isCreatedOnLocalDate(message.createdAt, selectedPlanningDateKey)),
+    [messages, selectedPlanningDateKey],
+  );
   const newestFirstMessages = useMemo(
     () =>
-      messages
-        .filter((message) => isCreatedOnLocalDate(message.createdAt, currentLocalDateKey))
+      filteredMessages
         .sort((a, b) => {
         const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
         const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bTime - aTime;
       }),
-    [currentLocalDateKey, messages],
+    [filteredMessages],
   );
+  useEffect(() => {
+    console.log("SPOT_PAGE_DAY_FILTERED_MESSAGES", { activeDay, count: filteredMessages.length });
+  }, [activeDay, filteredMessages]);
 
   const timelineSessions = useMemo(() => {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
     console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: session?.user.id ?? null, toggleMode });
-    const filteredSessions = dedupedSessions.filter((item) => isCreatedOnLocalDate(item.createdAt, selectedPlanningDateKey));
-    console.log("HOME_DAY_FILTERED_SESSIONS", {
+    const filteredSessions = dedupedSessions.filter((item) => {
+      if (!isCreatedOnLocalDate(item.createdAt, selectedPlanningDateKey)) {
+        return false;
+      }
+
+      if (activeDay === 'tomorrow') {
+        return true;
+      }
+
+      const timelineState = getTimelineState(item, currentLocalMinutes);
+      return timelineState !== 'completed';
+    });
+    console.log("SPOT_PAGE_DAY_FILTERED_SESSIONS", {
       activeDay,
       count: filteredSessions.length,
+      sessions: filteredSessions,
     });
     console.log("SESSIONS AFTER SPOT FILTER", filteredSessions);
     const visibleSessions = filteredSessions.filter((item) => {
@@ -3546,6 +3587,7 @@ export default function App() {
     intent: SessionIntent;
     checked_in_at: null;
     checked_out_at: null;
+    created_at?: string;
   }) => {
     console.log("SESSIONS WRITE PATH ACTIVE");
     return supabase
@@ -4763,6 +4805,7 @@ export default function App() {
         intent: resolveSessionIntent(sessionToJoin.intent),
         checked_in_at: null,
         checked_out_at: null,
+        created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
       console.log('JOIN_INSERT_VALUES', {
         currentUserId: currentAuthenticatedUserId,
@@ -4891,8 +4934,11 @@ export default function App() {
         intent,
         checked_in_at: null,
         checked_out_at: null,
+        created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
+      console.log("PLAN_SESSION_ACTIVE_DAY", { activeDay, plannedDate: selectedPlanningDateKey });
       console.log('SESSION_INTENT_SAVE_PAYLOAD', payload);
+      const plannedDateRange = getIsoDateRangeForLocalDateKey(selectedPlanningDateKey);
       const exactDuplicateQuery = supabase
         .from('sessions')
         .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
@@ -4902,7 +4948,9 @@ export default function App() {
         .eq('end_time', payload.end_time)
         .eq('status', payload.status)
         .is('checked_in_at', null)
-        .is('checked_out_at', null);
+        .is('checked_out_at', null)
+        .gte('created_at', plannedDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
+        .lt('created_at', plannedDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z');
 
       const exactDuplicateResult = editingSessionId
         ? await exactDuplicateQuery.neq('id', editingSessionId).maybeSingle()
