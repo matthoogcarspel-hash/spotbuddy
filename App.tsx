@@ -335,22 +335,49 @@ const parseHourMinuteParts = (hourMinute: string) => {
 };
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
 const getSpotMomentumLabel = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumLabel | null => {
-  console.log("SPOT_MOMENTUM_INPUT", { spotName, sessions });
+  console.log("SPOT_MOMENTUM_RAW_SESSIONS", { spotName, sessions });
 
-  const activeSessions = sessions.filter((sessionItem) => !sessionItem.checkedOutAt && sessionItem.status !== 'finished' && sessionItem.status !== 'Uitchecken');
+  const nowMinutes = getCurrentLocalMinutes();
+  const currentLocalDateKey = getCurrentLocalDateKey();
+  const normalizedSpotName = normalizeSpotName(spotName);
+  const relevantSessions = sessions.filter((sessionItem) => {
+    if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
+      return false;
+    }
+
+    if (sessionItem.checkedOutAt || sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
+      return false;
+    }
+
+    if (isLiveSession(sessionItem)) {
+      return true;
+    }
+
+    if (!hasPlannedTimeWindow(sessionItem)) {
+      return false;
+    }
+
+    if (!isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey)) {
+      return false;
+    }
+
+    return toMinutes(sessionItem.end) > nowMinutes;
+  });
+  console.log("SPOT_MOMENTUM_RELEVANT_SESSIONS", { spotName, relevantSessions });
+
   let label: SpotMomentumLabel | null = null;
 
-  if (activeSessions.some((sessionItem) => isLiveSession(sessionItem))) {
+  if (relevantSessions.some((sessionItem) => isLiveSession(sessionItem))) {
     label = 'Happening now';
-  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
+  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
     label = 'Looks on';
-  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
+  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
     label = 'Session forming';
-  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
+  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
     label = 'Maybe forming';
   }
 
-  console.log("SPOT_MOMENTUM_RESULT", { spotName, label });
+  console.log("SPOT_MOMENTUM_FINAL_LABEL", { spotName, label });
   return label;
 };
 const isPlannedSession = (sessionItem: SpotSession) =>
