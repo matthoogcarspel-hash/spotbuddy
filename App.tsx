@@ -1209,6 +1209,9 @@ export default function App() {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
   useEffect(() => {
+    console.log("HOME_HIDE_ACTION_REMOVED");
+  }, []);
+  useEffect(() => {
     if (!showYourSpotsPage) {
       return;
     }
@@ -5489,18 +5492,8 @@ export default function App() {
                 borderColor: theme.border,
               }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
-                <Pressable
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    removeSelectedSpot(spot);
-                  }}
-                  hitSlop={8}
-                  style={{ paddingHorizontal: 4, paddingVertical: 2 }}
-                >
-                  <Text style={{ color: '#ff9f9f', fontSize: 13, fontWeight: '700' }}>Hide</Text>
-                </Pressable>
               </View>
               {spotMomentumLabel ? (
                 <View style={{ alignSelf: 'flex-start', marginTop: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
