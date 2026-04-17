@@ -204,6 +204,10 @@ const isSessionStillRelevantForPlanning = (sessionItem: SpotSession, currentMinu
     return false;
   }
 
+  if (isSessionExpired(sessionItem)) {
+    return false;
+  }
+
   if (!isSessionStatusBlockingForPlanning(sessionItem)) {
     return false;
   }
@@ -443,13 +447,21 @@ const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): Spo
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
   && sessionItem.checkedInAt === null
-  && sessionItem.checkedOutAt === null;
+  && sessionItem.checkedOutAt === null
+  && !isSessionExpired(sessionItem);
 const getTimelineState = (sessionItem: SpotSession, currentMinutes: number): TimelineState => {
   if (sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null) {
+    if (isSessionExpired(sessionItem)) {
+      return 'completed';
+    }
     return 'live';
   }
 
   if (sessionItem.checkedOutAt !== null) {
+    return 'completed';
+  }
+
+  if (isSessionExpired(sessionItem)) {
     return 'completed';
   }
 
@@ -481,7 +493,7 @@ const getTimelineStatusOrder = (state: TimelineState) =>
   state === 'live' ? 0 : state === 'planned' ? 1 : state === 'planned_no_check_in' ? 2 : 3;
 const timelineJoinButtonWidthPercent = 11;
 const timelineJoinButtonGapPercent = 1.2;
-const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem));
+const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -513,6 +525,30 @@ const getSessionStartTime = (sessionItem: SpotSession) => {
   sessionDate.setHours(hour ?? 0, minute ?? 0, 0, 0);
   return sessionDate;
 };
+const getSessionEndTime = (sessionItem: SpotSession) => {
+  const createdDate = sessionItem.createdAt ? new Date(sessionItem.createdAt) : new Date();
+  const fallbackDate = Number.isNaN(createdDate.getTime()) ? new Date() : createdDate;
+  const sessionDate = new Date(fallbackDate);
+  const { hour, minute } = parseHourMinuteParts(sessionItem.end);
+  sessionDate.setHours(hour ?? 0, minute ?? 0, 0, 0);
+  return sessionDate;
+};
+const isSessionExpired = (sessionItem: SpotSession, now = new Date()) => {
+  if (!hasPlannedTimeWindow(sessionItem)) {
+    return false;
+  }
+
+  const sessionEndTime = getSessionEndTime(sessionItem);
+  const isExpired = sessionEndTime.getTime() < now.getTime();
+  const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
+  console.log("SESSION_EXPIRY_CHECK", {
+    startTime: sessionWithOptionalTimes?.startTime ?? sessionItem.start,
+    endTime: sessionWithOptionalTimes?.endTime ?? sessionItem.end,
+    now: new Date(),
+    isExpired
+  });
+  return isExpired;
+};
 const isGoingLaterSession = (sessionItem: SpotSession, currentLocalMinutes: number) => {
   const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
   console.log("MOMENTUM_HELPER_FIXED");
@@ -522,6 +558,10 @@ const isGoingLaterSession = (sessionItem: SpotSession, currentLocalMinutes: numb
   });
 
   if (isLiveSession(sessionItem)) {
+    return false;
+  }
+
+  if (isSessionExpired(sessionItem)) {
     return false;
   }
 
@@ -2617,13 +2657,21 @@ export default function App() {
 
     const currentDateKey = getCurrentLocalDateKey();
 
-    return Object.values(sessionsBySpot)
+    const allCandidateSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === currentUserId)
       .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey))
       .filter((sessionItem) => sessionItem.status !== 'Uitchecken' && sessionItem.status !== 'finished')
-      .filter((sessionItem) => sessionItem.checkedOutAt === null)
-      .filter((sessionItem) => isPlannedSession(sessionItem))
+      .filter((sessionItem) => sessionItem.checkedOutAt === null);
+    const userSessions = allCandidateSessions
+      .filter((sessionItem) => !isSessionExpired(sessionItem))
+      .filter((sessionItem) => isPlannedSession(sessionItem));
+    console.log("ACTIVE_SESSION_FILTERED", {
+      beforeCount: allCandidateSessions.length,
+      afterCount: userSessions.length
+    });
+
+    return userSessions
       .sort((a, b) => {
         const startDiff = toMinutes(a.start) - toMinutes(b.start);
         if (startDiff !== 0) {
@@ -2635,6 +2683,10 @@ export default function App() {
         return bCreatedAt - aCreatedAt;
       })[0] ?? null;
   }, [sessionsBySpot, session?.user?.id]);
+  const activeBannerSession = activeCheckedInSession ?? plannedSession;
+  useEffect(() => {
+    console.log("USER_STATUS_BANNER_SESSION", activeBannerSession);
+  }, [activeBannerSession]);
   const plannedSessionIntentLabel = useMemo(() => {
     if (!plannedSession) {
       return null;
@@ -2660,9 +2712,16 @@ export default function App() {
       return [];
     }
 
-    return Object.values(sessionsBySpot)
+    const allSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === session.user.id);
+    const filteredSessions = allSessions.filter((sessionItem) => !isSessionExpired(sessionItem));
+    console.log("ACTIVE_SESSION_FILTERED", {
+      beforeCount: allSessions.length,
+      afterCount: filteredSessions.length
+    });
+
+    return filteredSessions;
   }, [session?.user.id, sessionsBySpot]);
   const upcomingPlannedSession = useMemo(() => {
     const nowMinutes = getCurrentLocalMinutes();
@@ -2998,6 +3057,7 @@ export default function App() {
           && !sessionItem.checkedInAt
           && !sessionItem.checkedOutAt
           && hasPlannedTimeWindow(sessionItem)
+          && !isSessionExpired(sessionItem)
           && isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey),
       ),
   );
