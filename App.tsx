@@ -2950,6 +2950,24 @@ export default function App() {
         }),
     [sessions],
   );
+  const upcomingSessions = useMemo(
+    () =>
+      sessions
+        .filter((sessionItem) => isSessionCreatedToday(sessionItem))
+        .filter((sessionItem) => isPlannedSession(sessionItem))
+        .filter((sessionItem) => toMinutes(sessionItem.end) > currentLocalMinutes)
+        .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
+        .slice(0, 3),
+    [currentLocalMinutes, sessions],
+  );
+  const mode: 'live' | 'upcoming' | 'empty' = liveCheckedInSessions.length > 0
+    ? 'live'
+    : upcomingSessions.length > 0
+      ? 'upcoming'
+      : 'empty';
+  console.log("NOW_AT_SPOT_LIVE_USERS", liveCheckedInSessions);
+  console.log("NOW_AT_SPOT_UPCOMING_SESSIONS", upcomingSessions);
+  console.log("NOW_AT_SPOT_MODE", mode);
   const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
   const getSessionPersistenceErrorMessage = (error: {
     code?: string;
@@ -4578,7 +4596,7 @@ export default function App() {
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
 
-          {liveCheckedInSessions.length > 0 ? (
+          {mode === 'live' ? (
             <>
               <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>{liveKiterCountLabel}</Text>
               <View>
@@ -4589,6 +4607,27 @@ export default function App() {
                     </Text>
                     <Text style={{ color: theme.textMuted, fontSize: 13 }}>
                       {`checked in at ${formatToHourMinute(liveSession.checkedInAt)}`}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          ) : mode === 'upcoming' ? (
+            <>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>Coming up today</Text>
+              <View>
+                {upcomingSessions.map((upcomingSession) => (
+                  <View key={`upcoming-${upcomingSession.id}`} style={{ marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 }} numberOfLines={1}>
+                        {upcomingSession.userName}
+                      </Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+                        {`${upcomingSession.start}–${upcomingSession.end}`}
+                      </Text>
+                    </View>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+                      {getIntentGoingLabel(resolveSessionIntent(upcomingSession.intent))}
                     </Text>
                   </View>
                 ))}
