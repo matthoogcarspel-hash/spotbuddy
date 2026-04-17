@@ -121,6 +121,7 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
 const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
 const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
+const HOME_SPOTS_LIMIT = 5;
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1005,6 +1006,7 @@ export default function App() {
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
+  const [homeSpotsLimitMessage, setHomeSpotsLimitMessage] = useState('');
   const [orderMode, setOrderMode] = useState<SpotOrderMode>('distance');
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
@@ -1079,6 +1081,14 @@ export default function App() {
   };
 
   useEffect(() => {
+    console.log("HOME_SPOTS_LIMIT", HOME_SPOTS_LIMIT);
+  }, []);
+
+  useEffect(() => {
+    console.log("HOME_SELECTED_SPOTS_COUNT", favoriteSpots.length);
+  }, [favoriteSpots]);
+
+  useEffect(() => {
     let isMounted = true;
 
     (async () => {
@@ -1093,9 +1103,15 @@ export default function App() {
         }
 
         const parsedFavoriteSpots = storedValue ? JSON.parse(storedValue) : null;
-        const loadedFavoriteSpots = Array.isArray(parsedFavoriteSpots)
+        const loadedFavoriteSpotsRaw = Array.isArray(parsedFavoriteSpots)
           ? parsedFavoriteSpots.filter((value): value is SpotName => typeof value === 'string')
           : [];
+        const loadedFavoriteSpots = loadedFavoriteSpotsRaw.slice(0, HOME_SPOTS_LIMIT);
+        if (loadedFavoriteSpotsRaw.length !== loadedFavoriteSpots.length) {
+          void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(loadedFavoriteSpots)).catch((error) => {
+            console.error('Failed to persist favorite spots', error);
+          });
+        }
         const loadedOrderMode: SpotOrderMode = storedOrderMode === 'manual' ? 'manual' : 'distance';
         const parsedManualOrder = storedManualOrder ? JSON.parse(storedManualOrder) : null;
         const loadedManualOrderRaw = Array.isArray(parsedManualOrder)
@@ -1112,6 +1128,11 @@ export default function App() {
           if (!normalizedManualOrder.includes(spotName)) {
             normalizedManualOrder.push(spotName);
           }
+        }
+        if (normalizedManualOrder.length !== dedupedManualOrder.length) {
+          void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(normalizedManualOrder)).catch((error) => {
+            console.error('Failed to persist spot manual order', error);
+          });
         }
         setFavoriteSpots(loadedFavoriteSpots);
         setOrderMode(loadedOrderMode);
@@ -1131,10 +1152,21 @@ export default function App() {
   }, []);
 
   const addSelectedSpot = (spotName: SpotName) => {
+    const currentCount = favoriteSpots.length;
+    console.log("SPOT_ADD_ATTEMPT", { spotName, currentCount });
+    if (favoriteSpots.includes(spotName)) {
+      setHomeSpotsLimitMessage('');
+      setHomeSpotSearchQuery('');
+      return;
+    }
+    if (currentCount >= HOME_SPOTS_LIMIT) {
+      console.log("SPOT_ADD_BLOCKED_LIMIT", { spotName, currentCount });
+      setHomeSpotsLimitMessage('Your home screen can show up to 5 spots. Remove one to add another.');
+      return;
+    }
+
+    setHomeSpotsLimitMessage('');
     setFavoriteSpots((previousFavoriteSpots) => {
-      if (previousFavoriteSpots.includes(spotName)) {
-        return previousFavoriteSpots;
-      }
       const nextSelectedSpots = [...previousFavoriteSpots, spotName];
       console.log("SPOT_SELECTED", spotName);
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
@@ -1155,6 +1187,7 @@ export default function App() {
     setHomeSpotSearchQuery('');
   };
   const removeSelectedSpot = (spotName: SpotName) => {
+    setHomeSpotsLimitMessage('');
     setFavoriteSpots((previousFavoriteSpots) => {
       if (!previousFavoriteSpots.includes(spotName)) {
         return previousFavoriteSpots;
@@ -3769,7 +3802,7 @@ export default function App() {
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Your spots</Text>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Your spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
                 style={{ backgroundColor: theme.bgElevated, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
@@ -3808,6 +3841,9 @@ export default function App() {
               ) : (
                 <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots to add.</Text>
               )
+            ) : null}
+            {homeSpotsLimitMessage ? (
+              <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text>
             ) : null}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 8 }}>
