@@ -1235,12 +1235,13 @@ export default function App() {
   };
   const persistManualOrder = (nextManualOrder: SpotName[]) => {
     void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).then(() => {
-      console.log("YOUR_SPOTS_MANUAL_ORDER_PERSISTED", nextManualOrder);
+      console.log("YOUR_SPOTS_REORDER_PERSISTED", nextManualOrder);
     }).catch((error) => {
       console.error('Failed to persist spot manual order', error);
     });
   };
-  const moveManualSpot = (spotName: SpotName, direction: 'up' | 'down') => {
+  const moveManualSpot = (spotName: SpotName, index: number, direction: 'up' | 'down') => {
+    console.log("YOUR_SPOTS_DRAG_CONTROL_PRESSED", { spotName, index });
     setManualOrder((previousManualOrder) => {
       const currentIndex = previousManualOrder.indexOf(spotName);
       if (currentIndex < 0) {
@@ -1253,6 +1254,11 @@ export default function App() {
       const nextManualOrder = [...previousManualOrder];
       const [movedSpot] = nextManualOrder.splice(currentIndex, 1);
       nextManualOrder.splice(targetIndex, 0, movedSpot);
+      console.log("YOUR_SPOTS_REORDER_COMMIT", {
+        fromIndex: currentIndex,
+        toIndex: targetIndex,
+        nextSelectedSpots: nextManualOrder,
+      });
       persistManualOrder(nextManualOrder);
       return nextManualOrder;
     });
@@ -1298,7 +1304,7 @@ export default function App() {
       return;
     }
     if (orderMode === 'manual') {
-      console.log("YOUR_SPOTS_MANUAL_REORDER_ACTIVE");
+      console.log("YOUR_SPOTS_REORDER_UI_ACTIVE");
     }
     console.log("YOUR_SPOTS_PAGE_ORDER_MODE", orderMode);
   }, [orderMode, showYourSpotsPage]);
@@ -3980,72 +3986,10 @@ export default function App() {
                       webDragOverIndexRef.current = null;
                     },
                   }) : null;
-                  const webDragProps = orderMode === 'manual' && isWebPlatform ? {
-                    draggable: true,
-                    onDragStart: (event: any) => {
-                      dragStartIndexRef.current = manualIndex;
-                      dragInitialOrderRef.current = [...manualOrderToRender];
-                      dragManualOrderRef.current = [...manualOrderToRender];
-                      dragSpotNameRef.current = spot;
-                      webDragOverIndexRef.current = manualIndex;
-                      if (event?.dataTransfer?.setData) {
-                        event.dataTransfer.setData('text/plain', spot);
-                        event.dataTransfer.effectAllowed = 'move';
-                      }
-                      setDraggingManualSpot(spot);
-                      setDragManualOrder([...manualOrderToRender]);
-                      console.log("YOUR_SPOTS_DRAG_START", { spotName: spot });
-                    },
-                    onDragOver: (event: any) => {
-                      event.preventDefault?.();
-                      const startIndex = dragStartIndexRef.current;
-                      if (startIndex === null || webDragOverIndexRef.current === manualIndex) {
-                        return;
-                      }
-                      webDragOverIndexRef.current = manualIndex;
-                      const initialOrder = dragInitialOrderRef.current;
-                      if (initialOrder.length <= 1) {
-                        return;
-                      }
-                      const reordered = [...initialOrder];
-                      const [movedSpot] = reordered.splice(startIndex, 1);
-                      reordered.splice(manualIndex, 0, movedSpot);
-                      dragManualOrderRef.current = reordered;
-                      setDragManualOrder(reordered);
-                    },
-                    onDrop: (event: any) => {
-                      event.preventDefault?.();
-                      const fromIndex = dragStartIndexRef.current ?? manualIndex;
-                      const nextManualOrder = dragManualOrderRef.current ?? dragInitialOrderRef.current;
-                      const draggedSpotName = dragSpotNameRef.current;
-                      const toIndex = draggedSpotName ? nextManualOrder.indexOf(draggedSpotName) : fromIndex;
-                      console.log("YOUR_SPOTS_DRAG_END", { fromIndex, toIndex });
-                      if (nextManualOrder.length > 0) {
-                        updateManualOrder(nextManualOrder);
-                      }
-                      setDraggingManualSpot(null);
-                      setDragManualOrder(null);
-                      dragStartIndexRef.current = null;
-                      dragInitialOrderRef.current = [];
-                      dragManualOrderRef.current = null;
-                      dragSpotNameRef.current = null;
-                      webDragOverIndexRef.current = null;
-                    },
-                    onDragEnd: () => {
-                      setDraggingManualSpot(null);
-                      setDragManualOrder(null);
-                      dragStartIndexRef.current = null;
-                      dragInitialOrderRef.current = [];
-                      dragManualOrderRef.current = null;
-                      dragSpotNameRef.current = null;
-                      webDragOverIndexRef.current = null;
-                    },
-                  } : null;
                   return (
                     <View
                       key={`your-spots-page-selected-${spot}`}
                       {...(panResponder ? panResponder.panHandlers : {})}
-                      {...(webDragProps as Record<string, unknown> ?? {})}
                       style={{
                         borderTopWidth: 1,
                         borderTopColor: theme.border,
@@ -4062,7 +4006,22 @@ export default function App() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           {orderMode === 'manual' ? (
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Drag</Text>
+                            <>
+                              <Pressable
+                                disabled={manualIndex === 0}
+                                onPress={() => moveManualSpot(spot, manualIndex, 'up')}
+                                style={{ paddingHorizontal: 6, paddingVertical: 4, opacity: manualIndex === 0 ? 0.45 : 1 }}
+                              >
+                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Up</Text>
+                              </Pressable>
+                              <Pressable
+                                disabled={manualIndex === selectedSpotCards.length - 1}
+                                onPress={() => moveManualSpot(spot, manualIndex, 'down')}
+                                style={{ paddingHorizontal: 6, paddingVertical: 4, opacity: manualIndex === selectedSpotCards.length - 1 ? 0.45 : 1 }}
+                              >
+                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Down</Text>
+                              </Pressable>
+                            </>
                           ) : null}
                           <Pressable
                             onPress={() => removeSelectedSpot(spot)}
