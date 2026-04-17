@@ -4805,8 +4805,13 @@ export default function App() {
   }
 
 
+  const spots = homeSpotCards;
+  console.log("HOME_SCROLL_CONTAINER_ACTIVE");
+  console.log("HOME_SPOTS_RENDER_COUNT", spots.length);
+
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: 16 }}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
       <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 20, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Image
@@ -4972,7 +4977,7 @@ export default function App() {
             </>
           )}
         </View>
-        {homeSpotCards.map(({ spot, distanceMeters }) => {
+        {spots.map(({ spot, distanceMeters }) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
@@ -5019,6 +5024,7 @@ export default function App() {
           );
         })}
       </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
