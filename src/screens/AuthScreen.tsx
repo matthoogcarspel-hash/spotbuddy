@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 
 type AuthScreenProps = {
   onSignupSuccess: () => void;
+  onPasswordResetRequest: (email: string) => Promise<{ error: string | null }>;
 };
 
 const toEnglishAuthError = (message: string) => {
@@ -25,11 +26,13 @@ const toEnglishAuthError = (message: string) => {
   return 'Something went wrong. Please try again.';
 };
 
-export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
+export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: AuthScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [loadingAction, setLoadingAction] = useState<'login' | 'signup' | null>(null);
+  const [loadingAction, setLoadingAction] = useState<'login' | 'signup' | 'reset' | null>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'reset'>('login');
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const normalizedEmail = email.trim().toLowerCase();
 
@@ -85,6 +88,42 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
     onSignupSuccess();
   };
 
+  const handleResetPassword = async () => {
+    if (!normalizedEmail) {
+      setError('Enter your email address');
+      setSuccessMessage('');
+      return;
+    }
+
+    setLoadingAction('reset');
+    setError('');
+    setSuccessMessage('');
+
+    const { error: resetError } = await onPasswordResetRequest(normalizedEmail);
+
+    setLoadingAction(null);
+
+    if (resetError) {
+      setError(resetError);
+      return;
+    }
+
+    setSuccessMessage('Reset link sent. Check your email.');
+  };
+
+  const openResetMode = () => {
+    setAuthMode('reset');
+    setPassword('');
+    setError('');
+    setSuccessMessage('');
+  };
+
+  const backToLoginMode = () => {
+    setAuthMode('login');
+    setError('');
+    setSuccessMessage('');
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
       <View style={{ marginTop: 40 }}>
@@ -101,42 +140,70 @@ export default function AuthScreen({ onSignupSuccess }: AuthScreenProps) {
           placeholderTextColor="#9db0c7"
           style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 10 }}
         />
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="Password"
-          placeholderTextColor="#9db0c7"
-          style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 12 }}
-        />
+        {authMode === 'login' ? (
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="Password"
+            placeholderTextColor="#9db0c7"
+            style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 12 }}
+          />
+        ) : null}
+
+        {authMode === 'login' ? (
+          <Pressable onPress={openResetMode} disabled={loadingAction !== null} style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#9db0c7' }}>Forgot password?</Text>
+          </Pressable>
+        ) : null}
 
         {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
+        {successMessage ? <Text style={{ color: '#79d4a0', marginBottom: 10 }}>{successMessage}</Text> : null}
 
-        <Pressable
-          disabled={loadingAction !== null}
-          onPress={handleLogin}
-          style={{
-            backgroundColor: '#0b0f14',
-            borderRadius: 10,
-            padding: 12,
-            marginBottom: 10,
-            opacity: loadingAction !== null ? 0.6 : 1,
-          }}
-        >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {loadingAction === 'login' ? 'Loading...' : 'Log in'}
-          </Text>
-        </Pressable>
+        {authMode === 'login' ? (
+          <>
+            <Pressable
+              disabled={loadingAction !== null}
+              onPress={handleLogin}
+              style={{
+                backgroundColor: '#0b0f14',
+                borderRadius: 10,
+                padding: 12,
+                marginBottom: 10,
+                opacity: loadingAction !== null ? 0.6 : 1,
+              }}
+            >
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+                {loadingAction === 'login' ? 'Loading...' : 'Log in'}
+              </Text>
+            </Pressable>
 
-        <Pressable
-          disabled={loadingAction !== null}
-          onPress={handleSignup}
-          style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, opacity: loadingAction !== null ? 0.6 : 1 }}
-        >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {loadingAction === 'signup' ? 'Loading...' : 'Create account'}
-          </Text>
-        </Pressable>
+            <Pressable
+              disabled={loadingAction !== null}
+              onPress={handleSignup}
+              style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, opacity: loadingAction !== null ? 0.6 : 1 }}
+            >
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+                {loadingAction === 'signup' ? 'Loading...' : 'Create account'}
+              </Text>
+            </Pressable>
+          </>
+        ) : (
+          <>
+            <Pressable
+              disabled={loadingAction !== null}
+              onPress={handleResetPassword}
+              style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 10, opacity: loadingAction !== null ? 0.6 : 1 }}
+            >
+              <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
+                {loadingAction === 'reset' ? 'Loading...' : 'Send reset link'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={backToLoginMode} disabled={loadingAction !== null}>
+              <Text style={{ color: '#9db0c7', textAlign: 'center' }}>Back to login</Text>
+            </Pressable>
+          </>
+        )}
       </View>
     </SafeAreaView>
   );
