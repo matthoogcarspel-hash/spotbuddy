@@ -94,6 +94,7 @@ type IncomingFollowRelation = {
 };
 type TimelineFilter = 'everyone' | 'buddies';
 type TimelineState = 'live' | 'planned' | 'planned_no_check_in' | 'completed';
+type ActiveDay = 'today' | 'tomorrow';
 type SaveDebugError = {
   message?: string;
   details?: string;
@@ -1207,6 +1208,7 @@ export default function App() {
   const [followRequestActionId, setFollowRequestActionId] = useState<string | null>(null);
   const [buddiesError, setBuddiesError] = useState('');
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
+  const [activeDay, setActiveDay] = useState<ActiveDay>('today');
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
   const passwordResetRedirectTo = useMemo(() => {
     const configuredRedirect = Constants.expoConfig?.extra?.passwordResetRedirectTo;
@@ -1246,6 +1248,9 @@ export default function App() {
   useEffect(() => {
     console.log("HOME_SELECTED_SPOTS_COUNT", favoriteSpots.length);
   }, [favoriteSpots]);
+  useEffect(() => {
+    console.log("HOME_ACTIVE_DAY", activeDay);
+  }, [activeDay]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2649,18 +2654,20 @@ export default function App() {
 
   const activeCheckedInSession = gpsActiveCheckedInSession;
   // Home-screen shortcut for the user's next planned session.
+  const activeDayDateKey = useMemo(
+    () => (activeDay === 'today' ? currentLocalDateKey : getTomorrowLocalDateKey()),
+    [activeDay, currentLocalDateKey],
+  );
   const plannedSession = useMemo(() => {
     const currentUserId = session?.user?.id;
     if (!currentUserId) {
       return null;
     }
 
-    const currentDateKey = getCurrentLocalDateKey();
-
     const allCandidateSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === currentUserId)
-      .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey))
+      .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, activeDayDateKey))
       .filter((sessionItem) => sessionItem.status !== 'Uitchecken' && sessionItem.status !== 'finished')
       .filter((sessionItem) => sessionItem.checkedOutAt === null);
     const userSessions = allCandidateSessions
@@ -2682,7 +2689,7 @@ export default function App() {
         const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bCreatedAt - aCreatedAt;
       })[0] ?? null;
-  }, [sessionsBySpot, session?.user?.id]);
+  }, [activeDayDateKey, sessionsBySpot, session?.user?.id]);
   const activeBannerSession = activeCheckedInSession ?? plannedSession;
   useEffect(() => {
     console.log("USER_STATUS_BANNER_SESSION", activeBannerSession);
@@ -2700,13 +2707,13 @@ export default function App() {
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
     || spotNotificationPreferences.checkin_notification_mode !== 'off'
     || spotNotificationPreferences.chat_notification_mode !== 'off';
-  const todaysSessionsBySpot = useMemo(() => {
+  const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
-      next[spot] = sessionsBySpot[spot].filter((item) => isSessionCreatedToday(item));
+      next[spot] = sessionsBySpot[spot].filter((item) => isCreatedOnLocalDate(item.createdAt, activeDayDateKey));
     }
     return next;
-  }, [sessionsBySpot, spotNames]);
+  }, [activeDayDateKey, sessionsBySpot, spotNames]);
   const allUserSessions = useMemo(() => {
     if (!session?.user.id) {
       return [];
@@ -2896,7 +2903,7 @@ export default function App() {
 
     void runAutoCheckOutIfNeeded();
   }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, session?.user.id, spotDefinitions]);
-  const selectedPlanningDateKey = currentLocalDateKey;
+  const selectedPlanningDateKey = activeDayDateKey;
   const planningNowReference = useMemo(
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
     [currentLocalMinutes, selectedPlanningDateKey],
@@ -2930,6 +2937,14 @@ export default function App() {
       mode: 'live_today',
     };
   }, [nowReference]);
+  const timelineMode = windowInfo.mode;
+  useEffect(() => {
+    console.log("HOME_TIMELINE_DAY_CONTEXT", {
+      activeDay,
+      now: new Date(),
+      timelineMode,
+    });
+  }, [activeDay, timelineMode]);
   const timelineWindow = useMemo(
     () => ({
       startMinutes: windowInfo.startMinutes,
@@ -3058,7 +3073,7 @@ export default function App() {
           && !sessionItem.checkedOutAt
           && hasPlannedTimeWindow(sessionItem)
           && !isSessionExpired(sessionItem)
-          && isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey),
+          && isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey),
       ),
   );
   const shouldShowSpotCheckIn = !isCheckedInAtSelectedSpot;
@@ -3341,19 +3356,24 @@ export default function App() {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
     console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: session?.user.id ?? null, toggleMode });
-    const filteredBySpot = dedupedSessions.filter((item) => isSessionCreatedToday(item));
-    console.log("SESSIONS AFTER SPOT FILTER", filteredBySpot);
-    const visibleSessions = filteredBySpot.filter((item) => {
+    const filteredSessions = dedupedSessions.filter((item) => isCreatedOnLocalDate(item.createdAt, selectedPlanningDateKey));
+    console.log("HOME_DAY_FILTERED_SESSIONS", {
+      activeDay,
+      count: filteredSessions.length,
+    });
+    console.log("SESSIONS AFTER SPOT FILTER", filteredSessions);
+    const visibleSessions = filteredSessions.filter((item) => {
       if (timelineFilter === 'buddies') {
         return followingUserIds.includes(item.userId);
       }
       return true;
     });
     console.log("SESSIONS AFTER VISIBILITY FILTER", visibleSessions);
+    const timelineReferenceMinutes = activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes;
 
     return visibleSessions
       .map((item) => {
-        const state = getTimelineState(item, currentLocalMinutes);
+        const state = getTimelineState(item, timelineReferenceMinutes);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
         const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
         const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
@@ -3383,7 +3403,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [currentLocalMinutes, followingUserIds, selectedSpot, session?.user.id, sessions, timelineFilter]);
+  }, [activeDay, currentLocalMinutes, followingUserIds, selectedPlanningDateKey, selectedSpot, session?.user.id, sessions, timelineFilter]);
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
@@ -3459,23 +3479,23 @@ export default function App() {
   }, [selectedSpot, sessions, timelineSessions]);
   const liveCheckedInSessions = useMemo(
     () =>
-      getLiveSessions(sessions)
+      getLiveSessions(sessions.filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey)))
         .sort((a, b) => {
           const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
           const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
           return bTime - aTime;
         }),
-    [sessions],
+    [selectedPlanningDateKey, sessions],
   );
   const upcomingSessions = useMemo(
     () =>
       sessions
-        .filter((sessionItem) => isSessionCreatedToday(sessionItem))
+        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey))
         .filter((sessionItem) => isPlannedSession(sessionItem))
-        .filter((sessionItem) => toMinutes(sessionItem.end) > currentLocalMinutes)
+        .filter((sessionItem) => toMinutes(sessionItem.end) > (activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes))
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
         .slice(0, 3),
-    [currentLocalMinutes, sessions],
+    [activeDay, currentLocalMinutes, selectedPlanningDateKey, sessions],
   );
   const mode: 'live' | 'upcoming' | 'empty' = liveCheckedInSessions.length > 0
     ? 'live'
@@ -5356,7 +5376,9 @@ export default function App() {
             </>
           ) : mode === 'upcoming' ? (
             <>
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>Coming up today</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>
+                {activeDay === 'today' ? 'Coming up today' : 'Coming up tomorrow'}
+              </Text>
               <View>
                 {upcomingSessions.map((upcomingSession) => (
                   <View key={`upcoming-${upcomingSession.id}`} style={{ marginBottom: 8 }}>
@@ -5419,7 +5441,7 @@ export default function App() {
             timelineSessions={timelineSessions}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentUserId={session?.user.id}
-            currentLocalMinutes={currentLocalMinutes}
+            currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
             timelineFilter={timelineFilter}
@@ -5639,6 +5661,34 @@ export default function App() {
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ marginBottom: 12 }}>
           {(() => {
+            console.log("HOME_DAY_TOGGLE_RENDERED");
+            return null;
+          })()}
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
+            {([
+              { key: 'today' as const, label: 'Today' },
+              { key: 'tomorrow' as const, label: 'Tomorrow' },
+            ]).map((option) => {
+              const isActive = activeDay === option.key;
+              return (
+                <Pressable
+                  key={`home-day-${option.key}`}
+                  onPress={() => setActiveDay(option.key)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: isActive ? theme.primary : 'transparent',
+                  }}
+                >
+                  <Text style={{ color: isActive ? '#ffffff' : theme.textSoft, fontSize: 12, fontWeight: '700' }}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+        <View style={{ marginBottom: 12 }}>
+          {(() => {
             console.log("HOME_SEARCH_REMOVED_FROM_MAIN_PAGE");
             return null;
           })()}
@@ -5723,11 +5773,14 @@ export default function App() {
           </View>
         ) : null}
         {visibleSpots.map((spot) => {
-          const goingLaterCount = todaysSessionsBySpot[spot.name]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
-          const checkedInCount = homeLiveCountBySpot[spot.name] ?? 0;
+          const goingLaterCount = daySessionsBySpot[spot.name]
+            ?.filter((sessionItem) => isGoingLaterSession(sessionItem, activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes))
+            .length ?? 0;
+          const checkedInCount = getLiveSessions(daySessionsBySpot[spot.name] ?? []).length;
           const spotMomentum = homeMomentumBySpot[spot.name];
           const todayLabel = spotMomentum?.today ?? null;
           const tomorrowLabel = spotMomentum?.tomorrow ?? null;
+          const activeMomentumLabel = activeDay === 'today' ? todayLabel : tomorrowLabel;
           console.log("HOME_CARD_TODAY_LABEL", { spotName: spot.name, label: todayLabel });
           console.log("HOME_CARD_TOMORROW_LABEL", { spotName: spot.name, label: tomorrowLabel });
           console.log("HOME_CARD_MOMENTUM_RENDER", { spotName: spot.name, todayLabel, tomorrowLabel });
@@ -5752,18 +5805,11 @@ export default function App() {
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
                 Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
               </Text>
-              {todayLabel || tomorrowLabel ? (
+              {activeMomentumLabel ? (
                 <View style={{ marginTop: 8, alignSelf: 'flex-start', gap: 4 }}>
-                  {todayLabel ? (
-                    <View style={{ backgroundColor: '#0f2e25', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                      <Text style={{ color: '#83d8b0', fontSize: 11, fontWeight: '700' }}>{todayLabel}</Text>
-                    </View>
-                  ) : null}
-                  {tomorrowLabel ? (
-                    <View style={{ backgroundColor: '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                      <Text style={{ color: '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{tomorrowLabel}</Text>
-                    </View>
-                  ) : null}
+                  <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{activeMomentumLabel}</Text>
+                  </View>
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
