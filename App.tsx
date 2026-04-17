@@ -5655,9 +5655,9 @@ export default function App() {
           const spotMomentum = homeMomentumBySpot[spot.name];
           const todayLabel = spotMomentum?.today ?? null;
           const tomorrowLabel = spotMomentum?.tomorrow ?? null;
-          console.log("ACTIVE_HOME_CARD_BLOCK_REPLACED", spot.name);
-          console.log("ACTIVE_HOME_CARD_TODAY_LABEL", { spotName: spot.name, label: todayLabel });
-          console.log("ACTIVE_HOME_CARD_TOMORROW_LABEL", { spotName: spot.name, label: tomorrowLabel });
+          console.log("HOME_CARD_TODAY_LABEL", { spotName: spot.name, label: todayLabel });
+          console.log("HOME_CARD_TOMORROW_LABEL", { spotName: spot.name, label: tomorrowLabel });
+          console.log("HOME_CARD_MOMENTUM_RENDER", { spotName: spot.name, todayLabel, tomorrowLabel });
 
           return (
             <Pressable
@@ -5679,18 +5679,24 @@ export default function App() {
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
                 Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
               </Text>
+              {todayLabel || tomorrowLabel ? (
+                <View style={{ marginTop: 8, alignSelf: 'flex-start', gap: 4 }}>
+                  {todayLabel ? (
+                    <View style={{ backgroundColor: '#0f2e25', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                      <Text style={{ color: '#83d8b0', fontSize: 11, fontWeight: '700' }}>{todayLabel}</Text>
+                    </View>
+                  ) : null}
+                  {tomorrowLabel ? (
+                    <View style={{ backgroundColor: '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                      <Text style={{ color: '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{tomorrowLabel}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
                   <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Planned</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{goingLaterCount}</Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: '#0c2130', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10, justifyContent: 'center', gap: 4 }}>
-                  {todayLabel ? (
-                    <Text style={{ color: '#83d8b0', fontSize: 12, fontWeight: '700' }}>{todayLabel}</Text>
-                  ) : null}
-                  {tomorrowLabel ? (
-                    <Text style={{ color: '#6ab7ff', fontSize: 12, fontWeight: '700' }}>{tomorrowLabel}</Text>
-                  ) : null}
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
                   <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Checked in</Text>
