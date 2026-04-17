@@ -512,6 +512,27 @@ const getSessionStartTime = (sessionItem: SpotSession) => {
   sessionDate.setHours(hour ?? 0, minute ?? 0, 0, 0);
   return sessionDate;
 };
+const isGoingLaterSession = (sessionItem: SpotSession, currentLocalMinutes: number) => {
+  const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
+  console.log("MOMENTUM_HELPER_FIXED");
+  console.log("GOING_LATER_SESSION_CHECK", {
+    startTime: sessionWithOptionalTimes?.startTime,
+    endTime: sessionWithOptionalTimes?.endTime
+  });
+
+  if (isLiveSession(sessionItem)) {
+    return false;
+  }
+
+  const sessionStartMinutes = toMinutes(sessionItem.start);
+  const sessionEndMinutes = toMinutes(sessionItem.end);
+
+  if (Number.isNaN(sessionStartMinutes) || Number.isNaN(sessionEndMinutes)) {
+    return false;
+  }
+
+  return currentLocalMinutes < sessionEndMinutes;
+};
 const getSessionDisplayState = (
   sessionItem: SpotSession,
   nowMinutes: number,
