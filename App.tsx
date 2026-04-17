@@ -3790,8 +3790,7 @@ export default function App() {
         exactDuplicateForCurrentUser,
       });
       if (exactDuplicateForCurrentUser) {
-        const errorReason = `Join blocked. currentUser=${currentAuthenticatedUserId}, clickedUser=${clickedSessionUserId ?? 'null'}, candidates=${duplicateCandidates.length}, exactDuplicates=${exactDuplicateCandidatesForCurrentUser.length}`;
-        setSessionActionError(errorReason);
+        setSessionActionError('');
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
           currentAuthenticatedUserId,
@@ -3804,7 +3803,7 @@ export default function App() {
           exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
           exactDuplicateCandidatesForCurrentUser,
           exactDuplicateForCurrentUser,
-          exactErrorReasonShownToUI: errorReason,
+          exactErrorReasonShownToUI: '',
         });
         return;
       }
