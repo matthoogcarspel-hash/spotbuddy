@@ -150,12 +150,13 @@ const getTomorrowLocalDateKey = () => {
   tomorrow.setDate(tomorrow.getDate() + 1);
   return getLocalDateKey(tomorrow);
 };
+const quickCheckInEndMinutes = 21 * 60;
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
     return 'You can only check in from 08:00';
   }
 
-  if (currentMinutes >= timelineEndMinutes) {
+  if (currentMinutes >= quickCheckInEndMinutes) {
     return 'Check-in is only available until 21:00';
   }
 
@@ -582,9 +583,9 @@ const getSessionDisplayState = (
   return label;
 };
 const timelineStartMinutes = 8 * 60;
-const timelineEndMinutes = 21 * 60;
-const timelinePastWindowMinutes = 2 * 60;
 const planningEndMinutes = 22 * 60;
+const timelineEndMinutes = planningEndMinutes;
+const timelinePastWindowMinutes = 2 * 60;
 const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
 const latestPlanningStartMinutes = planningEndMinutes - planningMinuteStep;
 const roundMinutesUpToStep = (minutes: number, step: number) => Math.ceil(minutes / step) * step;
@@ -899,6 +900,9 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
+  const startTime = hasPlannedWindow ? item.start : formatMinutesAsHourMinute(sessionStartMinutes);
+  const endTime = hasPlannedWindow ? item.end : formatMinutesAsHourMinute(sessionEndMinutes);
+  console.log("TIMELINE_BAR_POSITION_DEBUG", { startTime, endTime, leftPercent, widthPercent });
   const canShowJoin = Boolean(
     isSelected
     && currentUserId
@@ -2878,6 +2882,15 @@ export default function App() {
     () => getTimelineLabelsForRange(timelineWindow.startMinutes, timelineWindow.endMinutes),
     [timelineWindow.endMinutes, timelineWindow.startMinutes],
   );
+  useEffect(() => {
+    console.log("TIMELINE_RANGE_ACTIVE", {
+      startHour: Math.floor(timelineWindow.startMinutes / 60),
+      endHour: Math.floor(timelineWindow.endMinutes / 60),
+    });
+  }, [timelineWindow.endMinutes, timelineWindow.startMinutes]);
+  useEffect(() => {
+    console.log("TIMELINE_LABELS_RENDERED", timelineLabels);
+  }, [timelineLabels]);
   useEffect(() => {
     console.log("TIMELINE_NOW_REFERENCE", nowReference);
   }, [nowReference]);
