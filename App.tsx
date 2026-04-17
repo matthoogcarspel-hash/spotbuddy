@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { Session as AuthSession } from '@supabase/supabase-js';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
@@ -116,6 +117,7 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
   checkin_notification_mode: 'off',
   chat_notification_mode: 'off',
 };
+const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -999,6 +1001,7 @@ export default function App() {
   const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
+  const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
@@ -1060,6 +1063,50 @@ export default function App() {
 
     console.log("PASSWORD_RESET_SENT", { email });
     return { error: null };
+  };
+
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      try {
+        const storedValue = await AsyncStorage.getItem(favoriteSpotsStorageKey);
+        if (!isMounted) {
+          return;
+        }
+
+        if (!storedValue) {
+          console.log("FAVORITE_SPOTS_LOADED", []);
+          return;
+        }
+
+        const parsedFavorites = JSON.parse(storedValue);
+        const loadedFavoriteSpots = Array.isArray(parsedFavorites) ? parsedFavorites.filter((value): value is SpotName => typeof value === 'string') : [];
+        setFavoriteSpots(loadedFavoriteSpots);
+        console.log("FAVORITE_SPOTS_LOADED", loadedFavoriteSpots);
+      } catch (error) {
+        console.error('Failed to load favorite spots', error);
+        console.log("FAVORITE_SPOTS_LOADED", []);
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const toggleFavoriteSpot = (spotName: SpotName) => {
+    setFavoriteSpots((previousFavoriteSpots) => {
+      const isFavorite = !previousFavoriteSpots.includes(spotName);
+      const nextFavoriteSpots = isFavorite
+        ? [...previousFavoriteSpots, spotName]
+        : previousFavoriteSpots.filter((favoriteSpot) => favoriteSpot !== spotName);
+      console.log("FAVORITE_SPOT_TOGGLED", { spotName, isFavorite });
+      void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextFavoriteSpots)).catch((error) => {
+        console.error('Failed to persist favorite spots', error);
+      });
+      return nextFavoriteSpots;
+    });
   };
 
   const resetFlow = () => {
@@ -2775,18 +2822,22 @@ export default function App() {
         : null,
     }));
 
-    if (!currentCoordinates) {
-      return spotsWithDistance;
-    }
-
-    return [...spotsWithDistance].sort((a, b) => {
-      if (a.distanceMeters === null || b.distanceMeters === null) {
-        return 0;
+    const favoriteSpotNames = new Set(favoriteSpots);
+    const sortedSpots = [...spotsWithDistance].sort((a, b) => {
+      const aIsFavorite = favoriteSpotNames.has(a.spot);
+      const bIsFavorite = favoriteSpotNames.has(b.spot);
+      if (aIsFavorite !== bIsFavorite) {
+        return aIsFavorite ? -1 : 1;
       }
 
-      return a.distanceMeters - b.distanceMeters;
+      const aDistance = a.distanceMeters ?? Number.POSITIVE_INFINITY;
+      const bDistance = b.distanceMeters ?? Number.POSITIVE_INFINITY;
+      return aDistance - bDistance;
     });
-  }, [currentCoordinates, spotDefinitions]);
+    const sortedSpotsForLog = sortedSpots.map((spotItem) => ({ name: spotItem.spot }));
+    console.log("HOME_SORTED_SPOTS", sortedSpotsForLog.map((s) => s.name));
+    return sortedSpots;
+  }, [currentCoordinates, favoriteSpots, spotDefinitions]);
   const homeLiveCountBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
@@ -4983,6 +5034,7 @@ export default function App() {
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
           const spotMomentumLabel = homeMomentumBySpot[spot];
+          const isFavorite = favoriteSpots.includes(spot);
 
           return (
             <Pressable
@@ -4998,7 +5050,19 @@ export default function App() {
                 borderColor: theme.border,
               }}
             >
-              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+                <Pressable
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    toggleFavoriteSpot(spot);
+                  }}
+                  hitSlop={8}
+                  style={{ paddingHorizontal: 4, paddingVertical: 2 }}
+                >
+                  <Text style={{ color: isFavorite ? '#f4c542' : theme.textMuted, fontSize: 18 }}>{isFavorite ? '★' : '☆'}</Text>
+                </Pressable>
+              </View>
               {spotMomentumLabel ? (
                 <View style={{ alignSelf: 'flex-start', marginTop: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{spotMomentumLabel}</Text>
