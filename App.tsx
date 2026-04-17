@@ -57,6 +57,7 @@ type SpotDistanceInfo = {
   spot: SpotName;
   distanceMeters: number | null;
 };
+type SpotMomentumLabel = 'Happening now' | 'Looks on' | 'Session forming' | 'Maybe forming';
 type SpotNotificationPreferences = {
   session_planning_notification_mode: SpotNotificationMode;
   checkin_notification_mode: SpotNotificationMode;
@@ -333,6 +334,25 @@ const parseHourMinuteParts = (hourMinute: string) => {
   };
 };
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
+const getSpotMomentumLabel = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumLabel | null => {
+  console.log("SPOT_MOMENTUM_INPUT", { spotName, sessions });
+
+  const activeSessions = sessions.filter((sessionItem) => !sessionItem.checkedOutAt && sessionItem.status !== 'finished' && sessionItem.status !== 'Uitchecken');
+  let label: SpotMomentumLabel | null = null;
+
+  if (activeSessions.some((sessionItem) => isLiveSession(sessionItem))) {
+    label = 'Happening now';
+  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
+    label = 'Looks on';
+  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
+    label = 'Session forming';
+  } else if (activeSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
+    label = 'Maybe forming';
+  }
+
+  console.log("SPOT_MOMENTUM_RESULT", { spotName, label });
+  return label;
+};
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
   && sessionItem.checkedInAt === null
@@ -2524,6 +2544,10 @@ export default function App() {
   const shouldShowSpotCheckOut = isCheckedInAtSelectedSpot;
   const canCheckIn = shouldShowSpotCheckIn && !hasPlannedSession;
   const canCheckOut = shouldShowSpotCheckOut;
+  const selectedSpotMomentumLabel = useMemo(
+    () => (selectedSpot ? getSpotMomentumLabel(selectedSpot, sessions) : null),
+    [selectedSpot, sessions],
+  );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
   const currentUserEditableSession = useMemo(() => {
@@ -2710,6 +2734,14 @@ export default function App() {
         result[spot] = getLiveSessions(sessionsBySpot[spot] ?? []).length;
         return result;
       }, {} as Record<SpotName, number>),
+    [sessionsBySpot, spotNames],
+  );
+  const homeMomentumBySpot = useMemo(
+    () =>
+      spotNames.reduce((result, spot) => {
+        result[spot] = getSpotMomentumLabel(spot, sessionsBySpot[spot] ?? []);
+        return result;
+      }, {} as Record<SpotName, SpotMomentumLabel | null>),
     [sessionsBySpot, spotNames],
   );
   useEffect(() => {
@@ -4179,6 +4211,11 @@ export default function App() {
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
+              {selectedSpotMomentumLabel ? (
+                <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
+                </View>
+              ) : null}
             </View>
             <Pressable
               onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
@@ -4840,6 +4877,7 @@ export default function App() {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
+          const spotMomentumLabel = homeMomentumBySpot[spot];
 
           return (
             <Pressable
@@ -4856,6 +4894,11 @@ export default function App() {
               }}
             >
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+              {spotMomentumLabel ? (
+                <View style={{ alignSelf: 'flex-start', marginTop: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{spotMomentumLabel}</Text>
+                </View>
+              ) : null}
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
                 Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
               </Text>
