@@ -1007,7 +1007,7 @@ export default function App() {
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
   const [orderMode, setOrderMode] = useState<SpotOrderMode>('distance');
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
-  const [isManagingSpots, setIsManagingSpots] = useState(false);
+  const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
@@ -1196,6 +1196,25 @@ export default function App() {
   useEffect(() => {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("YOUR_SPOTS_PAGE_OPENED");
+  }, [showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    const query = homeSpotSearchQuery;
+    console.log("YOUR_SPOTS_PAGE_SEARCH_QUERY", query);
+  }, [homeSpotSearchQuery, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("YOUR_SPOTS_PAGE_ORDER_MODE", orderMode);
+  }, [orderMode, showYourSpotsPage]);
   useEffect(() => {
     setManualOrder((previousManualOrder) => {
       const dedupedManualOrder: SpotName[] = [];
@@ -3701,6 +3720,142 @@ export default function App() {
     return <NameSetupScreen userId={session.user.id} onSaved={setProfile} />;
   }
 
+  if (showYourSpotsPage) {
+    const query = homeSpotSearchQuery.trim().toLowerCase();
+    const filteredSearchableSpots = spotDefinitions
+      .filter((spot) => !favoriteSpots.includes(spot.spot))
+      .filter((spot) => spot.spot.toLowerCase().includes(query));
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+        <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Your spots</Text>
+              <Pressable
+                onPress={() => setShowYourSpotsPage(false)}
+                style={{ backgroundColor: theme.bgElevated, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+              </Pressable>
+            </View>
+
+            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Search spots</Text>
+            <TextInput
+              value={homeSpotSearchQuery}
+              onChangeText={setHomeSpotSearchQuery}
+              placeholder="Search spots"
+              placeholderTextColor={theme.textMuted}
+              style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
+            />
+            {filteredSearchableSpots.length > 0 ? (
+              <View style={{ marginTop: 8 }}>
+                {filteredSearchableSpots.slice(0, 8).map((spotItem) => (
+                  <Pressable
+                    key={`your-spots-page-search-${spotItem.spot}`}
+                    onPress={() => addSelectedSpot(spotItem.spot)}
+                    style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
+                    <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Add</Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : (
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots to add.</Text>
+            )}
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Order mode</Text>
+              <Pressable
+                onPress={() => updateOrderMode('distance')}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: orderMode === 'distance' ? theme.primary : theme.border,
+                  backgroundColor: orderMode === 'distance' ? '#123868' : theme.cardStrong,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Distance</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => updateOrderMode('manual')}
+                style={{
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: orderMode === 'manual' ? theme.primary : theme.border,
+                  backgroundColor: orderMode === 'manual' ? '#123868' : theme.cardStrong,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Manual</Text>
+              </Pressable>
+            </View>
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>Selected spots</Text>
+            {homeSpotCards.length > 0 ? (
+              <View style={{ marginTop: 8 }}>
+                {homeSpotCards.map(({ spot, distanceMeters }) => {
+                  const manualIndex = manualOrder.indexOf(spot);
+                  return (
+                    <View
+                      key={`your-spots-page-selected-${spot}`}
+                      style={{
+                        borderTopWidth: 1,
+                        borderTopColor: theme.border,
+                        paddingVertical: 10,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <View style={{ flex: 1, marginRight: 10 }}>
+                          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>{spot}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>
+                            Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
+                          </Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          {orderMode === 'manual' ? (
+                            <>
+                              <Pressable
+                                disabled={manualIndex <= 0}
+                                onPress={() => moveManualSpot(spot, 'up')}
+                                style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex <= 0 ? 0.4 : 1 }}
+                              >
+                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Up</Text>
+                              </Pressable>
+                              <Pressable
+                                disabled={manualIndex < 0 || manualIndex >= manualOrder.length - 1}
+                                onPress={() => moveManualSpot(spot, 'down')}
+                                style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex < 0 || manualIndex >= manualOrder.length - 1 ? 0.4 : 1 }}
+                              >
+                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Down</Text>
+                              </Pressable>
+                            </>
+                          ) : null}
+                          <Pressable
+                            onPress={() => removeSelectedSpot(spot)}
+                            style={{ paddingHorizontal: 6, paddingVertical: 4 }}
+                          >
+                            <Text style={{ color: '#ff9f9f', fontSize: 12, fontWeight: '700' }}>Remove</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : (
+              <Text style={{ color: theme.textMuted, marginTop: 8 }}>No spots selected yet.</Text>
+            )}
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (showBuddies) {
     const trimmedSearch = searchUsersInput.trim().toLowerCase();
     const filteredBuddyUsers = buddyUsers.filter((userItem) => {
@@ -4994,7 +5149,6 @@ export default function App() {
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
   console.log("HOME_VISIBLE_SPOTS", visibleSpots.map((s) => s.name));
-  console.log("YOUR_SPOTS_MANAGE_MODE", isManagingSpots);
   console.log("YOUR_SPOTS_ORDER_MODE", orderMode);
   console.log("YOUR_SPOTS_MANUAL_ORDER", manualOrder);
   console.log("YOUR_SPOTS_VISIBLE_ORDER", visibleSpots.map((s) => s.name));
@@ -5060,11 +5214,11 @@ export default function App() {
           )}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
             <Pressable
-              onPress={() => setIsManagingSpots((previous) => !previous)}
+              onPress={() => setShowYourSpotsPage(true)}
               style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.border }}
             >
               <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>
-                {isManagingSpots ? 'Done' : 'Your spots'}
+                Your spots
               </Text>
             </Pressable>
             <View style={{ width: 8 }} />
@@ -5096,101 +5250,6 @@ export default function App() {
               )}
             </View>
           </View>
-          <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 8 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>Search spots</Text>
-            <TextInput
-              value={homeSpotSearchQuery}
-              onChangeText={setHomeSpotSearchQuery}
-              placeholder="Search spots"
-              placeholderTextColor={theme.textMuted}
-              style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13 }}
-            />
-            {searchableSpots.length > 0 ? (
-              <View style={{ marginTop: 8, maxHeight: 136 }}>
-                {searchableSpots.slice(0, 4).map((spotItem) => (
-                  <Pressable
-                    key={`search-compact-${spotItem.spot}`}
-                    onPress={() => addSelectedSpot(spotItem.spot)}
-                    style={{ paddingVertical: 6, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                  >
-                    <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
-                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>Add</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
-          </View>
-          {isManagingSpots ? (
-            <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 8 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '600' }}>Order</Text>
-                <Pressable
-                  onPress={() => updateOrderMode('distance')}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 5,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: orderMode === 'distance' ? theme.primary : theme.border,
-                    backgroundColor: orderMode === 'distance' ? '#123868' : theme.cardStrong,
-                  }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 11, fontWeight: '700' }}>Distance</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => updateOrderMode('manual')}
-                  style={{
-                    paddingHorizontal: 8,
-                    paddingVertical: 5,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: orderMode === 'manual' ? theme.primary : theme.border,
-                    backgroundColor: orderMode === 'manual' ? '#123868' : theme.cardStrong,
-                  }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 11, fontWeight: '700' }}>Manual</Text>
-                </Pressable>
-              </View>
-              {visibleSpots.length > 0 ? (
-                visibleSpots.map(({ name: spot }) => {
-                  const manualIndex = manualOrder.indexOf(spot);
-                  return (
-                    <View
-                      key={`manage-compact-${spot}`}
-                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 6, borderTopWidth: 1, borderTopColor: theme.border }}
-                    >
-                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, flex: 1, marginRight: 8 }}>{spot}</Text>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                        {orderMode === 'manual' ? (
-                          <>
-                            <Pressable
-                              disabled={manualIndex <= 0}
-                              onPress={() => moveManualSpot(spot, 'up')}
-                              style={{ paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex <= 0 ? 0.4 : 1 }}
-                            >
-                              <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '700' }}>Up</Text>
-                            </Pressable>
-                            <Pressable
-                              disabled={manualIndex < 0 || manualIndex >= manualOrder.length - 1}
-                              onPress={() => moveManualSpot(spot, 'down')}
-                              style={{ paddingHorizontal: 6, paddingVertical: 3, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex < 0 || manualIndex >= manualOrder.length - 1 ? 0.4 : 1 }}
-                            >
-                              <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '700' }}>Down</Text>
-                            </Pressable>
-                          </>
-                        ) : null}
-                        <Pressable onPress={() => removeSelectedSpot(spot)} style={{ paddingHorizontal: 4, paddingVertical: 2 }}>
-                          <Text style={{ color: '#ff9f9f', fontSize: 10, fontWeight: '700' }}>Remove</Text>
-                        </Pressable>
-                      </View>
-                    </View>
-                  );
-                })
-              ) : (
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No spots selected yet.</Text>
-              )}
-            </View>
-          ) : null}
         </View>
       </View>
 
@@ -5208,6 +5267,10 @@ export default function App() {
         ) : null}
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ backgroundColor: theme.cardStrong, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+          {(() => {
+            console.log("HOME_NEAREST_AND_SEARCH_ROW_ACTIVE");
+            return null;
+          })()}
           {isResolvingNearestSpot ? (
             <Text style={{ color: theme.textSoft }}>Nearest spot · Getting location...</Text>
           ) : nearestSpotResult && nearestSpotDistanceLabel ? (
@@ -5221,6 +5284,59 @@ export default function App() {
                   {nearestSpotDistanceLabel}
                 </Text>
               </View>
+              <View style={{ width: 196 }}>
+                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 5, textAlign: 'right' }}>Search spots</Text>
+                <TextInput
+                  value={homeSpotSearchQuery}
+                  onChangeText={setHomeSpotSearchQuery}
+                  placeholder="Search spots"
+                  placeholderTextColor={theme.textMuted}
+                  style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 9, paddingVertical: 7, fontSize: 12 }}
+                />
+                {searchableSpots.length > 0 ? (
+                  <Pressable
+                    onPress={() => addSelectedSpot(searchableSpots[0].spot)}
+                    style={{ marginTop: 6, alignSelf: 'flex-end', backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 }}
+                  >
+                    <Text numberOfLines={1} style={{ color: theme.primary, fontSize: 11, fontWeight: '700', maxWidth: 168 }}>
+                      Add {searchableSpots[0].spot}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.textSoft }}>Nearest spot · No nearby spot</Text>
+                {locationPermissionStatus !== 'granted' ? (
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Enable location for quick check-ins.</Text>
+                ) : null}
+              </View>
+              <View style={{ width: 196 }}>
+                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 5, textAlign: 'right' }}>Search spots</Text>
+                <TextInput
+                  value={homeSpotSearchQuery}
+                  onChangeText={setHomeSpotSearchQuery}
+                  placeholder="Search spots"
+                  placeholderTextColor={theme.textMuted}
+                  style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 9, paddingVertical: 7, fontSize: 12 }}
+                />
+                {searchableSpots.length > 0 ? (
+                  <Pressable
+                    onPress={() => addSelectedSpot(searchableSpots[0].spot)}
+                    style={{ marginTop: 6, alignSelf: 'flex-end', backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 }}
+                  >
+                    <Text numberOfLines={1} style={{ color: theme.primary, fontSize: 11, fontWeight: '700', maxWidth: 168 }}>
+                      Add {searchableSpots[0].spot}
+                    </Text>
+                  </Pressable>
+                ) : null}
+              </View>
+            </View>
+          )}
+          {nearestSpotResult && nearestSpotDistanceLabel ? (
+            <View style={{ marginTop: 10 }}>
               {activeCheckedInSession ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Pressable
@@ -5242,7 +5358,7 @@ export default function App() {
                     </Text>
                   </Pressable>
                   {activeCheckedInSession.spot !== nearestSpotResult.spot ? (
-                    <Text numberOfLines={1} style={{ color: theme.textMuted, marginLeft: 8, fontSize: 11, maxWidth: 96 }}>
+                    <Text numberOfLines={1} style={{ color: theme.textMuted, marginLeft: 8, fontSize: 11, maxWidth: 156 }}>
                       You are checked in at {activeCheckedInSession.spot}
                     </Text>
                   ) : null}
@@ -5259,6 +5375,7 @@ export default function App() {
                       paddingVertical: 7,
                       paddingHorizontal: 12,
                       alignItems: 'center',
+                      alignSelf: 'flex-start',
                       backgroundColor: '#15803d',
                       opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
                     }}
@@ -5270,14 +5387,7 @@ export default function App() {
                 ) : null
               )}
             </View>
-          ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Text style={{ color: theme.textSoft }}>Nearest spot · No nearby spot</Text>
-              {locationPermissionStatus !== 'granted' ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>Enable location for quick check-ins.</Text>
-              ) : null}
-            </View>
-          )}
+          ) : null}
         </View>
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
