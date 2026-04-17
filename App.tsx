@@ -1012,6 +1012,7 @@ export default function App() {
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
   const dragStartIndexRef = useRef<number | null>(null);
@@ -1150,6 +1151,12 @@ export default function App() {
       isMounted = false;
     };
   }, []);
+  useEffect(() => () => {
+    if (searchBlurTimeoutRef.current) {
+      clearTimeout(searchBlurTimeoutRef.current);
+      searchBlurTimeoutRef.current = null;
+    }
+  }, []);
 
   const addSelectedSpot = (spotName: SpotName) => {
     console.log("SPOT_ADD_HANDLER_ACTIVE");
@@ -1187,10 +1194,21 @@ export default function App() {
       });
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
+      }).then(() => {
+        console.log("SPOT_ADD_PERSISTED", { nextSelectedSpots });
       });
       setHomeSpotSearchQuery('');
       return nextSelectedSpots;
     });
+  };
+  const handleSearchResultPress = (spotName: SpotName) => {
+    console.log("SPOT_ADD_ROW_PRESSED", { spotName });
+    if (searchBlurTimeoutRef.current) {
+      clearTimeout(searchBlurTimeoutRef.current);
+      searchBlurTimeoutRef.current = null;
+    }
+    addSelectedSpot(spotName);
+    setIsSearchFocused(false);
   };
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
@@ -3821,8 +3839,22 @@ export default function App() {
             <TextInput
               value={homeSpotSearchQuery}
               onChangeText={setHomeSpotSearchQuery}
-              onFocus={() => setIsSearchFocused(true)}
-              onBlur={() => setIsSearchFocused(false)}
+              onFocus={() => {
+                if (searchBlurTimeoutRef.current) {
+                  clearTimeout(searchBlurTimeoutRef.current);
+                  searchBlurTimeoutRef.current = null;
+                }
+                setIsSearchFocused(true);
+              }}
+              onBlur={() => {
+                if (searchBlurTimeoutRef.current) {
+                  clearTimeout(searchBlurTimeoutRef.current);
+                }
+                searchBlurTimeoutRef.current = setTimeout(() => {
+                  setIsSearchFocused(false);
+                  searchBlurTimeoutRef.current = null;
+                }, 120);
+              }}
               placeholder="Search spots"
               placeholderTextColor={theme.textMuted}
               style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
@@ -3833,10 +3865,7 @@ export default function App() {
                   {filteredSearchableSpots.slice(0, 8).map((spotItem) => (
                     <Pressable
                       key={`your-spots-page-search-${spotItem.spot}`}
-                      onPress={() => {
-                        addSelectedSpot(spotItem.spot);
-                        setIsSearchFocused(false);
-                      }}
+                      onPressIn={() => handleSearchResultPress(spotItem.spot)}
                       style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                     >
                       <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
