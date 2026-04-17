@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import * as Notifications from 'expo-notifications';
-import { Image, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
@@ -1009,6 +1009,12 @@ export default function App() {
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
+  const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
+  const dragStartIndexRef = useRef<number | null>(null);
+  const dragInitialOrderRef = useRef<SpotName[]>([]);
+  const dragManualOrderRef = useRef<SpotName[] | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
@@ -1187,6 +1193,12 @@ export default function App() {
       return nextManualOrder;
     });
   };
+  const updateManualOrder = (nextManualOrder: SpotName[]) => {
+    setManualOrder(nextManualOrder);
+    void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
+      console.error('Failed to persist spot manual order', error);
+    });
+  };
   const updateOrderMode = (nextOrderMode: SpotOrderMode) => {
     setOrderMode(nextOrderMode);
     void AsyncStorage.setItem(spotOrderModeStorageKey, nextOrderMode).catch((error) => {
@@ -1213,8 +1225,20 @@ export default function App() {
     if (!showYourSpotsPage) {
       return;
     }
+    console.log("YOUR_SPOTS_SEARCH_FOCUS", isSearchFocused);
+  }, [isSearchFocused, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
     console.log("YOUR_SPOTS_PAGE_ORDER_MODE", orderMode);
   }, [orderMode, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("YOUR_SPOTS_MANUAL_ORDER_UPDATED", manualOrder);
+  }, [manualOrder, showYourSpotsPage]);
   useEffect(() => {
     setManualOrder((previousManualOrder) => {
       const dedupedManualOrder: SpotName[] = [];
@@ -3725,6 +3749,17 @@ export default function App() {
     const filteredSearchableSpots = spotDefinitions
       .filter((spot) => !favoriteSpots.includes(spot.spot))
       .filter((spot) => spot.spot.toLowerCase().includes(query));
+    const isResultsVisible = isSearchFocused;
+    console.log("YOUR_SPOTS_SEARCH_RESULTS_VISIBLE", isResultsVisible);
+    const manualOrderToRender = orderMode === 'manual' && dragManualOrder ? dragManualOrder : manualOrder;
+    const manualOrderCards = manualOrderToRender
+      .map((spotName) => {
+        const matchingCard = homeSpotCards.find((card) => card.spot === spotName);
+        return matchingCard ?? null;
+      })
+      .filter((card): card is SpotDistanceInfo => card !== null);
+    const selectedSpotCards = orderMode === 'manual' ? manualOrderCards : homeSpotCards;
+    const rowHeight = 56;
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
@@ -3744,26 +3779,33 @@ export default function App() {
             <TextInput
               value={homeSpotSearchQuery}
               onChangeText={setHomeSpotSearchQuery}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
               placeholder="Search spots"
               placeholderTextColor={theme.textMuted}
               style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
             />
-            {filteredSearchableSpots.length > 0 ? (
-              <View style={{ marginTop: 8 }}>
-                {filteredSearchableSpots.slice(0, 8).map((spotItem) => (
-                  <Pressable
-                    key={`your-spots-page-search-${spotItem.spot}`}
-                    onPress={() => addSelectedSpot(spotItem.spot)}
-                    style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                  >
-                    <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
-                    <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Add</Text>
-                  </Pressable>
-                ))}
-              </View>
-            ) : (
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots to add.</Text>
-            )}
+            {isResultsVisible ? (
+              filteredSearchableSpots.length > 0 ? (
+                <View style={{ marginTop: 8 }}>
+                  {filteredSearchableSpots.slice(0, 8).map((spotItem) => (
+                    <Pressable
+                      key={`your-spots-page-search-${spotItem.spot}`}
+                      onPress={() => {
+                        addSelectedSpot(spotItem.spot);
+                        setIsSearchFocused(false);
+                      }}
+                      style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    >
+                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
+                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Add</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              ) : (
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots to add.</Text>
+              )
+            ) : null}
 
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 18, marginBottom: 8 }}>
               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Order mode</Text>
@@ -3796,17 +3838,64 @@ export default function App() {
             </View>
 
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>Selected spots</Text>
-            {homeSpotCards.length > 0 ? (
+            {selectedSpotCards.length > 0 ? (
               <View style={{ marginTop: 8 }}>
-                {homeSpotCards.map(({ spot, distanceMeters }) => {
-                  const manualIndex = manualOrder.indexOf(spot);
+                {selectedSpotCards.map(({ spot, distanceMeters }, manualIndex) => {
+                  const panResponder = orderMode === 'manual' ? PanResponder.create({
+                    onStartShouldSetPanResponder: () => true,
+                    onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 3,
+                    onPanResponderGrant: () => {
+                      dragStartIndexRef.current = manualIndex;
+                      dragInitialOrderRef.current = [...manualOrderToRender];
+                      dragManualOrderRef.current = [...manualOrderToRender];
+                      setDraggingManualSpot(spot);
+                      setDragManualOrder([...manualOrderToRender]);
+                      console.log("YOUR_SPOTS_DRAG_REORDER_ACTIVE");
+                    },
+                    onPanResponderMove: (_, gestureState) => {
+                      const startIndex = dragStartIndexRef.current;
+                      if (startIndex === null) {
+                        return;
+                      }
+                      const initialOrder = dragInitialOrderRef.current;
+                      if (initialOrder.length <= 1) {
+                        return;
+                      }
+                      const nextIndex = clamp(startIndex + Math.round(gestureState.dy / rowHeight), 0, initialOrder.length - 1);
+                      const reordered = [...initialOrder];
+                      const [movedSpot] = reordered.splice(startIndex, 1);
+                      reordered.splice(nextIndex, 0, movedSpot);
+                      dragManualOrderRef.current = reordered;
+                      setDragManualOrder(reordered);
+                    },
+                    onPanResponderRelease: () => {
+                      const nextManualOrder = dragManualOrderRef.current ?? dragInitialOrderRef.current;
+                      if (nextManualOrder.length > 0) {
+                        updateManualOrder(nextManualOrder);
+                      }
+                      setDraggingManualSpot(null);
+                      setDragManualOrder(null);
+                      dragStartIndexRef.current = null;
+                      dragInitialOrderRef.current = [];
+                      dragManualOrderRef.current = null;
+                    },
+                    onPanResponderTerminate: () => {
+                      setDraggingManualSpot(null);
+                      setDragManualOrder(null);
+                      dragStartIndexRef.current = null;
+                      dragInitialOrderRef.current = [];
+                      dragManualOrderRef.current = null;
+                    },
+                  }) : null;
                   return (
                     <View
                       key={`your-spots-page-selected-${spot}`}
+                      {...(panResponder ? panResponder.panHandlers : {})}
                       style={{
                         borderTopWidth: 1,
                         borderTopColor: theme.border,
                         paddingVertical: 10,
+                        opacity: draggingManualSpot === spot ? 0.7 : 1,
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -3818,22 +3907,7 @@ export default function App() {
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           {orderMode === 'manual' ? (
-                            <>
-                              <Pressable
-                                disabled={manualIndex <= 0}
-                                onPress={() => moveManualSpot(spot, 'up')}
-                                style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex <= 0 ? 0.4 : 1 }}
-                              >
-                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Up</Text>
-                              </Pressable>
-                              <Pressable
-                                disabled={manualIndex < 0 || manualIndex >= manualOrder.length - 1}
-                                onPress={() => moveManualSpot(spot, 'down')}
-                                style={{ paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex < 0 || manualIndex >= manualOrder.length - 1 ? 0.4 : 1 }}
-                              >
-                                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Down</Text>
-                              </Pressable>
-                            </>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>Drag</Text>
                           ) : null}
                           <Pressable
                             onPress={() => removeSelectedSpot(spot)}
