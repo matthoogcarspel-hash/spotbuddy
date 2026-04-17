@@ -388,7 +388,7 @@ const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): Spo
       return false;
     }
 
-    return toMinutes(sessionItem.end) > nowMinutes;
+    return toMinutes(sessionItem.start) > nowMinutes;
   });
   console.log("SPOT_MOMENTUM_TODAY_INPUT", { spotName, sessions: todaySessions });
 
