@@ -3080,18 +3080,9 @@ export default function App() {
     console.log("HOME_SORTED_SPOTS", sortedSpotsForLog.map((s) => s.name));
     return orderedSpots;
   }, [currentCoordinates, favoriteSpots, manualOrder, orderMode, spotDefinitions]);
-  const searchableSpots = useMemo(() => {
-    const query = homeSpotSearchQuery.trim().toLowerCase();
-    if (!query) {
-      return [];
-    }
-
-    const selectedSpotNames = new Set(favoriteSpots);
-    return spotDefinitions
-      .filter((spot) => !selectedSpotNames.has(spot.spot))
-      .filter((spot) => spot.spot.toLowerCase().includes(query))
-      .slice(0, 6);
-  }, [favoriteSpots, homeSpotSearchQuery, spotDefinitions]);
+  useEffect(() => {
+    console.log("HOME_SELECTED_SPOTS_ORDER_MODE", orderMode);
+  }, [orderMode]);
   const homeLiveCountBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
@@ -5454,74 +5445,30 @@ export default function App() {
           </Text>
         ) : null}
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
-        <View style={{ backgroundColor: theme.cardStrong, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ marginBottom: 12 }}>
           {(() => {
-            console.log("HOME_NEAREST_AND_SEARCH_ROW_ACTIVE");
+            console.log("HOME_SEARCH_REMOVED_FROM_MAIN_PAGE");
             return null;
           })()}
           {isResolvingNearestSpot ? (
-            <Text style={{ color: theme.textSoft }}>Nearest spot · Getting location...</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · Getting location...</Text>
           ) : nearestSpotResult && nearestSpotDistanceLabel ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-              <View style={{ flex: 1, paddingRight: 10, flexDirection: 'row', alignItems: 'center' }}>
-                <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Nearest spot</Text>
-                <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '700', marginLeft: 8, flexShrink: 1 }}>
-                  {nearestSpotResult.spot}
-                </Text>
-                <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 12, marginLeft: 8 }}>
-                  {nearestSpotDistanceLabel}
-                </Text>
-              </View>
-              <View style={{ width: 196 }}>
-                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 5, textAlign: 'right' }}>Search spots</Text>
-                <TextInput
-                  value={homeSpotSearchQuery}
-                  onChangeText={setHomeSpotSearchQuery}
-                  placeholder="Search spots"
-                  placeholderTextColor={theme.textMuted}
-                  style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 9, paddingVertical: 7, fontSize: 12 }}
-                />
-                {searchableSpots.length > 0 ? (
-                  <Pressable
-                    onPress={() => addSelectedSpot(searchableSpots[0].spot)}
-                    style={{ marginTop: 6, alignSelf: 'flex-end', backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 }}
-                  >
-                    <Text numberOfLines={1} style={{ color: theme.primary, fontSize: 11, fontWeight: '700', maxWidth: 168 }}>
-                      Add {searchableSpots[0].spot}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
-            </View>
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+              Nearest spot · <Text style={{ color: theme.textSoft, fontWeight: '700' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+            </Text>
           ) : (
-            <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.textSoft }}>Nearest spot · No nearby spot</Text>
-                {locationPermissionStatus !== 'granted' ? (
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Enable location for quick check-ins.</Text>
-                ) : null}
-              </View>
-              <View style={{ width: 196 }}>
-                <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 5, textAlign: 'right' }}>Search spots</Text>
-                <TextInput
-                  value={homeSpotSearchQuery}
-                  onChangeText={setHomeSpotSearchQuery}
-                  placeholder="Search spots"
-                  placeholderTextColor={theme.textMuted}
-                  style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 9, paddingVertical: 7, fontSize: 12 }}
-                />
-                {searchableSpots.length > 0 ? (
-                  <Pressable
-                    onPress={() => addSelectedSpot(searchableSpots[0].spot)}
-                    style={{ marginTop: 6, alignSelf: 'flex-end', backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 8, paddingHorizontal: 8, paddingVertical: 5 }}
-                  >
-                    <Text numberOfLines={1} style={{ color: theme.primary, fontSize: 11, fontWeight: '700', maxWidth: 168 }}>
-                      Add {searchableSpots[0].spot}
-                    </Text>
-                  </Pressable>
-                ) : null}
-              </View>
+            <View>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · No nearby spot</Text>
+              {locationPermissionStatus !== 'granted' ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Enable location for quick check-ins.</Text>
+              ) : null}
             </View>
+          )}
+          {nearestSpotResult && (
+            (() => {
+              console.log("HOME_NEAREST_SPOT_CONTEXT_ROW", { nearestSpot: nearestSpotResult.spot, distanceMeters: nearestSpotResult.distanceMeters });
+              return null;
+            })()
           )}
           {nearestSpotResult && nearestSpotDistanceLabel ? (
             <View style={{ marginTop: 10 }}>
@@ -5580,7 +5527,7 @@ export default function App() {
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
             <Text style={{ color: theme.textSoft, fontSize: 14 }}>No spots selected yet</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Search spots to add your personal list.</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Manage your list from Your spots.</Text>
           </View>
         ) : null}
         {visibleSpots.map(({ name: spot, distanceMeters }) => {
