@@ -58,7 +58,18 @@ type SpotDistanceInfo = {
   spot: SpotName;
   distanceMeters: number | null;
 };
-type SpotMomentumLabel = 'Happening now' | 'Looks on' | 'Session forming' | 'Maybe forming';
+type SpotMomentumLabel =
+  | 'Happening now'
+  | 'Looks on today'
+  | 'Session forming today'
+  | 'Maybe forming today'
+  | 'Looks on tomorrow'
+  | 'Session forming tomorrow'
+  | 'Maybe forming tomorrow';
+type SpotMomentumBuckets = {
+  today: SpotMomentumLabel | null;
+  tomorrow: SpotMomentumLabel | null;
+};
 type SpotNotificationPreferences = {
   session_planning_notification_mode: SpotNotificationMode;
   checkin_notification_mode: SpotNotificationMode;
@@ -134,6 +145,11 @@ const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.g
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
 const getLocalDateKey = (dateValue: Date) => `${dateValue.getFullYear()}-${formatTimePart(dateValue.getMonth() + 1)}-${formatTimePart(dateValue.getDate())}`;
 const getCurrentLocalDateKey = () => getLocalDateKey(new Date());
+const getTomorrowLocalDateKey = () => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return getLocalDateKey(tomorrow);
+};
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
     return 'You can only check in from 08:00';
@@ -340,13 +356,12 @@ const parseHourMinuteParts = (hourMinute: string) => {
   };
 };
 const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
-const getSpotMomentumLabel = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumLabel | null => {
-  console.log("SPOT_MOMENTUM_RAW_SESSIONS", { spotName, sessions });
-
+const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumBuckets => {
   const nowMinutes = getCurrentLocalMinutes();
-  const currentLocalDateKey = getCurrentLocalDateKey();
+  const todayLocalDateKey = getCurrentLocalDateKey();
+  const tomorrowLocalDateKey = getTomorrowLocalDateKey();
   const normalizedSpotName = normalizeSpotName(spotName);
-  const relevantSessions = sessions.filter((sessionItem) => {
+  const todaySessions = sessions.filter((sessionItem) => {
     if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
       return false;
     }
@@ -356,35 +371,73 @@ const getSpotMomentumLabel = (spotName: SpotName, sessions: SpotSession[]): Spot
     }
 
     if (isLiveSession(sessionItem)) {
-      return true;
+      const liveDateValue = sessionItem.checkedInAt ?? sessionItem.createdAt;
+      return isCreatedOnLocalDate(liveDateValue, todayLocalDateKey);
     }
 
     if (!hasPlannedTimeWindow(sessionItem)) {
       return false;
     }
 
-    if (!isCreatedOnLocalDate(sessionItem.createdAt, currentLocalDateKey)) {
+    if (!isCreatedOnLocalDate(sessionItem.createdAt, todayLocalDateKey)) {
       return false;
     }
 
     return toMinutes(sessionItem.end) > nowMinutes;
   });
-  console.log("SPOT_MOMENTUM_RELEVANT_SESSIONS", { spotName, relevantSessions });
+  console.log("SPOT_MOMENTUM_TODAY_INPUT", { spotName, sessions: todaySessions });
 
-  let label: SpotMomentumLabel | null = null;
-
-  if (relevantSessions.some((sessionItem) => isLiveSession(sessionItem))) {
-    label = 'Happening now';
-  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
-    label = 'Looks on';
-  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
-    label = 'Session forming';
-  } else if (relevantSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
-    label = 'Maybe forming';
+  let todayLabel: SpotMomentumLabel | null = null;
+  if (todaySessions.some((sessionItem) => isLiveSession(sessionItem))) {
+    todayLabel = 'Happening now';
+  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
+    todayLabel = 'Looks on today';
+  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'likely')) {
+    todayLabel = 'Session forming today';
+  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
+    todayLabel = 'Maybe forming today';
   }
+  console.log("SPOT_MOMENTUM_TODAY_LABEL", { spotName, label: todayLabel });
 
-  console.log("SPOT_MOMENTUM_FINAL_LABEL", { spotName, label });
-  return label;
+  const tomorrowSessions = sessions.filter((sessionItem) => {
+    if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
+      return false;
+    }
+
+    if (sessionItem.checkedOutAt || sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
+      return false;
+    }
+
+    if (isLiveSession(sessionItem)) {
+      return false;
+    }
+
+    if (!hasPlannedTimeWindow(sessionItem)) {
+      return false;
+    }
+
+    if (sessionItem.checkedInAt !== null || sessionItem.checkedOutAt !== null) {
+      return false;
+    }
+
+    return isCreatedOnLocalDate(sessionItem.createdAt, tomorrowLocalDateKey);
+  });
+  console.log("SPOT_MOMENTUM_TOMORROW_INPUT", { spotName, sessions: tomorrowSessions });
+
+  let tomorrowLabel: SpotMomentumLabel | null = null;
+  if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
+    tomorrowLabel = 'Looks on tomorrow';
+  } else if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
+    tomorrowLabel = 'Session forming tomorrow';
+  } else if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
+    tomorrowLabel = 'Maybe forming tomorrow';
+  }
+  console.log("SPOT_MOMENTUM_TOMORROW_LABEL", { spotName, label: tomorrowLabel });
+
+  return {
+    today: todayLabel,
+    tomorrow: tomorrowLabel,
+  };
 };
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
@@ -2881,7 +2934,14 @@ export default function App() {
   const canCheckIn = shouldShowSpotCheckIn && !hasPlannedSession;
   const canCheckOut = shouldShowSpotCheckOut;
   const selectedSpotMomentumLabel = useMemo(
-    () => (selectedSpot ? getSpotMomentumLabel(selectedSpot, sessions) : null),
+    () => {
+      if (!selectedSpot) {
+        return null;
+      }
+
+      const momentumLabels = getSpotMomentumLabels(selectedSpot, sessions);
+      return momentumLabels.today ?? momentumLabels.tomorrow;
+    },
     [selectedSpot, sessions],
   );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
@@ -3094,9 +3154,9 @@ export default function App() {
   const homeMomentumBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
-        result[spot] = getSpotMomentumLabel(spot, sessionsBySpot[spot] ?? []);
+        result[spot] = getSpotMomentumLabels(spot, sessionsBySpot[spot] ?? []);
         return result;
-      }, {} as Record<SpotName, SpotMomentumLabel | null>),
+      }, {} as Record<SpotName, SpotMomentumBuckets>),
     [sessionsBySpot, spotNames],
   );
   useEffect(() => {
@@ -5534,7 +5594,8 @@ export default function App() {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
-          const spotMomentumLabel = homeMomentumBySpot[spot];
+          const spotMomentum = homeMomentumBySpot[spot];
+          const spotMomentumLabels = [spotMomentum?.today, spotMomentum?.tomorrow].filter((value): value is SpotMomentumLabel => Boolean(value));
 
           return (
             <Pressable
@@ -5553,9 +5614,13 @@ export default function App() {
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
               </View>
-              {spotMomentumLabel ? (
-                <View style={{ alignSelf: 'flex-start', marginTop: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{spotMomentumLabel}</Text>
+              {spotMomentumLabels.length > 0 ? (
+                <View style={{ alignSelf: 'flex-start', marginTop: 6, gap: 5 }}>
+                  {spotMomentumLabels.map((momentumLabel) => (
+                    <View key={`${spot}-${momentumLabel}`} style={{ alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+                      <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{momentumLabel}</Text>
+                    </View>
+                  ))}
                 </View>
               ) : null}
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
