@@ -21,12 +21,14 @@ type SpotDefinition = {
   longitude: number;
 };
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken' | 'live' | 'finished';
+type SessionIntent = 'maybe' | 'likely' | 'definitely';
 type SpotSession = {
   id: string;
   spot: SpotName;
   start: string;
   end: string;
   status: SessionStatus;
+  intent: SessionIntent;
   createdAt: string | null;
   checkedInAt: string | null;
   checkedOutAt: string | null;
@@ -88,6 +90,11 @@ type SaveDebugError = {
 
 const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
+const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
+  { label: 'Maybe', value: 'maybe' },
+  { label: 'Likely', value: 'likely' },
+  { label: 'Definitely', value: 'definitely' },
+];
 const theme = {
   bg: '#060b14',
   bgElevated: '#0b1626',
@@ -263,6 +270,11 @@ const hasPlannedTimeWindow = (sessionItem: SpotSession) => {
   const startMinutes = toMinutes(sessionItem.start);
   const endMinutes = toMinutes(sessionItem.end);
   return endMinutes > startMinutes;
+};
+const resolveSessionIntent = (value: string | null | undefined): SessionIntent => {
+  const resolvedIntent: SessionIntent = value === 'maybe' || value === 'definitely' || value === 'likely' ? value : 'likely';
+  console.log('SESSION_INTENT_RENDER_VALUE', resolvedIntent);
+  return resolvedIntent;
 };
 const isSessionJoinableNow = (sessionItem: SpotSession, now = new Date()) => {
   if (!hasPlannedTimeWindow(sessionItem)) {
@@ -670,6 +682,8 @@ type SessionRowProps = {
 
 function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
+  const resolvedIntent = resolveSessionIntent(item.intent);
+  const intentLabel = resolvedIntent === 'definitely' ? 'Definitely' : resolvedIntent === 'maybe' ? 'Maybe' : 'Likely';
   const hasPlannedWindow = hasPlannedTimeWindow(item);
   const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
   const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
@@ -692,9 +706,14 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
 
   return (
     <Pressable onPress={() => onSelect(item.id)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-      <Text numberOfLines={1} style={{ width: 90, color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, marginRight: 8, fontWeight: isBuddy ? '700' : '500' }}>
-        {item.userName}
-      </Text>
+      <View style={{ width: 90, marginRight: 8 }}>
+        <Text numberOfLines={1} style={{ color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, fontWeight: isBuddy ? '700' : '500' }}>
+          {item.userName}
+        </Text>
+        <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 10, marginTop: 1 }}>
+          {intentLabel}
+        </Text>
+      </View>
       <SessionBar
         leftPercent={leftPercent}
         widthPercent={widthPercent}
@@ -867,6 +886,7 @@ export default function App() {
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState<number | null>(null);
   const [endMinute, setEndMinute] = useState(0);
+  const [intent, setIntent] = useState<SessionIntent>('likely');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [formError, setFormError] = useState('');
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
@@ -1396,7 +1416,7 @@ export default function App() {
 
     const sessionsResponse = await supabase
       .from('sessions')
-      .select('id, spot_name, user_id, start_time, end_time, status, created_at, checked_in_at, checked_out_at')
+      .select('id, spot_name, user_id, start_time, end_time, status, intent, created_at, checked_in_at, checked_out_at')
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
@@ -1454,6 +1474,7 @@ export default function App() {
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
           status: normalizedSession.status,
+          intent: resolveSessionIntent(row.intent),
           createdAt: row.created_at,
           checkedInAt: normalizedSession.checkedInAt,
           checkedOutAt: normalizedSession.checkedOutAt,
@@ -1471,6 +1492,7 @@ export default function App() {
           spot: item.spot,
           start: item.start,
           end: item.end,
+          intent: item.intent,
           checkedInAt: item.checkedInAt,
           checkedOutAt: item.checkedOutAt,
         })),
@@ -1479,6 +1501,7 @@ export default function App() {
           spot: item.spot,
           start: item.start,
           end: item.end,
+          intent: item.intent,
           checkedInAt: item.checkedInAt,
           checkedOutAt: item.checkedOutAt,
         })),
@@ -2086,6 +2109,13 @@ export default function App() {
         return bCreatedAt - aCreatedAt;
       })[0] ?? null;
   }, [sessionsBySpot, session?.user?.id]);
+  const plannedSessionIntentLabel = useMemo(() => {
+    if (!plannedSession) {
+      return null;
+    }
+    const resolvedIntent = resolveSessionIntent(plannedSession.intent);
+    return resolvedIntent === 'definitely' ? 'Definitely' : resolvedIntent === 'maybe' ? 'Maybe' : 'Likely';
+  }, [plannedSession]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
@@ -2728,6 +2758,7 @@ export default function App() {
   const openEmptyPlanningForm = () => {
     const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
     setEditingSessionId(null);
+    setIntent('likely');
     if (nowReference.isToday && nowReference.hasValidStartSlot) {
       const defaultStart = minuteValueToHourMinute(nowReference.earliestStartMinutes);
       const defaultEndMinutes = getDefaultEndMinutesForStart(nowReference.earliestStartMinutes);
@@ -2772,17 +2803,20 @@ export default function App() {
         id: item.id,
         start: item.start,
         end: item.end,
+        intent: item.intent,
         checkedInAt: item.checkedInAt,
       })),
       liveSessions: sessions.filter((item) => isLiveSession(item)).map((item) => ({
         id: item.id,
         start: item.start,
         end: item.end,
+        intent: item.intent,
         checkedInAt: item.checkedInAt,
       })),
       timelineSessions: timelineSessions.map(({ item, state }) => ({
         id: item.id,
         status: item.status,
+        intent: item.intent,
         timelineState: state,
         start: item.start,
         end: item.end,
@@ -2838,6 +2872,7 @@ export default function App() {
     start_time: string;
     end_time: string;
     status: 'Gaat';
+    intent: SessionIntent;
     checked_in_at: null;
     checked_out_at: null;
   }) => {
@@ -2845,7 +2880,7 @@ export default function App() {
     return supabase
       .from('sessions')
       .insert(payload)
-      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id')
+      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent')
       .single();
   };
 
@@ -3029,6 +3064,7 @@ export default function App() {
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
+      intent: 'likely' as const,
       checked_in_at: nowIso,
       checked_out_at: null,
     };
@@ -3167,6 +3203,7 @@ export default function App() {
     setStartMinute(0);
     setEndHour(null);
     setEndMinute(0);
+    setIntent('likely');
     setEditingSessionId(null);
     setFormError('');
     setSaveError(null);
@@ -3823,6 +3860,7 @@ export default function App() {
         start_time: clickedStartTime,
         end_time: clickedEndTime,
         status: 'Gaat' as const,
+        intent: resolveSessionIntent(sessionToJoin.intent),
         checked_in_at: null,
         checked_out_at: null,
       };
@@ -3950,9 +3988,11 @@ export default function App() {
         start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
         end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         status: 'Gaat' as const,
+        intent,
         checked_in_at: null,
         checked_out_at: null,
       };
+      console.log('SESSION_INTENT_SAVE_PAYLOAD', payload);
       const exactDuplicateQuery = supabase
         .from('sessions')
         .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
@@ -4016,10 +4056,11 @@ export default function App() {
           .update({
             start_time: payload.start_time,
             end_time: payload.end_time,
+            intent: payload.intent,
           })
           .eq('id', editingSessionId)
           .eq('user_id', user.id)
-          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status')
+          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, intent')
           .single();
       } else {
         result = await createPlannedSession(payload);
@@ -4213,6 +4254,7 @@ export default function App() {
                   setStartMinute(parsedStart.minute);
                   setEndHour(parsedEnd.hour);
                   setEndMinute(parsedEnd.minute);
+                  setIntent(resolveSessionIntent(currentUserEditableSession.intent));
                   setShowForm(true);
                   setActivePicker(null);
                   setSessionActionError('');
@@ -4351,6 +4393,33 @@ export default function App() {
                   ))}
                 </View>
               ) : null}
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Intent</Text>
+              <View style={{ flexDirection: 'row', marginBottom: 10, gap: 8 }}>
+                {sessionIntentOptions.map((option) => {
+                  const isActive = intent === option.value;
+                  return (
+                    <Pressable
+                      key={`intent-${option.value}`}
+                      onPress={() => {
+                        setIntent(option.value);
+                        console.log('SESSION_INTENT_SELECTED', option.value);
+                      }}
+                      style={{
+                        flex: 1,
+                        backgroundColor: isActive ? theme.primary : theme.bgElevated,
+                        borderRadius: 10,
+                        borderWidth: 1,
+                        borderColor: theme.border,
+                        paddingVertical: 8,
+                        paddingHorizontal: 8,
+                        alignItems: 'center',
+                      }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: isActive ? '700' : '600' }}>{option.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
               {formError ? (
                 <Text
@@ -4595,6 +4664,9 @@ export default function App() {
                 }}
               >
                 🚨 Planned: {plannedSession.spot}
+              </Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, textAlign: 'center' }}>
+                {plannedSessionIntentLabel}
               </Text>
             </Pressable>
           )}
