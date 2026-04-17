@@ -5595,7 +5595,12 @@ export default function App() {
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
           const spotMomentum = homeMomentumBySpot[spot];
-          const spotMomentumLabels = [spotMomentum?.today, spotMomentum?.tomorrow].filter((value): value is SpotMomentumLabel => Boolean(value));
+          const todayLabel = spotMomentum?.today ?? null;
+          const tomorrowLabel = spotMomentum?.tomorrow ?? null;
+          const spotMomentumLabels = [todayLabel, tomorrowLabel].filter((value): value is SpotMomentumLabel => Boolean(value));
+          console.log("HOME_SPOT_CARD_TODAY_LABEL", { spotName: spot, label: todayLabel });
+          console.log("HOME_SPOT_CARD_TOMORROW_LABEL", { spotName: spot, label: tomorrowLabel });
+          console.log("HOME_SPOT_CARD_MOMENTUM_RENDER", { spotName: spot, todayLabel, tomorrowLabel });
 
           return (
             <Pressable
