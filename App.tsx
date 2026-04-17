@@ -2719,6 +2719,8 @@ export default function App() {
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
+  const nearestSpotCanCheckIn = !activeCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
+  console.log('NEAREST_SPOT_CARD_STATE', { nearestSpot: nearestSpotName, distanceMeters, canCheckIn: nearestSpotCanCheckIn });
   useEffect(() => {
     if (!homeQuickCheckInError) {
       return;
@@ -4945,28 +4947,27 @@ export default function App() {
                   ) : null}
                 </>
               ) : (
-                <Pressable
-                  disabled={!canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null}
-                  onPress={() => {
-                    void handleQuickCheckIn(nearestSpotResult.spot);
-                  }}
-                  style={{
-                    marginTop: 10,
-                    borderRadius: 10,
-                    paddingVertical: 10,
-                    alignItems: 'center',
-                    backgroundColor: '#15803d',
-                    opacity: !canQuickCheckIn || !nearestSpotWithinRange || quickCheckInSpotInFlight !== null ? 0.45 : 1,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
-                    {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Check in...' : 'Check in here'}
-                  </Text>
-                </Pressable>
+                nearestSpotCanCheckIn ? (
+                  <Pressable
+                    disabled={quickCheckInSpotInFlight !== null}
+                    onPress={() => {
+                      void handleQuickCheckIn(nearestSpotResult.spot);
+                    }}
+                    style={{
+                      marginTop: 10,
+                      borderRadius: 10,
+                      paddingVertical: 10,
+                      alignItems: 'center',
+                      backgroundColor: '#15803d',
+                      opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>
+                      {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Check in...' : 'Check in here'}
+                    </Text>
+                  </Pressable>
+                ) : null
               )}
-              {!nearestSpotWithinRange ? (
-                <Text style={{ color: theme.textMuted, marginTop: 8, fontSize: 13 }}>You are too far from the spot (&gt;1 km)</Text>
-              ) : null}
             </>
           ) : (
             <>
