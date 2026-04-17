@@ -5590,22 +5590,26 @@ export default function App() {
             <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Manage your list from Your spots.</Text>
           </View>
         ) : null}
-        {visibleSpots.map(({ name: spot, distanceMeters }) => {
-          const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
-          const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
-          const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
-          const spotMomentum = homeMomentumBySpot[spot];
+        {visibleSpots.map((spot) => {
+          const goingLaterCount = todaysSessionsBySpot[spot.name]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const probablyThereCount = todaysSessionsBySpot[spot.name]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
+          const checkedInCount = homeLiveCountBySpot[spot.name] ?? 0;
+          const spotMomentum = homeMomentumBySpot[spot.name];
           const todayLabel = spotMomentum?.today ?? null;
           const tomorrowLabel = spotMomentum?.tomorrow ?? null;
           const spotMomentumLabels = [todayLabel, tomorrowLabel].filter((value): value is SpotMomentumLabel => Boolean(value));
-          console.log("HOME_SPOT_CARD_TODAY_LABEL", { spotName: spot, label: todayLabel });
-          console.log("HOME_SPOT_CARD_TOMORROW_LABEL", { spotName: spot, label: tomorrowLabel });
-          console.log("HOME_SPOT_CARD_MOMENTUM_RENDER", { spotName: spot, todayLabel, tomorrowLabel });
+          console.log("HOME_CARD_RENDER_PATH_ACTIVE", spot.name);
+          if (todayLabel) {
+            console.log("HOME_CARD_TODAY_LABEL_VISIBLE", { spotName: spot.name, label: todayLabel });
+          }
+          if (tomorrowLabel) {
+            console.log("HOME_CARD_TOMORROW_LABEL_VISIBLE", { spotName: spot.name, label: tomorrowLabel });
+          }
 
           return (
             <Pressable
-              key={spot}
-              onPress={() => setSelectedSpot(spot)}
+              key={spot.name}
+              onPress={() => setSelectedSpot(spot.name)}
               style={{
                 backgroundColor: theme.card,
                 borderRadius: 16,
@@ -5617,19 +5621,19 @@ export default function App() {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot}</Text>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot.name}</Text>
               </View>
               {spotMomentumLabels.length > 0 ? (
                 <View style={{ alignSelf: 'flex-start', marginTop: 6, gap: 5 }}>
                   {spotMomentumLabels.map((momentumLabel) => (
-                    <View key={`${spot}-${momentumLabel}`} style={{ alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+                    <View key={`${spot.name}-${momentumLabel}`} style={{ alignSelf: 'flex-start', borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
                       <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{momentumLabel}</Text>
                     </View>
                   ))}
                 </View>
               ) : null}
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
-                Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
+                Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
               </Text>
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
