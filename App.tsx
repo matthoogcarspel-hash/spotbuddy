@@ -273,8 +273,44 @@ const hasPlannedTimeWindow = (sessionItem: SpotSession) => {
 };
 const resolveSessionIntent = (value: string | null | undefined): SessionIntent => {
   const resolvedIntent: SessionIntent = value === 'maybe' || value === 'definitely' || value === 'likely' ? value : 'likely';
-  console.log('SESSION_INTENT_RENDER_VALUE', resolvedIntent);
   return resolvedIntent;
+};
+const getIntentGoingLabel = (intent: SessionIntent) =>
+  intent === 'definitely' ? 'Definitely going' : intent === 'maybe' ? 'Maybe going' : 'Likely going';
+const getIntentVisualStyle = (intent: SessionIntent) => {
+  if (intent === 'definitely') {
+    return {
+      labelColor: '#eaf6ff',
+      badgeBackgroundColor: '#274f7f',
+      badgeBorderColor: '#7ab4ff',
+      labelOpacity: 1,
+      labelWeight: '700' as const,
+      barBorderWidth: 2,
+      barOpacity: 1,
+    };
+  }
+
+  if (intent === 'maybe') {
+    return {
+      labelColor: theme.textMuted,
+      badgeBackgroundColor: theme.bgElevated,
+      badgeBorderColor: theme.border,
+      labelOpacity: 0.74,
+      labelWeight: '500' as const,
+      barBorderWidth: 1,
+      barOpacity: 0.72,
+    };
+  }
+
+  return {
+    labelColor: theme.text,
+    badgeBackgroundColor: theme.cardStrong,
+    badgeBorderColor: theme.border,
+    labelOpacity: 0.9,
+    labelWeight: '600' as const,
+    barBorderWidth: 1,
+    barOpacity: 0.9,
+  };
 };
 const isSessionJoinableNow = (sessionItem: SpotSession, now = new Date()) => {
   if (!hasPlannedTimeWindow(sessionItem)) {
@@ -596,19 +632,21 @@ type SessionBarProps = {
   leftPercent: number;
   widthPercent: number;
   state: TimelineState;
+  intent: SessionIntent;
   isSelected: boolean;
   showJoinButton: boolean;
   onPress: () => void;
   onJoin: () => void;
 };
 
-function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
+function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
   const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
     planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
     planned_no_check_in: { bar: '#6c4f1c', text: '#fff2dd', border: '#d9a04c', borderStyle: 'dashed' },
     live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
     completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
   };
+  const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
@@ -629,10 +667,10 @@ function SessionBar({ leftPercent, widthPercent, state, isSelected, showJoinButt
           bottom: 3,
           borderRadius: 999,
           backgroundColor: stateStyle[state].bar,
-          borderWidth: 1,
+          borderWidth: intentStyle.barBorderWidth,
           borderColor: stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
-          opacity: stateStyle[state].opacity ?? 1,
+          opacity: (stateStyle[state].opacity ?? 1) * intentStyle.barOpacity,
           justifyContent: 'center',
           paddingHorizontal: 8,
         }}
@@ -683,7 +721,8 @@ type SessionRowProps = {
 function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
-  const intentLabel = resolvedIntent === 'definitely' ? 'Definitely' : resolvedIntent === 'maybe' ? 'Maybe' : 'Likely';
+  const intentLabel = getIntentGoingLabel(resolvedIntent);
+  const intentStyle = getIntentVisualStyle(resolvedIntent);
   const hasPlannedWindow = hasPlannedTimeWindow(item);
   const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
   const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
@@ -710,14 +749,29 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
         <Text numberOfLines={1} style={{ color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, fontWeight: isBuddy ? '700' : '500' }}>
           {item.userName}
         </Text>
-        <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 10, marginTop: 1 }}>
-          {intentLabel}
-        </Text>
+        <View
+          style={{
+            marginTop: 3,
+            alignSelf: 'flex-start',
+            borderRadius: 999,
+            paddingHorizontal: 7,
+            paddingVertical: 2,
+            backgroundColor: intentStyle.badgeBackgroundColor,
+            borderWidth: 1,
+            borderColor: intentStyle.badgeBorderColor,
+            opacity: intentStyle.labelOpacity,
+          }}
+        >
+          <Text numberOfLines={1} style={{ color: intentStyle.labelColor, fontSize: 10, fontWeight: intentStyle.labelWeight }}>
+            {intentLabel}
+          </Text>
+        </View>
       </View>
       <SessionBar
         leftPercent={leftPercent}
         widthPercent={widthPercent}
         state={state}
+        intent={resolvedIntent}
         isSelected={isSelected}
         showJoinButton={canShowJoin}
         onPress={() => onSelect(item.id)}
@@ -2114,7 +2168,7 @@ export default function App() {
       return null;
     }
     const resolvedIntent = resolveSessionIntent(plannedSession.intent);
-    return resolvedIntent === 'definitely' ? 'Definitely' : resolvedIntent === 'maybe' ? 'Maybe' : 'Likely';
+    return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
   const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
@@ -3031,6 +3085,7 @@ export default function App() {
 
       const updatePayload = {
         status: 'Is er al',
+        intent: 'definitely',
         checked_in_at: nowIso,
         checked_out_at: null,
       } as const;
@@ -3064,7 +3119,7 @@ export default function App() {
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
-      intent: 'likely' as const,
+      intent: 'definitely' as const,
       checked_in_at: nowIso,
       checked_out_at: null,
     };
