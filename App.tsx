@@ -504,12 +504,6 @@ const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record
   }, {} as Record<SpotName, T>);
 const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
-const isGoingLaterSession = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Gaat' && nowMinutes < toMinutes(sessionItem.start);
-const isProbablyThereSession = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Gaat' && nowMinutes >= toMinutes(sessionItem.start) && nowMinutes < toMinutes(sessionItem.end);
-const isCheckedInSession = (sessionItem: SpotSession, nowMinutes: number) =>
-  sessionItem.status === 'Is er al' && nowMinutes < toMinutes(sessionItem.end);
 const getSessionStartTime = (sessionItem: SpotSession) => {
   const createdDate = sessionItem.createdAt ? new Date(sessionItem.createdAt) : new Date();
   const fallbackDate = Number.isNaN(createdDate.getTime()) ? new Date() : createdDate;
@@ -521,7 +515,12 @@ const getSessionStartTime = (sessionItem: SpotSession) => {
 const getSessionDisplayState = (
   sessionItem: SpotSession,
   nowMinutes: number,
-): 'Planned' | 'Checked in' | SpotMomentumLabel | null => {
+): SpotMomentumLabel | null => {
+  console.log("DISPLAY_LABEL_INPUT", {
+    startTime: (sessionItem as SpotSession & { startTime?: string }).startTime,
+    endTime: (sessionItem as SpotSession & { endTime?: string }).endTime,
+    now: new Date()
+  });
   const now = new Date();
   const sessionStartTime = getSessionStartTime(sessionItem);
   const sessionDateKey = getLocalDateKey(sessionStartTime);
@@ -535,19 +534,9 @@ const getSessionDisplayState = (
     && nowMinutes >= toMinutes(sessionItem.start)
     && nowMinutes < toMinutes(sessionItem.end);
 
-  console.log('SESSION_TIME_DEBUG', {
-    spot: sessionItem.spot,
-    startTime: sessionStartTime,
-    now: new Date(),
-    isToday,
-    isTomorrow,
-  });
+  let label: SpotMomentumLabel | null = null;
 
-  let label: 'Planned' | 'Checked in' | SpotMomentumLabel | null = null;
-
-  if (isCheckedInSession(sessionItem, nowMinutes)) {
-    label = 'Checked in';
-  } else if (isToday) {
+  if (isToday) {
     if (isHappeningNow) {
       label = 'Happening now';
     } else if (sessionItem.intent === 'definitely') {
@@ -565,14 +554,9 @@ const getSessionDisplayState = (
     } else {
       label = 'Maybe forming tomorrow';
     }
-  } else if (isGoingLaterSession(sessionItem, nowMinutes)) {
-    label = 'Planned';
   }
 
-  console.log('SESSION_LABEL_RESULT', {
-    spot: sessionItem.spot,
-    label,
-  });
+  console.log("DISPLAY_LABEL_RESULT", label);
 
   return label;
 };
