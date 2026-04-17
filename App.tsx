@@ -1002,6 +1002,7 @@ export default function App() {
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
+  const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
@@ -1077,6 +1078,7 @@ export default function App() {
 
         if (!storedValue) {
           console.log("FAVORITE_SPOTS_LOADED", []);
+          console.log("SELECTED_SPOTS_LOADED", []);
           return;
         }
 
@@ -1084,9 +1086,11 @@ export default function App() {
         const loadedFavoriteSpots = Array.isArray(parsedFavorites) ? parsedFavorites.filter((value): value is SpotName => typeof value === 'string') : [];
         setFavoriteSpots(loadedFavoriteSpots);
         console.log("FAVORITE_SPOTS_LOADED", loadedFavoriteSpots);
+        console.log("SELECTED_SPOTS_LOADED", loadedFavoriteSpots);
       } catch (error) {
         console.error('Failed to load favorite spots', error);
         console.log("FAVORITE_SPOTS_LOADED", []);
+        console.log("SELECTED_SPOTS_LOADED", []);
       }
     })();
 
@@ -1095,19 +1099,36 @@ export default function App() {
     };
   }, []);
 
-  const toggleFavoriteSpot = (spotName: SpotName) => {
+  const addSelectedSpot = (spotName: SpotName) => {
     setFavoriteSpots((previousFavoriteSpots) => {
-      const isFavorite = !previousFavoriteSpots.includes(spotName);
-      const nextFavoriteSpots = isFavorite
-        ? [...previousFavoriteSpots, spotName]
-        : previousFavoriteSpots.filter((favoriteSpot) => favoriteSpot !== spotName);
-      console.log("FAVORITE_SPOT_TOGGLED", { spotName, isFavorite });
-      void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextFavoriteSpots)).catch((error) => {
+      if (previousFavoriteSpots.includes(spotName)) {
+        return previousFavoriteSpots;
+      }
+      const nextSelectedSpots = [...previousFavoriteSpots, spotName];
+      console.log("SPOT_SELECTED", spotName);
+      void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
-      return nextFavoriteSpots;
+      return nextSelectedSpots;
+    });
+    setHomeSpotSearchQuery('');
+  };
+  const removeSelectedSpot = (spotName: SpotName) => {
+    setFavoriteSpots((previousFavoriteSpots) => {
+      if (!previousFavoriteSpots.includes(spotName)) {
+        return previousFavoriteSpots;
+      }
+      const nextSelectedSpots = previousFavoriteSpots.filter((favoriteSpot) => favoriteSpot !== spotName);
+      console.log("SPOT_REMOVED", spotName);
+      void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
+        console.error('Failed to persist favorite spots', error);
+      });
+      return nextSelectedSpots;
     });
   };
+  useEffect(() => {
+    console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
+  }, [homeSpotSearchQuery]);
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -2812,32 +2833,39 @@ export default function App() {
   }, [activeCheckedInSession, autoCheckInPromptDismissed, distanceMeters, nearestSpotName]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
-    const spotsWithDistance = spotDefinitions.map((spot) => ({
-      spot: spot.spot,
-      distanceMeters: currentCoordinates
-        ? getDistanceMeters(currentCoordinates, {
-          latitude: spot.latitude,
-          longitude: spot.longitude,
-        })
-        : null,
-    }));
-
-    const favoriteSpotNames = new Set(favoriteSpots);
-    const sortedSpots = [...spotsWithDistance].sort((a, b) => {
-      const aIsFavorite = favoriteSpotNames.has(a.spot);
-      const bIsFavorite = favoriteSpotNames.has(b.spot);
-      if (aIsFavorite !== bIsFavorite) {
-        return aIsFavorite ? -1 : 1;
-      }
-
-      const aDistance = a.distanceMeters ?? Number.POSITIVE_INFINITY;
-      const bDistance = b.distanceMeters ?? Number.POSITIVE_INFINITY;
-      return aDistance - bDistance;
-    });
-    const sortedSpotsForLog = sortedSpots.map((spotItem) => ({ name: spotItem.spot }));
+    const selectedSpotNames = new Set(favoriteSpots);
+    const selectedSpotsWithDistance = spotDefinitions
+      .filter((spot) => selectedSpotNames.has(spot.spot))
+      .map((spot) => ({
+        spot: spot.spot,
+        distanceMeters: currentCoordinates
+          ? getDistanceMeters(currentCoordinates, {
+            latitude: spot.latitude,
+            longitude: spot.longitude,
+          })
+          : null,
+      }))
+      .sort((a, b) => {
+        const aDistance = a.distanceMeters ?? Number.POSITIVE_INFINITY;
+        const bDistance = b.distanceMeters ?? Number.POSITIVE_INFINITY;
+        return aDistance - bDistance;
+      });
+    const sortedSpotsForLog = selectedSpotsWithDistance.map((spotItem) => ({ name: spotItem.spot }));
     console.log("HOME_SORTED_SPOTS", sortedSpotsForLog.map((s) => s.name));
-    return sortedSpots;
+    return selectedSpotsWithDistance;
   }, [currentCoordinates, favoriteSpots, spotDefinitions]);
+  const searchableSpots = useMemo(() => {
+    const query = homeSpotSearchQuery.trim().toLowerCase();
+    if (!query) {
+      return [];
+    }
+
+    const selectedSpotNames = new Set(favoriteSpots);
+    return spotDefinitions
+      .filter((spot) => !selectedSpotNames.has(spot.spot))
+      .filter((spot) => spot.spot.toLowerCase().includes(query))
+      .slice(0, 6);
+  }, [favoriteSpots, homeSpotSearchQuery, spotDefinitions]);
   const homeLiveCountBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
@@ -4856,11 +4884,10 @@ export default function App() {
       </ScrollView>
     );
   }
-
-
-  const spots = homeSpotCards;
+  const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
+  console.log("HOME_VISIBLE_SPOTS", visibleSpots.map((s) => s.name));
   console.log("HOME_SCROLL_CONTAINER_ACTIVE");
-  console.log("HOME_SPOTS_RENDER_COUNT", spots.length);
+  console.log("HOME_SPOTS_RENDER_COUNT", visibleSpots.length);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
@@ -5029,12 +5056,41 @@ export default function App() {
             </>
           )}
         </View>
-        {spots.map(({ spot, distanceMeters }) => {
+        <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginBottom: 8 }}>Search spots</Text>
+          <TextInput
+            value={homeSpotSearchQuery}
+            onChangeText={setHomeSpotSearchQuery}
+            placeholder="Search spots"
+            placeholderTextColor={theme.textMuted}
+            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}
+          />
+          {searchableSpots.length > 0 ? (
+            <View style={{ marginTop: 10 }}>
+              {searchableSpots.map((spotItem) => (
+                <Pressable
+                  key={`search-${spotItem.spot}`}
+                  onPress={() => addSelectedSpot(spotItem.spot)}
+                  style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14 }}>{spotItem.spot}</Text>
+                  <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Add</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+        {visibleSpots.length === 0 ? (
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+            <Text style={{ color: theme.textSoft, fontSize: 14 }}>No spots selected yet</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Search spots to add your personal list.</Text>
+          </View>
+        ) : null}
+        {visibleSpots.map(({ name: spot, distanceMeters }) => {
           const goingLaterCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isGoingLaterSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const probablyThereCount = todaysSessionsBySpot[spot]?.filter((sessionItem) => isProbablyThereSession(sessionItem, currentLocalMinutes)).length ?? 0;
           const checkedInCount = homeLiveCountBySpot[spot] ?? 0;
           const spotMomentumLabel = homeMomentumBySpot[spot];
-          const isFavorite = favoriteSpots.includes(spot);
 
           return (
             <Pressable
@@ -5055,12 +5111,12 @@ export default function App() {
                 <Pressable
                   onPress={(event) => {
                     event.stopPropagation();
-                    toggleFavoriteSpot(spot);
+                    removeSelectedSpot(spot);
                   }}
                   hitSlop={8}
                   style={{ paddingHorizontal: 4, paddingVertical: 2 }}
                 >
-                  <Text style={{ color: isFavorite ? '#f4c542' : theme.textMuted, fontSize: 18 }}>{isFavorite ? '★' : '☆'}</Text>
+                  <Text style={{ color: '#ff9f9f', fontSize: 13, fontWeight: '700' }}>Remove</Text>
                 </Pressable>
               </View>
               {spotMomentumLabel ? (
