@@ -736,6 +736,17 @@ function SessionTimeline({
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
   const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
+  const renderRange = useMemo(
+    () => ({
+      timelineWindowStartMinutes,
+      timelineWindowEndMinutes,
+      rangeStart: formatMinutesAsHourMinute(timelineWindowStartMinutes),
+      rangeEnd: formatMinutesAsHourMinute(timelineWindowEndMinutes),
+      currentLocalMinutes,
+      nowLabel: formatMinutesAsHourMinute(currentLocalMinutes),
+    }),
+    [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
+  );
   const visibleTimelineSessions = useMemo(
     () =>
       timelineSessions.filter(({ item }) => {
@@ -751,15 +762,8 @@ function SessionTimeline({
   );
 
   useEffect(() => {
-    console.log('TIMELINE_RENDER_RANGE', {
-      timelineWindowStartMinutes,
-      timelineWindowEndMinutes,
-      rangeStart: formatMinutesAsHourMinute(timelineWindowStartMinutes),
-      rangeEnd: formatMinutesAsHourMinute(timelineWindowEndMinutes),
-      renderedSessionCount: visibleTimelineSessions.length,
-      totalSessionCount: timelineSessions.length,
-    });
-  }, [timelineSessions.length, timelineWindowEndMinutes, timelineWindowStartMinutes, visibleTimelineSessions.length]);
+    console.log("TIMELINE_RENDER_RANGE", renderRange);
+  }, [renderRange]);
 
   return (
     <Pressable onPress={onClearSelection}>
@@ -2282,7 +2286,7 @@ export default function App() {
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
     [currentLocalMinutes, selectedPlanningDateKey],
   );
-  const timelineNowReference = useMemo(() => {
+  const nowReference = useMemo(() => {
     const todayDateKey = getCurrentLocalDateKey();
     const isToday = selectedPlanningDateKey === todayDateKey;
     return {
@@ -2293,36 +2297,41 @@ export default function App() {
       nowLabel: formatMinutesAsHourMinute(currentLocalMinutes),
     };
   }, [currentLocalMinutes, selectedPlanningDateKey]);
-  const timelineWindow = useMemo(() => {
-    if (!timelineNowReference.isToday) {
+  const windowInfo = useMemo(() => {
+    if (!nowReference.isToday) {
       return {
         startMinutes: timelineStartMinutes,
         endMinutes: timelineEndMinutes,
+        mode: 'full_day',
       };
     }
 
-    const anchoredStartMinutes = currentLocalMinutes - timelinePastWindowMinutes;
+    const anchoredStartMinutes = nowReference.currentLocalMinutes - timelinePastWindowMinutes;
     const startMinutes = clamp(anchoredStartMinutes, timelineStartMinutes, timelineEndMinutes);
     const endMinutes = timelineEndMinutes;
     return {
       startMinutes,
       endMinutes,
+      mode: 'live_today',
     };
-  }, [currentLocalMinutes, timelineNowReference.isToday]);
+  }, [nowReference]);
+  const timelineWindow = useMemo(
+    () => ({
+      startMinutes: windowInfo.startMinutes,
+      endMinutes: windowInfo.endMinutes,
+    }),
+    [windowInfo.endMinutes, windowInfo.startMinutes],
+  );
   const timelineLabels = useMemo(
     () => getTimelineLabelsForRange(timelineWindow.startMinutes, timelineWindow.endMinutes),
     [timelineWindow.endMinutes, timelineWindow.startMinutes],
   );
   useEffect(() => {
-    console.log('TIMELINE_NOW_REFERENCE', timelineNowReference);
-  }, [timelineNowReference]);
+    console.log("TIMELINE_NOW_REFERENCE", nowReference);
+  }, [nowReference]);
   useEffect(() => {
-    console.log('TIMELINE_WINDOW_COMPUTED', {
-      ...timelineWindow,
-      startLabel: formatMinutesAsHourMinute(timelineWindow.startMinutes),
-      endLabel: formatMinutesAsHourMinute(timelineWindow.endMinutes),
-    });
-  }, [timelineWindow]);
+    console.log("TIMELINE_WINDOW_COMPUTED", windowInfo);
+  }, [windowInfo]);
   const startHourOptions = useMemo(
     () =>
       hours
