@@ -1004,6 +1004,36 @@ export default function App() {
   const [buddiesError, setBuddiesError] = useState('');
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
+  const passwordResetRedirectTo = useMemo(() => {
+    const configuredRedirect = Constants.expoConfig?.extra?.passwordResetRedirectTo;
+    if (typeof configuredRedirect === 'string' && configuredRedirect.trim()) {
+      return configuredRedirect.trim();
+    }
+
+    const configuredScheme = Constants.expoConfig?.scheme;
+    if (typeof configuredScheme === 'string' && configuredScheme.trim()) {
+      return `${configuredScheme.trim()}://reset-password`;
+    }
+
+    return undefined;
+  }, []);
+
+  const handlePasswordResetRequest = async (email: string) => {
+    console.log("PASSWORD_RESET_REQUESTED", { email });
+    // sender name / email template branding is configured in Supabase dashboard, not in app code
+    const { error } = await supabase.auth.resetPasswordForEmail(
+      email,
+      passwordResetRedirectTo ? { redirectTo: passwordResetRedirectTo } : undefined
+    );
+
+    if (error) {
+      console.error("PASSWORD_RESET_ERROR", error);
+      return { error: 'Could not send reset link. Please try again.' };
+    }
+
+    console.log("PASSWORD_RESET_SENT", { email });
+    return { error: null };
+  };
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -3420,14 +3450,17 @@ export default function App() {
   }
 
   if (!session) {
-    return <AuthScreen onSignupSuccess={() => {
-      void supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          void fetchProfile(data.session.user.id);
-          void fetchSharedData();
-        }
-      });
-    }} />;
+    return <AuthScreen
+      onSignupSuccess={() => {
+        void supabase.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            void fetchProfile(data.session.user.id);
+            void fetchSharedData();
+          }
+        });
+      }}
+      onPasswordResetRequest={handlePasswordResetRequest}
+    />;
   }
 
   if (!profile) {
