@@ -65,6 +65,7 @@ type SpotNotificationPreferences = {
   chat_notification_mode: SpotNotificationMode;
 };
 type SpotNotificationMode = 'off' | 'following' | 'everyone';
+type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
 type FollowRequestItem = {
@@ -118,6 +119,8 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
   chat_notification_mode: 'off',
 };
 const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
+const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
+const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1002,6 +1005,9 @@ export default function App() {
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
+  const [orderMode, setOrderMode] = useState<SpotOrderMode>('distance');
+  const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
+  const [isManagingSpots, setIsManagingSpots] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
@@ -1071,20 +1077,39 @@ export default function App() {
 
     (async () => {
       try {
-        const storedValue = await AsyncStorage.getItem(favoriteSpotsStorageKey);
+        const [storedValue, storedOrderMode, storedManualOrder] = await Promise.all([
+          AsyncStorage.getItem(favoriteSpotsStorageKey),
+          AsyncStorage.getItem(spotOrderModeStorageKey),
+          AsyncStorage.getItem(spotManualOrderStorageKey),
+        ]);
         if (!isMounted) {
           return;
         }
 
-        if (!storedValue) {
-          console.log("FAVORITE_SPOTS_LOADED", []);
-          console.log("SELECTED_SPOTS_LOADED", []);
-          return;
+        const parsedFavoriteSpots = storedValue ? JSON.parse(storedValue) : null;
+        const loadedFavoriteSpots = Array.isArray(parsedFavoriteSpots)
+          ? parsedFavoriteSpots.filter((value): value is SpotName => typeof value === 'string')
+          : [];
+        const loadedOrderMode: SpotOrderMode = storedOrderMode === 'manual' ? 'manual' : 'distance';
+        const parsedManualOrder = storedManualOrder ? JSON.parse(storedManualOrder) : null;
+        const loadedManualOrderRaw = Array.isArray(parsedManualOrder)
+          ? parsedManualOrder.filter((value): value is SpotName => typeof value === 'string')
+          : [];
+        const dedupedManualOrder: SpotName[] = [];
+        for (const spotName of loadedManualOrderRaw) {
+          if (!dedupedManualOrder.includes(spotName)) {
+            dedupedManualOrder.push(spotName);
+          }
         }
-
-        const parsedFavorites = JSON.parse(storedValue);
-        const loadedFavoriteSpots = Array.isArray(parsedFavorites) ? parsedFavorites.filter((value): value is SpotName => typeof value === 'string') : [];
+        const normalizedManualOrder = dedupedManualOrder.filter((spotName) => loadedFavoriteSpots.includes(spotName));
+        for (const spotName of loadedFavoriteSpots) {
+          if (!normalizedManualOrder.includes(spotName)) {
+            normalizedManualOrder.push(spotName);
+          }
+        }
         setFavoriteSpots(loadedFavoriteSpots);
+        setOrderMode(loadedOrderMode);
+        setManualOrder(normalizedManualOrder);
         console.log("FAVORITE_SPOTS_LOADED", loadedFavoriteSpots);
         console.log("SELECTED_SPOTS_LOADED", loadedFavoriteSpots);
       } catch (error) {
@@ -1111,6 +1136,16 @@ export default function App() {
       });
       return nextSelectedSpots;
     });
+    setManualOrder((previousManualOrder) => {
+      if (previousManualOrder.includes(spotName)) {
+        return previousManualOrder;
+      }
+      const nextManualOrder = [...previousManualOrder, spotName];
+      void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
+        console.error('Failed to persist spot manual order', error);
+      });
+      return nextManualOrder;
+    });
     setHomeSpotSearchQuery('');
   };
   const removeSelectedSpot = (spotName: SpotName) => {
@@ -1125,10 +1160,68 @@ export default function App() {
       });
       return nextSelectedSpots;
     });
+    setManualOrder((previousManualOrder) => {
+      const nextManualOrder = previousManualOrder.filter((manualSpot) => manualSpot !== spotName);
+      void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
+        console.error('Failed to persist spot manual order', error);
+      });
+      return nextManualOrder;
+    });
+  };
+  const moveManualSpot = (spotName: SpotName, direction: 'up' | 'down') => {
+    setManualOrder((previousManualOrder) => {
+      const currentIndex = previousManualOrder.indexOf(spotName);
+      if (currentIndex < 0) {
+        return previousManualOrder;
+      }
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= previousManualOrder.length) {
+        return previousManualOrder;
+      }
+      const nextManualOrder = [...previousManualOrder];
+      const [movedSpot] = nextManualOrder.splice(currentIndex, 1);
+      nextManualOrder.splice(targetIndex, 0, movedSpot);
+      void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
+        console.error('Failed to persist spot manual order', error);
+      });
+      return nextManualOrder;
+    });
+  };
+  const updateOrderMode = (nextOrderMode: SpotOrderMode) => {
+    setOrderMode(nextOrderMode);
+    void AsyncStorage.setItem(spotOrderModeStorageKey, nextOrderMode).catch((error) => {
+      console.error('Failed to persist spot order mode', error);
+    });
   };
   useEffect(() => {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
+  useEffect(() => {
+    setManualOrder((previousManualOrder) => {
+      const dedupedManualOrder: SpotName[] = [];
+      for (const spotName of previousManualOrder) {
+        if (!dedupedManualOrder.includes(spotName)) {
+          dedupedManualOrder.push(spotName);
+        }
+      }
+      const favoriteSpotSet = new Set(favoriteSpots);
+      const filteredOrder = dedupedManualOrder.filter((spotName) => favoriteSpotSet.has(spotName));
+      for (const spotName of favoriteSpots) {
+        if (!filteredOrder.includes(spotName)) {
+          filteredOrder.push(spotName);
+        }
+      }
+      const unchanged = filteredOrder.length === previousManualOrder.length
+        && filteredOrder.every((spotName, index) => previousManualOrder[index] === spotName);
+      if (unchanged) {
+        return previousManualOrder;
+      }
+      void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(filteredOrder)).catch((error) => {
+        console.error('Failed to persist spot manual order', error);
+      });
+      return filteredOrder;
+    });
+  }, [favoriteSpots]);
 
   const resetFlow = () => {
     setSelectedSpot(null);
@@ -2844,16 +2937,28 @@ export default function App() {
             longitude: spot.longitude,
           })
           : null,
-      }))
-      .sort((a, b) => {
+      }));
+    const manualOrderIndex = manualOrder.reduce((result, spotName, index) => {
+      result[spotName] = index;
+      return result;
+    }, {} as Record<SpotName, number>);
+    const orderedSpots = [...selectedSpotsWithDistance].sort((a, b) => {
+      if (orderMode === 'manual') {
+        const aIndex = manualOrderIndex[a.spot] ?? Number.POSITIVE_INFINITY;
+        const bIndex = manualOrderIndex[b.spot] ?? Number.POSITIVE_INFINITY;
+        if (aIndex !== bIndex) {
+          return aIndex - bIndex;
+        }
+        return a.spot.localeCompare(b.spot);
+      }
         const aDistance = a.distanceMeters ?? Number.POSITIVE_INFINITY;
         const bDistance = b.distanceMeters ?? Number.POSITIVE_INFINITY;
         return aDistance - bDistance;
       });
-    const sortedSpotsForLog = selectedSpotsWithDistance.map((spotItem) => ({ name: spotItem.spot }));
+    const sortedSpotsForLog = orderedSpots.map((spotItem) => ({ name: spotItem.spot }));
     console.log("HOME_SORTED_SPOTS", sortedSpotsForLog.map((s) => s.name));
-    return selectedSpotsWithDistance;
-  }, [currentCoordinates, favoriteSpots, spotDefinitions]);
+    return orderedSpots;
+  }, [currentCoordinates, favoriteSpots, manualOrder, orderMode, spotDefinitions]);
   const searchableSpots = useMemo(() => {
     const query = homeSpotSearchQuery.trim().toLowerCase();
     if (!query) {
@@ -4886,6 +4991,10 @@ export default function App() {
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
   console.log("HOME_VISIBLE_SPOTS", visibleSpots.map((s) => s.name));
+  console.log("YOUR_SPOTS_MANAGE_MODE", isManagingSpots);
+  console.log("YOUR_SPOTS_ORDER_MODE", orderMode);
+  console.log("YOUR_SPOTS_MANUAL_ORDER", manualOrder);
+  console.log("YOUR_SPOTS_VISIBLE_ORDER", visibleSpots.map((s) => s.name));
   console.log("HOME_SCROLL_CONTAINER_ACTIVE");
   console.log("HOME_SPOTS_RENDER_COUNT", visibleSpots.length);
 
@@ -5080,6 +5189,95 @@ export default function App() {
             </View>
           ) : null}
         </View>
+        <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700' }}>Your spots</Text>
+            <Pressable
+              onPress={() => setIsManagingSpots((previous) => !previous)}
+              style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>{isManagingSpots ? 'Done' : 'Manage'}</Text>
+            </Pressable>
+          </View>
+          {isManagingSpots ? (
+            <View style={{ marginTop: 10 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Order</Text>
+                <Pressable
+                  onPress={() => updateOrderMode('distance')}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: orderMode === 'distance' ? theme.primary : theme.border,
+                    backgroundColor: orderMode === 'distance' ? '#123868' : theme.bgElevated,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Distance</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => updateOrderMode('manual')}
+                  style={{
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: orderMode === 'manual' ? theme.primary : theme.border,
+                    backgroundColor: orderMode === 'manual' ? '#123868' : theme.bgElevated,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Manual</Text>
+                </Pressable>
+              </View>
+              {visibleSpots.length > 0 ? (
+                visibleSpots.map(({ name: spot }) => {
+                  const manualIndex = manualOrder.indexOf(spot);
+                  return (
+                    <View
+                      key={`manage-${spot}`}
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 8, borderTopWidth: 1, borderTopColor: theme.border }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 14, flex: 1 }}>{spot}</Text>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        {orderMode === 'manual' ? (
+                          <>
+                            <Pressable
+                              disabled={manualIndex <= 0}
+                              onPress={() => moveManualSpot(spot, 'up')}
+                              style={{ paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: theme.border, opacity: manualIndex <= 0 ? 0.4 : 1 }}
+                            >
+                              <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Up</Text>
+                            </Pressable>
+                            <Pressable
+                              disabled={manualIndex < 0 || manualIndex >= manualOrder.length - 1}
+                              onPress={() => moveManualSpot(spot, 'down')}
+                              style={{
+                                paddingHorizontal: 8,
+                                paddingVertical: 4,
+                                borderRadius: 8,
+                                borderWidth: 1,
+                                borderColor: theme.border,
+                                opacity: manualIndex < 0 || manualIndex >= manualOrder.length - 1 ? 0.4 : 1,
+                              }}
+                            >
+                              <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Down</Text>
+                            </Pressable>
+                          </>
+                        ) : null}
+                        <Pressable onPress={() => removeSelectedSpot(spot)} style={{ paddingHorizontal: 8, paddingVertical: 4 }}>
+                          <Text style={{ color: '#ff9f9f', fontSize: 12, fontWeight: '700' }}>Remove spot</Text>
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })
+              ) : (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>No spots selected yet.</Text>
+              )}
+            </View>
+          ) : null}
+        </View>
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
             <Text style={{ color: theme.textSoft, fontSize: 14 }}>No spots selected yet</Text>
@@ -5116,7 +5314,7 @@ export default function App() {
                   hitSlop={8}
                   style={{ paddingHorizontal: 4, paddingVertical: 2 }}
                 >
-                  <Text style={{ color: '#ff9f9f', fontSize: 13, fontWeight: '700' }}>Remove</Text>
+                  <Text style={{ color: '#ff9f9f', fontSize: 13, fontWeight: '700' }}>Hide</Text>
                 </Pressable>
               </View>
               {spotMomentumLabel ? (
