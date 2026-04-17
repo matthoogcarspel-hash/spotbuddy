@@ -264,6 +264,16 @@ const hasPlannedTimeWindow = (sessionItem: SpotSession) => {
   const endMinutes = toMinutes(sessionItem.end);
   return endMinutes > startMinutes;
 };
+const isSessionJoinableNow = (sessionItem: SpotSession, now = new Date()) => {
+  if (!hasPlannedTimeWindow(sessionItem)) {
+    return false;
+  }
+
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const sessionStartMinutes = toMinutes(sessionItem.start);
+  const sessionEndMinutes = toMinutes(sessionItem.end);
+  return sessionStartMinutes <= nowMinutes && nowMinutes <= sessionEndMinutes;
+};
 const parseHourMinuteParts = (hourMinute: string) => {
   const [hourPart, minutePart] = hourMinute.split(':');
   const parsedHour = Number.parseInt(hourPart ?? '', 10);
@@ -676,7 +686,8 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
     && currentUserId
     && item.userId !== currentUserId
     && state !== 'completed'
-    && hasPlannedWindow,
+    && hasPlannedWindow
+    && isSessionJoinableNow(item),
   );
 
   return (
@@ -3695,7 +3706,35 @@ export default function App() {
   }
 
   if (selectedSpot) {
+    const showAlert = (message: string) => {
+      setSessionActionError(message);
+    };
+
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
+      const now = new Date();
+      const sessionStart = new Date(now);
+      const sessionEnd = new Date(now);
+      const [startHour, startMinute] = sessionToJoin.start.split(':').map((value) => Number.parseInt(value ?? '', 10));
+      const [endHour, endMinute] = sessionToJoin.end.split(':').map((value) => Number.parseInt(value ?? '', 10));
+      sessionStart.setHours(Number.isNaN(startHour) ? 0 : startHour, Number.isNaN(startMinute) ? 0 : startMinute, 0, 0);
+      sessionEnd.setHours(Number.isNaN(endHour) ? 0 : endHour, Number.isNaN(endMinute) ? 0 : endMinute, 0, 0);
+
+      console.log('JOIN_VALIDATION_START', { sessionId: sessionToJoin.id, start: sessionToJoin.start, end: sessionToJoin.end });
+
+      if (sessionStart > now) {
+        console.log('JOIN_BLOCKED_NOT_STARTED', { sessionId: sessionToJoin.id });
+        showAlert("Session hasn’t started yet");
+        return;
+      }
+
+      if (sessionEnd < now) {
+        console.log('JOIN_BLOCKED_ENDED', { sessionId: sessionToJoin.id });
+        showAlert('This session has already ended');
+        return;
+      }
+
+      console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.id) {
         const errorMessage = 'Session could not be saved';
