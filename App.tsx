@@ -1277,6 +1277,7 @@ export default function App() {
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
   const [adminCreateError, setAdminCreateError] = useState('');
+  const [adminCreateWarning, setAdminCreateWarning] = useState('');
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
@@ -1455,16 +1456,21 @@ export default function App() {
 
     setIsAdminCreatingProfile(true);
     setAdminCreateError('');
+    setAdminCreateWarning('');
     const profileId = createProfileId();
     let avatarUrl: string | null = null;
+
     if (adminCreateAvatarInputUri) {
-      const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
-      if (uploadError || !publicUrl) {
-        setIsAdminCreatingProfile(false);
-        setAdminCreateError('Photo upload failed');
-        return;
+      try {
+        const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
+        if (uploadError || !publicUrl) {
+          throw uploadError ?? new Error('Avatar URL is missing');
+        }
+        avatarUrl = publicUrl;
+      } catch (error) {
+        console.log('AVATAR_UPLOAD_FAILED', error);
+        setAdminCreateWarning('Photo upload failed. Profile created without an avatar.');
       }
-      avatarUrl = publicUrl;
     }
 
     const { error: createProfileError } = await supabase
@@ -1493,7 +1499,7 @@ export default function App() {
     setShowAdminCreateProfile(false);
     setIsAdminCreatingProfile(false);
     await loadSwitchableAccounts();
-    console.log("PROFILE_CREATED", username);
+    console.log("PROFILE_CREATED", username, avatarUrl);
 
     console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
       username,
@@ -5156,6 +5162,7 @@ export default function App() {
                   setShowAdminCreateProfile(nextOpen);
                   if (!nextOpen) {
                     setAdminCreateAvatarInputUri(null);
+                    setAdminCreateWarning('');
                   }
                   if (nextOpen) {
                     console.log("ADMIN_CREATE_PROFILE_OPENED");
@@ -5178,6 +5185,7 @@ export default function App() {
                   <Pressable
                     onPress={async () => {
                       setAdminCreateError('');
+                      setAdminCreateWarning('');
                       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
                       if (status !== 'granted') {
                         setAdminCreateError('Allow photo access to choose a profile photo');
@@ -5207,6 +5215,7 @@ export default function App() {
                     </View>
                   ) : null}
                   {adminCreateError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{adminCreateError}</Text> : null}
+                  {adminCreateWarning ? <Text style={{ color: '#f2c66d', marginBottom: 8, fontSize: 12 }}>{adminCreateWarning}</Text> : null}
                   <Pressable
                     disabled={isAdminCreatingProfile}
                     onPress={() => {
