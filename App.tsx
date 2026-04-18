@@ -80,6 +80,7 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
+type SwitchableAccount = Pick<Profile, 'id' | 'display_name'> & { email: string | null };
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -136,6 +137,7 @@ const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
 const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const HOME_SPOTS_LIMIT = 5;
+const adminAccountSwitcherEmail = 'matthoogcarspel@gmail.com';
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1216,6 +1218,9 @@ export default function App() {
   const isWebPlatform = Platform.OS === 'web';
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [activeUserOverride, setActiveUserOverride] = useState<SwitchableAccount | null>(null);
+  const [switchableAccounts, setSwitchableAccounts] = useState<SwitchableAccount[]>([]);
+  const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
@@ -1298,6 +1303,11 @@ export default function App() {
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
   const [activeDay, setActiveDay] = useState<ActiveDay>('today');
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
+  const authenticatedUserId = session?.user.id ?? null;
+  const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
+  const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
+  const activeAppUserId = activeUserOverride?.id ?? authenticatedUserId;
+  const activeAppUserEmail = activeUserOverride?.email ?? authenticatedUserEmail;
   const passwordResetRedirectTo = useMemo(() => {
     const configuredRedirect = Constants.expoConfig?.extra?.passwordResetRedirectTo;
     if (typeof configuredRedirect === 'string' && configuredRedirect.trim()) {
@@ -1327,6 +1337,72 @@ export default function App() {
 
     console.log("PASSWORD_RESET_SENT", { email });
     return { error: null };
+  };
+
+  useEffect(() => {
+    console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
+  }, [authenticatedUserEmail]);
+
+  const loadSwitchableAccounts = async () => {
+    if (!isAccountSwitcherVisible || !authenticatedUserId) {
+      setSwitchableAccounts([]);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name')
+      .order('display_name', { ascending: true });
+
+    if (error) {
+      console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
+      setSwitchableAccounts([]);
+      return;
+    }
+
+    const dedupedById = new Map<string, SwitchableAccount>();
+    for (const account of data ?? []) {
+      if (!account?.id) {
+        continue;
+      }
+      dedupedById.set(account.id, {
+        id: account.id,
+        display_name: account.display_name ?? 'Unknown user',
+        email: account.id === authenticatedUserId ? authenticatedUserEmail : null,
+      });
+    }
+    if (!dedupedById.has(authenticatedUserId)) {
+      dedupedById.set(authenticatedUserId, {
+        id: authenticatedUserId,
+        display_name: profile?.display_name ?? 'Current user',
+        email: authenticatedUserEmail,
+      });
+    }
+    setSwitchableAccounts(Array.from(dedupedById.values()));
+  };
+
+  const handleSelectAccount = async (account: SwitchableAccount) => {
+    const fromUser = {
+      id: activeAppUserId,
+      email: activeAppUserEmail,
+    };
+    const toUser = {
+      id: account.id,
+      email: account.email,
+    };
+    console.log("ACCOUNT_SWITCH_SELECTED", { fromUser, toUser });
+
+    setShowAccountSwitcher(false);
+    setShowBuddies(false);
+    setShowAccountSwitcher(false);
+    setSwitchableAccounts([]);
+    setSelectedSpot(null);
+    setActiveUserOverride(account.id === authenticatedUserId ? null : account);
+    setCurrentUserId(account.id);
+    await fetchProfile(account.id);
+    await fetchSharedData();
+    await fetchBuddiesData();
+    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: account.id, activeUserEmail: account.email });
   };
 
   useEffect(() => {
@@ -1613,7 +1689,7 @@ export default function App() {
   };
 
   const fetchBuddiesData = async () => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       setBuddyUsers([]);
       setOutgoingFollowStatusesByUserId({});
       setFollowingUserIds([]);
@@ -1624,27 +1700,27 @@ export default function App() {
 
     setLoadingBuddies(true);
     setBuddiesError('');
-    console.log('BUDDIES_CURRENT_USER_ID', { userId: session.user.id });
+    console.log('BUDDIES_CURRENT_USER_ID', { userId: activeAppUserId });
 
     const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
-        .neq('id', session.user.id)
+        .neq('id', activeAppUserId)
         .order('display_name', { ascending: true }),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('follower_id', session.user.id),
+        .eq('follower_id', activeAppUserId),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', session.user.id)
+        .eq('following_id', activeAppUserId)
         .eq('status', 'pending'),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', session.user.id)
+        .eq('following_id', activeAppUserId)
         .eq('status', 'accepted'),
     ]);
 
@@ -1661,7 +1737,7 @@ export default function App() {
       const loadedUsers = (usersResponse.data ?? []) as BuddyUser[];
       console.log('BUDDIES_PROFILES_QUERY_RESULT', loadedUsers);
       console.log('BUDDIES_FILTERED_USERS_SHOWN', {
-        currentUserId: session.user.id,
+        currentUserId: activeAppUserId,
         userIds: loadedUsers.map((userItem) => userItem.id),
       });
       setBuddyUsers(loadedUsers);
@@ -1740,12 +1816,12 @@ export default function App() {
   };
 
   const handleFollowUser = async (userIdToFollow: string) => {
-    if (!session?.user.id || userIdToFollow === session.user.id) {
+    if (!activeAppUserId || userIdToFollow === activeAppUserId) {
       return;
     }
 
     const payload = {
-      follower_id: session.user.id,
+      follower_id: activeAppUserId,
       following_id: userIdToFollow,
       status: 'pending' as FollowStatus,
       responded_at: null as string | null,
@@ -1781,12 +1857,12 @@ export default function App() {
   };
 
   const handleUnfollowUser = async (userIdToUnfollow: string) => {
-    if (!session?.user.id || userIdToUnfollow === session.user.id) {
+    if (!activeAppUserId || userIdToUnfollow === activeAppUserId) {
       return;
     }
 
     const payload = {
-      follower_id: session.user.id,
+      follower_id: activeAppUserId,
       following_id: userIdToUnfollow,
     };
     console.log('BUDDIES_UNFOLLOW_ACTION_PAYLOAD', payload);
@@ -1801,7 +1877,7 @@ export default function App() {
     const { error } = await supabase
       .from('user_follows')
       .delete()
-      .eq('follower_id', session.user.id)
+      .eq('follower_id', activeAppUserId)
       .eq('following_id', userIdToUnfollow);
 
     if (error) {
@@ -1819,14 +1895,14 @@ export default function App() {
   };
 
   const handleAcceptFollowRequest = async (requestItem: FollowRequestItem) => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       return;
     }
 
     const payload = {
       id: requestItem.id,
       follower_id: requestItem.follower_id,
-      following_id: session.user.id,
+      following_id: activeAppUserId,
       status: 'accepted' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
@@ -1850,14 +1926,14 @@ export default function App() {
   };
 
   const handleRejectFollowRequest = async (requestItem: FollowRequestItem) => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       return;
     }
 
     const payload = {
       id: requestItem.id,
       follower_id: requestItem.follower_id,
-      following_id: session.user.id,
+      following_id: activeAppUserId,
       status: 'rejected' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
@@ -2249,6 +2325,7 @@ export default function App() {
         userId: nextSession?.user.id ?? null,
       });
       setSession(nextSession);
+      setActiveUserOverride(null);
       setCurrentUserId(nextSession?.user.id ?? null);
       setLoadingSession(false);
 
@@ -2280,6 +2357,7 @@ export default function App() {
         userId: nextSession?.user.id ?? null,
       });
       setSession(nextSession);
+      setActiveUserOverride(null);
       setCurrentUserId(nextSession?.user.id ?? null);
 
       console.log('PROFILE_STATE_RESET', {
@@ -2314,12 +2392,12 @@ export default function App() {
 
   useEffect(() => {
     console.log('HEADER_PROFILE_RENDER', {
-      sessionUserId: session?.user.id ?? null,
+      sessionUserId: activeAppUserId ?? null,
       profileUserId: headerProfile?.userId ?? null,
       displayName: headerProfile?.displayName ?? null,
       avatarUrl: headerProfile?.avatarUrl ?? null,
     });
-  }, [headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId, session?.user.id]);
+  }, [headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId, activeAppUserId]);
 
   useEffect(() => {
     if (showProfile && profile) {
@@ -2328,15 +2406,15 @@ export default function App() {
   }, [showProfile, profile]);
 
   useEffect(() => {
-    if (!showBuddies || !session?.user.id) {
+    if (!showBuddies || !activeAppUserId) {
       return;
     }
 
     void fetchBuddiesData();
-  }, [showBuddies, session?.user.id]);
+  }, [showBuddies, activeAppUserId]);
 
   useEffect(() => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       setFollowingUserIds([]);
       return;
     }
@@ -2345,7 +2423,7 @@ export default function App() {
       const { data, error } = await supabase
         .from('user_follows')
         .select('following_id')
-        .eq('follower_id', session.user.id)
+        .eq('follower_id', activeAppUserId)
         .eq('status', 'accepted');
 
       if (error) {
@@ -2355,7 +2433,7 @@ export default function App() {
 
       setFollowingUserIds((data ?? []).map((item) => item.following_id));
     })();
-  }, [session?.user.id]);
+  }, [activeAppUserId]);
 
   useEffect(() => {
     setSessionsBySpot((previous) => {
@@ -2392,22 +2470,22 @@ export default function App() {
   }, [selectedSpot, spotDefinitions, spotNames]);
 
   useEffect(() => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       return;
     }
 
-    void registerForPushNotifications(session.user.id).catch((error: unknown) => {
+    void registerForPushNotifications(activeAppUserId).catch((error: unknown) => {
       console.error('Push registration failed:', error);
     });
-  }, [session?.user.id]);
+  }, [activeAppUserId]);
 
   useEffect(() => {
-    if (!session?.user.id || spotNames.length === 0) {
+    if (!activeAppUserId || spotNames.length === 0) {
       return;
     }
 
     void fetchSharedData();
-  }, [session?.user.id, spotNames]);
+  }, [activeAppUserId, spotNames]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
@@ -2436,7 +2514,7 @@ export default function App() {
     setIsNotificationPanelExpanded(false);
 
     const loadSpotNotificationPreferences = async () => {
-      if (!selectedSpot || !session?.user.id) {
+      if (!selectedSpot || !activeAppUserId) {
         setSpotNotificationPreferences(defaultSpotNotificationPreferences);
         setNotificationPreferencesError('');
         setLoadingSpotNotificationPreferences(false);
@@ -2445,7 +2523,7 @@ export default function App() {
 
       setLoadingSpotNotificationPreferences(true);
       setNotificationPreferencesError('');
-      console.log('NOTIFICATION_PREFS_LOAD_START', { userId: session.user.id, spotName: selectedSpot });
+      console.log('NOTIFICATION_PREFS_LOAD_START', { userId: activeAppUserId, spotName: selectedSpot });
 
       const { data, error } = await supabase
         .from('spot_notification_preferences')
@@ -2454,7 +2532,7 @@ export default function App() {
           checkin_notification_mode,
           chat_notification_mode
         `)
-        .eq('user_id', session.user.id)
+        .eq('user_id', activeAppUserId)
         .eq('spot_name', selectedSpot)
         .maybeSingle();
 
@@ -2471,7 +2549,7 @@ export default function App() {
       }
 
       console.log('NOTIFICATION_PREFS_LOAD_SUCCESS', {
-        userId: session.user.id,
+        userId: activeAppUserId,
         spotName: selectedSpot,
         rawPreferences: data,
       });
@@ -2482,7 +2560,7 @@ export default function App() {
       };
       setSpotNotificationPreferences(loadedPreferences);
       console.log('NOTIFICATION_PREFS_LOADED_VALUES_AFTER_REFRESH', {
-        userId: session.user.id,
+        userId: activeAppUserId,
         spotName: selectedSpot,
         loadedPreferences,
       });
@@ -2494,7 +2572,7 @@ export default function App() {
     return () => {
       isCancelled = true;
     };
-  }, [selectedSpot, session?.user.id]);
+  }, [selectedSpot, activeAppUserId]);
 
   useEffect(() => {
     setCurrentLocalMinutes(getCurrentLocalMinutes());
@@ -2512,8 +2590,8 @@ export default function App() {
 
   const gpsActiveCheckedInSession = useMemo(() => {
     const allSessions = Object.values(sessionsBySpot).flat();
-    return getCurrentUserLiveSession(allSessions, session?.user.id);
-  }, [session?.user.id, sessionsBySpot]);
+    return getCurrentUserLiveSession(allSessions, activeAppUserId);
+  }, [activeAppUserId, sessionsBySpot]);
 
   useEffect(() => {
     if (isNativePlatform) {
@@ -2757,7 +2835,7 @@ export default function App() {
   const { activeDateStart, activeDateEnd, activeDateKey } = activeDayContext;
   const activeCheckedInSession = useMemo(() => {
     const allSessions = Object.values(sessionsBySpot).flat();
-    const userId = session?.user.id;
+    const userId = activeAppUserId;
     const chosenSession = getCurrentUserActiveCheckedInSessionForDay({
       sessions: allSessions,
       userId,
@@ -2779,17 +2857,17 @@ export default function App() {
       console.log("ACTIVE_CHECKED_IN_SESSION_RESOLVED", { userId, chosenSession, duplicateCount });
     }
     return chosenSession;
-  }, [activeDateEnd, activeDateStart, session?.user.id, sessionsBySpot]);
+  }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   useEffect(() => {
     console.log("CHECKOUT_STATE_EVALUATION", {
       activeDay,
-      userId: session?.user.id ?? null,
+      userId: activeAppUserId ?? null,
       spotName: selectedSpot ?? null,
       hasActiveCheckedInSession,
       activeSession: activeCheckedInSession ?? null
     });
-  }, [activeCheckedInSession, activeDay, hasActiveCheckedInSession, selectedSpot, session?.user.id]);
+  }, [activeCheckedInSession, activeDay, hasActiveCheckedInSession, selectedSpot, activeAppUserId]);
   useEffect(() => {
     console.log("ACTIVE_DAY", activeDay);
   }, [activeDay]);
@@ -2848,13 +2926,13 @@ export default function App() {
     return next;
   }, [activeDateEnd, activeDateStart, activeDay, sessionsBySpot, spotNames]);
   const allUserSessions = useMemo(() => {
-    if (!session?.user.id) {
+    if (!activeAppUserId) {
       return [];
     }
 
     const allSessions = Object.values(sessionsBySpot)
       .flat()
-      .filter((sessionItem) => sessionItem.userId === session.user.id);
+      .filter((sessionItem) => sessionItem.userId === activeAppUserId);
     const filteredSessions = allSessions.filter((sessionItem) => !isSessionExpired(sessionItem));
     console.log("ACTIVE_SESSION_FILTERED", {
       beforeCount: allSessions.length,
@@ -2862,7 +2940,7 @@ export default function App() {
     });
 
     return filteredSessions;
-  }, [session?.user.id, sessionsBySpot]);
+  }, [activeAppUserId, sessionsBySpot]);
   const upcomingPlannedSession = useMemo(() => {
     const nowMinutes = getCurrentLocalMinutes();
     const currentDateKey = getCurrentLocalDateKey();
@@ -2917,7 +2995,7 @@ export default function App() {
       }
 
       const isActiveLiveStatus = gpsActiveCheckedInSession?.status === 'live' || gpsActiveCheckedInSession?.status === 'Is er al';
-      if (!session?.user.id || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
+      if (!activeAppUserId || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
         console.log('AUTO_CHECKOUT_SKIPPED', {
@@ -2925,7 +3003,7 @@ export default function App() {
         });
         console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
           reason: 'MISSING_REQUIREMENTS',
-          hasUser: Boolean(session?.user.id),
+          hasUser: Boolean(activeAppUserId),
           hasCoordinates: Boolean(currentCoordinates),
           hasActiveCheckedInSession: Boolean(gpsActiveCheckedInSession),
           isActiveLiveStatus,
@@ -3035,7 +3113,7 @@ export default function App() {
     };
 
     void runAutoCheckOutIfNeeded();
-  }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, session?.user.id, spotDefinitions]);
+  }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, activeAppUserId, spotDefinitions]);
   const selectedPlanningDateKey = activeDateKey;
   const planningNowReference = useMemo(
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
@@ -3117,7 +3195,7 @@ export default function App() {
   const currentPlanningStart = startHour === null ? null : `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
   const currentPlanningEnd = endHour === null ? null : `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
   const planningOverlapBlockingSession = useMemo(() => {
-    if (!session?.user.id || !currentPlanningStart || !currentPlanningEnd) {
+    if (!activeAppUserId || !currentPlanningStart || !currentPlanningEnd) {
       return null;
     }
 
@@ -3127,14 +3205,14 @@ export default function App() {
 
     return (
       allUserSessions
-        .filter((sessionItem) => sessionItem.userId === session.user.id)
+        .filter((sessionItem) => sessionItem.userId === activeAppUserId)
         .filter((sessionItem) => !editingSessionId || sessionItem.id !== editingSessionId)
         .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
         .filter((sessionItem) => isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes))
         .find((sessionItem) => hasTimeOverlap(currentPlanningStart, currentPlanningEnd, sessionItem.start, sessionItem.end))
       ?? null
     );
-  }, [activeDateEnd, activeDateStart, allUserSessions, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
+  }, [activeDateEnd, activeDateStart, allUserSessions, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, activeAppUserId]);
   useEffect(() => {
     console.log('PLANNING_NOW_REFERENCE', planningNowReference);
   }, [planningNowReference]);
@@ -3227,13 +3305,13 @@ export default function App() {
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
   const currentUserEditableSession = useMemo(() => {
-    if (!session?.user.id || !selectedSpot) {
+    if (!activeAppUserId || !selectedSpot) {
       return null;
     }
 
     return (
       [...sessions]
-        .filter((sessionItem) => sessionItem.userId === session.user.id)
+        .filter((sessionItem) => sessionItem.userId === activeAppUserId)
         .filter((sessionItem) => isPlannedSession(sessionItem))
         .sort((a, b) => {
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -3241,7 +3319,7 @@ export default function App() {
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [selectedSpot, session?.user.id, sessions]);
+  }, [selectedSpot, activeAppUserId, sessions]);
   const hasPlannedSessionAtSelectedSpot = Boolean(currentUserEditableSession);
   const canPlanSession = !hasPlannedSessionAtSelectedSpot;
   const shouldHidePlanSessionButton = hasPlannedSessionAtSelectedSpot;
@@ -3261,14 +3339,13 @@ export default function App() {
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
     console.log('SPOT_PAGE_CANCEL_CLICKED');
     console.log('SPOT_PAGE_CANCEL_SESSION_ID', { sessionId: sessionToCancel.id });
-    console.log('SPOT_PAGE_CANCEL_CURRENT_AUTH_USER_ID', { userId: session?.user.id ?? null });
+    console.log('SPOT_PAGE_CANCEL_CURRENT_AUTH_USER_ID', { userId: activeAppUserId ?? null });
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id) {
+    if (!activeAppUserId) {
       setSessionActionError('Could not cancel session');
       return;
     }
-    const authUserId = user.id;
+    const authUserId = activeAppUserId;
 
     if (sessionToCancel.userId !== authUserId || !isPlannedSession(sessionToCancel)) {
       setSessionActionError('Could not cancel session');
@@ -3462,13 +3539,13 @@ export default function App() {
   }, [homeLiveCountBySpot]);
   useEffect(() => {
     console.log('HOME_CURRENT_USER_LIVE_SESSION', {
-      userId: session?.user.id ?? null,
+      userId: activeAppUserId ?? null,
       liveSessionId: activeCheckedInSession?.id ?? null,
       spot: activeCheckedInSession?.spot ?? null,
       checkedInAt: activeCheckedInSession?.checkedInAt ?? null,
       checkedOutAt: activeCheckedInSession?.checkedOutAt ?? null,
     });
-  }, [activeCheckedInSession, session?.user.id]);
+  }, [activeCheckedInSession, activeAppUserId]);
   useEffect(() => {
     console.log('ACTIVE_SESSION_LOAD', {
       activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
@@ -3503,7 +3580,7 @@ export default function App() {
   const timelineSessions = useMemo(() => {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
-    console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: session?.user.id ?? null, toggleMode });
+    console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: activeAppUserId ?? null, toggleMode });
     const filteredSessions = dedupedSessions.filter((item) => {
       if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
         return false;
@@ -3587,7 +3664,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, session?.user.id, sessions, timelineFilter]);
+  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, sessions, timelineFilter]);
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
@@ -3746,12 +3823,12 @@ export default function App() {
   };
 
   const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
-    if (!selectedSpot || !session?.user.id) {
+    if (!selectedSpot || !activeAppUserId) {
       return false;
     }
 
     console.log('NOTIFICATION_MODE_SAVE_START', {
-      userId: session.user.id,
+      userId: activeAppUserId,
       spotName: selectedSpot,
       preferenceKey,
       nextPreferences,
@@ -3759,7 +3836,7 @@ export default function App() {
     setSavingNotificationPreferenceKey(preferenceKey);
     setNotificationPreferencesError('');
     const savePayload = {
-      user_id: session.user.id,
+      user_id: activeAppUserId,
       spot_name: selectedSpot,
       session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
       checkin_notification_mode: nextPreferences.checkin_notification_mode,
@@ -3777,7 +3854,7 @@ export default function App() {
       );
     const { error } = saveResult;
     console.log('NOTIFICATION_MODE_SAVE_RESULT', {
-      userId: session.user.id,
+      userId: activeAppUserId,
       spotName: selectedSpot,
       preferenceKey,
       error: error ?? null,
@@ -3792,7 +3869,7 @@ export default function App() {
     }
 
     console.log('NOTIFICATION_MODE_SAVE_SUCCESS', {
-      userId: session.user.id,
+      userId: activeAppUserId,
       spotName: selectedSpot,
       preferenceKey,
       nextPreferences,
@@ -3808,11 +3885,10 @@ export default function App() {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
   }): Promise<{ ok: true; spot: SpotName } | { ok: false; reason: string; error?: unknown }> => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id) {
+    if (!activeAppUserId) {
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
-    const authUserId = user.id;
+    const authUserId = activeAppUserId;
 
     const canonicalSpot =
       spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
@@ -3964,7 +4040,7 @@ export default function App() {
 
     const insertPayload = {
       spot_name: canonicalSpot,
-      user_id: user.id,
+      user_id: authUserId,
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
@@ -4030,8 +4106,7 @@ export default function App() {
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
     console.log(`${actionLabel}_BUTTON_PRESSED`, { selectedSpot, status });
 
-    const { data } = await supabase.auth.getUser();
-    const authUserId = data.user?.id;
+    const authUserId = activeAppUserId;
     if (!authUserId) {
       return;
     }
@@ -4124,7 +4199,7 @@ export default function App() {
       return;
     }
 
-    if (!session?.user.id || !profile) {
+    if (!activeAppUserId || !profile) {
       return;
     }
     const isPressedSpotWithinRange = Boolean(
@@ -4190,11 +4265,10 @@ export default function App() {
     console.log('HOME_QUICK_CHECKOUT_PRESSED', { activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id) {
+    if (!activeAppUserId) {
       return;
     }
-    const authUserId = user.id;
+    const authUserId = activeAppUserId;
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
@@ -4878,6 +4952,53 @@ export default function App() {
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Buddies</Text>
           </Pressable>
 
+          {isAccountSwitcherVisible ? (
+            <View style={{ marginTop: 10 }}>
+              <Pressable
+                onPress={() => {
+                  const nextOpen = !showAccountSwitcher;
+                  setShowAccountSwitcher(nextOpen);
+                  if (nextOpen) {
+                    console.log("ACCOUNT_SWITCHER_OPENED");
+                    void loadSwitchableAccounts();
+                  }
+                }}
+                style={{ backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
+              >
+                <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Switch account</Text>
+              </Pressable>
+              {showAccountSwitcher ? (
+                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
+                  {switchableAccounts.map((account) => {
+                    const isActive = account.id === activeAppUserId;
+                    return (
+                      <Pressable
+                        key={`switch-account-${account.id}`}
+                        onPress={() => {
+                          void handleSelectAccount(account);
+                        }}
+                        style={{
+                          borderRadius: 8,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          backgroundColor: isActive ? theme.primaryPressed : theme.cardStrong,
+                          paddingHorizontal: 10,
+                          paddingVertical: 8,
+                          marginBottom: 6,
+                        }}
+                      >
+                        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{account.display_name}</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                          {account.email ?? account.id}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          ) : null}
+
           <Pressable onPress={() => {
             resetFlow();
             void supabase.auth.signOut();
@@ -4887,6 +5008,7 @@ export default function App() {
 
           <Pressable onPress={() => {
             setShowProfile(false);
+            setShowAccountSwitcher(false);
             setProfileAvatarInputUri(null);
             setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
@@ -4927,13 +5049,12 @@ export default function App() {
 
       console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.id) {
+      if (!activeAppUserId) {
         const errorMessage = 'Session could not be saved';
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
           selectedSourceSession: sessionToJoin,
-          currentUserId: session?.user.id ?? null,
+          currentUserId: activeAppUserId ?? null,
           spot_name: sessionToJoin.spot,
           start_time: sessionToJoin.start,
           end_time: sessionToJoin.end,
@@ -4943,7 +5064,7 @@ export default function App() {
         return;
       }
 
-      const currentAuthenticatedUserId = user.id;
+      const currentAuthenticatedUserId = activeAppUserId;
       const clickedSessionUserId = sessionToJoin.userId;
       const clickedSpotName = sessionToJoin.spot;
       const clickedStartTime = sessionToJoin.start;
@@ -5117,21 +5238,20 @@ export default function App() {
         return;
       }
 
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.id) {
+      if (!activeAppUserId) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
           reason: 'missing_auth_or_profile',
           selectedSpot,
-          hasSessionUserId: Boolean(user?.id),
+          hasSessionUserId: Boolean(activeAppUserId),
         });
         return;
       }
 
       const payload = {
         spot_name: selectedSpot,
-        user_id: user.id,
+        user_id: activeAppUserId,
         start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
         end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         status: 'Gaat' as const,
@@ -5692,7 +5812,7 @@ export default function App() {
           <SessionTimeline
             timelineSessions={timelineSessions}
             selectedTimelineSessionId={selectedTimelineSessionId}
-            currentUserId={session?.user.id}
+            currentUserId={activeAppUserId}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
@@ -5734,24 +5854,21 @@ export default function App() {
                   return;
                 }
 
-                const {
-                  data: { user },
-                } = await supabase.auth.getUser();
-                console.log('USER OBJECT', user);
+                console.log('USER OBJECT', { id: activeAppUserId });
                 const activeMessageDateIso = getIsoDateFromLocalDateKey(activeDateKey) ?? new Date().toISOString();
                 const payload = {
-                  user_id: user?.id,
+                  user_id: activeAppUserId,
                   text: messageText,
                   spot_name: selectedSpot,
                   created_at: activeMessageDateIso,
                 };
                 console.log('INSERT PAYLOAD', payload);
-                if (!user) {
+                if (!activeAppUserId) {
                   console.error('NO AUTH USER');
                   return;
                 }
 
-                console.log('USER ID', user.id);
+                console.log('USER ID', activeAppUserId);
                 console.log('SENDING MESSAGE', payload);
                 const { error } = await supabase.from('messages').insert(payload);
 
