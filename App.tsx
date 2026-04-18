@@ -138,6 +138,13 @@ const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const HOME_SPOTS_LIMIT = 5;
 const adminAccountSwitcherEmail = 'matthoogcarspel@gmail.com';
+const createAdminPersonaProfileId = () => {
+  if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
+    return globalThis.crypto.randomUUID();
+  }
+
+  return `admin-persona-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
+};
 const isValidEmailFormat = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 const toEnglishAuthError = (message: string) => {
   const lower = message.toLowerCase();
@@ -1385,7 +1392,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name')
+      .select('id, display_name, email')
       .order('display_name', { ascending: true });
 
     if (error) {
@@ -1402,7 +1409,7 @@ export default function App() {
       dedupedById.set(account.id, {
         id: account.id,
         display_name: account.display_name ?? 'Unknown user',
-        email: account.id === authenticatedUserId ? authenticatedUserEmail : null,
+        email: account.email ?? (account.id === authenticatedUserId ? authenticatedUserEmail : null),
       });
     }
     if (!dedupedById.has(authenticatedUserId)) {
@@ -1422,23 +1429,66 @@ export default function App() {
     const targetEmail = normalizeEmail(adminCreateEmailInput);
     const password = adminCreatePasswordInput;
     const currentUserEmail = normalizeEmail(currentUser?.email ?? '');
-    const isAdmin = currentUserEmail === "matthoogcarspel@gmail.com";
+    const isAdmin = currentUserEmail === adminAccountSwitcherEmail;
+    const isAdminMultiProfileMode = isAdmin && targetEmail === adminAccountSwitcherEmail;
 
     console.log("ADMIN_CREATE_PROFILE_HANDLER_ACTIVE");
     console.log("ADMIN_CREATE_PROFILE_OPERATOR", currentUserEmail);
     console.log("ADMIN_CREATE_PROFILE_TARGET_EMAIL", targetEmail);
+    if (isAdminMultiProfileMode) {
+      console.log("ADMIN_MULTI_PROFILE_MODE", currentUserEmail);
+    }
 
     console.log("CREATE_PROFILE_ATTEMPT", { email: targetEmail, isAdmin });
     console.log("ADMIN_EMAIL_OVERRIDE_ACTIVE", isAdmin, targetEmail);
     console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email: targetEmail, username });
 
-    if (!username || !targetEmail || !password) {
+    if (!username || !targetEmail || (!isAdminMultiProfileMode && !password)) {
       setAdminCreateError('Please fill in all required fields');
       return;
     }
 
     if (!isValidEmailFormat(targetEmail)) {
       setAdminCreateError('Invalid email');
+      return;
+    }
+
+    const previousSession = session;
+    setIsAdminCreatingProfile(true);
+    setAdminCreateError('');
+    if (isAdminMultiProfileMode) {
+      console.log("ADMIN_CREATE_PROFILE_AS_PERSONA", { username, targetEmail });
+      const personaProfileId = createAdminPersonaProfileId();
+      const { error: personaCreateError } = await supabase
+        .from('profiles')
+        .insert({
+          id: personaProfileId,
+          display_name: username,
+          email: targetEmail,
+        });
+
+      if (personaCreateError) {
+        setIsAdminCreatingProfile(false);
+        if (personaCreateError.code === '23505') {
+          setAdminCreateError('Profile name is already in use');
+          return;
+        }
+        setAdminCreateError('Could not create profile. Please try again.');
+        return;
+      }
+
+      setAdminCreateNameInput('');
+      setAdminCreateEmailInput('');
+      setAdminCreatePasswordInput('');
+      setShowAdminCreateProfile(false);
+      setIsAdminCreatingProfile(false);
+      await loadSwitchableAccounts();
+      console.log("ADMIN_PERSONA_CREATE_SUCCESS", { username, targetEmail });
+      console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
+        username,
+        targetEmail,
+      });
+      console.log("CREATE_PROFILE_SUCCESS", { email: targetEmail });
       return;
     }
 
@@ -1449,14 +1499,9 @@ export default function App() {
       .limit(1);
 
     const emailExists = (existingUsers?.length ?? 0) > 0;
-    const shouldBypassDuplicateEmail = isAdmin && emailExists;
-    console.log("ADMIN_DUPLICATE_EMAIL_BYPASS", {
-      currentUserEmail,
-      targetEmail,
-      emailExists,
-    });
-    if (!existingUsersError && !shouldBypassDuplicateEmail && emailExists) {
+    if (!existingUsersError && emailExists) {
       console.log("CREATE_PROFILE_BLOCKED", { reason: "email_exists", isAdmin });
+      setIsAdminCreatingProfile(false);
       setAdminCreateError('Email already in use');
       return;
     }
@@ -1465,15 +1510,8 @@ export default function App() {
       console.log('ADMIN_CREATE_PROFILE_DUPLICATE_LOOKUP_FAILED', existingUsersError.message);
     }
 
-    const previousSession = session;
-    setIsAdminCreatingProfile(true);
-    setAdminCreateError('');
-    const signUpEmail = shouldBypassDuplicateEmail
-      ? targetEmail.replace('@', `+admincreate${Date.now()}${Math.floor(Math.random() * 1000)}@`)
-      : targetEmail;
-
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: signUpEmail,
+      email: targetEmail,
       password,
       options: {
         data: {
