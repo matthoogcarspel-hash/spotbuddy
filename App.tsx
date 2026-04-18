@@ -551,6 +551,32 @@ const getCurrentUserLiveSession = (sessions: SpotSession[], userId: string | nul
   const liveUserSessions = getLiveSessions(userSessions);
   return getMostRecentSessionByCreatedAt(liveUserSessions);
 };
+const getCurrentUserActiveCheckedInSessionForDay = ({
+  sessions,
+  userId,
+  activeDateStart,
+  activeDateEnd,
+}: {
+  sessions: SpotSession[];
+  userId: string | null | undefined;
+  activeDateStart: Date;
+  activeDateEnd: Date;
+}) => {
+  if (!userId) {
+    return null;
+  }
+
+  const activeSessions = sessions
+    .filter((sessionItem) => sessionItem.userId === userId)
+    .filter((sessionItem) => Boolean(sessionItem.checkedInAt))
+    .filter((sessionItem) => !sessionItem.checkedOutAt)
+    .filter((sessionItem) => sessionItem.status === 'Is er al' || sessionItem.status === 'live')
+    .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd))
+    .filter((sessionItem) => isLiveSession(sessionItem))
+    .filter((sessionItem) => !isSessionExpired(sessionItem));
+
+  return getMostRecentSessionByCreatedAt(activeSessions);
+};
 
 const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record<SpotName, T> =>
   spotNames.reduce((result, spot) => {
@@ -2695,7 +2721,6 @@ export default function App() {
     });
   }, [nearestSpotResult]);
 
-  const activeCheckedInSession = gpsActiveCheckedInSession;
   const activeDayContext = useMemo(() => {
     const base = new Date();
     const start = new Date(base);
@@ -2711,6 +2736,25 @@ export default function App() {
     return { activeDateStart: start, activeDateEnd: end, activeDateKey: dateKey };
   }, [activeDay]);
   const { activeDateStart, activeDateEnd, activeDateKey } = activeDayContext;
+  const activeCheckedInSession = useMemo(() => {
+    const allSessions = Object.values(sessionsBySpot).flat();
+    return getCurrentUserActiveCheckedInSessionForDay({
+      sessions: allSessions,
+      userId: session?.user.id,
+      activeDateStart,
+      activeDateEnd,
+    });
+  }, [activeDateEnd, activeDateStart, session?.user.id, sessionsBySpot]);
+  const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
+  useEffect(() => {
+    console.log("CHECKOUT_STATE_EVALUATION", {
+      activeDay,
+      userId: session?.user.id ?? null,
+      spotName: selectedSpot ?? null,
+      hasActiveCheckedInSession,
+      activeSession: activeCheckedInSession ?? null
+    });
+  }, [activeCheckedInSession, activeDay, hasActiveCheckedInSession, selectedSpot, session?.user.id]);
   useEffect(() => {
     console.log("ACTIVE_DAY", activeDay);
   }, [activeDay]);
@@ -3111,6 +3155,7 @@ export default function App() {
   }, [endHour, endMinute, showForm, startHour, startMinute]);
   const isCheckedInAtSelectedSpot = Boolean(
     selectedSpot
+    && hasActiveCheckedInSession
     && activeCheckedInSession
     && normalizeSpotName(activeCheckedInSession.spot) === normalizeSpotName(selectedSpot),
   );
@@ -3130,6 +3175,9 @@ export default function App() {
   const shouldShowSpotCheckOut = isCheckedInAtSelectedSpot;
   const canCheckIn = shouldShowSpotCheckIn && !hasPlannedSession;
   const canCheckOut = shouldShowSpotCheckOut;
+  useEffect(() => {
+    console.log("SPOT_PAGE_CHECKOUT_BUTTON_VISIBLE", { visible: shouldShowSpotCheckOut, activeDay, spotName: selectedSpot ?? null });
+  }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const selectedSpotMomentumLabel = useMemo(
     () => {
       if (!selectedSpot) {
@@ -3255,7 +3303,11 @@ export default function App() {
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
-  const nearestSpotCanCheckIn = !activeCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
+  const nearestSpotCanCheckIn = !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
+  const isHomeCheckoutButtonVisible = Boolean(nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
+  useEffect(() => {
+    console.log("HOME_CHECKOUT_BUTTON_VISIBLE", { visible: isHomeCheckoutButtonVisible, activeDay, nearestSpotName });
+  }, [activeDay, isHomeCheckoutButtonVisible, nearestSpotName]);
   console.log('HOME_TOP_RIGHT_CONTROLS_ACTIVE');
   console.log('SPOT_SEARCH_COMPACT_MODE');
   console.log('NEAREST_SPOT_COMPACT_LAYOUT', { nearestSpot: nearestSpotName, distanceMeters });
@@ -3288,7 +3340,7 @@ export default function App() {
     if (
       nearestSpotName &&
       isWithinAutoCheckInRadius &&
-      !activeCheckedInSession
+      !hasActiveCheckedInSession
     ) {
       console.log('AUTO_CHECKIN_PROMPT_SHOWN', {
         nearestSpotName,
@@ -3301,7 +3353,7 @@ export default function App() {
       setShowAutoCheckinPrompt(true);
       autoCheckInPromptShownRef.current = true;
     }
-  }, [activeCheckedInSession, autoCheckInPromptDismissed, distanceMeters, nearestSpotName]);
+  }, [activeCheckedInSession, autoCheckInPromptDismissed, distanceMeters, hasActiveCheckedInSession, nearestSpotName]);
 
   const homeSpotCards = useMemo<SpotDistanceInfo[]>(() => {
     const selectedSpotNames = new Set(favoriteSpots);
@@ -3391,8 +3443,13 @@ export default function App() {
     });
   }, [activeCheckedInSession, planningOverlapBlockingSession]);
   const filteredMessages = useMemo(
-    () => messages.filter((message) => isIsoInRange(message.createdAt, activeDateStart, activeDateEnd)),
-    [activeDateEnd, activeDateStart, messages],
+    () =>
+      messages.filter((message) => {
+        const belongsToDay = isIsoInRange(message.createdAt, activeDateStart, activeDateEnd);
+        console.log("MESSAGE_DAY_CLASSIFICATION", { id: message.id, createdAt: message.createdAt, activeDay, belongsToDay });
+        return belongsToDay;
+      }),
+    [activeDateEnd, activeDateStart, activeDay, messages],
   );
   const newestFirstMessages = useMemo(
     () =>
@@ -3405,7 +3462,7 @@ export default function App() {
     [filteredMessages],
   );
   useEffect(() => {
-    console.log("CHAT_DAY_FILTER", { activeDay, messageCount: filteredMessages.length });
+    console.log("DAY_FILTERED_MESSAGES", { activeDay, count: filteredMessages.length, messageIds: filteredMessages.map((m) => m.id) });
   }, [activeDay, filteredMessages]);
 
   const timelineSessions = useMemo(() => {
@@ -5549,10 +5606,12 @@ export default function App() {
                   data: { user },
                 } = await supabase.auth.getUser();
                 console.log('USER OBJECT', user);
+                const activeMessageDateIso = getIsoDateFromLocalDateKey(activeDateKey) ?? new Date().toISOString();
                 const payload = {
                   user_id: user?.id,
                   text: messageText,
                   spot_name: selectedSpot,
+                  created_at: activeMessageDateIso,
                 };
                 console.log('INSERT PAYLOAD', payload);
                 if (!user) {
