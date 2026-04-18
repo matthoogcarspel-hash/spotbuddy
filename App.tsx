@@ -1279,6 +1279,7 @@ export default function App() {
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
   const [adminCreateError, setAdminCreateError] = useState('');
   const [adminCreateWarning, setAdminCreateWarning] = useState('');
+  const [, setAdminCreateSuccess] = useState(false);
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
@@ -1399,7 +1400,7 @@ export default function App() {
     if (!isAccountSwitcherVisible || !authenticatedUserId) {
       setSwitchableAccounts([]);
       console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
-      return;
+      return [] as SwitchableAccount[];
     }
 
     const escapedOwnerId = escapeSupabaseFilterValue(authenticatedUserId);
@@ -1420,7 +1421,7 @@ export default function App() {
       console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
       setSwitchableAccounts([]);
       console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
-      return;
+      return [] as SwitchableAccount[];
     }
 
     const dedupedById = new Map<string, SwitchableAccount>();
@@ -1444,130 +1445,109 @@ export default function App() {
     const refreshedProfiles = Array.from(dedupedById.values());
     setSwitchableAccounts(refreshedProfiles);
     console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", refreshedProfiles.length);
+    return refreshedProfiles;
+  };
+
+  const createAdminProfile = async (profileName: string, avatarFile?: string | null) => {
+    console.log("ADMIN_CREATE_PROFILE_START");
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("ADMIN_USER", user);
+
+    if (!user?.id) {
+      throw new Error('You must be logged in');
+    }
+
+    const uploadAvatarIfExists = async (avatar?: string | null) => {
+      if (!avatar) {
+        return null;
+      }
+
+      const avatarStorageKey = `${user.id}-${Date.now()}`;
+      const { error: uploadError, publicUrl } = await uploadAvatar(avatarStorageKey, avatar);
+      if (uploadError || !publicUrl) {
+        throw uploadError ?? new Error('Avatar URL is missing');
+      }
+      return publicUrl;
+    };
+
+    let avatarUrl: string | null = null;
+    try {
+      avatarUrl = await uploadAvatarIfExists(avatarFile);
+    } catch (e) {
+      console.log("AVATAR_UPLOAD_FAILED", e);
+    }
+
+    const payload = {
+      display_name: profileName,
+      owner_uid: user.id,
+      avatar_url: avatarUrl,
+    };
+    console.log("PROFILE_INSERT_PAYLOAD", payload);
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .insert(payload)
+      .select()
+      .single();
+
+    console.log("PROFILE_INSERT_RESULT", { data, error });
+    if (error) {
+      throw error;
+    }
+
+    console.log("PROFILE_CREATE_SUCCESS", data);
+    return data;
   };
 
   const handleAdminCreateProfile = async () => {
-    const authUser = session?.user ?? null;
     const username = adminCreateNameInput.trim();
-    const currentUserEmail = normalizeEmail(authUser?.email ?? '');
+    const currentUserEmail = normalizeEmail(session?.user?.email ?? '');
     const isAdmin = currentUserEmail === adminAccountSwitcherEmail;
-    let createError = '';
-    let avatarWarning = '';
-    let profileCreated = false;
-    let avatarUploaded = !adminCreateAvatarInputUri;
 
     console.log("SUPABASE_ADMIN_MULTI_PROFILE_MODE", currentUserEmail);
 
-    if (!authUser?.id) {
-      createError = 'You must be logged in';
-      setAdminCreateError(createError);
-      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
-      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
-      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
+    if (!session?.user?.id) {
+      setAdminCreateError('You must be logged in');
       return;
     }
 
     if (!isAdmin) {
-      createError = 'You are not allowed to create profiles';
-      setAdminCreateError(createError);
+      setAdminCreateError('You are not allowed to create profiles');
       console.log("PROFILE_INSERT_FAILED", { reason: 'not_admin' });
       return;
     }
 
     if (!username) {
-      createError = 'Please fill in all required fields';
-      setAdminCreateError(createError);
-      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
-      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
-      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
+      setAdminCreateError('Please fill in all required fields');
       return;
     }
 
     setIsAdminCreatingProfile(true);
     setAdminCreateError('');
     setAdminCreateWarning('');
-    const profileId = createProfileId();
-    const payload = {
-      id: profileId,
-      owner_uid: authUser.id,
-      display_name: username,
-      avatar_url: null,
-      email: currentUserEmail || null,
-      created_at: new Date().toISOString(),
-    };
-    console.log("PROFILE_INSERT_PAYLOAD", payload);
-
-    const { data: insertedProfile, error: createProfileError } = await supabase
-      .from('profiles')
-      .insert(payload)
-      .select('id, display_name, avatar_url, email, owner_uid, created_at')
-      .single();
-
-    if (createProfileError) {
-      console.log("PROFILE_INSERT_FAILED", createProfileError);
-      setIsAdminCreatingProfile(false);
-      if (createProfileError.code === '23505') {
-        createError = 'Profile name is already in use';
-        setAdminCreateError(createError);
-        console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
-        console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
-        console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
-        return;
-      }
-      createError = 'Could not create profile. Please try again.';
-      setAdminCreateError(createError);
-      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
-      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
-      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
-      return;
-    }
-
-    console.log("PROFILE_INSERT_SUCCESS", insertedProfile);
-    profileCreated = true;
-    setAdminCreateError('');
-
-    let avatarUrl: string | null = null;
-    if (adminCreateAvatarInputUri) {
-      try {
-        const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
-        if (uploadError || !publicUrl) {
-          throw uploadError ?? new Error('Avatar URL is missing');
-        }
-        const { error: profileAvatarUpdateError } = await supabase
-          .from('profiles')
-          .update({ avatar_url: publicUrl })
-          .eq('id', profileId);
-        if (profileAvatarUpdateError) {
-          throw profileAvatarUpdateError;
-        }
-        avatarUploaded = true;
-        avatarUrl = publicUrl;
-      } catch (error) {
-        avatarUploaded = false;
-        avatarWarning = 'Photo upload failed. Profile created without an avatar.';
-        console.log('AVATAR_UPLOAD_FAILED', error);
-        setAdminCreateWarning(avatarWarning);
-      }
-    } else {
+    try {
+      const createdProfile = await createAdminProfile(username, adminCreateAvatarInputUri);
+      setAdminCreateSuccess(true);
+      setAdminCreateError('');
       setAdminCreateWarning('');
+      setAdminCreateNameInput('');
+      setAdminCreateAvatarInputUri(null);
+      setShowAdminCreateProfile(false);
+      const profiles = await loadSwitchableAccounts();
+      console.log("PROFILES_AFTER_CREATE", profiles);
+      console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
+        username,
+        ownerUid: session.user.id,
+        isAdmin,
+      });
+      console.log("PROFILE_CREATE_SUCCESS", createdProfile);
+    } catch (e) {
+      console.log("PROFILE_CREATE_FAILED_REAL", e);
+      setAdminCreateSuccess(false);
+      setAdminCreateError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setIsAdminCreatingProfile(false);
     }
-
-    console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
-    console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
-    console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
-
-    setAdminCreateNameInput('');
-    setAdminCreateAvatarInputUri(null);
-    setShowAdminCreateProfile(false);
-    setIsAdminCreatingProfile(false);
-    await loadSwitchableAccounts();
-    console.log("PROFILE_CREATED", username, avatarUrl);
-
-    console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
-      username,
-      ownerUid: authUser.id,
-      isAdmin,
-    });
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
