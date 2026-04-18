@@ -82,7 +82,7 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
-type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email: string | null };
+type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email: string | null; owner_uid: string | null; created_at?: string };
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -147,7 +147,6 @@ const createProfileId = () => {
 
   return `profile-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 };
-const escapeSupabaseFilterValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,');
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1411,15 +1410,12 @@ export default function App() {
       return [] as SwitchableAccount[];
     }
 
-    const escapedOwnerId = escapeSupabaseFilterValue(user.id);
-    const ownerFilter = `owner_uid.eq.${escapedOwnerId}`;
-    const legacyIdFilter = `id.eq.${escapedOwnerId}`;
     console.log("SWITCH_ACCOUNT_QUERY_START");
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, email, avatar_url, owner_uid')
-      .or(`${ownerFilter},${legacyIdFilter}`)
-      .order('display_name', { ascending: true });
+      .select('id, display_name, avatar_url, owner_uid, created_at')
+      .eq('owner_uid', user.id)
+      .order('created_at', { ascending: true });
     console.log("SWITCH_ACCOUNT_QUERY_RESULT", { data, error });
 
     if (error) {
@@ -1429,27 +1425,16 @@ export default function App() {
       return [] as SwitchableAccount[];
     }
 
-    const dedupedById = new Map<string, SwitchableAccount>();
-    for (const account of data ?? []) {
-      if (!account?.id) {
-        continue;
-      }
-      dedupedById.set(account.id, {
+    const refreshedProfiles = (data ?? [])
+      .filter((account) => Boolean(account?.id))
+      .map((account) => ({
         id: account.id,
         display_name: account.display_name ?? 'Unknown user',
         avatar_url: account.avatar_url ?? null,
-        email: account.email ?? (account.id === user.id ? authenticatedUserEmail : null),
-      });
-    }
-    if (!dedupedById.has(user.id)) {
-      dedupedById.set(user.id, {
-        id: user.id,
-        display_name: profile?.display_name ?? 'Current user',
-        avatar_url: profile?.avatar_url ?? null,
+        owner_uid: account.owner_uid ?? null,
+        created_at: account.created_at,
         email: authenticatedUserEmail,
-      });
-    }
-    const refreshedProfiles = Array.from(dedupedById.values());
+      }));
     setSwitchableAccounts(refreshedProfiles);
     console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", refreshedProfiles);
     console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", refreshedProfiles.length);
@@ -1563,15 +1548,15 @@ export default function App() {
     }
   };
 
-  const handleSelectAccount = async (account: SwitchableAccount) => {
-    console.log("SWITCH_ACCOUNT_SELECTED_PROFILE", account);
+  const handleSelectAccount = async (selectedProfile: SwitchableAccount) => {
+    console.log("SWITCH_ACCOUNT_SELECTED_PROFILE", selectedProfile);
     const fromUser = {
       id: activeAppUserId,
       email: activeAppUserEmail,
     };
     const toUser = {
-      id: account.id,
-      email: account.email,
+      id: selectedProfile.id,
+      email: selectedProfile.email,
     };
     console.log("ACCOUNT_SWITCH_SELECTED", { fromUser, toUser });
 
@@ -1581,12 +1566,12 @@ export default function App() {
     setShowAdminCreateProfile(false);
     setSwitchableAccounts([]);
     setSelectedSpot(null);
-    setActiveUserOverride(account.id === authenticatedUserId ? null : account);
-    setCurrentUserId(account.id);
-    await fetchProfile(account.id);
+    setActiveUserOverride(selectedProfile);
+    setCurrentUserId(selectedProfile.id);
+    await fetchProfile(selectedProfile.id);
     await fetchSharedData();
     await fetchBuddiesData();
-    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: account.id, activeUserEmail: account.email });
+    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: selectedProfile.id, activeUserEmail: selectedProfile.email });
   };
 
   useEffect(() => {
@@ -2588,6 +2573,14 @@ export default function App() {
       setProfileNameInput(profile.display_name);
     }
   }, [showProfile, profile]);
+
+  useEffect(() => {
+    if (!showProfile || !isAccountSwitcherVisible) {
+      return;
+    }
+
+    void loadSwitchableAccounts();
+  }, [showProfile, isAccountSwitcherVisible]);
 
   useEffect(() => {
     if (!showBuddies || !activeAppUserId) {
@@ -5294,6 +5287,7 @@ export default function App() {
               {showAccountSwitcher ? (
                 <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
                   {switchableAccounts.map((account) => {
+                    console.log("SWITCH_ACCOUNT_RENDER_ITEM", account);
                     const isActive = account.id === activeAppUserId;
                     return (
                       <Pressable
