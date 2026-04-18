@@ -82,7 +82,7 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
-type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email: string | null; owner_uid: string | null; created_at?: string };
+type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email?: string | null; owner_uid: string | null; created_at?: string };
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -1395,13 +1395,7 @@ export default function App() {
     console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
-  const loadSwitchableAccounts = async () => {
-    if (!isAccountSwitcherVisible) {
-      setSwitchableAccounts([]);
-      console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
-      return [] as SwitchableAccount[];
-    }
-
+  const loadOwnedProfiles = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     console.log("SWITCH_ACCOUNT_CURRENT_USER", user);
     if (!user?.id) {
@@ -1425,20 +1419,18 @@ export default function App() {
       return [] as SwitchableAccount[];
     }
 
-    const refreshedProfiles = (data ?? [])
-      .filter((account) => Boolean(account?.id))
-      .map((account) => ({
-        id: account.id,
-        display_name: account.display_name ?? 'Unknown user',
-        avatar_url: account.avatar_url ?? null,
-        owner_uid: account.owner_uid ?? null,
-        created_at: account.created_at,
-        email: authenticatedUserEmail,
-      }));
-    setSwitchableAccounts(refreshedProfiles);
-    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", refreshedProfiles);
-    console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", refreshedProfiles.length);
-    return refreshedProfiles;
+    const visibleProfiles: SwitchableAccount[] = (data ?? []).map((account) => ({
+      id: account.id,
+      display_name: account.display_name,
+      avatar_url: account.avatar_url,
+      owner_uid: account.owner_uid ?? null,
+      created_at: account.created_at,
+      email: authenticatedUserEmail,
+    }));
+    setSwitchableAccounts(visibleProfiles);
+    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", data);
+    console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", visibleProfiles.length);
+    return visibleProfiles;
   };
 
   const createAdminProfile = async (profileName: string, avatarFile?: string | null) => {
@@ -1526,7 +1518,7 @@ export default function App() {
       setAdminCreateNameInput('');
       setAdminCreateAvatarInputUri(null);
       setShowAdminCreateProfile(false);
-      const profiles = await loadSwitchableAccounts();
+      const profiles = await loadOwnedProfiles();
       console.log("PROFILES_AFTER_CREATE", profiles);
       console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
         username,
@@ -2579,7 +2571,7 @@ export default function App() {
       return;
     }
 
-    void loadSwitchableAccounts();
+    void loadOwnedProfiles();
   }, [showProfile, isAccountSwitcherVisible]);
 
   useEffect(() => {
@@ -5198,7 +5190,7 @@ export default function App() {
                   setShowAccountSwitcher(nextOpen);
                   if (nextOpen) {
                     console.log("ACCOUNT_SWITCHER_OPENED");
-                    void loadSwitchableAccounts();
+                    void loadOwnedProfiles();
                   }
                 }}
                 style={{ backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
