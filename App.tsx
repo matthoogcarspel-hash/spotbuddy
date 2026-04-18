@@ -1277,7 +1277,7 @@ export default function App() {
   const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
-  const [adminCreateError, setAdminCreateError] = useState('');
+  const [adminCreateError, setAdminCreateError] = useState<unknown>('');
   const [adminCreateWarning, setAdminCreateWarning] = useState('');
   const [, setAdminCreateSuccess] = useState(false);
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
@@ -1541,10 +1541,15 @@ export default function App() {
         isAdmin,
       });
       console.log("PROFILE_CREATE_SUCCESS", createdProfile);
-    } catch (e) {
-      console.log("PROFILE_CREATE_FAILED_REAL", e);
+    } catch (error) {
+      console.log("PROFILE_CREATE_FAILED_REAL", error);
+      console.log("REAL_PROFILE_ERROR", error);
+      console.log("REAL_PROFILE_ERROR_STRING", error?.message);
       setAdminCreateSuccess(false);
-      setAdminCreateError(e instanceof Error ? e.message : String(e));
+      setAdminCreateError(
+        error?.message ||
+        JSON.stringify(error, null, 2)
+      );
     } finally {
       setIsAdminCreatingProfile(false);
     }
@@ -5256,7 +5261,13 @@ export default function App() {
                       <Avatar uri={adminCreateAvatarInputUri} size={42} />
                     </View>
                   ) : null}
-                  {adminCreateError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{adminCreateError}</Text> : null}
+                  {adminCreateError && (
+                    <Text style={{ color: 'red' }}>
+                      {typeof adminCreateError === 'string'
+                        ? adminCreateError
+                        : JSON.stringify(adminCreateError, null, 2)}
+                    </Text>
+                  )}
                   {adminCreateWarning ? <Text style={{ color: '#f2c66d', marginBottom: 8, fontSize: 12 }}>{adminCreateWarning}</Text> : null}
                   <Pressable
                     disabled={isAdminCreatingProfile}
