@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Pressable, SafeAreaView, Text, TextInput, View } from 'react-native';
 
 import { supabase } from '../lib/supabase';
+import { isAdminEmailException, normalizeEmail } from '../lib/userValidation';
 
 type AuthScreenProps = {
   onSignupSuccess: () => void;
@@ -20,7 +21,7 @@ const toEnglishAuthError = (message: string) => {
   }
 
   if (lower.includes('already registered') || lower.includes('user already registered')) {
-    return 'This email address is already registered';
+    return 'Email already in use';
   }
 
   return 'Something went wrong. Please try again.';
@@ -34,7 +35,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedEmail = normalizeEmail(email);
 
   const validateInputs = () => {
     if (!normalizedEmail || !password) {
@@ -73,9 +74,31 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
     setLoadingAction('signup');
     setError('');
 
+    const { data: existingUsers, error: existingUsersError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', normalizedEmail)
+      .limit(1);
+
+    if (existingUsersError) {
+      console.log('EMAIL_DUPLICATE_LOOKUP_FAILED', existingUsersError.message);
+    }
+
+    if (!existingUsersError && !isAdminEmailException(normalizedEmail) && (existingUsers?.length ?? 0) > 0) {
+      console.log('EMAIL_DUPLICATE_BLOCKED', normalizedEmail);
+      setLoadingAction(null);
+      setError('Email already in use');
+      return;
+    }
+
     const { error: signUpError } = await supabase.auth.signUp({
       email: normalizedEmail,
       password,
+      options: {
+        data: {
+          email: normalizedEmail,
+        },
+      },
     });
 
     setLoadingAction(null);

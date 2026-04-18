@@ -11,6 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { Profile, supabase } from './src/lib/supabase';
+import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 
@@ -4718,6 +4719,20 @@ export default function App() {
 
       if (trimmedName.length > 20) {
         setProfileEditError('Name can be at most 20 characters');
+        return;
+      }
+
+      const normalizedEmail = normalizeEmail(session.user.email ?? '');
+
+      if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
+        console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+        setProfileEditError('Username not allowed');
+        return;
+      }
+
+      if (hasRestrictedWord(trimmedName)) {
+        console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+        setProfileEditError('Username contains restricted words');
         return;
       }
 

@@ -5,6 +5,7 @@ import { Image, Pressable, SafeAreaView, Text, TextInput, TouchableOpacity, View
 
 import { uploadAvatar } from '../lib/avatar';
 import { Profile, supabase } from '../lib/supabase';
+import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from '../lib/userValidation';
 
 type NameSetupScreenProps = {
   userId: string;
@@ -62,6 +63,21 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
     if (!trimmedName) {
       setError('Display name is required');
+      return;
+    }
+
+    const { data: authUserData } = await supabase.auth.getUser();
+    const normalizedEmail = normalizeEmail(authUserData.user?.email ?? '');
+
+    if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
+      console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+      setError('Username not allowed');
+      return;
+    }
+
+    if (hasRestrictedWord(trimmedName)) {
+      console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+      setError('Username contains restricted words');
       return;
     }
 
