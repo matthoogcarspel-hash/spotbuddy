@@ -25,12 +25,14 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   const [displayName, setDisplayName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [warning, setWarning] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [saveButtonClicked, setSaveButtonClicked] = useState(false);
   const [saveStatusText, setSaveStatusText] = useState('');
 
   const pickAvatar = async () => {
     setError('');
+    setWarning('');
 
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -82,6 +84,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     }
 
     setError('');
+    setWarning('');
     setIsLoading(true);
 
     const { data: existingProfile, error: existingProfileError } = await supabase
@@ -106,20 +109,17 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     let avatarUrl: string | null = null;
 
     if (avatarUri) {
-      const { error: uploadError, publicUrl } = await uploadAvatar(userId, avatarUri);
-      if (uploadError) {
-        setIsLoading(false);
-        setError('Photo upload failed');
-        return;
-      }
+      try {
+        const { error: uploadError, publicUrl } = await uploadAvatar(userId, avatarUri);
+        if (uploadError || !publicUrl) {
+          throw uploadError ?? new Error('Avatar URL is missing');
+        }
 
-      if (!publicUrl) {
-        setIsLoading(false);
-        setError('Avatar URL is missing');
-        return;
+        avatarUrl = publicUrl;
+      } catch (uploadError) {
+        console.log('AVATAR_UPLOAD_FAILED', uploadError);
+        setWarning('Photo upload failed. Profile will be created without an avatar.');
       }
-
-      avatarUrl = publicUrl;
     }
 
     const createdAt = new Date().toISOString();
@@ -149,6 +149,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       return;
     }
 
+    console.log('PROFILE_CREATED', trimmedName, avatarUrl);
     onSaved(savedProfile);
   };
 
@@ -180,6 +181,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
         ) : null}
 
         {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
+        {warning ? <Text style={{ color: '#f2c66d', fontSize: 12, marginBottom: 10 }}>{warning}</Text> : null}
 
         <TouchableOpacity
           disabled={isLoading}
