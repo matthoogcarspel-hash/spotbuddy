@@ -1417,10 +1417,14 @@ export default function App() {
   };
 
   const handleAdminCreateProfile = async () => {
+    const currentUser = session?.user ?? null;
     const username = adminCreateNameInput.trim();
     const email = normalizeEmail(adminCreateEmailInput);
     const password = adminCreatePasswordInput;
+    const isAdmin = normalizeEmail(currentUser?.email ?? '') === "matthoogcarspel@gmail.com";
 
+    console.log("CREATE_PROFILE_ATTEMPT", { email, isAdmin });
+    console.log("ADMIN_EMAIL_OVERRIDE_ACTIVE", isAdmin, email);
     console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email, username });
 
     if (!username || !email || !password) {
@@ -1439,7 +1443,9 @@ export default function App() {
       .eq('email', email)
       .limit(1);
 
-    if (!existingUsersError && (existingUsers?.length ?? 0) > 0) {
+    const emailExists = (existingUsers?.length ?? 0) > 0;
+    if (!existingUsersError && !isAdmin && emailExists) {
+      console.log("CREATE_PROFILE_BLOCKED", { reason: "email_exists", isAdmin });
       setAdminCreateError('Email already in use');
       return;
     }
@@ -1505,6 +1511,7 @@ export default function App() {
       email,
       username,
     });
+    console.log("CREATE_PROFILE_SUCCESS", { email });
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
