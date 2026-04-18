@@ -138,30 +138,12 @@ const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const HOME_SPOTS_LIMIT = 5;
 const adminAccountSwitcherEmail = 'matthoogcarspel@gmail.com';
-const createAdminPersonaProfileId = () => {
+const createProfileId = () => {
   if (typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.randomUUID === 'function') {
     return globalThis.crypto.randomUUID();
   }
 
-  return `admin-persona-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
-};
-const isValidEmailFormat = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-const toEnglishAuthError = (message: string) => {
-  const lower = message.toLowerCase();
-
-  if (lower.includes('password should be at least')) {
-    return 'Password is too short';
-  }
-
-  if (lower.includes('already registered') || lower.includes('user already registered')) {
-    return 'Email already in use';
-  }
-
-  if (lower.includes('invalid email')) {
-    return 'Invalid email';
-  }
-
-  return 'Could not create profile. Please try again.';
+  return `profile-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 };
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
@@ -1265,8 +1247,7 @@ export default function App() {
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
-  const [adminCreateEmailInput, setAdminCreateEmailInput] = useState('');
-  const [adminCreatePasswordInput, setAdminCreatePasswordInput] = useState('');
+  const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
   const [adminCreateError, setAdminCreateError] = useState('');
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
@@ -1393,6 +1374,7 @@ export default function App() {
     const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, email')
+      .eq('owner_uid', authenticatedUserId)
       .order('display_name', { ascending: true });
 
     if (error) {
@@ -1424,144 +1406,72 @@ export default function App() {
   };
 
   const handleAdminCreateProfile = async () => {
-    const currentUser = session?.user ?? null;
+    const authUser = session?.user ?? null;
     const username = adminCreateNameInput.trim();
-    const targetEmail = normalizeEmail(adminCreateEmailInput);
-    const password = adminCreatePasswordInput;
-    const currentUserEmail = normalizeEmail(currentUser?.email ?? '');
+    const currentUserEmail = normalizeEmail(authUser?.email ?? '');
     const isAdmin = currentUserEmail === adminAccountSwitcherEmail;
-    const isAdminMultiProfileMode = isAdmin && targetEmail === adminAccountSwitcherEmail;
 
     console.log("ADMIN_CREATE_PROFILE_HANDLER_ACTIVE");
     console.log("ADMIN_CREATE_PROFILE_OPERATOR", currentUserEmail);
-    console.log("ADMIN_CREATE_PROFILE_TARGET_EMAIL", targetEmail);
-    if (isAdminMultiProfileMode) {
-      console.log("ADMIN_MULTI_PROFILE_MODE", currentUserEmail);
+    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { ownerUid: authUser?.id ?? null, username });
+
+    if (!authUser?.id) {
+      setAdminCreateError('You must be logged in');
+      return;
     }
 
-    console.log("CREATE_PROFILE_ATTEMPT", { email: targetEmail, isAdmin });
-    console.log("ADMIN_EMAIL_OVERRIDE_ACTIVE", isAdmin, targetEmail);
-    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email: targetEmail, username });
-
-    if (!username || !targetEmail || (!isAdminMultiProfileMode && !password)) {
+    if (!username) {
       setAdminCreateError('Please fill in all required fields');
       return;
     }
 
-    if (!isValidEmailFormat(targetEmail)) {
-      setAdminCreateError('Invalid email');
-      return;
-    }
-
-    const previousSession = session;
     setIsAdminCreatingProfile(true);
     setAdminCreateError('');
-    if (isAdminMultiProfileMode) {
-      console.log("ADMIN_CREATE_PROFILE_AS_PERSONA", { username, targetEmail });
-      const personaProfileId = createAdminPersonaProfileId();
-      const { error: personaCreateError } = await supabase
-        .from('profiles')
-        .insert({
-          id: personaProfileId,
-          display_name: username,
-          email: targetEmail,
-        });
-
-      if (personaCreateError) {
+    const profileId = createProfileId();
+    let avatarUrl: string | null = null;
+    if (adminCreateAvatarInputUri) {
+      const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
+      if (uploadError || !publicUrl) {
         setIsAdminCreatingProfile(false);
-        if (personaCreateError.code === '23505') {
-          setAdminCreateError('Profile name is already in use');
-          return;
-        }
-        setAdminCreateError('Could not create profile. Please try again.');
+        setAdminCreateError('Photo upload failed');
         return;
       }
-
-      setAdminCreateNameInput('');
-      setAdminCreateEmailInput('');
-      setAdminCreatePasswordInput('');
-      setShowAdminCreateProfile(false);
-      setIsAdminCreatingProfile(false);
-      await loadSwitchableAccounts();
-      console.log("ADMIN_PERSONA_CREATE_SUCCESS", { username, targetEmail });
-      console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
-        username,
-        targetEmail,
-      });
-      console.log("CREATE_PROFILE_SUCCESS", { email: targetEmail });
-      return;
+      avatarUrl = publicUrl;
     }
 
-    const { data: existingUsers, error: existingUsersError } = await supabase
+    const { error: createProfileError } = await supabase
       .from('profiles')
-      .select('id')
-      .eq('email', targetEmail)
-      .limit(1);
-
-    const emailExists = (existingUsers?.length ?? 0) > 0;
-    if (!existingUsersError && emailExists) {
-      console.log("CREATE_PROFILE_BLOCKED", { reason: "email_exists", isAdmin });
-      setIsAdminCreatingProfile(false);
-      setAdminCreateError('Email already in use');
-      return;
-    }
-
-    if (existingUsersError) {
-      console.log('ADMIN_CREATE_PROFILE_DUPLICATE_LOOKUP_FAILED', existingUsersError.message);
-    }
-
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email: targetEmail,
-      password,
-      options: {
-        data: {
-          email: targetEmail,
-          display_name: username,
-        },
-      },
-    });
-
-    if (signUpError) {
-      setIsAdminCreatingProfile(false);
-      setAdminCreateError(toEnglishAuthError(signUpError.message));
-      return;
-    }
-
-    if (previousSession?.access_token && previousSession?.refresh_token) {
-      const { error: restoreError } = await supabase.auth.setSession({
-        access_token: previousSession.access_token,
-        refresh_token: previousSession.refresh_token,
+      .insert({
+        id: profileId,
+        owner_uid: authUser.id,
+        display_name: username,
+        avatar_url: avatarUrl,
+        email: currentUserEmail || null,
+        created_at: new Date().toISOString(),
       });
 
-      if (restoreError) {
-        console.log('ADMIN_CREATE_PROFILE_SESSION_RESTORE_FAILED', restoreError.message);
+    if (createProfileError) {
+      setIsAdminCreatingProfile(false);
+      if (createProfileError.code === '23505') {
+        setAdminCreateError('Profile name is already in use');
+        return;
       }
-    }
-
-    const createdUser = signUpData.user;
-    if (createdUser?.id) {
-      const { error: profileUpdateError } = await supabase
-        .from('profiles')
-        .update({ display_name: username, email: targetEmail })
-        .eq('id', createdUser.id);
-
-      if (profileUpdateError) {
-        console.log('ADMIN_CREATE_PROFILE_UPDATE_FAILED', profileUpdateError.message);
-      }
+      setAdminCreateError('Could not create profile. Please try again.');
+      return;
     }
 
     setAdminCreateNameInput('');
-    setAdminCreateEmailInput('');
-    setAdminCreatePasswordInput('');
+    setAdminCreateAvatarInputUri(null);
     setShowAdminCreateProfile(false);
     setIsAdminCreatingProfile(false);
     await loadSwitchableAccounts();
+    console.log("PROFILE_CREATED", username);
 
     console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
       username,
-      targetEmail,
+      ownerUid: authUser.id,
+      isAdmin,
     });
-    console.log("CREATE_PROFILE_SUCCESS", { email: targetEmail });
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
@@ -5216,6 +5126,9 @@ export default function App() {
                 onPress={() => {
                   const nextOpen = !showAdminCreateProfile;
                   setShowAdminCreateProfile(nextOpen);
+                  if (!nextOpen) {
+                    setAdminCreateAvatarInputUri(null);
+                  }
                   if (nextOpen) {
                     console.log("ADMIN_CREATE_PROFILE_OPENED");
                   }
@@ -5234,24 +5147,37 @@ export default function App() {
                     autoCapitalize="none"
                     style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
                   />
-                  <TextInput
-                    value={adminCreateEmailInput}
-                    onChangeText={setAdminCreateEmailInput}
-                    placeholder="Email"
-                    placeholderTextColor={theme.textMuted}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
-                  />
-                  <TextInput
-                    value={adminCreatePasswordInput}
-                    onChangeText={setAdminCreatePasswordInput}
-                    placeholder="Password"
-                    placeholderTextColor={theme.textMuted}
-                    secureTextEntry
-                    autoCapitalize="none"
-                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
-                  />
+                  <Pressable
+                    onPress={async () => {
+                      setAdminCreateError('');
+                      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+                      if (status !== 'granted') {
+                        setAdminCreateError('Allow photo access to choose a profile photo');
+                        return;
+                      }
+
+                      const result = await ImagePicker.launchImageLibraryAsync({
+                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+                        allowsEditing: true,
+                        aspect: [1, 1],
+                        quality: 0.7,
+                      });
+
+                      if (!result.canceled) {
+                        setAdminCreateAvatarInputUri(result.assets[0].uri);
+                      }
+                    }}
+                    style={{ backgroundColor: theme.cardStrong, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                  >
+                    <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
+                      {adminCreateAvatarInputUri ? 'Change avatar (optional)' : 'Pick avatar (optional)'}
+                    </Text>
+                  </Pressable>
+                  {adminCreateAvatarInputUri ? (
+                    <View style={{ marginBottom: 8, alignItems: 'center' }}>
+                      <Avatar uri={adminCreateAvatarInputUri} size={42} />
+                    </View>
+                  ) : null}
                   {adminCreateError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{adminCreateError}</Text> : null}
                   <Pressable
                     disabled={isAdminCreatingProfile}
@@ -5301,6 +5227,7 @@ export default function App() {
           <Pressable onPress={() => {
             resetFlow();
             setShowAdminCreateProfile(false);
+            setAdminCreateAvatarInputUri(null);
             void supabase.auth.signOut();
           }} style={{ marginTop: 16, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Log out</Text>
@@ -5311,6 +5238,7 @@ export default function App() {
             setShowAccountSwitcher(false);
             setShowAdminCreateProfile(false);
             setProfileAvatarInputUri(null);
+            setAdminCreateAvatarInputUri(null);
             setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Back</Text>
