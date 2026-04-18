@@ -1419,20 +1419,25 @@ export default function App() {
   const handleAdminCreateProfile = async () => {
     const currentUser = session?.user ?? null;
     const username = adminCreateNameInput.trim();
-    const email = normalizeEmail(adminCreateEmailInput);
+    const targetEmail = normalizeEmail(adminCreateEmailInput);
     const password = adminCreatePasswordInput;
-    const isAdmin = normalizeEmail(currentUser?.email ?? '') === "matthoogcarspel@gmail.com";
+    const currentUserEmail = normalizeEmail(currentUser?.email ?? '');
+    const isAdmin = currentUserEmail === "matthoogcarspel@gmail.com";
 
-    console.log("CREATE_PROFILE_ATTEMPT", { email, isAdmin });
-    console.log("ADMIN_EMAIL_OVERRIDE_ACTIVE", isAdmin, email);
-    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email, username });
+    console.log("ADMIN_CREATE_PROFILE_HANDLER_ACTIVE");
+    console.log("ADMIN_CREATE_PROFILE_OPERATOR", currentUserEmail);
+    console.log("ADMIN_CREATE_PROFILE_TARGET_EMAIL", targetEmail);
 
-    if (!username || !email || !password) {
+    console.log("CREATE_PROFILE_ATTEMPT", { email: targetEmail, isAdmin });
+    console.log("ADMIN_EMAIL_OVERRIDE_ACTIVE", isAdmin, targetEmail);
+    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email: targetEmail, username });
+
+    if (!username || !targetEmail || !password) {
       setAdminCreateError('Please fill in all required fields');
       return;
     }
 
-    if (!isValidEmailFormat(email)) {
+    if (!isValidEmailFormat(targetEmail)) {
       setAdminCreateError('Invalid email');
       return;
     }
@@ -1440,11 +1445,17 @@ export default function App() {
     const { data: existingUsers, error: existingUsersError } = await supabase
       .from('profiles')
       .select('id')
-      .eq('email', email)
+      .eq('email', targetEmail)
       .limit(1);
 
     const emailExists = (existingUsers?.length ?? 0) > 0;
-    if (!existingUsersError && !isAdmin && emailExists) {
+    const shouldBypassDuplicateEmail = isAdmin && emailExists;
+    console.log("ADMIN_DUPLICATE_EMAIL_BYPASS", {
+      currentUserEmail,
+      targetEmail,
+      emailExists,
+    });
+    if (!existingUsersError && !shouldBypassDuplicateEmail && emailExists) {
       console.log("CREATE_PROFILE_BLOCKED", { reason: "email_exists", isAdmin });
       setAdminCreateError('Email already in use');
       return;
@@ -1457,13 +1468,16 @@ export default function App() {
     const previousSession = session;
     setIsAdminCreatingProfile(true);
     setAdminCreateError('');
+    const signUpEmail = shouldBypassDuplicateEmail
+      ? targetEmail.replace('@', `+admincreate${Date.now()}${Math.floor(Math.random() * 1000)}@`)
+      : targetEmail;
 
     const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-      email,
+      email: signUpEmail,
       password,
       options: {
         data: {
-          email,
+          email: targetEmail,
           display_name: username,
         },
       },
@@ -1488,10 +1502,9 @@ export default function App() {
 
     const createdUser = signUpData.user;
     if (createdUser?.id) {
-      const createdEmail = normalizeEmail(createdUser.email ?? email);
       const { error: profileUpdateError } = await supabase
         .from('profiles')
-        .update({ display_name: username, email: createdEmail })
+        .update({ display_name: username, email: targetEmail })
         .eq('id', createdUser.id);
 
       if (profileUpdateError) {
@@ -1507,11 +1520,10 @@ export default function App() {
     await loadSwitchableAccounts();
 
     console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
-      userId: createdUser?.id ?? null,
-      email,
       username,
+      targetEmail,
     });
-    console.log("CREATE_PROFILE_SUCCESS", { email });
+    console.log("CREATE_PROFILE_SUCCESS", { email: targetEmail });
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
