@@ -82,7 +82,7 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
-type SwitchableAccount = Pick<Profile, 'id' | 'display_name'> & { email: string | null };
+type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email: string | null };
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -1397,25 +1397,30 @@ export default function App() {
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
   const loadSwitchableAccounts = async () => {
-    if (!isAccountSwitcherVisible || !authenticatedUserId) {
+    if (!isAccountSwitcherVisible) {
       setSwitchableAccounts([]);
       console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
       return [] as SwitchableAccount[];
     }
 
-    const escapedOwnerId = escapeSupabaseFilterValue(authenticatedUserId);
-    const escapedEmail = escapeSupabaseFilterValue(authenticatedUserEmail);
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SWITCH_ACCOUNT_CURRENT_USER", user);
+    if (!user?.id) {
+      setSwitchableAccounts([]);
+      console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", []);
+      return [] as SwitchableAccount[];
+    }
+
+    const escapedOwnerId = escapeSupabaseFilterValue(user.id);
     const ownerFilter = `owner_uid.eq.${escapedOwnerId}`;
     const legacyIdFilter = `id.eq.${escapedOwnerId}`;
-    const legacyEmailFilter = authenticatedUserEmail ? `email.eq.${escapedEmail}` : '';
-    const filterQuery = legacyEmailFilter
-      ? `${ownerFilter},${legacyIdFilter},${legacyEmailFilter}`
-      : `${ownerFilter},${legacyIdFilter}`;
+    console.log("SWITCH_ACCOUNT_QUERY_START");
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, email')
-      .or(filterQuery)
+      .select('id, display_name, email, avatar_url, owner_uid')
+      .or(`${ownerFilter},${legacyIdFilter}`)
       .order('display_name', { ascending: true });
+    console.log("SWITCH_ACCOUNT_QUERY_RESULT", { data, error });
 
     if (error) {
       console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
@@ -1432,18 +1437,21 @@ export default function App() {
       dedupedById.set(account.id, {
         id: account.id,
         display_name: account.display_name ?? 'Unknown user',
-        email: account.email ?? (account.id === authenticatedUserId ? authenticatedUserEmail : null),
+        avatar_url: account.avatar_url ?? null,
+        email: account.email ?? (account.id === user.id ? authenticatedUserEmail : null),
       });
     }
-    if (!dedupedById.has(authenticatedUserId)) {
-      dedupedById.set(authenticatedUserId, {
-        id: authenticatedUserId,
+    if (!dedupedById.has(user.id)) {
+      dedupedById.set(user.id, {
+        id: user.id,
         display_name: profile?.display_name ?? 'Current user',
+        avatar_url: profile?.avatar_url ?? null,
         email: authenticatedUserEmail,
       });
     }
     const refreshedProfiles = Array.from(dedupedById.values());
     setSwitchableAccounts(refreshedProfiles);
+    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", refreshedProfiles);
     console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", refreshedProfiles.length);
     return refreshedProfiles;
   };
@@ -1556,6 +1564,7 @@ export default function App() {
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
+    console.log("SWITCH_ACCOUNT_SELECTED_PROFILE", account);
     const fromUser = {
       id: activeAppUserId,
       email: activeAppUserEmail,
@@ -5300,12 +5309,18 @@ export default function App() {
                           paddingHorizontal: 10,
                           paddingVertical: 8,
                           marginBottom: 6,
+                          flexDirection: 'row',
+                          alignItems: 'center',
+                          gap: 10,
                         }}
                       >
-                        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{account.display_name}</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                          {account.email ?? account.id}
-                        </Text>
+                        <Avatar uri={account.avatar_url ?? null} size={34} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{account.display_name}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                            {account.email ?? account.id}
+                          </Text>
+                        </View>
                       </Pressable>
                     );
                   })}
