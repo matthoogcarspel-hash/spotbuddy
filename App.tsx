@@ -60,6 +60,8 @@ type SpotDistanceInfo = {
   distanceMeters: number | null;
 };
 type SpotMomentumLabel =
+  | 'Let’s go now'
+  | 'Let’s go big tomorrow'
   | 'Happening now'
   | 'Looks on today'
   | 'Session forming today'
@@ -447,84 +449,110 @@ const getSessionState = (sessionItem: SpotSession, now = new Date()): Determinis
   return 'planned';
 };
 const isLiveSession = (sessionItem: SpotSession, now = new Date()) => getSessionState(sessionItem, now) === 'active';
+const isSessionForLocalDate = (sessionItem: SpotSession, localDateKey: string) => {
+  const sessionStartTime = getSessionStartTime(sessionItem);
+  return getLocalDateKey(sessionStartTime) === localDateKey;
+};
+const getSpotMomentumLabelForDay = ({
+  spotName,
+  activeDay,
+  sessions,
+  todayLocalDateKey,
+  tomorrowLocalDateKey,
+}: {
+  spotName: SpotName;
+  activeDay: ActiveDay;
+  sessions: SpotSession[];
+  todayLocalDateKey: string;
+  tomorrowLocalDateKey: string;
+}): SpotMomentumLabel | null => {
+  const normalizedSpotName = normalizeSpotName(spotName);
+  const activeDateKey = activeDay === 'today' ? todayLocalDateKey : tomorrowLocalDateKey;
+  const spotSessionsForDay = sessions.filter((sessionItem) => {
+    if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
+      return false;
+    }
+
+    if (sessionItem.checkedOutAt || sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
+      return false;
+    }
+
+    return isSessionForLocalDate(sessionItem, activeDateKey);
+  });
+
+  const checkedInUsers = activeDay === 'today'
+    ? dedupeActiveCheckedInSessionsByUser(
+      spotSessionsForDay.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem)),
+    )
+    : [];
+  const checkedInCount = checkedInUsers.length;
+  const activeSessions = spotSessionsForDay.filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
+  const activeSessionsToday = activeDay === 'today' ? activeSessions.length : 0;
+  const plannedSessions = spotSessionsForDay.filter((sessionItem) => !sessionItem.checkedInAt && !sessionItem.checkedOutAt && hasPlannedTimeWindow(sessionItem));
+  const plannedSessionsToday = activeDay === 'today' ? plannedSessions.length : 0;
+  const plannedSessionsTomorrow = activeDay === 'tomorrow' ? plannedSessions.length : 0;
+  const plannedIntents = plannedSessions.map((sessionItem) => sessionItem.intent);
+  const hasDefinitely = plannedIntents.includes('definitely');
+  const hasLikely = plannedIntents.includes('likely');
+  const hasMaybe = plannedIntents.includes('maybe');
+  const strongIntent = hasDefinitely || activeSessions.length > 1;
+  const mediumIntent = hasLikely;
+  const weakIntent = hasMaybe && !hasDefinitely && !hasLikely;
+  const plannedOverlapTomorrow = activeDay === 'tomorrow' ? plannedSessionsTomorrow : 0;
+
+  let label: SpotMomentumLabel | null = null;
+  if (activeDay === 'today') {
+    if (checkedInCount > 5) {
+      label = 'Let’s go now';
+    } else if (checkedInCount >= 1) {
+      label = 'Happening now';
+    } else if (strongIntent) {
+      label = 'Looks on today';
+    } else if (mediumIntent) {
+      label = 'Session forming today';
+    } else if (weakIntent) {
+      label = 'Maybe forming today';
+    }
+  } else {
+    if (plannedOverlapTomorrow > 5) {
+      label = 'Let’s go big tomorrow';
+    } else if (strongIntent) {
+      label = 'Looks on tomorrow';
+    } else if (mediumIntent) {
+      label = 'Session forming tomorrow';
+    } else if (weakIntent) {
+      label = 'Maybe forming tomorrow';
+    }
+  }
+
+  console.log("MOMENTUM_DECISION", {
+    spot: spotName,
+    activeDay,
+    checkedInCount,
+    plannedToday: plannedSessionsToday,
+    plannedTomorrow: plannedSessionsTomorrow,
+    label
+  });
+
+  return label;
+};
 const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumBuckets => {
-  const nowMinutes = getCurrentLocalMinutes();
   const todayLocalDateKey = getCurrentLocalDateKey();
   const tomorrowLocalDateKey = getTomorrowLocalDateKey();
-  const normalizedSpotName = normalizeSpotName(spotName);
-  const todaySessions = sessions.filter((sessionItem) => {
-    if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
-      return false;
-    }
-
-    if (sessionItem.checkedOutAt || sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
-      return false;
-    }
-
-    if (isLiveSession(sessionItem)) {
-      const liveDateValue = sessionItem.checkedInAt ?? sessionItem.createdAt;
-      return isCreatedOnLocalDate(liveDateValue, todayLocalDateKey);
-    }
-
-    if (!hasPlannedTimeWindow(sessionItem)) {
-      return false;
-    }
-
-    if (!isCreatedOnLocalDate(sessionItem.createdAt, todayLocalDateKey)) {
-      return false;
-    }
-
-    return toMinutes(sessionItem.start) > nowMinutes;
+  const todayLabel = getSpotMomentumLabelForDay({
+    spotName,
+    activeDay: 'today',
+    sessions,
+    todayLocalDateKey,
+    tomorrowLocalDateKey
   });
-  console.log("SPOT_MOMENTUM_TODAY_INPUT", { spotName, sessions: todaySessions });
-
-  const realCheckedInTodaySessions = todaySessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
-  let todayLabel: SpotMomentumLabel | null = null;
-  if (realCheckedInTodaySessions.length > 0) {
-    todayLabel = 'Happening now';
-  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
-    todayLabel = 'Looks on today';
-  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'likely')) {
-    todayLabel = 'Session forming today';
-  } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
-    todayLabel = 'Maybe forming today';
-  }
-  console.log("SPOT_MOMENTUM_TODAY_LABEL", { spotName, label: todayLabel });
-
-  const tomorrowSessions = sessions.filter((sessionItem) => {
-    if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
-      return false;
-    }
-
-    if (sessionItem.checkedOutAt || sessionItem.status === 'finished' || sessionItem.status === 'Uitchecken') {
-      return false;
-    }
-
-    if (isLiveSession(sessionItem)) {
-      return false;
-    }
-
-    if (!hasPlannedTimeWindow(sessionItem)) {
-      return false;
-    }
-
-    if (sessionItem.checkedInAt !== null || sessionItem.checkedOutAt !== null) {
-      return false;
-    }
-
-    return isCreatedOnLocalDate(sessionItem.createdAt, tomorrowLocalDateKey);
+  const tomorrowLabel = getSpotMomentumLabelForDay({
+    spotName,
+    activeDay: 'tomorrow',
+    sessions,
+    todayLocalDateKey,
+    tomorrowLocalDateKey
   });
-  console.log("SPOT_MOMENTUM_TOMORROW_INPUT", { spotName, sessions: tomorrowSessions });
-
-  let tomorrowLabel: SpotMomentumLabel | null = null;
-  if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
-    tomorrowLabel = 'Looks on tomorrow';
-  } else if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'likely')) {
-    tomorrowLabel = 'Session forming tomorrow';
-  } else if (tomorrowSessions.some((sessionItem) => sessionItem.intent === 'maybe')) {
-    tomorrowLabel = 'Maybe forming tomorrow';
-  }
-  console.log("SPOT_MOMENTUM_TOMORROW_LABEL", { spotName, label: tomorrowLabel });
 
   return {
     today: todayLabel,
