@@ -1439,18 +1439,30 @@ export default function App() {
     const username = adminCreateNameInput.trim();
     const currentUserEmail = normalizeEmail(authUser?.email ?? '');
     const isAdmin = currentUserEmail === adminAccountSwitcherEmail;
+    let createError = '';
+    let avatarWarning = '';
+    let profileCreated = false;
+    let avatarUploaded = !adminCreateAvatarInputUri;
 
     console.log("ADMIN_CREATE_PROFILE_HANDLER_ACTIVE");
     console.log("ADMIN_CREATE_PROFILE_OPERATOR", currentUserEmail);
     console.log("ADMIN_CREATE_PROFILE_SUBMIT", { ownerUid: authUser?.id ?? null, username });
 
     if (!authUser?.id) {
-      setAdminCreateError('You must be logged in');
+      createError = 'You must be logged in';
+      setAdminCreateError(createError);
+      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
+      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
+      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
       return;
     }
 
     if (!username) {
-      setAdminCreateError('Please fill in all required fields');
+      createError = 'Please fill in all required fields';
+      setAdminCreateError(createError);
+      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
+      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
+      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
       return;
     }
 
@@ -1458,20 +1470,6 @@ export default function App() {
     setAdminCreateError('');
     setAdminCreateWarning('');
     const profileId = createProfileId();
-    let avatarUrl: string | null = null;
-
-    if (adminCreateAvatarInputUri) {
-      try {
-        const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
-        if (uploadError || !publicUrl) {
-          throw uploadError ?? new Error('Avatar URL is missing');
-        }
-        avatarUrl = publicUrl;
-      } catch (error) {
-        console.log('AVATAR_UPLOAD_FAILED', error);
-        setAdminCreateWarning('Photo upload failed. Profile created without an avatar.');
-      }
-    }
 
     const { error: createProfileError } = await supabase
       .from('profiles')
@@ -1479,7 +1477,7 @@ export default function App() {
         id: profileId,
         owner_uid: authUser.id,
         display_name: username,
-        avatar_url: avatarUrl,
+        avatar_url: null,
         email: currentUserEmail || null,
         created_at: new Date().toISOString(),
       });
@@ -1487,12 +1485,53 @@ export default function App() {
     if (createProfileError) {
       setIsAdminCreatingProfile(false);
       if (createProfileError.code === '23505') {
-        setAdminCreateError('Profile name is already in use');
+        createError = 'Profile name is already in use';
+        setAdminCreateError(createError);
+        console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
+        console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
+        console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
         return;
       }
-      setAdminCreateError('Could not create profile. Please try again.');
+      createError = 'Could not create profile. Please try again.';
+      setAdminCreateError(createError);
+      console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
+      console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
+      console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
       return;
     }
+
+    profileCreated = true;
+    setAdminCreateError('');
+
+    let avatarUrl: string | null = null;
+    if (adminCreateAvatarInputUri) {
+      try {
+        const { error: uploadError, publicUrl } = await uploadAvatar(profileId, adminCreateAvatarInputUri);
+        if (uploadError || !publicUrl) {
+          throw uploadError ?? new Error('Avatar URL is missing');
+        }
+        const { error: profileAvatarUpdateError } = await supabase
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', profileId);
+        if (profileAvatarUpdateError) {
+          throw profileAvatarUpdateError;
+        }
+        avatarUploaded = true;
+        avatarUrl = publicUrl;
+      } catch (error) {
+        avatarUploaded = false;
+        avatarWarning = 'Photo upload failed. Profile created without an avatar.';
+        console.log('AVATAR_UPLOAD_FAILED', error);
+        setAdminCreateWarning(avatarWarning);
+      }
+    } else {
+      setAdminCreateWarning('');
+    }
+
+    console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
+    console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
+    console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
 
     setAdminCreateNameInput('');
     setAdminCreateAvatarInputUri(null);
