@@ -138,6 +138,24 @@ const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const HOME_SPOTS_LIMIT = 5;
 const adminAccountSwitcherEmail = 'matthoogcarspel@gmail.com';
+const isValidEmailFormat = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+const toEnglishAuthError = (message: string) => {
+  const lower = message.toLowerCase();
+
+  if (lower.includes('password should be at least')) {
+    return 'Password is too short';
+  }
+
+  if (lower.includes('already registered') || lower.includes('user already registered')) {
+    return 'Email already in use';
+  }
+
+  if (lower.includes('invalid email')) {
+    return 'Invalid email';
+  }
+
+  return 'Could not create profile. Please try again.';
+};
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1238,6 +1256,12 @@ export default function App() {
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
+  const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
+  const [adminCreateEmailInput, setAdminCreateEmailInput] = useState('');
+  const [adminCreatePasswordInput, setAdminCreatePasswordInput] = useState('');
+  const [adminCreateError, setAdminCreateError] = useState('');
+  const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
@@ -1347,8 +1371,11 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (isAccountSwitcherVisible) {
+      console.log("ADMIN_CREATE_PROFILE_VISIBLE", authenticatedUserEmail);
+    }
     console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
-  }, [authenticatedUserEmail]);
+  }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
   const loadSwitchableAccounts = async () => {
     if (!isAccountSwitcherVisible || !authenticatedUserId) {
@@ -1386,6 +1413,98 @@ export default function App() {
       });
     }
     setSwitchableAccounts(Array.from(dedupedById.values()));
+    console.log("ACCOUNT_SWITCHER_LIST_REFRESHED");
+  };
+
+  const handleAdminCreateProfile = async () => {
+    const username = adminCreateNameInput.trim();
+    const email = normalizeEmail(adminCreateEmailInput);
+    const password = adminCreatePasswordInput;
+
+    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { email, username });
+
+    if (!username || !email || !password) {
+      setAdminCreateError('Please fill in all required fields');
+      return;
+    }
+
+    if (!isValidEmailFormat(email)) {
+      setAdminCreateError('Invalid email');
+      return;
+    }
+
+    const { data: existingUsers, error: existingUsersError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .limit(1);
+
+    if (!existingUsersError && (existingUsers?.length ?? 0) > 0) {
+      setAdminCreateError('Email already in use');
+      return;
+    }
+
+    if (existingUsersError) {
+      console.log('ADMIN_CREATE_PROFILE_DUPLICATE_LOOKUP_FAILED', existingUsersError.message);
+    }
+
+    const previousSession = session;
+    setIsAdminCreatingProfile(true);
+    setAdminCreateError('');
+
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          email,
+          display_name: username,
+        },
+      },
+    });
+
+    if (signUpError) {
+      setIsAdminCreatingProfile(false);
+      setAdminCreateError(toEnglishAuthError(signUpError.message));
+      return;
+    }
+
+    if (previousSession?.access_token && previousSession?.refresh_token) {
+      const { error: restoreError } = await supabase.auth.setSession({
+        access_token: previousSession.access_token,
+        refresh_token: previousSession.refresh_token,
+      });
+
+      if (restoreError) {
+        console.log('ADMIN_CREATE_PROFILE_SESSION_RESTORE_FAILED', restoreError.message);
+      }
+    }
+
+    const createdUser = signUpData.user;
+    if (createdUser?.id) {
+      const createdEmail = normalizeEmail(createdUser.email ?? email);
+      const { error: profileUpdateError } = await supabase
+        .from('profiles')
+        .update({ display_name: username, email: createdEmail })
+        .eq('id', createdUser.id);
+
+      if (profileUpdateError) {
+        console.log('ADMIN_CREATE_PROFILE_UPDATE_FAILED', profileUpdateError.message);
+      }
+    }
+
+    setAdminCreateNameInput('');
+    setAdminCreateEmailInput('');
+    setAdminCreatePasswordInput('');
+    setShowAdminCreateProfile(false);
+    setIsAdminCreatingProfile(false);
+    await loadSwitchableAccounts();
+
+    console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
+      userId: createdUser?.id ?? null,
+      email,
+      username,
+    });
   };
 
   const handleSelectAccount = async (account: SwitchableAccount) => {
@@ -1402,6 +1521,7 @@ export default function App() {
     setShowAccountSwitcher(false);
     setShowBuddies(false);
     setShowAccountSwitcher(false);
+    setShowAdminCreateProfile(false);
     setSwitchableAccounts([]);
     setSelectedSpot(null);
     setActiveUserOverride(account.id === authenticatedUserId ? null : account);
@@ -5007,6 +5127,60 @@ export default function App() {
               >
                 <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Switch account</Text>
               </Pressable>
+              <Pressable
+                onPress={() => {
+                  const nextOpen = !showAdminCreateProfile;
+                  setShowAdminCreateProfile(nextOpen);
+                  if (nextOpen) {
+                    console.log("ADMIN_CREATE_PROFILE_OPENED");
+                  }
+                }}
+                style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
+              >
+                <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Create profile</Text>
+              </Pressable>
+              {showAdminCreateProfile ? (
+                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 10 }}>
+                  <TextInput
+                    value={adminCreateNameInput}
+                    onChangeText={setAdminCreateNameInput}
+                    placeholder="Profile name / username"
+                    placeholderTextColor={theme.textMuted}
+                    autoCapitalize="none"
+                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                  />
+                  <TextInput
+                    value={adminCreateEmailInput}
+                    onChangeText={setAdminCreateEmailInput}
+                    placeholder="Email"
+                    placeholderTextColor={theme.textMuted}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                  />
+                  <TextInput
+                    value={adminCreatePasswordInput}
+                    onChangeText={setAdminCreatePasswordInput}
+                    placeholder="Password"
+                    placeholderTextColor={theme.textMuted}
+                    secureTextEntry
+                    autoCapitalize="none"
+                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                  />
+                  {adminCreateError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{adminCreateError}</Text> : null}
+                  <Pressable
+                    disabled={isAdminCreatingProfile}
+                    onPress={() => {
+                      void handleAdminCreateProfile();
+                    }}
+                    style={{ backgroundColor: theme.cardStrong, borderRadius: 8, padding: 10, opacity: isAdminCreatingProfile ? 0.6 : 1 }}
+                  >
+                    <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
+                      {isAdminCreatingProfile ? 'Creating...' : 'Create profile'}
+                    </Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {showAccountSwitcher ? (
                 <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
                   {switchableAccounts.map((account) => {
@@ -5041,6 +5215,7 @@ export default function App() {
 
           <Pressable onPress={() => {
             resetFlow();
+            setShowAdminCreateProfile(false);
             void supabase.auth.signOut();
           }} style={{ marginTop: 16, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
             <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Log out</Text>
@@ -5049,6 +5224,7 @@ export default function App() {
           <Pressable onPress={() => {
             setShowProfile(false);
             setShowAccountSwitcher(false);
+            setShowAdminCreateProfile(false);
             setProfileAvatarInputUri(null);
             setProfileEditError('');
           }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
