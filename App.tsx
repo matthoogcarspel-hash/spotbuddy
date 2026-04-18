@@ -95,6 +95,7 @@ type IncomingFollowRelation = {
 type TimelineFilter = 'everyone' | 'buddies';
 type TimelineState = 'live' | 'planned' | 'planned_no_check_in' | 'completed';
 type ActiveDay = 'today' | 'tomorrow';
+type DeterministicSessionState = 'finished' | 'active' | 'planned';
 type SaveDebugError = {
   message?: string;
   details?: string;
@@ -388,7 +389,36 @@ const parseHourMinuteParts = (hourMinute: string) => {
     minute: Number.isNaN(parsedMinute) ? 0 : parsedMinute,
   };
 };
-const isLiveSession = (sessionItem: SpotSession) => sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null;
+const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, rangeEnd: Date) => {
+  if (!isoValue) {
+    return false;
+  }
+
+  const dateValue = new Date(isoValue);
+  if (Number.isNaN(dateValue.getTime())) {
+    return false;
+  }
+
+  return dateValue >= rangeStart && dateValue < rangeEnd;
+};
+const getSessionState = (sessionItem: SpotSession, now = new Date()): DeterministicSessionState => {
+  const startDate = getSessionStartTime(sessionItem);
+  const endDate = getSessionEndTime(sessionItem);
+
+  if (endDate < now) {
+    console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'finished' });
+    return 'finished';
+  }
+
+  if (startDate <= now && now <= endDate) {
+    console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'active' });
+    return 'active';
+  }
+
+  console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'planned' });
+  return 'planned';
+};
+const isLiveSession = (sessionItem: SpotSession, now = new Date()) => getSessionState(sessionItem, now) === 'active';
 const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): SpotMomentumBuckets => {
   const nowMinutes = getCurrentLocalMinutes();
   const todayLocalDateKey = getCurrentLocalDateKey();
@@ -474,32 +504,16 @@ const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): Spo
 };
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
-  && sessionItem.checkedInAt === null
-  && sessionItem.checkedOutAt === null
-  && !isSessionExpired(sessionItem);
-const getTimelineState = (sessionItem: SpotSession, currentMinutes: number): TimelineState => {
-  if (sessionItem.checkedInAt !== null && sessionItem.checkedOutAt === null) {
-    if (isSessionExpired(sessionItem)) {
-      return 'completed';
-    }
+  && getSessionState(sessionItem) === 'planned';
+const getTimelineState = (sessionItem: SpotSession): TimelineState => {
+  const deterministicState = getSessionState(sessionItem);
+  if (deterministicState === 'active') {
     return 'live';
   }
 
-  if (sessionItem.checkedOutAt !== null) {
+  if (deterministicState === 'finished') {
     return 'completed';
   }
-
-  if (isSessionExpired(sessionItem)) {
-    return 'completed';
-  }
-
-  if (hasPlannedTimeWindow(sessionItem) && sessionItem.checkedInAt === null) {
-    const sessionStartMinutes = toMinutes(sessionItem.start);
-    if (currentMinutes > sessionStartMinutes) {
-      return 'planned_no_check_in';
-    }
-  }
-
   return 'planned';
 };
 const getTimelineLabel = (state: TimelineState, compact = false) => {
@@ -1026,6 +1040,7 @@ type SessionTimelineProps = {
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
+  showNowMarker: boolean;
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (sessionItem: SpotSession) => void;
   onClearSelection: () => void;
@@ -1039,12 +1054,13 @@ function SessionTimeline({
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
+  showNowMarker,
   onSelectSession,
   onJoinSession,
   onClearSelection,
 }: SessionTimelineProps) {
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
-  const isCurrentTimeMarkerVisible = currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
+  const isCurrentTimeMarkerVisible = showNowMarker && currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
   const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
   const renderRange = useMemo(
     () => ({
@@ -2680,11 +2696,24 @@ export default function App() {
   }, [nearestSpotResult]);
 
   const activeCheckedInSession = gpsActiveCheckedInSession;
-  // Home-screen shortcut for the user's next planned session.
-  const activeDayDateKey = useMemo(
-    () => (activeDay === 'today' ? currentLocalDateKey : getTomorrowLocalDateKey()),
-    [activeDay, currentLocalDateKey],
-  );
+  const activeDayContext = useMemo(() => {
+    const base = new Date();
+    const start = new Date(base);
+    if (activeDay === 'today') {
+      start.setHours(0, 0, 0, 0);
+    } else {
+      start.setDate(start.getDate() + 1);
+      start.setHours(0, 0, 0, 0);
+    }
+    const end = new Date(start);
+    end.setDate(end.getDate() + 1);
+    const dateKey = getLocalDateKey(start);
+    return { activeDateStart: start, activeDateEnd: end, activeDateKey: dateKey };
+  }, [activeDay]);
+  const { activeDateStart, activeDateEnd, activeDateKey } = activeDayContext;
+  useEffect(() => {
+    console.log("ACTIVE_DAY", activeDay);
+  }, [activeDay]);
   const plannedSession = useMemo(() => {
     const currentUserId = session?.user?.id;
     if (!currentUserId) {
@@ -2694,15 +2723,12 @@ export default function App() {
     const allCandidateSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === currentUserId)
-      .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, activeDayDateKey))
-      .filter((sessionItem) => sessionItem.status !== 'Uitchecken' && sessionItem.status !== 'finished')
-      .filter((sessionItem) => sessionItem.checkedOutAt === null);
+      .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd));
     const userSessions = allCandidateSessions
-      .filter((sessionItem) => !isSessionExpired(sessionItem))
-      .filter((sessionItem) => isPlannedSession(sessionItem));
-    console.log("ACTIVE_SESSION_FILTERED", {
-      beforeCount: allCandidateSessions.length,
-      afterCount: userSessions.length
+      .filter((sessionItem) => getSessionState(sessionItem) === 'planned');
+    console.log("SESSION_FILTER_RESULT", {
+      activeDay,
+      count: userSessions.length,
     });
 
     return userSessions
@@ -2716,7 +2742,7 @@ export default function App() {
         const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bCreatedAt - aCreatedAt;
       })[0] ?? null;
-  }, [activeDayDateKey, sessionsBySpot, session?.user?.id]);
+  }, [activeDateEnd, activeDateStart, activeDay, sessionsBySpot, session?.user?.id]);
   const activeBannerSession = activeCheckedInSession ?? plannedSession;
   useEffect(() => {
     console.log("USER_STATUS_BANNER_SESSION", activeBannerSession);
@@ -2737,10 +2763,11 @@ export default function App() {
   const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
-      next[spot] = sessionsBySpot[spot].filter((item) => isCreatedOnLocalDate(item.createdAt, activeDayDateKey));
+      next[spot] = sessionsBySpot[spot].filter((item) => isIsoInRange(item.createdAt, activeDateStart, activeDateEnd));
     }
+    console.log("SESSION_FILTER_RESULT", { activeDay, count: Object.values(next).flat().length });
     return next;
-  }, [activeDayDateKey, sessionsBySpot, spotNames]);
+  }, [activeDateEnd, activeDateStart, activeDay, sessionsBySpot, spotNames]);
   const allUserSessions = useMemo(() => {
     if (!session?.user.id) {
       return [];
@@ -2930,7 +2957,7 @@ export default function App() {
 
     void runAutoCheckOutIfNeeded();
   }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, session?.user.id, spotDefinitions]);
-  const selectedPlanningDateKey = activeDayDateKey;
+  const selectedPlanningDateKey = activeDateKey;
   const planningNowReference = useMemo(
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
     [currentLocalMinutes, selectedPlanningDateKey],
@@ -2966,7 +2993,7 @@ export default function App() {
   }, [nowReference]);
   const timelineMode = windowInfo.mode;
   useEffect(() => {
-    console.log("TIMELINE_ACTIVE_DAY_CONTEXT", { activeDay, now: new Date() });
+    console.log("TIMELINE_CONTEXT", { activeDay, now: new Date() });
   }, [activeDay, timelineMode]);
   const timelineWindow = useMemo(
     () => ({
@@ -3023,12 +3050,12 @@ export default function App() {
       allUserSessions
         .filter((sessionItem) => sessionItem.userId === session.user.id)
         .filter((sessionItem) => !editingSessionId || sessionItem.id !== editingSessionId)
-        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey))
+        .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
         .filter((sessionItem) => isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes))
         .find((sessionItem) => hasTimeOverlap(currentPlanningStart, currentPlanningEnd, sessionItem.start, sessionItem.end))
       ?? null
     );
-  }, [allUserSessions, currentLocalDateKey, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
+  }, [activeDateEnd, activeDateStart, allUserSessions, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, session?.user.id]);
   useEffect(() => {
     console.log('PLANNING_NOW_REFERENCE', planningNowReference);
   }, [planningNowReference]);
@@ -3095,8 +3122,8 @@ export default function App() {
           && !sessionItem.checkedInAt
           && !sessionItem.checkedOutAt
           && hasPlannedTimeWindow(sessionItem)
-          && !isSessionExpired(sessionItem)
-          && isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey),
+          && getSessionState(sessionItem) === 'planned'
+          && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd),
       ),
   );
   const shouldShowSpotCheckIn = !isCheckedInAtSelectedSpot;
@@ -3364,8 +3391,8 @@ export default function App() {
     });
   }, [activeCheckedInSession, planningOverlapBlockingSession]);
   const filteredMessages = useMemo(
-    () => messages.filter((message) => isCreatedOnLocalDate(message.createdAt, selectedPlanningDateKey)),
-    [messages, selectedPlanningDateKey],
+    () => messages.filter((message) => isIsoInRange(message.createdAt, activeDateStart, activeDateEnd)),
+    [activeDateEnd, activeDateStart, messages],
   );
   const newestFirstMessages = useMemo(
     () =>
@@ -3378,7 +3405,7 @@ export default function App() {
     [filteredMessages],
   );
   useEffect(() => {
-    console.log("SPOT_PAGE_DAY_FILTERED_MESSAGES", { activeDay, count: filteredMessages.length });
+    console.log("CHAT_DAY_FILTER", { activeDay, messageCount: filteredMessages.length });
   }, [activeDay, filteredMessages]);
 
   const timelineSessions = useMemo(() => {
@@ -3386,22 +3413,13 @@ export default function App() {
     const toggleMode = timelineFilter;
     console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: session?.user.id ?? null, toggleMode });
     const filteredSessions = dedupedSessions.filter((item) => {
-      if (!isCreatedOnLocalDate(item.createdAt, selectedPlanningDateKey)) {
+      if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
         return false;
       }
 
-      if (activeDay === 'tomorrow') {
-        return true;
-      }
-
-      const timelineState = getTimelineState(item, currentLocalMinutes);
-      return timelineState !== 'completed';
+      return getSessionState(item) !== 'finished';
     });
-    console.log("SPOT_PAGE_DAY_FILTERED_SESSIONS", {
-      activeDay,
-      count: filteredSessions.length,
-      sessions: filteredSessions,
-    });
+    console.log("SESSION_FILTER_RESULT", { activeDay, count: filteredSessions.length });
     console.log("SESSIONS AFTER SPOT FILTER", filteredSessions);
     const visibleSessions = filteredSessions.filter((item) => {
       if (timelineFilter === 'buddies') {
@@ -3410,11 +3428,9 @@ export default function App() {
       return true;
     });
     console.log("SESSIONS AFTER VISIBILITY FILTER", visibleSessions);
-    const timelineReferenceMinutes = activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes;
-
     return visibleSessions
       .map((item) => {
-        const state = getTimelineState(item, timelineReferenceMinutes);
+        const state = getTimelineState(item);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
         const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
         const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
@@ -3444,7 +3460,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [activeDay, currentLocalMinutes, followingUserIds, selectedPlanningDateKey, selectedSpot, session?.user.id, sessions, timelineFilter]);
+  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, session?.user.id, sessions, timelineFilter]);
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
@@ -3520,23 +3536,22 @@ export default function App() {
   }, [selectedSpot, sessions, timelineSessions]);
   const liveCheckedInSessions = useMemo(
     () =>
-      getLiveSessions(sessions.filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey)))
+      getLiveSessions(sessions.filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)))
         .sort((a, b) => {
           const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
           const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
           return bTime - aTime;
         }),
-    [selectedPlanningDateKey, sessions],
+    [activeDateEnd, activeDateStart, sessions],
   );
   const upcomingSessions = useMemo(
     () =>
       sessions
-        .filter((sessionItem) => isCreatedOnLocalDate(sessionItem.createdAt, selectedPlanningDateKey))
-        .filter((sessionItem) => isPlannedSession(sessionItem))
-        .filter((sessionItem) => toMinutes(sessionItem.end) > (activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes))
+        .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
+        .filter((sessionItem) => getSessionState(sessionItem) === 'planned')
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
         .slice(0, 3),
-    [activeDay, currentLocalMinutes, selectedPlanningDateKey, sessions],
+    [activeDateEnd, activeDateStart, sessions],
   );
   const mode: 'live' | 'upcoming' | 'empty' = liveCheckedInSessions.length > 0
     ? 'live'
@@ -4865,7 +4880,7 @@ export default function App() {
         startMinute,
         endHour,
         endMinute,
-        selectedPlanningDateKey: currentLocalDateKey,
+        selectedPlanningDateKey,
       });
 
       if (startHour === null) {
@@ -5493,6 +5508,7 @@ export default function App() {
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
             timelineFilter={timelineFilter}
+            showNowMarker={activeDay === 'today'}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
             onJoinSession={(sessionItem) => {
@@ -5821,10 +5837,9 @@ export default function App() {
           </View>
         ) : null}
         {visibleSpots.map((spot) => {
-          const goingLaterCount = daySessionsBySpot[spot.name]
-            ?.filter((sessionItem) => isGoingLaterSession(sessionItem, activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes))
-            .length ?? 0;
-          const checkedInCount = getLiveSessions(daySessionsBySpot[spot.name] ?? []).length;
+          const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
+          const plannedCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
+          const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
           const spotMomentum = homeMomentumBySpot[spot.name];
           const todayLabel = spotMomentum?.today ?? null;
           const tomorrowLabel = spotMomentum?.tomorrow ?? null;
@@ -5863,11 +5878,11 @@ export default function App() {
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
                 <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
                   <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Planned</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{goingLaterCount}</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{plannedCount}</Text>
                 </View>
                 <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Checked in</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{checkedInCount}</Text>
+                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Active</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{activeCount}</Text>
                 </View>
               </View>
             </Pressable>
