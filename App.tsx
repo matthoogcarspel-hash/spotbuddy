@@ -3481,7 +3481,7 @@ export default function App() {
   );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
-  const currentUserEditableSession = useMemo(() => {
+  const joinedSession = useMemo(() => {
     if (!activeAppUserId || !selectedSpot) {
       return null;
     }
@@ -3489,15 +3489,33 @@ export default function App() {
     return (
       [...sessions]
         .filter((sessionItem) => sessionItem.userId === activeAppUserId)
-        .filter((sessionItem) => isPlannedSession(sessionItem))
+        .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot))
+        .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
+        .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
+        .filter((sessionItem) => !sessionItem.checkedInAt && !sessionItem.checkedOutAt)
+        .filter((sessionItem) => sessionItem.status !== 'finished' && sessionItem.status !== 'Uitchecken')
         .sort((a, b) => {
+          const aPlannedRank = getSessionState(a) === 'planned' ? 1 : 0;
+          const bPlannedRank = getSessionState(b) === 'planned' ? 1 : 0;
+          if (aPlannedRank !== bPlannedRank) {
+            return bPlannedRank - aPlannedRank;
+          }
           const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
           const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return bTime - aTime;
         })[0] ?? null
     );
-  }, [selectedSpot, activeAppUserId, sessions]);
-  const hasPlannedSessionAtSelectedSpot = Boolean(currentUserEditableSession);
+  }, [activeAppUserId, activeDateEnd, activeDateStart, selectedSpot, sessions]);
+  const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
+  const canCancelJoinedSession = Boolean(joinedSession && !joinedSession.checkedInAt && !joinedSession.checkedOutAt);
+  console.log("JOINED_SESSION_STATE_RESOLVED", {
+    userId: activeAppUserId ?? null,
+    activeDay,
+    joinedSession,
+    canEdit: canEditJoinedSession,
+    canCancel: canCancelJoinedSession,
+  });
+  const hasPlannedSessionAtSelectedSpot = Boolean(joinedSession);
   const hasConflictingSession = Boolean(
     allUserSessions.some(
       (sessionItem) =>
@@ -3517,7 +3535,7 @@ export default function App() {
   console.log('SPOT_PAGE_HAS_PLANNED_SESSION', {
     selectedSpot,
     hasPlannedSessionAtSelectedSpot,
-    editableSessionId: currentUserEditableSession?.id ?? null,
+    editableSessionId: joinedSession?.id ?? null,
   });
   if (shouldHidePlanSessionButton) {
     console.log('SPOT_PAGE_PLAN_BUTTON_HIDDEN', { selectedSpot });
@@ -3536,13 +3554,23 @@ export default function App() {
     }
     const authUserId = activeAppUserId;
 
-    if (sessionToCancel.userId !== authUserId || !isPlannedSession(sessionToCancel)) {
+    const canCancelSession = Boolean(
+      sessionToCancel.userId === authUserId
+      && hasPlannedTimeWindow(sessionToCancel)
+      && !sessionToCancel.checkedInAt
+      && !sessionToCancel.checkedOutAt
+      && sessionToCancel.status !== 'finished'
+      && sessionToCancel.status !== 'Uitchecken',
+    );
+
+    if (!canCancelSession) {
       setSessionActionError('Could not cancel session');
       console.log('SPOT_PAGE_CANCEL_BLOCKED', {
         sessionId: sessionToCancel.id,
         sessionUserId: sessionToCancel.userId,
         currentUserId: authUserId,
         isPlannedSession: isPlannedSession(sessionToCancel),
+        canCancelSession,
       });
       return;
     }
@@ -5759,36 +5787,56 @@ export default function App() {
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
             </Pressable>
           ) : null}
-          {currentUserEditableSession ? (
+          {(() => {
+            const topActions: string[] = [];
+            if (canEditJoinedSession) {
+              topActions.push('Edit');
+            }
+            if (canCancelJoinedSession) {
+              topActions.push('Cancel');
+            }
+            console.log("TOP_ACTIONS_RENDER", {
+              userId: activeAppUserId ?? null,
+              activeSession: activeCheckedInSession ?? null,
+              joinedSession,
+              actions: topActions,
+            });
+            return null;
+          })()}
+          {joinedSession && (canEditJoinedSession || canCancelJoinedSession) ? (
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <Pressable
-                onPress={() => {
-                  setEditingSessionId(currentUserEditableSession.id);
-                  const parsedStart = parseHourMinuteParts(currentUserEditableSession.start);
-                  const parsedEnd = parseHourMinuteParts(currentUserEditableSession.end);
-                  setStartHour(parsedStart.hour);
-                  setStartMinute(parsedStart.minute);
-                  setEndHour(parsedEnd.hour);
-                  setEndMinute(parsedEnd.minute);
-                  setIntent(resolveSessionIntent(currentUserEditableSession.intent));
-                  setShowForm(true);
-                  setActivePicker(null);
-                  setSessionActionError('');
-                  setFormError('');
-                  setSaveError(null);
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  void handleCancelPlannedSession(currentUserEditableSession);
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
-              >
-                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel</Text>
-              </Pressable>
+              {canEditJoinedSession ? (
+                <Pressable
+                  onPress={() => {
+                    setEditingSessionId(joinedSession.id);
+                    const parsedStart = parseHourMinuteParts(joinedSession.start);
+                    const parsedEnd = parseHourMinuteParts(joinedSession.end);
+                    setStartHour(parsedStart.hour);
+                    setStartMinute(parsedStart.minute);
+                    setEndHour(parsedEnd.hour);
+                    setEndMinute(parsedEnd.minute);
+                    setIntent(resolveSessionIntent(joinedSession.intent));
+                    setShowForm(true);
+                    setActivePicker(null);
+                    setSessionActionError('');
+                    setFormError('');
+                    setSaveError(null);
+                  }}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
+                </Pressable>
+              ) : null}
+              {canCancelJoinedSession ? (
+                <Pressable
+                  onPress={() => {
+                    void handleCancelPlannedSession(joinedSession);
+                  }}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
+                >
+                  <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
