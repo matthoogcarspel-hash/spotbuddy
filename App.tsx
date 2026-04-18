@@ -453,8 +453,9 @@ const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): Spo
   });
   console.log("SPOT_MOMENTUM_TODAY_INPUT", { spotName, sessions: todaySessions });
 
+  const realCheckedInTodaySessions = todaySessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
   let todayLabel: SpotMomentumLabel | null = null;
-  if (todaySessions.some((sessionItem) => isLiveSession(sessionItem))) {
+  if (realCheckedInTodaySessions.length > 0) {
     todayLabel = 'Happening now';
   } else if (todaySessions.some((sessionItem) => sessionItem.intent === 'definitely')) {
     todayLabel = 'Looks on today';
@@ -598,6 +599,12 @@ const getCurrentUserActiveCheckedInSessionForDay = ({
   const dedupedActiveSessions = dedupeActiveCheckedInSessionsByUser(activeSessions);
   return getMostRecentSessionByCreatedAt(dedupedActiveSessions);
 };
+const isRealCheckedInLiveSession = (sessionItem: SpotSession) =>
+  Boolean(sessionItem.checkedInAt)
+  && !sessionItem.checkedOutAt
+  && (sessionItem.status === 'Is er al' || sessionItem.status === 'live')
+  && isLiveSession(sessionItem)
+  && !isSessionExpired(sessionItem);
 
 const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record<SpotName, T> =>
   spotNames.reduce((result, spot) => {
@@ -2860,6 +2867,9 @@ export default function App() {
   }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   useEffect(() => {
+    console.log("ACTIVE_DAY_LIVE_RULES", { activeDay });
+  }, [activeDay]);
+  useEffect(() => {
     console.log("CHECKOUT_STATE_EVALUATION", {
       activeDay,
       userId: activeAppUserId ?? null,
@@ -3284,9 +3294,14 @@ export default function App() {
           && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd),
       ),
   );
-  const shouldShowSpotCheckIn = !isCheckedInAtSelectedSpot;
-  const shouldShowSpotCheckOut = isCheckedInAtSelectedSpot;
-  const canCheckIn = shouldShowSpotCheckIn && !hasPlannedSession;
+  const withinRange = selectedSpotWithinCheckInRadius;
+  const shouldShowSpotCheckIn = activeDay === 'today' && !isCheckedInAtSelectedSpot;
+  const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
+  const canCheckIn = shouldShowSpotCheckIn && withinRange && !hasPlannedSession && !hasActiveCheckedInSession;
+  const checkInCtaVisible = canCheckIn;
+  useEffect(() => {
+    console.log("CHECKIN_CTA_VISIBLE", { activeDay, withinRange, hasActiveCheckedInSession, visible: checkInCtaVisible });
+  }, [activeDay, withinRange, hasActiveCheckedInSession, checkInCtaVisible]);
   const canCheckOut = shouldShowSpotCheckOut;
   useEffect(() => {
     console.log("SPOT_PAGE_CHECKOUT_BUTTON_VISIBLE", { visible: shouldShowSpotCheckOut, activeDay, spotName: selectedSpot ?? null });
@@ -3298,9 +3313,11 @@ export default function App() {
       }
 
       const momentumLabels = getSpotMomentumLabels(selectedSpot, sessions);
-      return momentumLabels.today ?? momentumLabels.tomorrow;
+      const label = activeDay === 'today' ? momentumLabels.today : momentumLabels.tomorrow;
+      console.log("SPOT_STATUS_LABEL", { activeDay, label });
+      return label;
     },
-    [selectedSpot, sessions],
+    [activeDay, selectedSpot, sessions],
   );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
@@ -3321,9 +3338,21 @@ export default function App() {
     );
   }, [selectedSpot, activeAppUserId, sessions]);
   const hasPlannedSessionAtSelectedSpot = Boolean(currentUserEditableSession);
-  const canPlanSession = !hasPlannedSessionAtSelectedSpot;
-  const shouldHidePlanSessionButton = hasPlannedSessionAtSelectedSpot;
+  const hasConflictingSession = Boolean(
+    allUserSessions.some(
+      (sessionItem) =>
+        (!editingSessionId || sessionItem.id !== editingSessionId)
+        && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)
+        && isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes),
+    ),
+  );
+  const canPlanSession = !hasPlannedSessionAtSelectedSpot && !hasConflictingSession;
+  const shouldHidePlanSessionButton = hasPlannedSessionAtSelectedSpot || hasConflictingSession;
   const shouldDisablePlanSessionButton = !shouldHidePlanSessionButton && !canPlanSession;
+  const planSessionVisible = !shouldHidePlanSessionButton && !shouldDisablePlanSessionButton;
+  useEffect(() => {
+    console.log("PLAN_SESSION_CTA_VISIBLE", { activeDay, hasConflictingSession, visible: planSessionVisible });
+  }, [activeDay, hasConflictingSession, planSessionVisible]);
 
   console.log('SPOT_PAGE_HAS_PLANNED_SESSION', {
     selectedSpot,
@@ -3415,8 +3444,8 @@ export default function App() {
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
-  const nearestSpotCanCheckIn = !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
-  const isHomeCheckoutButtonVisible = Boolean(nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
+  const nearestSpotCanCheckIn = activeDay === 'today' && !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
+  const isHomeCheckoutButtonVisible = Boolean(activeDay === 'today' && nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
   useEffect(() => {
     console.log("HOME_CHECKOUT_BUTTON_VISIBLE", { visible: isHomeCheckoutButtonVisible, activeDay, nearestSpotName });
   }, [activeDay, isHomeCheckoutButtonVisible, nearestSpotName]);
@@ -3738,18 +3767,19 @@ export default function App() {
       })),
     });
   }, [selectedSpot, sessions, timelineSessions]);
-  const liveCheckedInSessions = useMemo(
+  const checkedInUsers = useMemo(
     () => {
-      const liveSessions = getLiveSessions(
-        sessions.filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)),
-      ).sort((a, b) => {
+      const liveSessions = sessions
+        .filter((sessionItem) => isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd))
+        .filter((sessionItem) => isRealCheckedInLiveSession(sessionItem))
+        .sort((a, b) => {
         const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
         const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
         return bTime - aTime;
       });
       const dedupedUsers = dedupeActiveCheckedInSessionsByUser(liveSessions)
         .sort((a, b) => getSessionRecencyMs(b) - getSessionRecencyMs(a));
-      console.log("NOW_AT_SPOT_DEDUPED_USERS", dedupedUsers.map((u) => (u as SpotSession & { user_id?: string; name?: string }).user_id || u.userId || (u as SpotSession & { name?: string }).name));
+      console.log("NOW_AT_SPOT_REAL_CHECKED_IN_USERS", dedupedUsers.map((u) => (u as SpotSession & { user_id?: string; name?: string }).user_id || u.userId || (u as SpotSession & { name?: string }).name));
       return dedupedUsers;
     },
     [activeDateEnd, activeDateStart, sessions],
@@ -3763,15 +3793,19 @@ export default function App() {
         .slice(0, 3),
     [activeDateEnd, activeDateStart, sessions],
   );
-  const mode: 'live' | 'upcoming' | 'empty' = liveCheckedInSessions.length > 0
+  const mode: 'live' | 'upcoming' | 'empty' = checkedInUsers.length > 0
     ? 'live'
     : upcomingSessions.length > 0
       ? 'upcoming'
       : 'empty';
-  console.log("NOW_AT_SPOT_LIVE_USERS", liveCheckedInSessions);
+  console.log("NOW_AT_SPOT_LIVE_USERS", checkedInUsers);
   console.log("NOW_AT_SPOT_UPCOMING_SESSIONS", upcomingSessions);
   console.log("NOW_AT_SPOT_MODE", mode);
-  const liveKiterCountLabel = `${liveCheckedInSessions.length} ${liveCheckedInSessions.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
+  const liveKiterCountLabel = `${checkedInUsers.length} ${checkedInUsers.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
+  const shouldShowNowAtSpotPanel = activeDay === 'today' && checkedInUsers.length > 0;
+  useEffect(() => {
+    console.log("NOW_AT_SPOT_VISIBLE", { activeDay, visible: shouldShowNowAtSpotPanel, checkedInCount: checkedInUsers.length });
+  }, [activeDay, checkedInUsers.length, shouldShowNowAtSpotPanel]);
   const getSessionPersistenceErrorMessage = (error: {
     code?: string;
     message?: string;
@@ -5513,6 +5547,10 @@ export default function App() {
                   setSessionActionError('Finish your current session first');
                   return;
                 }
+                if (hasConflictingSession) {
+                  setSessionActionError('You already have a session at this time');
+                  return;
+                }
                 openEmptyPlanningForm();
               }}
               style={{ marginTop: 14, ...primaryButtonStyle, opacity: shouldDisablePlanSessionButton ? 0.45 : 1 }}
@@ -5555,16 +5593,16 @@ export default function App() {
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-            {shouldShowSpotCheckIn ? (
+            {checkInCtaVisible ? (
               <Pressable
-                disabled={!canCheckIn || !selectedSpotWithinCheckInRadius}
+                disabled={!canCheckIn}
                 onPress={() => {
                   void handleUpdateSessionStatus('Is er al');
                 }}
                 style={{
                   ...sessionActionButtonBaseStyle,
                   backgroundColor: '#15803d',
-                  opacity: canCheckIn && selectedSpotWithinCheckInRadius ? 1 : 0.45,
+                  opacity: canCheckIn ? 1 : 0.45,
                 }}
               >
                 <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check in</Text>
@@ -5584,9 +5622,6 @@ export default function App() {
           </View>
 
           {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>You already have an active session</Text> : null}
-          {canCheckIn && !selectedSpotWithinCheckInRadius ? (
-            <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 13 }}>You are too far from the spot (&gt;1 km)</Text>
-          ) : null}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
@@ -5727,14 +5762,15 @@ export default function App() {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
+        {shouldShowNowAtSpotPanel ? (
+          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
 
-          {mode === 'live' ? (
+            {mode === 'live' ? (
             <>
               <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>{liveKiterCountLabel}</Text>
               <View>
-                {liveCheckedInSessions.map((liveSession) => (
+                {checkedInUsers.map((liveSession) => (
                   <View key={`live-${liveSession.id}`} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
                     <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1, marginRight: 8 }} numberOfLines={1}>
                       {liveSession.userName}
@@ -5746,7 +5782,7 @@ export default function App() {
                 ))}
               </View>
             </>
-          ) : mode === 'upcoming' ? (
+            ) : mode === 'upcoming' ? (
             <>
               <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 10 }}>
                 {activeDay === 'today' ? 'Coming up today' : 'Coming up tomorrow'}
@@ -5769,10 +5805,11 @@ export default function App() {
                 ))}
               </View>
             </>
-          ) : (
-            <Text style={{ color: theme.textMuted, fontSize: 14 }}>No one at the spot yet</Text>
-          )}
-        </View>
+            ) : (
+              <Text style={{ color: theme.textMuted, fontSize: 14 }}>No one at the spot yet</Text>
+            )}
+          </View>
+        ) : null}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
@@ -6086,7 +6123,7 @@ export default function App() {
           )}
           {nearestSpotResult && nearestSpotDistanceLabel ? (
             <View style={{ marginTop: 10 }}>
-              {activeCheckedInSession ? (
+              {isHomeCheckoutButtonVisible ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   <Pressable
                     disabled={homeQuickCheckOutInFlight}
