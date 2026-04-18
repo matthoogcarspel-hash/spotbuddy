@@ -147,6 +147,7 @@ const createProfileId = () => {
 
   return `profile-${Date.now()}-${Math.floor(Math.random() * 1_000_000)}`;
 };
+const escapeSupabaseFilterValue = (value: string) => value.replace(/\\/g, '\\\\').replace(/,/g, '\\,');
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
@@ -1397,18 +1398,28 @@ export default function App() {
   const loadSwitchableAccounts = async () => {
     if (!isAccountSwitcherVisible || !authenticatedUserId) {
       setSwitchableAccounts([]);
+      console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
       return;
     }
 
+    const escapedOwnerId = escapeSupabaseFilterValue(authenticatedUserId);
+    const escapedEmail = escapeSupabaseFilterValue(authenticatedUserEmail);
+    const ownerFilter = `owner_uid.eq.${escapedOwnerId}`;
+    const legacyIdFilter = `id.eq.${escapedOwnerId}`;
+    const legacyEmailFilter = authenticatedUserEmail ? `email.eq.${escapedEmail}` : '';
+    const filterQuery = legacyEmailFilter
+      ? `${ownerFilter},${legacyIdFilter},${legacyEmailFilter}`
+      : `${ownerFilter},${legacyIdFilter}`;
     const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, email')
-      .eq('owner_uid', authenticatedUserId)
+      .or(filterQuery)
       .order('display_name', { ascending: true });
 
     if (error) {
       console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
       setSwitchableAccounts([]);
+      console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
       return;
     }
 
@@ -1430,8 +1441,9 @@ export default function App() {
         email: authenticatedUserEmail,
       });
     }
-    setSwitchableAccounts(Array.from(dedupedById.values()));
-    console.log("ACCOUNT_SWITCHER_LIST_REFRESHED");
+    const refreshedProfiles = Array.from(dedupedById.values());
+    setSwitchableAccounts(refreshedProfiles);
+    console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", refreshedProfiles.length);
   };
 
   const handleAdminCreateProfile = async () => {
@@ -1444,9 +1456,7 @@ export default function App() {
     let profileCreated = false;
     let avatarUploaded = !adminCreateAvatarInputUri;
 
-    console.log("ADMIN_CREATE_PROFILE_HANDLER_ACTIVE");
-    console.log("ADMIN_CREATE_PROFILE_OPERATOR", currentUserEmail);
-    console.log("ADMIN_CREATE_PROFILE_SUBMIT", { ownerUid: authUser?.id ?? null, username });
+    console.log("SUPABASE_ADMIN_MULTI_PROFILE_MODE", currentUserEmail);
 
     if (!authUser?.id) {
       createError = 'You must be logged in';
@@ -1454,6 +1464,13 @@ export default function App() {
       console.log("PROFILE_CREATE_RESULT", { success: profileCreated, username });
       console.log("PROFILE_AVATAR_RESULT", { success: avatarUploaded, username });
       console.log("PROFILE_CREATE_UI_STATE", { createError, avatarWarning, profileCreated });
+      return;
+    }
+
+    if (!isAdmin) {
+      createError = 'You are not allowed to create profiles';
+      setAdminCreateError(createError);
+      console.log("PROFILE_INSERT_FAILED", { reason: 'not_admin' });
       return;
     }
 
@@ -1470,19 +1487,24 @@ export default function App() {
     setAdminCreateError('');
     setAdminCreateWarning('');
     const profileId = createProfileId();
+    const payload = {
+      id: profileId,
+      owner_uid: authUser.id,
+      display_name: username,
+      avatar_url: null,
+      email: currentUserEmail || null,
+      created_at: new Date().toISOString(),
+    };
+    console.log("PROFILE_INSERT_PAYLOAD", payload);
 
-    const { error: createProfileError } = await supabase
+    const { data: insertedProfile, error: createProfileError } = await supabase
       .from('profiles')
-      .insert({
-        id: profileId,
-        owner_uid: authUser.id,
-        display_name: username,
-        avatar_url: null,
-        email: currentUserEmail || null,
-        created_at: new Date().toISOString(),
-      });
+      .insert(payload)
+      .select('id, display_name, avatar_url, email, owner_uid, created_at')
+      .single();
 
     if (createProfileError) {
+      console.log("PROFILE_INSERT_FAILED", createProfileError);
       setIsAdminCreatingProfile(false);
       if (createProfileError.code === '23505') {
         createError = 'Profile name is already in use';
@@ -1500,6 +1522,7 @@ export default function App() {
       return;
     }
 
+    console.log("PROFILE_INSERT_SUCCESS", insertedProfile);
     profileCreated = true;
     setAdminCreateError('');
 
