@@ -67,18 +67,24 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     }
 
     const { data: authUserData } = await supabase.auth.getUser();
-    const normalizedEmail = normalizeEmail(authUserData.user?.email ?? '');
+    const email = normalizeEmail(authUserData.user?.email ?? '');
+    const isAdmin = email?.toLowerCase() === 'matthoogcarspel@gmail.com';
 
-    if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
-      console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
-      setError('Username not allowed');
-      return;
-    }
+    if (!isAdmin) {
+      if (hasBlockedSpotbuddyName(trimmedName, email)) {
+        console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+        setError('Username not allowed');
+        return;
+      }
 
-    if (hasRestrictedWord(trimmedName)) {
-      console.log('USERNAME_VALIDATION_FAILED', trimmedName);
-      setError('Username contains restricted words');
-      return;
+      if (hasRestrictedWord(trimmedName)) {
+        console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+        setError('Username contains restricted words');
+        return;
+      }
+    } else {
+      console.log('ADMIN_BYPASS_ACTIVE', email);
+      console.log('USERNAME_VALIDATION_SKIPPED_FOR_ADMIN', trimmedName);
     }
 
     setError('');

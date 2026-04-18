@@ -4826,28 +4826,34 @@ export default function App() {
         return;
       }
 
-      if (trimmedName.length < 2) {
-        setProfileEditError('Name must be at least 2 characters');
-        return;
-      }
+      const email = normalizeEmail(session.user.email ?? '');
+      const isAdmin = email?.toLowerCase() === 'matthoogcarspel@gmail.com';
 
-      if (trimmedName.length > 20) {
-        setProfileEditError('Name can be at most 20 characters');
-        return;
-      }
+      if (!isAdmin) {
+        if (trimmedName.length < 2) {
+          setProfileEditError('Name must be at least 2 characters');
+          return;
+        }
 
-      const normalizedEmail = normalizeEmail(session.user.email ?? '');
+        if (trimmedName.length > 20) {
+          setProfileEditError('Name can be at most 20 characters');
+          return;
+        }
 
-      if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
-        console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
-        setProfileEditError('Username not allowed');
-        return;
-      }
+        if (hasBlockedSpotbuddyName(trimmedName, email)) {
+          console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+          setProfileEditError('Username not allowed');
+          return;
+        }
 
-      if (hasRestrictedWord(trimmedName)) {
-        console.log('USERNAME_VALIDATION_FAILED', trimmedName);
-        setProfileEditError('Username contains restricted words');
-        return;
+        if (hasRestrictedWord(trimmedName)) {
+          console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+          setProfileEditError('Username contains restricted words');
+          return;
+        }
+      } else {
+        console.log('ADMIN_BYPASS_ACTIVE', email);
+        console.log('USERNAME_VALIDATION_SKIPPED_FOR_ADMIN', trimmedName);
       }
 
       setProfileEditError('');
