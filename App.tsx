@@ -542,6 +542,23 @@ const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
     const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
     return bTime - aTime;
   })[0] ?? null;
+const getSessionRecencyMs = (sessionItem: Pick<SpotSession, 'checkedInAt' | 'createdAt'>) => {
+  const checkedInMs = sessionItem.checkedInAt ? new Date(sessionItem.checkedInAt).getTime() : 0;
+  const createdMs = sessionItem.createdAt ? new Date(sessionItem.createdAt).getTime() : 0;
+  const checkedInSafe = Number.isNaN(checkedInMs) ? 0 : checkedInMs;
+  const createdSafe = Number.isNaN(createdMs) ? 0 : createdMs;
+  return Math.max(checkedInSafe, createdSafe);
+};
+const dedupeActiveCheckedInSessionsByUser = (sessions: SpotSession[]) => {
+  const byUser = new Map<string, SpotSession>();
+  for (const sessionItem of sessions) {
+    const existing = byUser.get(sessionItem.userId);
+    if (!existing || getSessionRecencyMs(sessionItem) > getSessionRecencyMs(existing)) {
+      byUser.set(sessionItem.userId, sessionItem);
+    }
+  }
+  return Array.from(byUser.values());
+};
 const getCurrentUserLiveSession = (sessions: SpotSession[], userId: string | null | undefined) => {
   if (!userId) {
     return null;
@@ -575,7 +592,8 @@ const getCurrentUserActiveCheckedInSessionForDay = ({
     .filter((sessionItem) => isLiveSession(sessionItem))
     .filter((sessionItem) => !isSessionExpired(sessionItem));
 
-  return getMostRecentSessionByCreatedAt(activeSessions);
+  const dedupedActiveSessions = dedupeActiveCheckedInSessionsByUser(activeSessions);
+  return getMostRecentSessionByCreatedAt(dedupedActiveSessions);
 };
 
 const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record<SpotName, T> =>
@@ -2738,12 +2756,28 @@ export default function App() {
   const { activeDateStart, activeDateEnd, activeDateKey } = activeDayContext;
   const activeCheckedInSession = useMemo(() => {
     const allSessions = Object.values(sessionsBySpot).flat();
-    return getCurrentUserActiveCheckedInSessionForDay({
+    const userId = session?.user.id;
+    const chosenSession = getCurrentUserActiveCheckedInSessionForDay({
       sessions: allSessions,
-      userId: session?.user.id,
+      userId,
       activeDateStart,
       activeDateEnd,
     });
+    const activeUserSessions = userId
+      ? allSessions
+        .filter((sessionItem) => sessionItem.userId === userId)
+        .filter((sessionItem) => Boolean(sessionItem.checkedInAt))
+        .filter((sessionItem) => !sessionItem.checkedOutAt)
+        .filter((sessionItem) => sessionItem.status === 'Is er al' || sessionItem.status === 'live')
+        .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd))
+        .filter((sessionItem) => isLiveSession(sessionItem))
+        .filter((sessionItem) => !isSessionExpired(sessionItem))
+      : [];
+    const duplicateCount = activeUserSessions.length > 1 ? activeUserSessions.length - 1 : 0;
+    if (userId && chosenSession) {
+      console.log("ACTIVE_CHECKED_IN_SESSION_RESOLVED", { userId, chosenSession, duplicateCount });
+    }
+    return chosenSession;
   }, [activeDateEnd, activeDateStart, session?.user.id, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   useEffect(() => {
@@ -3484,8 +3518,43 @@ export default function App() {
       }
       return true;
     });
+    const resolvedLiveSessionIdsByUser = new Map<string, string>();
+    for (const item of visibleSessions) {
+      const isActiveCheckedInSession = Boolean(item.checkedInAt)
+        && !item.checkedOutAt
+        && (item.status === 'Is er al' || item.status === 'live')
+        && isLiveSession(item)
+        && !isSessionExpired(item);
+      if (!isActiveCheckedInSession) {
+        continue;
+      }
+      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+      if (!existingSessionId) {
+        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+        continue;
+      }
+      const existingSession = visibleSessions.find((sessionItem) => sessionItem.id === existingSessionId);
+      if (!existingSession || getSessionRecencyMs(item) > getSessionRecencyMs(existingSession)) {
+        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+      }
+    }
     console.log("SESSIONS AFTER VISIBILITY FILTER", visibleSessions);
     return visibleSessions
+      .filter((item) => {
+        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+        if (!resolvedSessionId) {
+          return true;
+        }
+        const isActiveCheckedInSession = Boolean(item.checkedInAt)
+          && !item.checkedOutAt
+          && (item.status === 'Is er al' || item.status === 'live')
+          && isLiveSession(item)
+          && !isSessionExpired(item);
+        if (!isActiveCheckedInSession) {
+          return true;
+        }
+        return item.id === resolvedSessionId;
+      })
       .map((item) => {
         const state = getTimelineState(item);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
@@ -3592,13 +3661,19 @@ export default function App() {
     });
   }, [selectedSpot, sessions, timelineSessions]);
   const liveCheckedInSessions = useMemo(
-    () =>
-      getLiveSessions(sessions.filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)))
-        .sort((a, b) => {
-          const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
-          const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
-          return bTime - aTime;
-        }),
+    () => {
+      const liveSessions = getLiveSessions(
+        sessions.filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)),
+      ).sort((a, b) => {
+        const aTime = a.checkedInAt ? new Date(a.checkedInAt).getTime() : 0;
+        const bTime = b.checkedInAt ? new Date(b.checkedInAt).getTime() : 0;
+        return bTime - aTime;
+      });
+      const dedupedUsers = dedupeActiveCheckedInSessionsByUser(liveSessions)
+        .sort((a, b) => getSessionRecencyMs(b) - getSessionRecencyMs(a));
+      console.log("NOW_AT_SPOT_DEDUPED_USERS", dedupedUsers.map((u) => (u as SpotSession & { user_id?: string; name?: string }).user_id || u.userId || (u as SpotSession & { name?: string }).name));
+      return dedupedUsers;
+    },
     [activeDateEnd, activeDateStart, sessions],
   );
   const upcomingSessions = useMemo(
@@ -3756,6 +3831,16 @@ export default function App() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
+    const getExistingActiveCheckedInSessionsForDay = async () =>
+      supabase
+        .from('sessions')
+        .select('id, spot_name, status, created_at, checked_in_at, checked_out_at')
+        .eq('user_id', authUserId)
+        .is('checked_out_at', null)
+        .in('status', ['Is er al', 'live'])
+        .gte('checked_in_at', activeDateStart.toISOString())
+        .lt('checked_in_at', activeDateEnd.toISOString())
+        .order('checked_in_at', { ascending: false });
     const deleteGhostSessionsForUser = async (userId: string) => {
       console.log("SESSIONS WRITE PATH ACTIVE");
       const cleanupResponse = await supabase
@@ -3774,6 +3859,38 @@ export default function App() {
     if (latestOpenSessionResponse.error) {
       console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'fetch_latest_open_session', error: latestOpenSessionResponse.error, source });
       return { ok: false, reason: 'fetch_latest_open_session_failed', error: latestOpenSessionResponse.error };
+    }
+    const existingCheckedInSessionsForDayResponse = await getExistingActiveCheckedInSessionsForDay();
+    if (existingCheckedInSessionsForDayResponse.error) {
+      console.log('SPOT_PAGE_CHECKIN_ERROR', {
+        stage: 'fetch_existing_checked_in_sessions_for_day',
+        error: existingCheckedInSessionsForDayResponse.error,
+        source,
+      });
+      return { ok: false, reason: 'fetch_existing_checked_in_sessions_for_day_failed', error: existingCheckedInSessionsForDayResponse.error };
+    }
+    const existingCheckedInSessionsForDay = existingCheckedInSessionsForDayResponse.data ?? [];
+    console.log("CHECKIN_DUPLICATE_GUARD", {
+      userId: authUserId,
+      activeDay,
+      existingCheckedInSessionsCount: existingCheckedInSessionsForDay.length,
+    });
+    const activeSession = existingCheckedInSessionsForDay
+      .slice()
+      .sort((a, b) => {
+        const aCheckedInMs = a.checked_in_at ? new Date(a.checked_in_at).getTime() : 0;
+        const bCheckedInMs = b.checked_in_at ? new Date(b.checked_in_at).getTime() : 0;
+        const aCreatedMs = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const bCreatedMs = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return Math.max(bCheckedInMs, bCreatedMs) - Math.max(aCheckedInMs, aCreatedMs);
+      })[0] ?? null;
+    if (activeSession) {
+      if (normalizeSpotName(activeSession.spot_name) === normalizeSpotName(canonicalSpot)) {
+        await fetchSharedData();
+        return { ok: true, spot: canonicalSpot };
+      }
+      console.log("CHECKIN_BLOCKED_DUPLICATE", { userId: authUserId, activeSession });
+      return { ok: false, reason: `already_checked_in_other_spot:${activeSession.spot_name}` };
     }
 
     const latestOpenSession = latestOpenSessionResponse.data;
