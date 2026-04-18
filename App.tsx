@@ -3294,6 +3294,27 @@ export default function App() {
           && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd),
       ),
   );
+  const selectedSpotName = selectedSpot ?? null;
+  const selectedSpotDefinition = useMemo(
+    () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
+    [selectedSpot, spotDefinitions],
+  );
+  const selectedSpotDistanceMeters = useMemo(
+    () => (currentCoordinates && selectedSpotDefinition
+      ? getDistanceMeters(currentCoordinates, {
+        latitude: selectedSpotDefinition.latitude,
+        longitude: selectedSpotDefinition.longitude,
+      })
+      : null),
+    [currentCoordinates, selectedSpotDefinition],
+  );
+  const selectedSpotWithinCheckInRadius = selectedSpotDistanceMeters !== null
+    ? selectedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS
+    : false;
+  console.log("CHECKIN_RADIUS_DEP_READY", {
+    selectedSpotName,
+    selectedSpotWithinCheckInRadius,
+  });
   const withinRange = selectedSpotWithinCheckInRadius;
   const shouldShowSpotCheckIn = activeDay === 'today' && !isCheckedInAtSelectedSpot;
   const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
@@ -3424,22 +3445,6 @@ export default function App() {
   };
   const quickCheckInWindowError = getQuickCheckInWindowError(currentLocalMinutes);
   const canQuickCheckIn = !quickCheckInWindowError;
-  const selectedSpotDefinition = useMemo(
-    () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
-    [selectedSpot, spotDefinitions],
-  );
-  const selectedSpotDistanceMeters = useMemo(
-    () => (currentCoordinates && selectedSpotDefinition
-      ? getDistanceMeters(currentCoordinates, {
-        latitude: selectedSpotDefinition.latitude,
-        longitude: selectedSpotDefinition.longitude,
-      })
-      : null),
-    [currentCoordinates, selectedSpotDefinition],
-  );
-  const selectedSpotWithinCheckInRadius = selectedSpotDistanceMeters !== null
-    ? selectedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS
-    : false;
   const nearestSpotName = nearestSpotResult?.spot ?? null;
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
   const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
@@ -3453,6 +3458,7 @@ export default function App() {
   console.log('SPOT_SEARCH_COMPACT_MODE');
   console.log('NEAREST_SPOT_COMPACT_LAYOUT', { nearestSpot: nearestSpotName, distanceMeters });
   console.log('NEAREST_SPOT_CARD_STATE', { nearestSpot: nearestSpotName, distanceMeters, canCheckIn: nearestSpotCanCheckIn });
+  console.log("APP_RENDER_RECOVERED");
   useEffect(() => {
     if (!homeQuickCheckInError) {
       return;
