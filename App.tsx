@@ -5703,22 +5703,37 @@ export default function App() {
       };
     };
 
+    const resolveTargetSessionProfileIdForJoin = (sessionToJoin: SpotSession) => {
+      const profileIds = new Set(availableProfiles.map((profileItem) => profileItem.id));
+      const candidateValues = [
+        sessionToJoin.resolvedActorProfileId,
+        sessionToJoin.userId,
+        (sessionToJoin as SpotSession & { user_id?: string | null }).user_id ?? null,
+        (sessionToJoin as SpotSession & { profile_id?: string | null }).profile_id ?? null,
+        (sessionToJoin as SpotSession & { created_by?: string | null }).created_by ?? null,
+      ];
+      for (const candidate of candidateValues) {
+        if (typeof candidate === 'string' && candidate.trim().length > 0 && profileIds.has(candidate)) {
+          return candidate;
+        }
+      }
+      return sessionToJoin.userId;
+    };
+
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
         display_name: profile?.display_name ?? null,
       };
-      const selectedDayMode = activeDay;
-      const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
-      console.log("TOMORROW_JOIN_TARGET_SESSION", targetSession);
-      console.log("TOMORROW_JOIN_SELECTED_DAY_MODE", selectedDayMode ?? null);
-      console.log("TOMORROW_JOIN_TARGET_DATE_FIELDS", {
-        date: (targetSession as SpotSession & { date?: string | null }).date ?? null,
-        session_date: (targetSession as SpotSession & { session_date?: string | null }).session_date ?? null,
-        day: (targetSession as SpotSession & { day?: string | null }).day ?? null,
-        starts_at: (targetSession as SpotSession & { starts_at?: string | null }).starts_at ?? null,
-        ends_at: (targetSession as SpotSession & { ends_at?: string | null }).ends_at ?? null
-      });
+      const targetSession = {
+        ...sessionToJoin,
+        user_id: resolveTargetSessionProfileIdForJoin(sessionToJoin),
+        owner_uid: sessionToJoin.userOwnerUid ?? null,
+      };
+      console.log("ASYMMETRIC_JOIN_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+      console.log("ASYMMETRIC_JOIN_TARGET_SESSION", targetSession ?? null);
+      console.log("ASYMMETRIC_JOIN_TARGET_USER_ID", targetSession?.user_id ?? null);
+      console.log("ASYMMETRIC_JOIN_TARGET_OWNER_UID", targetSession?.owner_uid ?? null);
 
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
@@ -5726,7 +5741,12 @@ export default function App() {
         return;
       }
 
-      if (targetSession.user_id === activeProfile.id) {
+      const selfBlock = targetSession?.user_id === activeProfile?.id;
+      console.log("ASYMMETRIC_JOIN_SELF_BLOCK", selfBlock);
+      if (selfBlock) {
+        const blockReason = 'self_join';
+        console.log("ASYMMETRIC_JOIN_DUPLICATE_BLOCK", false);
+        console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
         setSessionActionError('');
         return;
       }
@@ -5742,17 +5762,20 @@ export default function App() {
           && candidateSessionDateKey === targetSessionDateKey
         );
       });
-      console.log("TOMORROW_JOIN_DUPLICATE_CHECK", duplicateJoin ?? false);
+      console.log("ASYMMETRIC_JOIN_DUPLICATE_BLOCK", duplicateJoin ?? false);
       if (duplicateJoin) {
+        const blockReason = 'duplicate_join';
+        console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
         setSessionActionError('');
         return;
       }
+      const blockReason = null;
+      console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
 
       const createPayload = buildJoinSessionPayload(targetSession, activeProfileId);
       const payload = { ...createPayload };
-      console.log("TOMORROW_JOIN_PAYLOAD", payload ?? null);
       const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
-      console.log("TOMORROW_JOIN_RESULT", { data, error });
+      console.log("ASYMMETRIC_JOIN_RESULT", { data, error });
       if (error) {
         const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
         setSessionActionError(errorMessage);
