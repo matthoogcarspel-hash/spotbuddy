@@ -3795,10 +3795,13 @@ export default function App() {
       resolutionMode: 'session_row_delete_by_id',
     });
     console.log("SESSIONS WRITE PATH ACTIVE");
+    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+    console.log("SESSION_WRITE_AUTH", authUser?.id);
     const deleteResult = await supabase
       .from('sessions')
       .delete()
       .eq('id', sessionToCancel.id)
+      .eq('user_id', activeProfileId)
       .is('checked_in_at', null)
       .is('checked_out_at', null)
       .not('start_time', 'is', null)
@@ -4241,6 +4244,8 @@ export default function App() {
     created_at?: string;
   }) => {
     console.log("SESSIONS WRITE PATH ACTIVE");
+    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+    console.log("SESSION_WRITE_AUTH", authUser?.id);
     return supabase
       .from('sessions')
       .insert(payload)
@@ -4314,7 +4319,7 @@ export default function App() {
     if (!activeAppUserId) {
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
-    const authUserId = activeAppUserId;
+    const activeProfileId = activeAppUserId;
 
     const canonicalSpot =
       spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
@@ -4328,7 +4333,7 @@ export default function App() {
       supabase
         .from('sessions')
         .select('id, spot_name, status, created_at')
-        .eq('user_id', authUserId)
+        .eq('user_id', activeProfileId)
         .is('checked_out_at', null)
         .in('status', ['Gaat', 'Is er al'])
         .order('created_at', { ascending: false })
@@ -4338,7 +4343,7 @@ export default function App() {
       supabase
         .from('sessions')
         .select('id, spot_name, status, created_at, checked_in_at, checked_out_at')
-        .eq('user_id', authUserId)
+        .eq('user_id', activeProfileId)
         .is('checked_out_at', null)
         .in('status', ['Is er al', 'live'])
         .gte('checked_in_at', activeDateStart.toISOString())
@@ -4346,6 +4351,8 @@ export default function App() {
         .order('checked_in_at', { ascending: false });
     const deleteGhostSessionsForUser = async (userId: string) => {
       console.log("SESSIONS WRITE PATH ACTIVE");
+      console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+      console.log("SESSION_WRITE_AUTH", authUser?.id);
       const cleanupResponse = await supabase
         .from('sessions')
         .delete()
@@ -4374,7 +4381,7 @@ export default function App() {
     }
     const existingCheckedInSessionsForDay = existingCheckedInSessionsForDayResponse.data ?? [];
     console.log("CHECKIN_DUPLICATE_GUARD", {
-      userId: authUserId,
+      userId: activeProfileId,
       activeDay,
       existingCheckedInSessionsCount: existingCheckedInSessionsForDay.length,
     });
@@ -4392,7 +4399,7 @@ export default function App() {
         await fetchSharedData();
         return { ok: true, spot: canonicalSpot };
       }
-      console.log("CHECKIN_BLOCKED_DUPLICATE", { userId: authUserId, activeSession });
+      console.log("CHECKIN_BLOCKED_DUPLICATE", { userId: activeProfileId, activeSession });
       return { ok: false, reason: `already_checked_in_other_spot:${activeSession.spot_name}` };
     }
 
@@ -4414,11 +4421,13 @@ export default function App() {
           targetSpot: canonicalSpot,
         });
         console.log("SESSIONS WRITE PATH ACTIVE");
+        console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+        console.log("SESSION_WRITE_AUTH", authUser?.id);
         const clearPlannedResult = await supabase
           .from('sessions')
           .delete()
           .eq('id', latestOpenSession.id)
-          .eq('user_id', authUserId);
+          .eq('user_id', activeProfileId);
 
         if (clearPlannedResult.error) {
           console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'clear_planned_session_other_spot', error: clearPlannedResult.error, source });
@@ -4431,7 +4440,7 @@ export default function App() {
           clearedSpot: latestOpenSession.spot_name,
           targetSpot: canonicalSpot,
         });
-        await deleteGhostSessionsForUser(authUserId);
+        await deleteGhostSessionsForUser(activeProfileId);
       } else {
 
       const updatePayload = {
@@ -4445,11 +4454,13 @@ export default function App() {
         console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, spot: canonicalSpot });
       }
       console.log("SESSIONS WRITE PATH ACTIVE");
+      console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+      console.log("SESSION_WRITE_AUTH", authUser?.id);
       const checkInResponse = await supabase
         .from('sessions')
         .update(updatePayload)
         .eq('id', latestOpenSession.id)
-        .eq('user_id', authUserId);
+        .eq('user_id', activeProfileId);
 
       if (checkInResponse.error) {
         console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'update_existing_session', error: checkInResponse.error, source });
@@ -4462,11 +4473,11 @@ export default function App() {
       }
     }
 
-    await deleteGhostSessionsForUser(authUserId);
+    await deleteGhostSessionsForUser(activeProfileId);
 
     const insertPayload = {
       spot_name: canonicalSpot,
-      user_id: authUserId,
+      user_id: activeProfileId,
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
@@ -4475,6 +4486,8 @@ export default function App() {
       checked_out_at: null,
     };
     console.log("SESSIONS WRITE PATH ACTIVE");
+    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+    console.log("SESSION_WRITE_AUTH", authUser?.id);
     console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
     if (source === 'home_quick') {
       console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'insert', payload: insertPayload, spot: canonicalSpot });
@@ -4532,8 +4545,8 @@ export default function App() {
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
     console.log(`${actionLabel}_BUTTON_PRESSED`, { selectedSpot, status });
 
-    const authUserId = activeAppUserId;
-    if (!authUserId) {
+    const activeProfileId = activeAppUserId;
+    if (!activeProfileId) {
       return;
     }
 
@@ -4542,7 +4555,7 @@ export default function App() {
       supabase
         .from('sessions')
         .select('id, spot_name, status, created_at')
-        .eq('user_id', authUserId)
+        .eq('user_id', activeProfileId)
         .is('checked_out_at', null)
         .in('status', ['Gaat', 'Is er al'])
         .order('created_at', { ascending: false })
@@ -4581,6 +4594,8 @@ export default function App() {
     }
 
     console.log("SESSIONS WRITE PATH ACTIVE");
+    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+    console.log("SESSION_WRITE_AUTH", authUser?.id);
     const result = await supabase
       .from('sessions')
       .update({
@@ -4588,7 +4603,7 @@ export default function App() {
         checked_out_at: nowIso,
       })
       .eq('id', checkedInSession.id)
-      .eq('user_id', authUserId);
+      .eq('user_id', activeProfileId);
 
     if (result.error) {
       console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: result.error });
@@ -4694,7 +4709,7 @@ export default function App() {
     if (!activeAppUserId) {
       return;
     }
-    const authUserId = activeAppUserId;
+    const activeProfileId = activeAppUserId;
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
@@ -4704,6 +4719,8 @@ export default function App() {
 
     setHomeQuickCheckOutInFlight(true);
     console.log("SESSIONS WRITE PATH ACTIVE");
+    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
+    console.log("SESSION_WRITE_AUTH", authUser?.id);
     const result = await supabase
       .from('sessions')
       .update({
@@ -4711,7 +4728,7 @@ export default function App() {
         checked_out_at: new Date().toISOString(),
       })
       .eq('id', activeCheckedInSession.id)
-      .eq('user_id', authUserId);
+      .eq('user_id', activeProfileId);
 
     setHomeQuickCheckOutInFlight(false);
 
@@ -5942,7 +5959,7 @@ export default function App() {
             intent: payload.intent,
           })
           .eq('id', editingSessionId)
-          .eq('user_id', user.id)
+          .eq('user_id', payload.user_id)
           .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, intent')
           .single();
       } else {
