@@ -130,30 +130,101 @@ const stableHash = (value: string): number => {
   }
   return Math.abs(hash);
 };
+const stable = (options: string[], key: string) => options[stableHash(key) % options.length];
+const getPlannedCountBucket = (plannedCount: number) => {
+  if (plannedCount >= 6) {
+    return 'planned6plus';
+  }
+  if (plannedCount >= 4) {
+    return 'planned4to5';
+  }
+  if (plannedCount === 3) {
+    return 'planned3';
+  }
+  if (plannedCount === 2) {
+    return 'planned2';
+  }
+  if (plannedCount === 1) {
+    return 'planned1';
+  }
+  return 'planned0';
+};
+const getActiveCountBucket = (activeCount: number) => {
+  if (activeCount >= 8) {
+    return 'active8plus';
+  }
+  if (activeCount >= 6) {
+    return 'active6to7';
+  }
+  if (activeCount >= 4) {
+    return 'active4to5';
+  }
+  if (activeCount === 3) {
+    return 'active3';
+  }
+  if (activeCount === 2) {
+    return 'active2';
+  }
+  if (activeCount === 1) {
+    return 'active1';
+  }
+  return 'active0';
+};
 const getHomeSpotCardStatus = (
   spotId: string,
   selectedDayMode: ActiveDay,
   plannedCount: number,
   activeCount: number,
-): { label: SpotMomentumLabel; flames: number } => {
-  const plannedCountBand = plannedCount >= 4 ? 'planned4plus' : plannedCount >= 2 ? 'planned2to3' : plannedCount === 1 ? 'planned1' : 'planned0';
-  const activeCountBand = activeCount >= 5 ? 'active5plus' : activeCount >= 3 ? 'active3to4' : activeCount >= 1 ? 'active1to2' : 'active0';
-  const randomPool =
-    activeCount >= 5
-      ? { labels: ['Go now', 'Send it now', 'Full send', 'Absolute mayhem'], flames: 5 }
-      : activeCount >= 3
-        ? { labels: ['It’s firing', 'Proper session', 'This is on'], flames: 4 }
-        : activeCount >= 1
-          ? { labels: ['Happening now', 'Game on', 'It’s on', 'Someone’s sending it'], flames: 3 }
-          : plannedCount >= 4
-            ? { labels: ['Getting spicy', 'Serious interest', 'Crowd is building'], flames: 2 }
-            : plannedCount >= 2
-              ? { labels: ['Session forming', 'People are circling', 'Getting interesting'], flames: 1 }
-              : plannedCount === 1
-                ? { labels: ['Tiny spark', 'One brave soul', 'First one is tempted'], flames: 0 }
-                : { labels: ['Still asleep', 'Nobody’s moving', 'Tumbleweeds only', 'Not much cooking'], flames: 0 };
-  const stableIndex = stableHash(`${spotId}|${selectedDayMode}|${plannedCountBand}|${activeCountBand}`) % randomPool.labels.length;
-  return { label: randomPool.labels[stableIndex], flames: randomPool.flames };
+): { label: SpotMomentumLabel; symbol: string } => {
+  const plannedCountBucket = getPlannedCountBucket(plannedCount);
+  const activeCountBucket = getActiveCountBucket(activeCount);
+  const stableKey = `${spotId}|${selectedDayMode}|${plannedCountBucket}|${activeCountBucket}`;
+
+  console.log('STATUS_V2_INPUT', {
+    spotId,
+    selectedDayMode,
+    plannedCount,
+    activeCount,
+    plannedCountBucket,
+    activeCountBucket,
+    stableKey,
+  });
+
+  if (activeCount > 0) {
+    if (activeCount === 1) {
+      return { symbol: '•', label: stable(['First one out', 'Someone’s there', 'Early mover'], stableKey) };
+    }
+    if (activeCount === 2) {
+      return { symbol: '⚡', label: stable(['Getting going', 'Two’s company', 'Starting to move'], stableKey) };
+    }
+    if (activeCount === 3) {
+      return { symbol: '🔥', label: stable(['Happening now', 'Game on', 'Session started'], stableKey) };
+    }
+    if (activeCount >= 4 && activeCount <= 5) {
+      return { symbol: '🔥🔥', label: stable(['It’s on', 'Good session', 'People are riding'], stableKey) };
+    }
+    if (activeCount >= 6 && activeCount <= 7) {
+      return { symbol: '🔥🔥🔥', label: stable(['It’s firing', 'Busy spot', 'Solid turnout'], stableKey) };
+    }
+    return { symbol: '🔥🔥🔥🔥', label: stable(['Go now', 'Full send', 'Packed'], stableKey) };
+  }
+
+  if (plannedCount === 0) {
+    return { symbol: '', label: stable(['Still asleep', 'Nobody’s moving', 'Not much cooking'], stableKey) };
+  }
+  if (plannedCount === 1) {
+    return { symbol: '•', label: stable(['Tiny spark', 'One brave soul', 'First one tempted'], stableKey) };
+  }
+  if (plannedCount === 2) {
+    return { symbol: '⚡', label: stable(['Session forming', 'Getting interesting', 'Momentum building'], stableKey) };
+  }
+  if (plannedCount === 3) {
+    return { symbol: '🔥', label: stable(['Getting spicy', 'Plans are stacking', 'This could work'], stableKey) };
+  }
+  if (plannedCount >= 4 && plannedCount <= 5) {
+    return { symbol: '🔥🔥', label: stable(['Crowd is building', 'Looks promising', 'People lining up'], stableKey) };
+  }
+  return { symbol: '🔥🔥🔥', label: stable(['Serious interest', 'Big plans', 'This might blow up'], stableKey) };
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
@@ -6793,7 +6864,7 @@ export default function App() {
           const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
           const selectedDayMode = activeDay;
           const spotId = spot.name;
-          const { label: statusLabel, flames } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
+          const { label: statusLabel, symbol } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
           console.log("HOME_CARD_RENDERED_COUNTS", {
             spotName: spot.name,
             plannedCount,
@@ -6805,7 +6876,7 @@ export default function App() {
             plannedCount,
             activeCount,
             label: statusLabel,
-            flames
+            symbol
           });
 
           return (
@@ -6829,13 +6900,12 @@ export default function App() {
                 Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
               </Text>
               {statusLabel ? (
-                <View style={{ marginTop: 8, alignSelf: 'flex-start', gap: 4 }}>
+                <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
                   <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{statusLabel}</Text>
+                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>
+                      {symbol ? `${symbol} ${statusLabel}` : statusLabel}
+                    </Text>
                   </View>
-                  {flames > 0 ? (
-                    <Text style={{ color: '#ff8c42', fontSize: 12, fontWeight: '700' }}>{'🔥'.repeat(flames)}</Text>
-                  ) : null}
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
