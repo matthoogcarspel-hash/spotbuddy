@@ -82,7 +82,7 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
-type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { email?: string | null; owner_uid: string | null; created_at?: string };
+type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url' | 'owner_uid' | 'created_at'>;
 type FollowRequestItem = {
   id: string;
   follower_id: string;
@@ -1357,7 +1357,8 @@ export default function App() {
   const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
   const activeAppUserId = activeUserOverride?.id ?? authenticatedUserId;
-  const activeAppUserEmail = activeUserOverride?.email ?? authenticatedUserEmail;
+  const activeAppUserEmail = authenticatedUserEmail;
+  const visibleProfiles = switchableAccounts;
   const passwordResetRedirectTo = useMemo(() => {
     const configuredRedirect = Constants.expoConfig?.extra?.passwordResetRedirectTo;
     if (typeof configuredRedirect === 'string' && configuredRedirect.trim()) {
@@ -1423,17 +1424,11 @@ export default function App() {
       return [] as SwitchableAccount[];
     }
 
-    const visibleProfiles: SwitchableAccount[] = (data ?? []).map((account) => ({
-      id: account.id,
-      display_name: account.display_name,
-      avatar_url: account.avatar_url,
-      owner_uid: account.owner_uid ?? null,
-      created_at: account.created_at,
-      email: authenticatedUserEmail,
-    }));
-    setSwitchableAccounts(visibleProfiles);
-    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", data);
-    return visibleProfiles;
+    const loadedProfiles = (data ?? []) as SwitchableAccount[];
+    setSwitchableAccounts(loadedProfiles);
+    console.log("SWITCH_ACCOUNT_STATE_SET", loadedProfiles);
+    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", loadedProfiles);
+    return loadedProfiles;
   };
 
   const createAdminProfile = async (profileName: string, avatarFile?: string | null) => {
@@ -1553,7 +1548,7 @@ export default function App() {
     };
     const toUser = {
       id: selectedProfile.id,
-      email: selectedProfile.email,
+      email: activeAppUserEmail,
     };
     console.log("ACCOUNT_SWITCH_SELECTED", { fromUser, toUser });
 
@@ -1568,8 +1563,12 @@ export default function App() {
     await fetchProfile(selectedProfile.id);
     await fetchSharedData();
     await fetchBuddiesData();
-    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: selectedProfile.id, activeUserEmail: selectedProfile.email });
+    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: selectedProfile.id, activeUserEmail: activeAppUserEmail });
   };
+
+  useEffect(() => {
+    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", visibleProfiles);
+  }, [visibleProfiles]);
 
   useEffect(() => {
     console.log("HOME_SPOTS_LIMIT", HOME_SPOTS_LIMIT);
@@ -5284,7 +5283,7 @@ export default function App() {
               {showAccountSwitcher ? (
                 <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
                   {(() => {
-                    const data = switchableAccounts;
+                    const data = visibleProfiles;
                     console.log("SWITCH_ACCOUNT_RENDER_COUNT", Array.isArray(data) ? data.length : 0);
                     return null;
                   })()}
@@ -5293,15 +5292,15 @@ export default function App() {
                   ) : null}
                   <View style={{ marginBottom: 8 }}>
                     <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                      Profiles found: {switchableAccounts.length}
+                      Profiles found: {visibleProfiles.length}
                     </Text>
-                    {switchableAccounts.map((profile) => (
+                    {visibleProfiles.map((profile) => (
                       <Text key={`switch-account-debug-${profile.id}`} style={{ color: theme.textSoft, fontSize: 12 }}>
                         - {profile.display_name ?? '(no display_name)'}
                       </Text>
                     ))}
                   </View>
-                  {switchableAccounts.map((account) => {
+                  {visibleProfiles.map((account) => {
                     const profile = account;
                     console.log("SWITCH_ACCOUNT_RENDER_ITEM", profile);
                     const isActive = account.id === activeAppUserId;
@@ -5328,7 +5327,7 @@ export default function App() {
                         <View style={{ flex: 1 }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{account.display_name}</Text>
                           <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                            {account.email ?? account.id}
+                            {account.id}
                           </Text>
                         </View>
                       </Pressable>
