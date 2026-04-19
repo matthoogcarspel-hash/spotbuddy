@@ -3687,42 +3687,6 @@ export default function App() {
   useEffect(() => {
     console.log("SPOT_PAGE_CHECKOUT_BUTTON_VISIBLE", { visible: shouldShowSpotCheckOut, activeDay, spotName: selectedSpot ?? null });
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  const selectedSpotMomentumLabel = useMemo(
-    () => {
-      if (!selectedSpot) {
-        return null;
-      }
-
-      const visibleSpotSessions = timelineSessions
-        .map(({ item }) => item)
-        .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
-      const liveSessions = visibleSpotSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
-      const checkedInCount = dedupeActiveCheckedInSessionsByUser(liveSessions).length;
-      const liveCount = liveSessions.length;
-      const plannedCount = visibleSpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
-      const visibleSessionsCount = visibleSpotSessions.length;
-      const selectedDayMode = activeDay;
-
-      console.log("SPOT_STATUS_INPUT", {
-        liveCount,
-        checkedInCount,
-        plannedCount,
-        visibleSessionsCount,
-        selectedDayMode
-      });
-
-      let statusLabel: SpotMomentumLabel = 'Quiet right now';
-      if (liveCount > 0 || checkedInCount > 0) {
-        statusLabel = checkedInCount > 5 ? 'Let’s go now' : 'Happening now';
-      } else if (plannedCount > 0 && visibleSessionsCount > 0) {
-        statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
-      }
-
-      console.log("SPOT_STATUS_RESULT", statusLabel);
-      return statusLabel;
-    },
-    [activeDay, selectedSpot, timelineSessions],
-  );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
   const joinedSession = useMemo(() => {
@@ -4131,6 +4095,44 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, sessions, timelineFilter]);
+  console.log("TIMELINE_SESSIONS_DECLARED", Array.isArray(timelineSessions) ? timelineSessions.length : null);
+  console.log("TIMELINE_SESSIONS_CRASH_FIX_READY");
+  const selectedSpotMomentumLabel = useMemo(
+    () => {
+      if (!selectedSpot) {
+        return null;
+      }
+
+      const visibleSpotSessions = timelineSessions
+        .map(({ item }) => item)
+        .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
+      const liveSessions = visibleSpotSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
+      const checkedInCount = dedupeActiveCheckedInSessionsByUser(liveSessions).length;
+      const liveCount = liveSessions.length;
+      const plannedCount = visibleSpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
+      const visibleSessionsCount = visibleSpotSessions.length;
+      const selectedDayMode = activeDay;
+
+      console.log("SPOT_STATUS_INPUT", {
+        liveCount,
+        checkedInCount,
+        plannedCount,
+        visibleSessionsCount,
+        selectedDayMode
+      });
+
+      let statusLabel: SpotMomentumLabel = 'Quiet right now';
+      if (liveCount > 0 || checkedInCount > 0) {
+        statusLabel = checkedInCount > 5 ? 'Let’s go now' : 'Happening now';
+      } else if (plannedCount > 0 && visibleSessionsCount > 0) {
+        statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
+      }
+
+      console.log("SPOT_STATUS_RESULT", statusLabel);
+      return statusLabel;
+    },
+    [activeDay, selectedSpot, timelineSessions],
+  );
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
