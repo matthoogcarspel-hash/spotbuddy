@@ -1518,8 +1518,9 @@ export default function App() {
     console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
-  const hydrateActiveProfile = async (authUser: AuthSession['user'] | null, reason: string) => {
-    console.log("PROFILE_HYDRATION_AUTH_READY", authUser);
+  const hydrateActiveProfile = async (authUser: AuthSession['user'] | null, _reason: string) => {
+    console.log("PROFILE_RESTORE_START");
+    console.log("PROFILE_RESTORE_AUTH_USER", authUser?.id);
     if (!authUser?.id) {
       setSwitchableAccounts([]);
       setActiveUserOverride(null);
@@ -1527,61 +1528,52 @@ export default function App() {
       setCurrentUserId(null);
       setProfileHydrationError('');
       setLoadingProfile(false);
+      console.log("PROFILE_RESTORE_LOADING_DONE");
       return;
     }
 
     setLoadingProfile(true);
     setProfileHydrationError('');
-    console.log("PROFILE_HYDRATION_QUERY_START");
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url, owner_uid, created_at')
-      .eq('owner_uid', authUser.id)
-      .order('created_at', { ascending: true });
-    console.log("PROFILE_HYDRATION_QUERY_RESULT", { data, error });
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, owner_uid, created_at')
+        .eq('owner_uid', authUser.id)
+        .order('created_at', { ascending: true });
+      console.log("PROFILE_RESTORE_OWNED_COUNT", data?.length ?? 0);
 
-    if (error) {
-      setSwitchableAccounts([]);
+      if (error) {
+        setSwitchableAccounts([]);
+        setActiveUserOverride(null);
+        setProfile(null);
+        setCurrentUserId(null);
+        setProfileHydrationError(error.message || 'Failed to load profiles');
+        return;
+      }
+
+      const ownedProfiles = (data ?? []) as SwitchableAccount[];
+      setSwitchableAccounts(ownedProfiles);
+      const savedProfileId = await AsyncStorage.getItem(getActiveProfileStorageKey(authUser.id));
+      console.log("PROFILE_RESTORE_SAVED_ID", savedProfileId);
+
+      const resolvedProfile = (savedProfileId
+        ? ownedProfiles.find((profileItem) => profileItem.id === savedProfileId) ?? null
+        : null) ?? ownedProfiles[0] ?? null;
+      console.log("PROFILE_RESTORE_SELECTED_ID", resolvedProfile?.id ?? null);
+
       setActiveUserOverride(null);
-      setProfile(null);
-      setCurrentUserId(null);
-      setProfileHydrationError(error.message || 'Failed to load profiles');
+      setProfile(resolvedProfile);
+      setCurrentUserId(resolvedProfile?.id ?? null);
+
+      if (resolvedProfile?.id) {
+        await AsyncStorage.setItem(getActiveProfileStorageKey(authUser.id), resolvedProfile.id);
+      } else {
+        await AsyncStorage.removeItem(getActiveProfileStorageKey(authUser.id));
+      }
+    } finally {
       setLoadingProfile(false);
-      return;
+      console.log("PROFILE_RESTORE_LOADING_DONE");
     }
-
-    const ownedProfiles = (data ?? []) as SwitchableAccount[];
-    setSwitchableAccounts(ownedProfiles);
-    const persistedProfileId = await AsyncStorage.getItem(getActiveProfileStorageKey(authUser.id));
-    console.log("PROFILE_HYDRATION_PERSISTED_PROFILE_ID", persistedProfileId);
-
-    const selectedProfile = persistedProfileId
-      ? ownedProfiles.find((profileItem) => profileItem.id === persistedProfileId) ?? null
-      : null;
-    console.log("PROFILE_HYDRATION_SELECTED_PROFILE", selectedProfile);
-
-    const previousProfileId = activeUserOverride?.id ?? profile?.id ?? null;
-    const fallbackProfile = ownedProfiles.find((profileItem) => profileItem.id === previousProfileId) ?? ownedProfiles[0] ?? null;
-    console.log("PROFILE_HYDRATION_FALLBACK_PROFILE", fallbackProfile);
-
-    const resolvedProfile = selectedProfile ?? fallbackProfile ?? null;
-    setActiveUserOverride(null);
-    setProfile(resolvedProfile);
-    setCurrentUserId(resolvedProfile?.id ?? null);
-
-    if (resolvedProfile?.id) {
-      await AsyncStorage.setItem(getActiveProfileStorageKey(authUser.id), resolvedProfile.id);
-    } else {
-      await AsyncStorage.removeItem(getActiveProfileStorageKey(authUser.id));
-    }
-
-    console.log("PROFILE_HYDRATION_COMPLETE", {
-      activeProfileId: resolvedProfile?.id ?? null,
-      displayName: resolvedProfile?.display_name ?? null,
-      avatarUrl: resolvedProfile?.avatar_url ?? null
-    });
-    console.log("PROFILE_STATE_RESET_REASON", reason);
-    setLoadingProfile(false);
   };
 
   const loadOwnedProfiles = async () => {
