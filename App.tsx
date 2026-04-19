@@ -3748,11 +3748,13 @@ export default function App() {
     console.log("PARTICIPATION_AUTH_USER", authUser);
     console.log("PARTICIPATION_TARGET_SESSION", sessionToCancel);
 
-    if (!activeParticipationProfile.id) {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+    if (!user?.id) {
       setSessionActionError('Could not cancel session');
       return;
     }
-    const activeProfileId = activeParticipationProfile.id;
+    const activeProfileId = user.id;
     const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
     const targetSessionId = sessionToCancel.id;
     const targetParticipationId = sessionToCancel.id;
@@ -3794,9 +3796,9 @@ export default function App() {
       targetParticipationId,
       resolutionMode: 'session_row_delete_by_id',
     });
-    console.log("SESSIONS WRITE PATH ACTIVE");
-    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-    console.log("SESSION_WRITE_AUTH", authUser?.id);
+    const payload = { user_id: activeProfileId };
+    console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
+    console.log("SESSION_CANCEL_FILTER_USER_ID", user?.id ?? null);
     const deleteResult = await supabase
       .from('sessions')
       .delete()
@@ -4243,12 +4245,16 @@ export default function App() {
     checked_out_at: null;
     created_at?: string;
   }) => {
-    console.log("SESSIONS WRITE PATH ACTIVE");
-    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-    console.log("SESSION_WRITE_AUTH", authUser?.id);
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+    if (!user?.id) {
+      return { data: null, error: { message: 'missing_auth_user_id' } } as const;
+    }
+    const writePayload = { ...payload, user_id: user.id };
+    console.log("SESSION_WRITE_USER_ID", writePayload?.user_id ?? null);
     return supabase
       .from('sessions')
-      .insert(payload)
+      .insert(writePayload)
       .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent')
       .single();
   };
@@ -4316,10 +4322,12 @@ export default function App() {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
   }): Promise<{ ok: true; spot: SpotName } | { ok: false; reason: string; error?: unknown }> => {
-    if (!activeAppUserId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+    if (!user?.id) {
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
-    const activeProfileId = activeAppUserId;
+    const activeProfileId = user.id;
 
     const canonicalSpot =
       spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
@@ -4350,9 +4358,8 @@ export default function App() {
         .lt('checked_in_at', activeDateEnd.toISOString())
         .order('checked_in_at', { ascending: false });
     const deleteGhostSessionsForUser = async (userId: string) => {
-      console.log("SESSIONS WRITE PATH ACTIVE");
-      console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-      console.log("SESSION_WRITE_AUTH", authUser?.id);
+      const payload = { user_id: userId };
+      console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
       const cleanupResponse = await supabase
         .from('sessions')
         .delete()
@@ -4420,9 +4427,8 @@ export default function App() {
           plannedSpot: latestOpenSession.spot_name,
           targetSpot: canonicalSpot,
         });
-        console.log("SESSIONS WRITE PATH ACTIVE");
-        console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-        console.log("SESSION_WRITE_AUTH", authUser?.id);
+        const payload = { user_id: activeProfileId };
+        console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
         const clearPlannedResult = await supabase
           .from('sessions')
           .delete()
@@ -4453,9 +4459,8 @@ export default function App() {
       if (source === 'home_quick') {
         console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, spot: canonicalSpot });
       }
-      console.log("SESSIONS WRITE PATH ACTIVE");
-      console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-      console.log("SESSION_WRITE_AUTH", authUser?.id);
+      const payload = { user_id: activeProfileId };
+      console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
       const checkInResponse = await supabase
         .from('sessions')
         .update(updatePayload)
@@ -4485,9 +4490,7 @@ export default function App() {
       checked_in_at: nowIso,
       checked_out_at: null,
     };
-    console.log("SESSIONS WRITE PATH ACTIVE");
-    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-    console.log("SESSION_WRITE_AUTH", authUser?.id);
+    console.log("SESSION_WRITE_USER_ID", insertPayload?.user_id ?? null);
     console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
     if (source === 'home_quick') {
       console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'insert', payload: insertPayload, spot: canonicalSpot });
@@ -4545,10 +4548,12 @@ export default function App() {
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
     console.log(`${actionLabel}_BUTTON_PRESSED`, { selectedSpot, status });
 
-    const activeProfileId = activeAppUserId;
-    if (!activeProfileId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+    if (!user?.id) {
       return;
     }
+    const activeProfileId = user.id;
 
     const nowIso = new Date().toISOString();
     const getLatestOpenSession = async () =>
@@ -4593,9 +4598,8 @@ export default function App() {
       return;
     }
 
-    console.log("SESSIONS WRITE PATH ACTIVE");
-    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-    console.log("SESSION_WRITE_AUTH", authUser?.id);
+    const payload = { user_id: activeProfileId };
+    console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
     const result = await supabase
       .from('sessions')
       .update({
@@ -4706,10 +4710,12 @@ export default function App() {
     console.log('HOME_QUICK_CHECKOUT_PRESSED', { activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
     setHomeQuickCheckInError('');
 
-    if (!activeAppUserId) {
+    const { data: { user } } = await supabase.auth.getUser();
+    console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+    if (!user?.id) {
       return;
     }
-    const activeProfileId = activeAppUserId;
+    const activeProfileId = user.id;
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
@@ -4718,9 +4724,8 @@ export default function App() {
     }
 
     setHomeQuickCheckOutInFlight(true);
-    console.log("SESSIONS WRITE PATH ACTIVE");
-    console.log("SESSION_WRITE_PROFILE", activeProfile?.id);
-    console.log("SESSION_WRITE_AUTH", authUser?.id);
+    const payload = { user_id: activeProfileId };
+    console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
     const result = await supabase
       .from('sessions')
       .update({
@@ -5634,7 +5639,9 @@ export default function App() {
 
       console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
 
-      if (!activeAppUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+      if (!user?.id) {
         const reason = 'missing_active_profile';
         console.log("JOIN_FLOW_BLOCK_REASON", reason);
         const errorMessage = 'Session could not be saved';
@@ -5651,7 +5658,7 @@ export default function App() {
         return;
       }
 
-      const currentAuthenticatedUserId = activeAppUserId;
+      const currentAuthenticatedUserId = user.id;
       const activeProfileId = currentAuthenticatedUserId;
       const activeAuthUserId = authUser?.id ?? null;
       const clickedSessionUserId = sessionToJoin.userId;
@@ -5758,6 +5765,7 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
+      console.log("SESSION_WRITE_USER_ID", joinPayload?.user_id ?? null);
       console.log("JOIN_SUBMIT_PAYLOAD", joinPayload);
       console.log('JOIN_INSERT_VALUES', {
         currentUserId: currentAuthenticatedUserId,
@@ -5866,7 +5874,9 @@ export default function App() {
         return;
       }
 
-      if (!activeAppUserId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log("SESSION_AUTH_USER_ID", user?.id ?? null);
+      if (!user?.id) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
         console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
@@ -5879,7 +5889,7 @@ export default function App() {
 
       const payload = {
         spot_name: selectedSpot,
-        user_id: activeAppUserId,
+        user_id: user.id,
         start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
         end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         status: 'Gaat' as const,
@@ -5888,6 +5898,7 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
+      console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
       console.log("PLAN_SESSION_ACTIVE_DAY", { activeDay, plannedDate: selectedPlanningDateKey });
       console.log('SESSION_INTENT_SAVE_PAYLOAD', payload);
       const plannedDateRange = getIsoDateRangeForLocalDateKey(selectedPlanningDateKey);
@@ -5950,7 +5961,6 @@ export default function App() {
       });
       let result;
       if (editingSessionId) {
-        console.log("SESSIONS WRITE PATH ACTIVE");
         result = await supabase
           .from('sessions')
           .update({
