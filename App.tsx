@@ -70,7 +70,8 @@ type SpotMomentumLabel =
   | 'Maybe forming today'
   | 'Looks on tomorrow'
   | 'Session forming tomorrow'
-  | 'Maybe forming tomorrow';
+  | 'Maybe forming tomorrow'
+  | 'Quiet right now';
 type SpotMomentumBuckets = {
   today: SpotMomentumLabel | null;
   tomorrow: SpotMomentumLabel | null;
@@ -3692,12 +3693,35 @@ export default function App() {
         return null;
       }
 
-      const momentumLabels = getSpotMomentumLabels(selectedSpot, sessions);
-      const label = activeDay === 'today' ? momentumLabels.today : momentumLabels.tomorrow;
-      console.log("SPOT_STATUS_LABEL", { activeDay, label });
-      return label;
+      const visibleSpotSessions = timelineSessions
+        .map(({ item }) => item)
+        .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
+      const liveSessions = visibleSpotSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
+      const checkedInCount = dedupeActiveCheckedInSessionsByUser(liveSessions).length;
+      const liveCount = liveSessions.length;
+      const plannedCount = visibleSpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
+      const visibleSessionsCount = visibleSpotSessions.length;
+      const selectedDayMode = activeDay;
+
+      console.log("SPOT_STATUS_INPUT", {
+        liveCount,
+        checkedInCount,
+        plannedCount,
+        visibleSessionsCount,
+        selectedDayMode
+      });
+
+      let statusLabel: SpotMomentumLabel = 'Quiet right now';
+      if (liveCount > 0 || checkedInCount > 0) {
+        statusLabel = checkedInCount > 5 ? 'Let’s go now' : 'Happening now';
+      } else if (plannedCount > 0 && visibleSessionsCount > 0) {
+        statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
+      }
+
+      console.log("SPOT_STATUS_RESULT", statusLabel);
+      return statusLabel;
     },
-    [activeDay, selectedSpot, sessions],
+    [activeDay, selectedSpot, timelineSessions],
   );
   console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
   console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
