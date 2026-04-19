@@ -3796,37 +3796,23 @@ export default function App() {
       targetParticipationId,
       resolutionMode: 'session_row_delete_by_id',
     });
-    const payload = { user_id: activeProfileId };
-    console.log("SESSION_WRITE_USER_ID", payload?.user_id ?? null);
-    console.log("SESSION_CANCEL_FILTER_USER_ID", user?.id ?? null);
-    const deleteResult = await supabase
+    const sessionId = sessionToCancel.id;
+    console.log("CANCEL_SESSION_ID", sessionId);
+    console.log("CANCEL_AUTH_USER", user?.id);
+    const { data, error } = await supabase
       .from('sessions')
       .delete()
-      .eq('id', sessionToCancel.id)
-      .eq('user_id', activeProfileId)
-      .is('checked_in_at', null)
-      .is('checked_out_at', null)
-      .not('start_time', 'is', null)
-      .not('end_time', 'is', null)
-      .select('id, user_id, start_time, end_time, checked_in_at, checked_out_at');
-    console.log("CANCEL_RESULT", { data: deleteResult.data ?? null, error: deleteResult.error ?? null });
+      .eq('id', sessionId)
+      .eq('user_id', user.id);
+    console.log("CANCEL_RESULT", error, data);
 
-    if (deleteResult.error) {
+    if (error) {
       setSessionActionError('Could not cancel session');
-      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', deleteResult.error);
+      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', error);
       return;
     }
 
-    if (!deleteResult.data || deleteResult.data.length === 0) {
-      setSessionActionError('Could not cancel session');
-      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', {
-        message: 'No planned session row deleted',
-        sessionId: sessionToCancel.id,
-      });
-      return;
-    }
-
-    console.log('SPOT_PAGE_CANCEL_DELETE_RESULT', deleteResult.data);
+    console.log('SPOT_PAGE_CANCEL_DELETE_RESULT', data);
     await fetchSharedData();
     setSessionActionError('');
     setEditingSessionId(null);
