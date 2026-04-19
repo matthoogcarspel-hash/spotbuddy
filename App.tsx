@@ -38,6 +38,7 @@ type SpotSession = {
   userName: string;
   userAvatarUrl: string | null;
   userOwnerUid?: string | null;
+  resolvedActorProfileId?: string | null;
 };
 type ChatMessage = {
   id: string;
@@ -648,6 +649,41 @@ const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record
     return result;
   }, {} as Record<SpotName, T>);
 const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+const normalizeDisplayName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+const resolveSessionActorProfileId = (
+  sessionItem: Pick<SpotSession, 'userId' | 'userName' | 'userOwnerUid' | 'resolvedActorProfileId'>,
+  profiles: Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>,
+) => {
+  if (sessionItem.resolvedActorProfileId) {
+    return sessionItem.resolvedActorProfileId;
+  }
+
+  if (!profiles.length) {
+    return sessionItem.userId ?? null;
+  }
+
+  const directMatch = profiles.find((profileItem) => profileItem.id === sessionItem.userId);
+  if (directMatch) {
+    return directMatch.id;
+  }
+
+  const ownerUidMatches = profiles.filter((profileItem) => profileItem.owner_uid && profileItem.owner_uid === sessionItem.userOwnerUid);
+  if (ownerUidMatches.length === 1) {
+    return ownerUidMatches[0].id;
+  }
+
+  const sessionDisplayName = normalizeDisplayName(sessionItem.userName);
+  if (sessionDisplayName) {
+    const displayNameMatches = ownerUidMatches.filter(
+      (profileItem) => normalizeDisplayName(profileItem.display_name) === sessionDisplayName,
+    );
+    if (displayNameMatches.length > 0) {
+      return displayNameMatches[0].id;
+    }
+  }
+
+  return sessionItem.userId ?? null;
+};
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
 const getSessionStartTime = (sessionItem: SpotSession) => {
   const createdDate = sessionItem.createdAt ? new Date(sessionItem.createdAt) : new Date();
@@ -1050,6 +1086,8 @@ type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
   currentProfileId: string | null | undefined;
   currentAuthUserId: string | null | undefined;
+  availableProfiles: Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>;
+  alreadyJoined: boolean;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   isSelected: boolean;
@@ -1057,7 +1095,7 @@ type SessionRowProps = {
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, availableProfiles, alreadyJoined, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
   const intentLabel = getIntentGoingLabel(resolvedIntent);
@@ -1078,8 +1116,10 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, time
   console.log("TIMELINE_BAR_POSITION_DEBUG", { startTime, endTime, leftPercent, widthPercent });
   const activeProfileId = currentProfileId ?? null;
   const activeAuthUserId = currentAuthUserId ?? null;
-  const sessionOwnerProfileId = item.userId ?? null;
+  const sessionOwnerProfileId = resolveSessionActorProfileId(item, availableProfiles);
   const sessionOwnerAuthUserId = item.userOwnerUid ?? null;
+  const sameAuthOwner = Boolean(activeAuthUserId && sessionOwnerAuthUserId && activeAuthUserId === sessionOwnerAuthUserId);
+  const sameProfile = Boolean(sessionOwnerProfileId && activeProfileId && sessionOwnerProfileId === activeProfileId);
   let joinBlockReason = 'eligible';
   let canShowJoin = false;
   if (!isSelected) {
@@ -1088,8 +1128,10 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, time
     joinBlockReason = 'missing_active_profile';
   } else if (!sessionOwnerProfileId) {
     joinBlockReason = 'missing_session_owner_profile';
-  } else if (sessionOwnerProfileId === activeProfileId) {
+  } else if (sameProfile) {
     joinBlockReason = 'same_active_profile';
+  } else if (alreadyJoined) {
+    joinBlockReason = 'duplicate_for_active_profile';
   } else if (state === 'completed') {
     joinBlockReason = 'session_completed';
   } else if (!hasPlannedWindow) {
@@ -1100,11 +1142,14 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, time
     canShowJoin = true;
   }
   if (isSelected) {
-    console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+    console.log("JOIN_ELIGIBILITY_CHECK", {
       activeProfileId,
-      sessionOwnerProfileId,
+      resolvedSessionActorProfileId: sessionOwnerProfileId,
       activeAuthUserId,
       sessionOwnerAuthUserId,
+      sameProfile,
+      sameAuthOwner,
+      alreadyJoined,
       canJoin: canShowJoin,
       reason: joinBlockReason,
     });
@@ -1156,6 +1201,7 @@ type SessionTimelineProps = {
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   currentAuthUserId: string | null | undefined;
+  availableProfiles: Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1171,6 +1217,7 @@ function SessionTimeline({
   selectedTimelineSessionId,
   currentProfileId,
   currentAuthUserId,
+  availableProfiles,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1266,17 +1313,36 @@ function SessionTimeline({
 
         {visibleTimelineSessions.length > 0 ? (
           visibleTimelineSessions.map((timelineSession) => (
+            (() => {
+              const activeProfileId = currentProfileId ?? null;
+              const candidate = timelineSession.item;
+              const alreadyJoined = Boolean(
+                activeProfileId
+                && visibleTimelineSessions.some(({ item }) => (
+                  item.id !== candidate.id
+                  && item.userId === activeProfileId
+                  && item.spot === candidate.spot
+                  && item.start === candidate.start
+                  && item.end === candidate.end
+                  && !item.checkedOutAt
+                )),
+              );
+              return (
             <SessionRow
               key={timelineSession.item.id}
               timelineSession={timelineSession}
               currentProfileId={currentProfileId}
               currentAuthUserId={currentAuthUserId}
+              availableProfiles={availableProfiles}
+              alreadyJoined={alreadyJoined}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               isSelected={selectedTimelineSessionId === timelineSession.item.id}
               onSelect={onSelectSession}
               onJoin={onJoinSession}
             />
+              );
+            })()
           ))
         ) : (
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
@@ -1389,9 +1455,28 @@ export default function App() {
   const authenticatedUserId = session?.user.id ?? null;
   const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
-  const activeAppUserId = activeUserOverride?.id ?? authenticatedUserId;
+  const activeProfile = activeUserOverride ?? profile ?? null;
+  const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
   const visibleProfiles = switchableAccounts;
+  const availableProfiles = useMemo<Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>>(() => {
+    const profileMap = new Map<string, Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>();
+    if (profile?.id) {
+      profileMap.set(profile.id, {
+        id: profile.id,
+        display_name: profile.display_name,
+        owner_uid: (profile as Profile & { owner_uid?: string | null }).owner_uid ?? null,
+      });
+    }
+    for (const account of switchableAccounts) {
+      profileMap.set(account.id, {
+        id: account.id,
+        display_name: account.display_name,
+        owner_uid: account.owner_uid ?? null,
+      });
+    }
+    return [...profileMap.values()];
+  }, [profile, switchableAccounts]);
   const passwordResetRedirectTo = useMemo(() => {
     const configuredRedirect = Constants.expoConfig?.extra?.passwordResetRedirectTo;
     if (typeof configuredRedirect === 'string' && configuredRedirect.trim()) {
@@ -2163,20 +2248,33 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('id, display_name, avatar_url, created_at')
+      .select('id, display_name, avatar_url, owner_uid, created_at')
       .eq('id', userId)
       .maybeSingle();
+    let resolvedProfile = data ?? null;
+
+    if (!resolvedProfile && !error) {
+      const ownerLookup = await supabase
+        .from('profiles')
+        .select('id, display_name, avatar_url, owner_uid, created_at')
+        .eq('owner_uid', userId)
+        .order('created_at', { ascending: true })
+        .limit(1);
+      if (!ownerLookup.error) {
+        resolvedProfile = ownerLookup.data?.[0] ?? null;
+      }
+    }
 
     if (error) {
       setProfile(null);
       console.error('Failed to load profile:', error);
     } else {
-      setProfile(data ?? null);
+      setProfile(resolvedProfile);
       console.log('PROFILE_STATE_LOADED', {
         requestedUserId: userId,
-        profileUserId: data?.id ?? null,
-        displayName: data?.display_name ?? null,
-        avatarUrl: data?.avatar_url ?? null,
+        profileUserId: resolvedProfile?.id ?? null,
+        displayName: resolvedProfile?.display_name ?? null,
+        avatarUrl: resolvedProfile?.avatar_url ?? null,
       });
     }
 
@@ -2184,7 +2282,7 @@ export default function App() {
       setLoadingProfile(false);
     }
 
-    return data ?? null;
+    return resolvedProfile;
   };
 
   const mapSessionStatus = (status: string): SessionStatus => {
@@ -2349,7 +2447,7 @@ export default function App() {
 
     const sessionsResponse = await supabase
       .from('sessions')
-      .select('id, spot_name, user_id, start_time, end_time, status, intent, created_at, checked_in_at, checked_out_at')
+      .select('*')
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
@@ -2368,14 +2466,28 @@ export default function App() {
     }
     console.log("MESSAGES RAW RESULT", messagesData);
 
-    const sessionUserIds = [...new Set(sessionsData.map((sessionRow) => sessionRow.user_id).filter(Boolean))];
-    const { data: profilesData, error: profilesError } = sessionUserIds.length
+    const sessionIdentityValues = [...new Set(
+      sessionsData
+        .flatMap((sessionRow) => [sessionRow.user_id, sessionRow.profile_id, sessionRow.created_by, sessionRow.owner_uid])
+        .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+    )];
+    const { data: profilesByIdData, error: profilesByIdError } = sessionIdentityValues.length
       ? await supabase
           .from('profiles')
           .select('id, display_name, avatar_url, owner_uid')
-          .in('id', sessionUserIds)
+          .in('id', sessionIdentityValues)
       : { data: [], error: null };
+    const { data: profilesByOwnerUidData, error: profilesByOwnerUidError } = sessionIdentityValues.length
+      ? await supabase
+          .from('profiles')
+          .select('id, display_name, avatar_url, owner_uid')
+          .in('owner_uid', sessionIdentityValues)
+      : { data: [], error: null };
+    const profilesData = [...(profilesByIdData ?? []), ...(profilesByOwnerUidData ?? [])];
     console.log("SESSION PROFILES RAW RESULT", profilesData);
+    if (profilesByIdError || profilesByOwnerUidError) {
+      console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
+    }
 
     if (sessionsResponse.error) {
       console.error('Failed to load sessions:', sessionsResponse.error);
@@ -2383,12 +2495,34 @@ export default function App() {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
 
       const profilesById = new Map((profilesData ?? []).map((profile) => [profile.id, profile]));
+      const profilesByOwnerUid = new Map<string, Array<(typeof profilesData)[number]>>();
+      for (const profileItem of profilesData ?? []) {
+        if (!profileItem.owner_uid) {
+          continue;
+        }
+        const current = profilesByOwnerUid.get(profileItem.owner_uid) ?? [];
+        current.push(profileItem);
+        profilesByOwnerUid.set(profileItem.owner_uid, current);
+      }
       const mergedSessions = sessionsData.map((row) => {
-        const profile = row.user_id ? profilesById.get(row.user_id) : null;
+        const sessionOwnerAuthUserId = (row.owner_uid ?? null) || (typeof row.user_id === 'string' && profilesByOwnerUid.has(row.user_id) ? row.user_id : null);
+        const directProfile = (typeof row.user_id === 'string' ? profilesById.get(row.user_id) : null)
+          ?? (typeof row.profile_id === 'string' ? profilesById.get(row.profile_id) : null)
+          ?? (typeof row.created_by === 'string' ? profilesById.get(row.created_by) : null)
+          ?? null;
+        const ownerProfiles = sessionOwnerAuthUserId ? profilesByOwnerUid.get(sessionOwnerAuthUserId) ?? [] : [];
+        const sessionDisplayName = typeof row.display_name === 'string' ? row.display_name : null;
+        const profileFromDisplayName = sessionDisplayName
+          ? ownerProfiles.find((profileItem) => normalizeDisplayName(profileItem.display_name) === normalizeDisplayName(sessionDisplayName))
+          : null;
+        const fallbackOwnerProfile = ownerProfiles.length === 1 ? ownerProfiles[0] : null;
+        const resolvedProfile = directProfile ?? profileFromDisplayName ?? fallbackOwnerProfile ?? null;
         return {
           ...row,
-          display_name: profile?.display_name?.trim() || 'Unknown rider',
-          avatar_url: profile?.avatar_url ?? null,
+          display_name: resolvedProfile?.display_name?.trim() || sessionDisplayName?.trim() || 'Unknown rider',
+          avatar_url: resolvedProfile?.avatar_url ?? null,
+          owner_uid: resolvedProfile?.owner_uid ?? sessionOwnerAuthUserId ?? row.owner_uid ?? null,
+          resolved_actor_profile_id: resolvedProfile?.id ?? null,
         };
       });
       console.log("SESSIONS MERGED RESULT", mergedSessions);
@@ -2411,10 +2545,11 @@ export default function App() {
           createdAt: row.created_at,
           checkedInAt: normalizedSession.checkedInAt,
           checkedOutAt: normalizedSession.checkedOutAt,
-          userId: row.user_id,
+          userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by,
           userName: row.display_name,
           userAvatarUrl: row.avatar_url,
           userOwnerUid: row.owner_uid ?? null,
+          resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
         });
       }
 
@@ -3568,7 +3703,12 @@ export default function App() {
     );
   }, [activeAppUserId, activeDateEnd, activeDateStart, selectedSpot, sessions]);
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
-  const canCancelJoinedSession = Boolean(joinedSession && !joinedSession.checkedInAt && !joinedSession.checkedOutAt);
+  const canCancelJoinedSession = Boolean(
+    joinedSession
+    && resolveSessionActorProfileId(joinedSession, availableProfiles) === activeAppUserId
+    && !joinedSession.checkedInAt
+    && !joinedSession.checkedOutAt,
+  );
   console.log("JOINED_SESSION_STATE_RESOLVED", {
     userId: activeAppUserId ?? null,
     activeDay,
@@ -3605,48 +3745,72 @@ export default function App() {
     console.log('SPOT_PAGE_PLAN_BUTTON_DISABLED', { selectedSpot });
   }
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
-    console.log('SPOT_PAGE_CANCEL_CLICKED');
-    console.log('SPOT_PAGE_CANCEL_SESSION_ID', { sessionId: sessionToCancel.id });
-    console.log('SPOT_PAGE_CANCEL_CURRENT_AUTH_USER_ID', { userId: activeAppUserId ?? null });
+    const authUser = session?.user ?? null;
+    const activeParticipationProfile = {
+      id: activeProfile?.id ?? null,
+      display_name: activeProfile?.display_name ?? null,
+    };
+    console.log("PARTICIPATION_ACTIVE_PROFILE", activeParticipationProfile);
+    console.log("PARTICIPATION_AUTH_USER", authUser);
+    console.log("PARTICIPATION_TARGET_SESSION", sessionToCancel);
 
-    if (!activeAppUserId) {
+    if (!activeParticipationProfile.id) {
       setSessionActionError('Could not cancel session');
       return;
     }
-    const authUserId = activeAppUserId;
+    const activeProfileId = activeParticipationProfile.id;
+    const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
+    const targetSessionId = sessionToCancel.id;
+    const targetParticipationId = sessionToCancel.id;
+    const isOwnerSession = Boolean(resolvedSessionActorProfileId && resolvedSessionActorProfileId === activeProfileId);
+    const isJoinedParticipation = Boolean(sessionToCancel.userId === activeProfileId);
 
     const canCancelSession = Boolean(
-      sessionToCancel.userId === authUserId
+      resolvedSessionActorProfileId === activeProfileId
       && hasPlannedTimeWindow(sessionToCancel)
       && !sessionToCancel.checkedInAt
       && !sessionToCancel.checkedOutAt
       && sessionToCancel.status !== 'finished'
       && sessionToCancel.status !== 'Uitchecken',
     );
+    console.log("CANCEL_ELIGIBILITY_CHECK", {
+      activeProfileId,
+      targetSessionId,
+      targetParticipationId,
+      isOwnerSession,
+      isJoinedParticipation,
+      canCancel: canCancelSession,
+      reason: canCancelSession ? 'eligible' : 'not_owned_by_active_profile_or_not_cancellable',
+    });
 
     if (!canCancelSession) {
       setSessionActionError('Could not cancel session');
       console.log('SPOT_PAGE_CANCEL_BLOCKED', {
         sessionId: sessionToCancel.id,
         sessionUserId: sessionToCancel.userId,
-        currentUserId: authUserId,
+        currentUserId: activeProfileId,
         isPlannedSession: isPlannedSession(sessionToCancel),
         canCancelSession,
       });
       return;
     }
 
+    console.log("CANCEL_TARGET_RESOLUTION", {
+      targetSessionId,
+      targetParticipationId,
+      resolutionMode: 'session_row_delete_by_id',
+    });
     console.log("SESSIONS WRITE PATH ACTIVE");
     const deleteResult = await supabase
       .from('sessions')
       .delete()
       .eq('id', sessionToCancel.id)
-      .eq('user_id', authUserId)
       .is('checked_in_at', null)
       .is('checked_out_at', null)
       .not('start_time', 'is', null)
       .not('end_time', 'is', null)
       .select('id, user_id, start_time, end_time, checked_in_at, checked_out_at');
+    console.log("CANCEL_RESULT", { data: deleteResult.data ?? null, error: deleteResult.error ?? null });
 
     if (deleteResult.error) {
       setSessionActionError('Could not cancel session');
@@ -5406,12 +5570,10 @@ export default function App() {
       const activeProfile = {
         id: activeAppUserId ?? null,
         display_name: profile?.display_name ?? activeUserOverride?.display_name ?? null,
-        avatar_url: profile?.avatar_url ?? activeUserOverride?.avatar_url ?? null,
-        owner_uid: profile?.owner_uid ?? activeUserOverride?.owner_uid ?? authUser?.id ?? null,
       };
-      console.log("JOIN_FLOW_ACTIVE_PROFILE", activeProfile);
-      console.log("JOIN_FLOW_AUTH_USER", authUser);
-      console.log("JOIN_FLOW_TARGET_SESSION", sessionToJoin);
+      console.log("PARTICIPATION_ACTIVE_PROFILE", activeProfile);
+      console.log("PARTICIPATION_AUTH_USER", authUser);
+      console.log("PARTICIPATION_TARGET_SESSION", sessionToJoin);
 
       const now = new Date();
       const sessionStart = new Date(now);
@@ -5462,19 +5624,24 @@ export default function App() {
       const activeProfileId = currentAuthenticatedUserId;
       const activeAuthUserId = authUser?.id ?? null;
       const clickedSessionUserId = sessionToJoin.userId;
-      const sessionOwnerProfileId = clickedSessionUserId ?? null;
+      const sessionOwnerProfileId = resolveSessionActorProfileId(sessionToJoin, availableProfiles);
       const sessionOwnerAuthUserId = sessionToJoin.userOwnerUid ?? null;
       const clickedSpotName = sessionToJoin.spot;
       const clickedStartTime = sessionToJoin.start;
       const clickedEndTime = sessionToJoin.end;
-      const isOwnProfileSession = Boolean(activeProfileId && sessionOwnerProfileId && activeProfileId === sessionOwnerProfileId);
-      const baseJoinReason = isOwnProfileSession ? 'same_active_profile' : 'eligible';
+      const sameProfile = Boolean(activeProfileId && sessionOwnerProfileId && activeProfileId === sessionOwnerProfileId);
+      const sameAuthOwner = Boolean(activeAuthUserId && sessionOwnerAuthUserId && activeAuthUserId === sessionOwnerAuthUserId);
+      const isOwnProfileSession = sameProfile;
+      const baseJoinReason = sameProfile ? 'same_active_profile' : 'eligible';
       const baseCanJoin = !isOwnProfileSession;
-      console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+      console.log("JOIN_ELIGIBILITY_CHECK", {
         activeProfileId,
-        sessionOwnerProfileId,
+        resolvedSessionActorProfileId: sessionOwnerProfileId,
         activeAuthUserId,
         sessionOwnerAuthUserId,
+        sameProfile,
+        sameAuthOwner,
+        alreadyJoined: false,
         canJoin: baseCanJoin,
         reason: baseJoinReason,
       });
@@ -5504,11 +5671,14 @@ export default function App() {
         ),
       );
       const exactDuplicateForCurrentUser = exactDuplicateCandidatesForCurrentUser.length > 0;
-      console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+      console.log("JOIN_ELIGIBILITY_CHECK", {
         activeProfileId,
-        sessionOwnerProfileId,
+        resolvedSessionActorProfileId: sessionOwnerProfileId,
         activeAuthUserId,
         sessionOwnerAuthUserId,
+        sameProfile,
+        sameAuthOwner,
+        alreadyJoined: exactDuplicateForCurrentUser,
         canJoin: !exactDuplicateForCurrentUser,
         reason: exactDuplicateForCurrentUser ? 'duplicate_for_active_profile' : 'eligible',
       });
@@ -5557,7 +5727,7 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
-      console.log("JOIN_FLOW_SUBMIT_PAYLOAD", joinPayload);
+      console.log("JOIN_SUBMIT_PAYLOAD", joinPayload);
       console.log('JOIN_INSERT_VALUES', {
         currentUserId: currentAuthenticatedUserId,
         clickedSessionUserId,
@@ -5574,7 +5744,7 @@ export default function App() {
         joinPayload,
       });
       const joinResult = await createPlannedSession(joinPayload);
-      console.log("JOIN_FLOW_RESULT", { data: joinResult.data ?? null, error: joinResult.error ?? null });
+      console.log("JOIN_RESULT", { data: joinResult.data ?? null, error: joinResult.error ?? null });
       if (joinResult.error) {
         const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Session could not be saved');
         setSessionActionError(errorMessage);
@@ -6264,6 +6434,7 @@ export default function App() {
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             currentAuthUserId={authenticatedUserId}
+            availableProfiles={availableProfiles}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
