@@ -3941,14 +3941,6 @@ export default function App() {
       }, {} as Record<SpotName, number>),
     [sessionsBySpot, spotNames],
   );
-  const homeMomentumBySpot = useMemo(
-    () =>
-      spotNames.reduce((result, spot) => {
-        result[spot] = getSpotMomentumLabels(spot, sessionsBySpot[spot] ?? []);
-        return result;
-      }, {} as Record<SpotName, SpotMomentumBuckets>),
-    [sessionsBySpot, spotNames],
-  );
   useEffect(() => {
     const homeLiveSessions = Object.values(sessionsBySpot).flat();
     const homeSessionsSource = {
@@ -6776,13 +6768,26 @@ export default function App() {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
           const plannedCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
           const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
-          const spotMomentum = homeMomentumBySpot[spot.name];
-          const todayLabel = spotMomentum?.today ?? null;
-          const tomorrowLabel = spotMomentum?.tomorrow ?? null;
-          const activeMomentumLabel = activeDay === 'today' ? todayLabel : tomorrowLabel;
-          console.log("HOME_CARD_TODAY_LABEL", { spotName: spot.name, label: todayLabel });
-          console.log("HOME_CARD_TOMORROW_LABEL", { spotName: spot.name, label: tomorrowLabel });
-          console.log("HOME_CARD_MOMENTUM_RENDER", { spotName: spot.name, todayLabel, tomorrowLabel });
+          const selectedDayMode = activeDay;
+          let statusLabel: SpotMomentumLabel;
+          if (activeCount > 0) {
+            statusLabel = 'Happening now';
+          } else if (plannedCount > 0) {
+            statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
+          } else {
+            statusLabel = activeDay === 'today' ? 'Looks on today' : 'Looks on tomorrow';
+          }
+
+          console.log("HOME_CARD_STATUS_COUNTS", {
+            spotName: spot.name,
+            plannedCount,
+            activeCount,
+            selectedDayMode
+          });
+          console.log("HOME_CARD_STATUS_LABEL", {
+            spotName: spot.name,
+            statusLabel
+          });
 
           return (
             <Pressable
@@ -6804,10 +6809,10 @@ export default function App() {
               <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
                 Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
               </Text>
-              {activeMomentumLabel ? (
+              {statusLabel ? (
                 <View style={{ marginTop: 8, alignSelf: 'flex-start', gap: 4 }}>
                   <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{activeMomentumLabel}</Text>
+                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{statusLabel}</Text>
                   </View>
                 </View>
               ) : null}
