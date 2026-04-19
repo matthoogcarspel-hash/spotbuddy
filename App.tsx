@@ -5262,31 +5262,32 @@ export default function App() {
 
     const handleSaveProfile = async () => {
       const trimmedName = profileNameInput.trim();
+      const isAvatarOnlyUpdate = Boolean(profileAvatarInputUri) && trimmedName === profile.display_name;
 
-      if (!trimmedName) {
+      if (!isAvatarOnlyUpdate && !trimmedName) {
         setProfileEditError('Name is required');
         return;
       }
 
-      if (trimmedName.length < 2) {
+      if (!isAvatarOnlyUpdate && trimmedName.length < 2) {
         setProfileEditError('Name must be at least 2 characters');
         return;
       }
 
-      if (trimmedName.length > 20) {
+      if (!isAvatarOnlyUpdate && trimmedName.length > 20) {
         setProfileEditError('Name can be at most 20 characters');
         return;
       }
 
       const normalizedEmail = normalizeEmail(session.user.email ?? '');
 
-      if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
+      if (!isAvatarOnlyUpdate && hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
         console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
         setProfileEditError('Username not allowed');
         return;
       }
 
-      if (hasRestrictedWord(trimmedName)) {
+      if (!isAvatarOnlyUpdate && hasRestrictedWord(trimmedName)) {
         console.log('USERNAME_VALIDATION_FAILED', trimmedName);
         setProfileEditError('Username contains restricted words');
         return;
@@ -5295,28 +5296,32 @@ export default function App() {
       setProfileEditError('');
       setIsSavingProfile(true);
 
-      const { data: existingProfile, error: existingProfileError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('display_name', trimmedName)
-        .neq('id', session.user.id)
-        .maybeSingle();
+      if (!isAvatarOnlyUpdate) {
+        const { data: existingProfile, error: existingProfileError } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('display_name', trimmedName)
+          .neq('id', session.user.id)
+          .maybeSingle();
 
-      if (existingProfileError) {
-        setIsSavingProfile(false);
-        setProfileEditError(existingProfileError.message);
-        return;
+        if (existingProfileError) {
+          setIsSavingProfile(false);
+          setProfileEditError(existingProfileError.message);
+          return;
+        }
+
+        if (existingProfile) {
+          setIsSavingProfile(false);
+          setProfileEditError('This name is already taken');
+          return;
+        }
       }
 
-      if (existingProfile) {
-        setIsSavingProfile(false);
-        setProfileEditError('This name is already taken');
-        return;
-      }
-
+      const activeProfileId = activeProfile?.id ?? null;
       let avatarUrl = profile.avatar_url;
       if (profileAvatarInputUri) {
-        const { error: uploadError, publicUrl } = await uploadAvatar(session.user.id, profileAvatarInputUri);
+        const avatarUploadId = activeProfileId ?? session.user.id;
+        const { error: uploadError, publicUrl } = await uploadAvatar(avatarUploadId, profileAvatarInputUri);
         if (uploadError) {
           setIsSavingProfile(false);
           setProfileEditError('Photo upload failed');
@@ -5328,33 +5333,59 @@ export default function App() {
           return;
         }
         avatarUrl = publicUrl;
+        console.log("AVATAR_UPLOAD_URL", avatarUrl);
+        console.log("AVATAR_UPDATE_PROFILE_ID", activeProfileId);
+
+        if (!activeProfileId) {
+          setIsSavingProfile(false);
+          setProfileEditError('Profile not found');
+          return;
+        }
+
+        const avatarUpdateResult = await supabase
+          .from('profiles')
+          .update({ avatar_url: avatarUrl })
+          .eq('id', activeProfileId);
+        console.log('profile avatar update result', avatarUpdateResult);
+        const { error: avatarUpdateError } = avatarUpdateResult;
+
+        if (avatarUpdateError) {
+          setIsSavingProfile(false);
+          if (avatarUpdateError.code === '42501') {
+            setProfileEditError('Your profile cannot be updated');
+            return;
+          }
+          setProfileEditError(avatarUpdateError.message);
+          return;
+        }
       }
 
-      const payload = {
-        display_name: trimmedName,
-        avatar_url: avatarUrl,
-      };
-      console.log('profile update payload', payload);
+      if (!isAvatarOnlyUpdate) {
+        const payload = {
+          display_name: trimmedName,
+        };
+        console.log('profile update payload', payload);
 
-      const updateResult = await supabase
-        .from('profiles')
-        .update(payload)
-        .eq('id', session.user.id);
-      console.log('profile update result', updateResult);
-      const { error: updateError } = updateResult;
+        const updateResult = await supabase
+          .from('profiles')
+          .update(payload)
+          .eq('id', session.user.id);
+        console.log('profile update result', updateResult);
+        const { error: updateError } = updateResult;
 
-      if (updateError) {
-        setIsSavingProfile(false);
-        if (updateError.code === '23505') {
-          setProfileEditError('This name is already taken');
+        if (updateError) {
+          setIsSavingProfile(false);
+          if (updateError.code === '23505') {
+            setProfileEditError('This name is already taken');
+            return;
+          }
+          if (updateError.code === '42501') {
+            setProfileEditError('Your profile cannot be updated');
+            return;
+          }
+          setProfileEditError(updateError.message);
           return;
         }
-        if (updateError.code === '42501') {
-          setProfileEditError('Your profile cannot be updated');
-          return;
-        }
-        setProfileEditError(updateError.message);
-        return;
       }
 
       const { data: freshProfile, error: freshProfileError } = await supabase
