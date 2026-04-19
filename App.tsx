@@ -5675,8 +5675,17 @@ export default function App() {
         id: activeAppUserId ?? null,
         display_name: profile?.display_name ?? null,
       };
+      const selectedDayMode = activeDay;
       const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
-      console.log("JOIN_TARGET_SESSION", targetSession);
+      console.log("TOMORROW_JOIN_TARGET_SESSION", targetSession);
+      console.log("TOMORROW_JOIN_SELECTED_DAY", selectedDayMode);
+      console.log("TOMORROW_JOIN_TARGET_DAY_FIELDS", {
+        date: (targetSession as SpotSession & { date?: string | null }).date ?? null,
+        day: (targetSession as SpotSession & { day?: string | null }).day ?? null,
+        session_day: (targetSession as SpotSession & { session_day?: string | null }).session_day ?? null,
+        starts_at: (targetSession as SpotSession & { starts_at?: string | null }).starts_at ?? null,
+        ends_at: (targetSession as SpotSession & { ends_at?: string | null }).ends_at ?? null
+      });
 
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
@@ -5701,7 +5710,6 @@ export default function App() {
             : selectedPlanningDateKey === targetSessionDateKey
         )
       ));
-      console.log("JOIN_DUPLICATE_BLOCK", duplicateJoin ?? false);
       if (duplicateJoin) {
         setSessionActionError('');
         return;
@@ -5718,11 +5726,10 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
       };
-      console.log("JOIN_CREATE_SESSION_FIELD_NAMES", Object.keys(createPayload || {}));
       const payload = { ...createPayload };
-      console.log("JOIN_PAYLOAD", payload ?? null);
+      console.log("TOMORROW_JOIN_PAYLOAD", payload ?? null);
       const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
-      console.log("JOIN_RESULT", { data, error });
+      console.log("TOMORROW_JOIN_RESULT", { data, error });
       if (error) {
         const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
         setSessionActionError(errorMessage);
