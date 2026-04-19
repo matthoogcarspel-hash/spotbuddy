@@ -1853,6 +1853,9 @@ export default function App() {
     console.log("HOME_SELECTED_SPOTS_COUNT", favoriteSpots.length);
   }, [favoriteSpots]);
   useEffect(() => {
+    console.log("MY_SPOTS_COUNT", favoriteSpots?.length ?? 0);
+  }, [favoriteSpots]);
+  useEffect(() => {
     console.log("ACTIVE_DAY_SOURCE_OF_TRUTH", activeDay);
   }, [activeDay]);
 
@@ -1968,14 +1971,21 @@ export default function App() {
       return nextSelectedSpots;
     });
   };
+  const openSpotLookup = (spotName: SpotName) => {
+    const isSavedSpot = favoriteSpots.includes(spotName);
+    console.log("SPOT_LOOKUP_OPENED", { spotName, saved: isSavedSpot });
+    setSelectedSpot(spotName);
+    setShowYourSpotsPage(false);
+    setIsSearchFocused(false);
+    setHomeSpotSearchQuery('');
+  };
   const handleSearchResultPress = (spotName: SpotName) => {
     console.log("SPOT_ADD_ROW_PRESSED", { spotName });
     if (searchBlurTimeoutRef.current) {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
     }
-    addSelectedSpot(spotName);
-    setIsSearchFocused(false);
+    openSpotLookup(spotName);
   };
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
@@ -1997,6 +2007,14 @@ export default function App() {
       });
       return nextManualOrder;
     });
+  };
+  const handleSpotSaveAction = (spotName: SpotName, action: 'add' | 'remove') => {
+    console.log("SPOT_SAVE_ACTION", { spotName, action });
+    if (action === 'add') {
+      addSelectedSpot(spotName);
+      return;
+    }
+    removeSelectedSpot(spotName);
   };
   const persistManualOrder = (nextManualOrder: SpotName[]) => {
     void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).then(() => {
@@ -3749,6 +3767,8 @@ export default function App() {
       ),
   );
   const selectedSpotName = selectedSpot ?? null;
+  const isSelectedSpotSaved = selectedSpot ? favoriteSpots.includes(selectedSpot) : false;
+  const canAddSelectedSpotToMySpots = Boolean(selectedSpot && (isSelectedSpotSaved || favoriteSpots.length < HOME_SPOTS_LIMIT));
   const selectedSpotDefinition = useMemo(
     () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
     [selectedSpot, spotDefinitions],
@@ -4922,7 +4942,6 @@ export default function App() {
   if (showYourSpotsPage) {
     const query = homeSpotSearchQuery.trim().toLowerCase();
     const filteredSearchableSpots = spotDefinitions
-      .filter((spot) => !favoriteSpots.includes(spot.spot))
       .filter((spot) => spot.spot.toLowerCase().includes(query));
     const isResultsVisible = isSearchFocused;
     console.log("YOUR_SPOTS_SEARCH_RESULTS_VISIBLE", isResultsVisible);
@@ -4941,7 +4960,7 @@ export default function App() {
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Your spots (max 5)</Text>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
                 style={{ backgroundColor: theme.bgElevated, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
@@ -4950,7 +4969,7 @@ export default function App() {
               </Pressable>
             </View>
 
-            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Search spots</Text>
+            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
             <TextInput
               value={homeSpotSearchQuery}
               onChangeText={setHomeSpotSearchQuery}
@@ -4984,12 +5003,14 @@ export default function App() {
                       style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                     >
                       <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.spot}</Text>
-                      <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Add</Text>
+                      <Text style={{ color: favoriteSpots.includes(spotItem.spot) ? theme.textSoft : theme.primary, fontSize: 13, fontWeight: '700' }}>
+                        {favoriteSpots.includes(spotItem.spot) ? 'Saved' : 'Open'}
+                      </Text>
                     </Pressable>
                   ))}
                 </View>
               ) : (
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots to add.</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots.</Text>
               )
             ) : null}
             {homeSpotsLimitMessage ? (
@@ -5026,7 +5047,7 @@ export default function App() {
               </Pressable>
             </View>
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>Selected spots</Text>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 6 }}>My spots</Text>
             {selectedSpotCards.length > 0 ? (
               <View style={{ marginTop: 8 }}>
                 {selectedSpotCards.map(({ spot, distanceMeters }, manualIndex) => {
@@ -6090,6 +6111,34 @@ export default function App() {
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
                 </View>
               ) : null}
+              <Pressable
+                disabled={!isSelectedSpotSaved && !canAddSelectedSpotToMySpots}
+                onPress={() => {
+                  if (!selectedSpot) {
+                    return;
+                  }
+                  if (isSelectedSpotSaved) {
+                    handleSpotSaveAction(selectedSpot, 'remove');
+                    return;
+                  }
+                  handleSpotSaveAction(selectedSpot, 'add');
+                }}
+                style={{
+                  marginTop: 10,
+                  alignSelf: 'flex-start',
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  backgroundColor: theme.bgElevated,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  opacity: !isSelectedSpotSaved && !canAddSelectedSpotToMySpots ? 0.45 : 1,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                  {isSelectedSpotSaved ? 'Remove from my spots' : 'Add to my spots'}
+                </Text>
+              </Pressable>
             </View>
             <Pressable
               onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
@@ -6266,6 +6315,7 @@ export default function App() {
             </View>
           ) : null}
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
+          {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
             {checkInCtaVisible ? (
@@ -6627,6 +6677,7 @@ export default function App() {
     );
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
+  console.log("HOME_SPOTS_RENDERED", favoriteSpots ?? []);
   console.log("HOME_VISIBLE_SPOTS", visibleSpots.map((s) => s.name));
   console.log("YOUR_SPOTS_ORDER_MODE", orderMode);
   console.log("YOUR_SPOTS_MANUAL_ORDER", manualOrder);
