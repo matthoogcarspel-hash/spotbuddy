@@ -1263,6 +1263,7 @@ export default function App() {
   const [activeUserOverride, setActiveUserOverride] = useState<SwitchableAccount | null>(null);
   const [switchableAccounts, setSwitchableAccounts] = useState<SwitchableAccount[]>([]);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
+  const [switchAccountError, setSwitchAccountError] = useState('');
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
@@ -1399,11 +1400,13 @@ export default function App() {
     const { data: { user } } = await supabase.auth.getUser();
     console.log("SWITCH_ACCOUNT_CURRENT_USER", user);
     if (!user?.id) {
+      setSwitchAccountError('You must be logged in to switch account');
       setSwitchableAccounts([]);
       console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", []);
       return [] as SwitchableAccount[];
     }
 
+    setSwitchAccountError('');
     console.log("SWITCH_ACCOUNT_QUERY_START");
     const { data, error } = await supabase
       .from('profiles')
@@ -1414,8 +1417,9 @@ export default function App() {
 
     if (error) {
       console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
+      setSwitchAccountError(error.message || 'Failed to load switchable profiles');
       setSwitchableAccounts([]);
-      console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", 0);
+      console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", []);
       return [] as SwitchableAccount[];
     }
 
@@ -1429,7 +1433,6 @@ export default function App() {
     }));
     setSwitchableAccounts(visibleProfiles);
     console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", data);
-    console.log("SWITCH_ACCOUNT_PROFILES_REFRESHED", visibleProfiles.length);
     return visibleProfiles;
   };
 
@@ -1518,7 +1521,9 @@ export default function App() {
       setAdminCreateNameInput('');
       setAdminCreateAvatarInputUri(null);
       setShowAdminCreateProfile(false);
+      console.log("SWITCH_ACCOUNT_REFRESH_AFTER_CREATE");
       const profiles = await loadOwnedProfiles();
+      console.log("SWITCH_ACCOUNT_REFRESH_COMPLETE");
       console.log("PROFILES_AFTER_CREATE", profiles);
       console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
         username,
@@ -5189,7 +5194,7 @@ export default function App() {
                   const nextOpen = !showAccountSwitcher;
                   setShowAccountSwitcher(nextOpen);
                   if (nextOpen) {
-                    console.log("ACCOUNT_SWITCHER_OPENED");
+                    console.log("SWITCH_ACCOUNT_OPENED");
                     void loadOwnedProfiles();
                   }
                 }}
@@ -5278,8 +5283,27 @@ export default function App() {
               ) : null}
               {showAccountSwitcher ? (
                 <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
+                  {(() => {
+                    const data = switchableAccounts;
+                    console.log("SWITCH_ACCOUNT_RENDER_COUNT", Array.isArray(data) ? data.length : 0);
+                    return null;
+                  })()}
+                  {switchAccountError ? (
+                    <Text style={{ color: '#ff7e7e', marginBottom: 8, fontSize: 12 }}>{switchAccountError}</Text>
+                  ) : null}
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                      Profiles found: {switchableAccounts.length}
+                    </Text>
+                    {switchableAccounts.map((profile) => (
+                      <Text key={`switch-account-debug-${profile.id}`} style={{ color: theme.textSoft, fontSize: 12 }}>
+                        - {profile.display_name ?? '(no display_name)'}
+                      </Text>
+                    ))}
+                  </View>
                   {switchableAccounts.map((account) => {
-                    console.log("SWITCH_ACCOUNT_RENDER_ITEM", account);
+                    const profile = account;
+                    console.log("SWITCH_ACCOUNT_RENDER_ITEM", profile);
                     const isActive = account.id === activeAppUserId;
                     return (
                       <Pressable
