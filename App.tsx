@@ -5672,6 +5672,37 @@ export default function App() {
       setSessionActionError(message);
     };
 
+    const getSessionDateKeyForJoin = (targetSession: SpotSession & { date?: string | null; session_date?: string | null; day?: string | null }) => {
+      if (targetSession.createdAt) {
+        return getLocalDateKey(new Date(targetSession.createdAt));
+      }
+
+      if (targetSession.session_date) {
+        return targetSession.session_date;
+      }
+
+      if (targetSession.date) {
+        return targetSession.date;
+      }
+
+      return selectedPlanningDateKey;
+    };
+
+    const buildJoinSessionPayload = (targetSession: SpotSession, activeProfileId: string) => {
+      const targetSessionDateKey = getSessionDateKeyForJoin(targetSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
+      return {
+        spot_name: targetSession.spot,
+        user_id: activeProfileId,
+        start_time: targetSession.start,
+        end_time: targetSession.end,
+        status: 'Gaat' as const,
+        intent: resolveSessionIntent(targetSession.intent),
+        checked_in_at: null,
+        checked_out_at: null,
+        created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
+      };
+    };
+
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
@@ -5680,11 +5711,11 @@ export default function App() {
       const selectedDayMode = activeDay;
       const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
       console.log("TOMORROW_JOIN_TARGET_SESSION", targetSession);
-      console.log("TOMORROW_JOIN_SELECTED_DAY", selectedDayMode);
-      console.log("TOMORROW_JOIN_TARGET_DAY_FIELDS", {
+      console.log("TOMORROW_JOIN_SELECTED_DAY_MODE", selectedDayMode ?? null);
+      console.log("TOMORROW_JOIN_TARGET_DATE_FIELDS", {
         date: (targetSession as SpotSession & { date?: string | null }).date ?? null,
+        session_date: (targetSession as SpotSession & { session_date?: string | null }).session_date ?? null,
         day: (targetSession as SpotSession & { day?: string | null }).day ?? null,
-        session_day: (targetSession as SpotSession & { session_day?: string | null }).session_day ?? null,
         starts_at: (targetSession as SpotSession & { starts_at?: string | null }).starts_at ?? null,
         ends_at: (targetSession as SpotSession & { ends_at?: string | null }).ends_at ?? null
       });
@@ -5700,34 +5731,24 @@ export default function App() {
         return;
       }
 
-      const targetSessionDateKey = targetSession.createdAt ? getLocalDateKey(new Date(targetSession.createdAt)) : selectedPlanningDateKey;
-      const duplicateJoin = sessions.some((candidateSession) => (
-        candidateSession.userId === activeProfileId
-        && candidateSession.spot === targetSession.spot
-        && candidateSession.start === targetSession.start
-        && candidateSession.end === targetSession.end
-        && (
-          candidateSession.createdAt
-            ? getLocalDateKey(new Date(candidateSession.createdAt)) === targetSessionDateKey
-            : selectedPlanningDateKey === targetSessionDateKey
-        )
-      ));
+      const targetSessionDateKey = getSessionDateKeyForJoin(targetSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
+      const duplicateJoin = sessions.some((candidateSession) => {
+        const candidateSessionDateKey = getSessionDateKeyForJoin(candidateSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
+        return (
+          candidateSession.userId === activeProfileId
+          && candidateSession.spot === targetSession.spot
+          && candidateSession.start === targetSession.start
+          && candidateSession.end === targetSession.end
+          && candidateSessionDateKey === targetSessionDateKey
+        );
+      });
+      console.log("TOMORROW_JOIN_DUPLICATE_CHECK", duplicateJoin ?? false);
       if (duplicateJoin) {
         setSessionActionError('');
         return;
       }
 
-      const createPayload = {
-        spot_name: targetSession.spot,
-        user_id: activeProfileId,
-        start_time: targetSession.start,
-        end_time: targetSession.end,
-        status: 'Gaat' as const,
-        intent: resolveSessionIntent(targetSession.intent),
-        checked_in_at: null,
-        checked_out_at: null,
-        created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
-      };
+      const createPayload = buildJoinSessionPayload(targetSession, activeProfileId);
       const payload = { ...createPayload };
       console.log("TOMORROW_JOIN_PAYLOAD", payload ?? null);
       const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
