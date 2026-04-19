@@ -4103,32 +4103,29 @@ export default function App() {
         return null;
       }
 
-      const visibleSpotSessions = timelineSessions
+      const visibleSessions = timelineSessions
         .map(({ item }) => item)
         .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
-      const liveSessions = visibleSpotSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
-      const checkedInCount = dedupeActiveCheckedInSessionsByUser(liveSessions).length;
+      const liveSessions = visibleSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
       const liveCount = liveSessions.length;
-      const plannedCount = visibleSpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
-      const visibleSessionsCount = visibleSpotSessions.length;
+      const plannedCount = visibleSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
       const selectedDayMode = activeDay;
 
-      console.log("SPOT_STATUS_INPUT", {
+      console.log("SPOT_STATUS_COUNTS", {
         liveCount,
-        checkedInCount,
         plannedCount,
-        visibleSessionsCount,
+        visibleSessions: visibleSessions?.length ?? 0,
         selectedDayMode
       });
 
       let statusLabel: SpotMomentumLabel = 'Quiet right now';
-      if (liveCount > 0 || checkedInCount > 0) {
-        statusLabel = checkedInCount > 5 ? 'Let’s go now' : 'Happening now';
-      } else if (plannedCount > 0 && visibleSessionsCount > 0) {
+      if (liveCount > 0) {
+        statusLabel = 'Happening now';
+      } else if (plannedCount > 0) {
         statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
       }
 
-      console.log("SPOT_STATUS_RESULT", statusLabel);
+      console.log("SPOT_STATUS_LABEL", statusLabel);
       return statusLabel;
     },
     [activeDay, selectedSpot, timelineSessions],
