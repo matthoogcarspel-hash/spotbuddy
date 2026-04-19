@@ -37,6 +37,7 @@ type SpotSession = {
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
+  userOwnerUid?: string | null;
 };
 type ChatMessage = {
   id: string;
@@ -1047,7 +1048,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
 
 type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
-  currentUserId: string | null | undefined;
+  currentProfileId: string | null | undefined;
+  currentAuthUserId: string | null | undefined;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   isSelected: boolean;
@@ -1055,7 +1057,7 @@ type SessionRowProps = {
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
   const intentLabel = getIntentGoingLabel(resolvedIntent);
@@ -1074,14 +1076,42 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
   const startTime = hasPlannedWindow ? item.start : formatMinutesAsHourMinute(sessionStartMinutes);
   const endTime = hasPlannedWindow ? item.end : formatMinutesAsHourMinute(sessionEndMinutes);
   console.log("TIMELINE_BAR_POSITION_DEBUG", { startTime, endTime, leftPercent, widthPercent });
-  const canShowJoin = Boolean(
-    isSelected
-    && currentUserId
-    && item.userId !== currentUserId
-    && state !== 'completed'
-    && hasPlannedWindow
-    && isSessionJoinableNow(item),
-  );
+  const activeProfileId = currentProfileId ?? null;
+  const activeAuthUserId = currentAuthUserId ?? null;
+  const sessionOwnerProfileId = item.userId ?? null;
+  const sessionOwnerAuthUserId = item.userOwnerUid ?? null;
+  let joinBlockReason = 'eligible';
+  let canShowJoin = false;
+  if (!isSelected) {
+    joinBlockReason = 'not_selected';
+  } else if (!activeProfileId) {
+    joinBlockReason = 'missing_active_profile';
+  } else if (!sessionOwnerProfileId) {
+    joinBlockReason = 'missing_session_owner_profile';
+  } else if (sessionOwnerProfileId === activeProfileId) {
+    joinBlockReason = 'same_active_profile';
+  } else if (state === 'completed') {
+    joinBlockReason = 'session_completed';
+  } else if (!hasPlannedWindow) {
+    joinBlockReason = 'missing_planned_window';
+  } else if (!isSessionJoinableNow(item)) {
+    joinBlockReason = 'outside_join_window';
+  } else {
+    canShowJoin = true;
+  }
+  if (isSelected) {
+    console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+      activeProfileId,
+      sessionOwnerProfileId,
+      activeAuthUserId,
+      sessionOwnerAuthUserId,
+      canJoin: canShowJoin,
+      reason: joinBlockReason,
+    });
+    if (!canShowJoin) {
+      console.log("JOIN_FLOW_BLOCK_REASON", joinBlockReason);
+    }
+  }
 
   return (
     <Pressable onPress={() => onSelect(item.id)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -1124,7 +1154,8 @@ function SessionRow({ timelineSession, currentUserId, timelineWindowStartMinutes
 type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
   selectedTimelineSessionId: string | null;
-  currentUserId: string | null | undefined;
+  currentProfileId: string | null | undefined;
+  currentAuthUserId: string | null | undefined;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1138,7 +1169,8 @@ type SessionTimelineProps = {
 function SessionTimeline({
   timelineSessions,
   selectedTimelineSessionId,
-  currentUserId,
+  currentProfileId,
+  currentAuthUserId,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1237,7 +1269,8 @@ function SessionTimeline({
             <SessionRow
               key={timelineSession.item.id}
               timelineSession={timelineSession}
-              currentUserId={currentUserId}
+              currentProfileId={currentProfileId}
+              currentAuthUserId={currentAuthUserId}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               isSelected={selectedTimelineSessionId === timelineSession.item.id}
@@ -2339,7 +2372,7 @@ export default function App() {
     const { data: profilesData, error: profilesError } = sessionUserIds.length
       ? await supabase
           .from('profiles')
-          .select('id, display_name, avatar_url')
+          .select('id, display_name, avatar_url, owner_uid')
           .in('id', sessionUserIds)
       : { data: [], error: null };
     console.log("SESSION PROFILES RAW RESULT", profilesData);
@@ -2381,6 +2414,7 @@ export default function App() {
           userId: row.user_id,
           userName: row.display_name,
           userAvatarUrl: row.avatar_url,
+          userOwnerUid: row.owner_uid ?? null,
         });
       }
 
@@ -5368,6 +5402,17 @@ export default function App() {
     };
 
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
+      const authUser = session?.user ?? null;
+      const activeProfile = {
+        id: activeAppUserId ?? null,
+        display_name: profile?.display_name ?? activeUserOverride?.display_name ?? null,
+        avatar_url: profile?.avatar_url ?? activeUserOverride?.avatar_url ?? null,
+        owner_uid: profile?.owner_uid ?? activeUserOverride?.owner_uid ?? authUser?.id ?? null,
+      };
+      console.log("JOIN_FLOW_ACTIVE_PROFILE", activeProfile);
+      console.log("JOIN_FLOW_AUTH_USER", authUser);
+      console.log("JOIN_FLOW_TARGET_SESSION", sessionToJoin);
+
       const now = new Date();
       const sessionStart = new Date(now);
       const sessionEnd = new Date(now);
@@ -5379,12 +5424,16 @@ export default function App() {
       console.log('JOIN_VALIDATION_START', { sessionId: sessionToJoin.id, start: sessionToJoin.start, end: sessionToJoin.end });
 
       if (sessionStart > now) {
+        const reason = 'session_not_started';
+        console.log("JOIN_FLOW_BLOCK_REASON", reason);
         console.log('JOIN_BLOCKED_NOT_STARTED', { sessionId: sessionToJoin.id });
         showAlert("Session hasn’t started yet");
         return;
       }
 
       if (sessionEnd < now) {
+        const reason = 'session_ended';
+        console.log("JOIN_FLOW_BLOCK_REASON", reason);
         console.log('JOIN_BLOCKED_ENDED', { sessionId: sessionToJoin.id });
         showAlert('This session has already ended');
         return;
@@ -5393,6 +5442,8 @@ export default function App() {
       console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
 
       if (!activeAppUserId) {
+        const reason = 'missing_active_profile';
+        console.log("JOIN_FLOW_BLOCK_REASON", reason);
         const errorMessage = 'Session could not be saved';
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
@@ -5408,10 +5459,31 @@ export default function App() {
       }
 
       const currentAuthenticatedUserId = activeAppUserId;
+      const activeProfileId = currentAuthenticatedUserId;
+      const activeAuthUserId = authUser?.id ?? null;
       const clickedSessionUserId = sessionToJoin.userId;
+      const sessionOwnerProfileId = clickedSessionUserId ?? null;
+      const sessionOwnerAuthUserId = sessionToJoin.userOwnerUid ?? null;
       const clickedSpotName = sessionToJoin.spot;
       const clickedStartTime = sessionToJoin.start;
       const clickedEndTime = sessionToJoin.end;
+      const isOwnProfileSession = Boolean(activeProfileId && sessionOwnerProfileId && activeProfileId === sessionOwnerProfileId);
+      const baseJoinReason = isOwnProfileSession ? 'same_active_profile' : 'eligible';
+      const baseCanJoin = !isOwnProfileSession;
+      console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+        activeProfileId,
+        sessionOwnerProfileId,
+        activeAuthUserId,
+        sessionOwnerAuthUserId,
+        canJoin: baseCanJoin,
+        reason: baseJoinReason,
+      });
+      if (!baseCanJoin) {
+        console.log("JOIN_FLOW_BLOCK_REASON", baseJoinReason);
+        setSessionActionError('');
+        return;
+      }
+
       const duplicateCandidates = sessions.map((candidateSession) => ({
         id: candidateSession.id,
         user_id: candidateSession.userId,
@@ -5432,6 +5504,14 @@ export default function App() {
         ),
       );
       const exactDuplicateForCurrentUser = exactDuplicateCandidatesForCurrentUser.length > 0;
+      console.log("JOIN_FLOW_ELIGIBILITY_CHECK", {
+        activeProfileId,
+        sessionOwnerProfileId,
+        activeAuthUserId,
+        sessionOwnerAuthUserId,
+        canJoin: !exactDuplicateForCurrentUser,
+        reason: exactDuplicateForCurrentUser ? 'duplicate_for_active_profile' : 'eligible',
+      });
       console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
         currentAuthenticatedUserId,
@@ -5446,6 +5526,8 @@ export default function App() {
         exactDuplicateForCurrentUser,
       });
       if (exactDuplicateForCurrentUser) {
+        const reason = 'duplicate_for_active_profile';
+        console.log("JOIN_FLOW_BLOCK_REASON", reason);
         setSessionActionError('');
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
@@ -5475,6 +5557,7 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
+      console.log("JOIN_FLOW_SUBMIT_PAYLOAD", joinPayload);
       console.log('JOIN_INSERT_VALUES', {
         currentUserId: currentAuthenticatedUserId,
         clickedSessionUserId,
@@ -5491,6 +5574,7 @@ export default function App() {
         joinPayload,
       });
       const joinResult = await createPlannedSession(joinPayload);
+      console.log("JOIN_FLOW_RESULT", { data: joinResult.data ?? null, error: joinResult.error ?? null });
       if (joinResult.error) {
         const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Session could not be saved');
         setSessionActionError(errorMessage);
@@ -6178,7 +6262,8 @@ export default function App() {
           <SessionTimeline
             timelineSessions={timelineSessions}
             selectedTimelineSessionId={selectedTimelineSessionId}
-            currentUserId={activeAppUserId}
+            currentProfileId={activeAppUserId}
+            currentAuthUserId={authenticatedUserId}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
