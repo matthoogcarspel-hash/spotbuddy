@@ -5653,190 +5653,59 @@ export default function App() {
       };
       const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
       console.log("JOIN_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+      console.log("JOIN_TARGET_SESSION_ID", targetSession?.id ?? null);
       console.log("JOIN_TARGET_SESSION_USER_ID", targetSession?.user_id ?? null);
       console.log("JOIN_SELF_BLOCK", targetSession?.user_id === activeProfile?.id);
 
-      const now = new Date();
-      const sessionStart = new Date(now);
-      const sessionEnd = new Date(now);
-      const [startHour, startMinute] = sessionToJoin.start.split(':').map((value) => Number.parseInt(value ?? '', 10));
-      const [endHour, endMinute] = sessionToJoin.end.split(':').map((value) => Number.parseInt(value ?? '', 10));
-      sessionStart.setHours(Number.isNaN(startHour) ? 0 : startHour, Number.isNaN(startMinute) ? 0 : startMinute, 0, 0);
-      sessionEnd.setHours(Number.isNaN(endHour) ? 0 : endHour, Number.isNaN(endMinute) ? 0 : endMinute, 0, 0);
-
-      console.log('JOIN_VALIDATION_START', { sessionId: sessionToJoin.id, start: sessionToJoin.start, end: sessionToJoin.end });
-
-      if (sessionStart > now) {
-        const reason = 'session_not_started';
-        console.log("JOIN_FLOW_BLOCK_REASON", reason);
-        console.log('JOIN_BLOCKED_NOT_STARTED', { sessionId: sessionToJoin.id });
-        showAlert("Session hasn’t started yet");
-        return;
-      }
-
-      if (sessionEnd < now) {
-        const reason = 'session_ended';
-        console.log("JOIN_FLOW_BLOCK_REASON", reason);
-        console.log('JOIN_BLOCKED_ENDED', { sessionId: sessionToJoin.id });
-        showAlert('This session has already ended');
-        return;
-      }
-
-      console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
-
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
-        const reason = 'missing_active_profile';
-        console.log("JOIN_FLOW_BLOCK_REASON", reason);
-        const errorMessage = 'Session could not be saved';
-        setSessionActionError(errorMessage);
-        console.log('SPOT_PAGE_JOIN_ABORTED_MISSING_AUTH_OR_PROFILE', {
-          selectedSourceSession: sessionToJoin,
-          currentUserId: activeAppUserId ?? null,
-          spot_name: sessionToJoin.spot,
-          start_time: sessionToJoin.start,
-          end_time: sessionToJoin.end,
-          hasProfile: Boolean(profile),
-          reason: errorMessage,
-        });
+        setSessionActionError('Session could not be saved');
         return;
       }
 
-      const targetSessionUserId = targetSession.user_id ?? null;
-      if (targetSessionUserId === activeProfileId) {
-        console.log("JOIN_FLOW_BLOCK_REASON", 'same_active_profile');
+      if (targetSession.user_id === activeProfile.id) {
         setSessionActionError('');
         return;
       }
 
-      const clickedSpotName = targetSession.spot;
-      const clickedStartTime = targetSession.start;
-      const clickedEndTime = targetSession.end;
       const targetSessionDateKey = targetSession.createdAt ? getLocalDateKey(new Date(targetSession.createdAt)) : selectedPlanningDateKey;
-
-      const duplicateCandidates = sessions.map((candidateSession) => ({
-        id: candidateSession.id,
-        user_id: candidateSession.userId,
-        spot_name: candidateSession.spot,
-        start_time: candidateSession.start,
-        end_time: candidateSession.end,
-        created_at: candidateSession.createdAt,
-        user_id_matches_current_auth_user: candidateSession.userId === activeProfileId,
-        spot_name_matches_clicked_session: candidateSession.spot === clickedSpotName,
-        start_time_matches_clicked_session: candidateSession.start === clickedStartTime,
-        end_time_matches_clicked_session: candidateSession.end === clickedEndTime,
-        selected_day_matches_clicked_session: (
+      const duplicateJoin = sessions.some((candidateSession) => (
+        candidateSession.userId === activeProfileId
+        && candidateSession.spot === targetSession.spot
+        && candidateSession.start === targetSession.start
+        && candidateSession.end === targetSession.end
+        && (
           candidateSession.createdAt
             ? getLocalDateKey(new Date(candidateSession.createdAt)) === targetSessionDateKey
             : selectedPlanningDateKey === targetSessionDateKey
-        ),
-      }));
-      const exactDuplicateCandidatesForCurrentUser = duplicateCandidates.filter(
-        (candidate) => (
-          candidate.user_id === activeProfileId
-          && candidate.spot_name === clickedSpotName
-          && candidate.start_time === clickedStartTime
-          && candidate.end_time === clickedEndTime
-          && (
-            candidate.created_at
-              ? getLocalDateKey(new Date(candidate.created_at)) === targetSessionDateKey
-              : selectedPlanningDateKey === targetSessionDateKey
-          )
-        ),
-      );
-      const exactDuplicateForCurrentUser = exactDuplicateCandidatesForCurrentUser.length > 0;
-      console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
-        selectedSourceSession: sessionToJoin,
-        currentAuthenticatedUserId: activeProfileId,
-        clickedSessionUserId: targetSessionUserId,
-        spot_name: clickedSpotName,
-        start_time: clickedStartTime,
-        end_time: clickedEndTime,
-        selected_day: targetSessionDateKey,
-        duplicateCandidateCount: duplicateCandidates.length,
-        duplicateCandidates,
-        exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
-        exactDuplicateCandidatesForCurrentUser,
-        exactDuplicateForCurrentUser,
-      });
-      if (exactDuplicateForCurrentUser) {
-        const reason = 'duplicate_for_active_profile';
-        console.log("JOIN_FLOW_BLOCK_REASON", reason);
+        )
+      ));
+      console.log("JOIN_DUPLICATE_BLOCK", duplicateJoin ?? false);
+      if (duplicateJoin) {
         setSessionActionError('');
-        console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
-          selectedSourceSession: sessionToJoin,
-          currentAuthenticatedUserId: activeProfileId,
-          clickedSessionUserId: targetSessionUserId,
-          spot_name: clickedSpotName,
-          start_time: clickedStartTime,
-          end_time: clickedEndTime,
-          selected_day: targetSessionDateKey,
-          duplicateCandidateCount: duplicateCandidates.length,
-          duplicateCandidates,
-          exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
-          exactDuplicateCandidatesForCurrentUser,
-          exactDuplicateForCurrentUser,
-          exactErrorReasonShownToUI: '',
-        });
         return;
       }
 
-      const joinPayload = {
-        spot_name: clickedSpotName,
+      const payload = {
+        spot_name: targetSession.spot,
+        spot_id: (targetSession as SpotSession & { spot_id?: string | null }).spot_id ?? null,
         user_id: activeProfileId,
-        start_time: clickedStartTime,
-        end_time: clickedEndTime,
+        start_time: targetSession.start,
+        end_time: targetSession.end,
         status: 'Gaat' as const,
         intent: resolveSessionIntent(targetSession.intent),
         checked_in_at: null,
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
       };
-      const payload = joinPayload;
       console.log("JOIN_PAYLOAD", payload ?? null);
-      console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
-        selectedSourceSession: sessionToJoin,
-        currentUserId: activeProfileId,
-        clickedSessionUserId: targetSessionUserId,
-        insertedUserId: payload.user_id,
-        spot_name: clickedSpotName,
-        start_time: clickedStartTime,
-        end_time: clickedEndTime,
-        selected_day: targetSessionDateKey,
-        joinPayload: payload,
-      });
-      const { data, error } = await createPlannedSession(payload);
+      const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
       console.log("JOIN_RESULT", { data, error });
       if (error) {
         const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
         setSessionActionError(errorMessage);
-        console.log('SPOT_PAGE_JOIN_ERROR', {
-          selectedSourceSession: sessionToJoin,
-          currentUserId: activeProfileId,
-          clickedSessionOwnerUserId: targetSessionUserId,
-          spot_name: clickedSpotName,
-          start_time: clickedStartTime,
-          end_time: clickedEndTime,
-          selected_day: targetSessionDateKey,
-          duplicateCandidateCount: duplicateCandidates.length,
-          duplicateCandidates,
-          exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
-          exactDuplicateCandidatesForCurrentUser,
-          exactDuplicateForCurrentUser,
-          supabaseError: error,
-          joinPayload: payload,
-          exactErrorReasonShownToUI: errorMessage,
-        });
         return;
       }
-
-      console.log('SPOT_PAGE_JOIN_SUCCESS', {
-        currentUserId: activeProfileId,
-        clickedSessionUserId: targetSessionUserId,
-        insertedUserId: data?.user_id ?? null,
-        joinPayload: payload,
-        insertedSession: data ?? null,
-      });
       await fetchSharedData();
       setSelectedTimelineSessionId(null);
       setSessionActionError('');
