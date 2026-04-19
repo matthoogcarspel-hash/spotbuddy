@@ -1360,7 +1360,6 @@ export default function App() {
   const isWebPlatform = Platform.OS === 'web';
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [activeUserOverride, setActiveUserOverride] = useState<SwitchableAccount | null>(null);
   const [switchableAccounts, setSwitchableAccounts] = useState<SwitchableAccount[]>([]);
   const [showAccountSwitcher, setShowAccountSwitcher] = useState(false);
   const [switchAccountError, setSwitchAccountError] = useState('');
@@ -1386,7 +1385,8 @@ export default function App() {
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const activeProfileOwnerUidRef = useRef<string | null>(null);
+  const activeProfileIdRef = useRef<string | null>(null);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -1457,9 +1457,12 @@ export default function App() {
   const authenticatedUserId = session?.user.id ?? null;
   const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
-  const activeProfile = activeUserOverride ?? profile ?? null;
+  const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
+  useEffect(() => {
+    activeProfileIdRef.current = activeAppUserId;
+  }, [activeAppUserId]);
   const visibleProfiles = switchableAccounts;
   const availableProfiles = useMemo<Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>>(() => {
     const profileMap = new Map<string, Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>();
@@ -1519,16 +1522,16 @@ export default function App() {
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
   const hydrateActiveProfile = async (authUser: AuthSession['user'] | null, _reason: string) => {
-    console.log("PROFILE_RESTORE_START");
-    console.log("PROFILE_RESTORE_AUTH_USER", authUser?.id);
+    console.log("ACTIVE_PROFILE_BOOT_START");
+    console.log("ACTIVE_PROFILE_AUTH_READY", authUser?.id ?? null);
     if (!authUser?.id) {
       setSwitchableAccounts([]);
-      setActiveUserOverride(null);
       setProfile(null);
-      setCurrentUserId(null);
+      activeProfileOwnerUidRef.current = null;
       setProfileHydrationError('');
       setLoadingProfile(false);
-      console.log("PROFILE_RESTORE_LOADING_DONE");
+      console.log("ACTIVE_PROFILE_RESOLVED", null);
+      console.log("ACTIVE_PROFILE_LOADING_DONE");
       return;
     }
 
@@ -1540,13 +1543,11 @@ export default function App() {
         .select('id, display_name, avatar_url, owner_uid, created_at')
         .eq('owner_uid', authUser.id)
         .order('created_at', { ascending: true });
-      console.log("PROFILE_RESTORE_OWNED_COUNT", data?.length ?? 0);
+      console.log("ACTIVE_PROFILE_OWNED_COUNT", data?.length ?? 0);
 
       if (error) {
         setSwitchableAccounts([]);
-        setActiveUserOverride(null);
         setProfile(null);
-        setCurrentUserId(null);
         setProfileHydrationError(error.message || 'Failed to load profiles');
         return;
       }
@@ -1554,16 +1555,15 @@ export default function App() {
       const ownedProfiles = (data ?? []) as SwitchableAccount[];
       setSwitchableAccounts(ownedProfiles);
       const savedProfileId = await AsyncStorage.getItem(getActiveProfileStorageKey(authUser.id));
-      console.log("PROFILE_RESTORE_SAVED_ID", savedProfileId);
+      console.log("ACTIVE_PROFILE_SAVED_ID", savedProfileId ?? null);
 
       const resolvedProfile = (savedProfileId
         ? ownedProfiles.find((profileItem) => profileItem.id === savedProfileId) ?? null
         : null) ?? ownedProfiles[0] ?? null;
-      console.log("PROFILE_RESTORE_SELECTED_ID", resolvedProfile?.id ?? null);
+      console.log("ACTIVE_PROFILE_RESOLVED", resolvedProfile?.id ?? null);
 
-      setActiveUserOverride(null);
       setProfile(resolvedProfile);
-      setCurrentUserId(resolvedProfile?.id ?? null);
+      activeProfileOwnerUidRef.current = authUser.id;
 
       if (resolvedProfile?.id) {
         await AsyncStorage.setItem(getActiveProfileStorageKey(authUser.id), resolvedProfile.id);
@@ -1572,7 +1572,7 @@ export default function App() {
       }
     } finally {
       setLoadingProfile(false);
-      console.log("PROFILE_RESTORE_LOADING_DONE");
+      console.log("ACTIVE_PROFILE_LOADING_DONE");
     }
   };
 
@@ -1737,9 +1737,7 @@ export default function App() {
     setShowAdminCreateProfile(false);
     setSwitchableAccounts([]);
     setSelectedSpot(null);
-    setActiveUserOverride(null);
     setProfile(selectedProfile);
-    setCurrentUserId(selectedProfile.id);
     if (authenticatedUserId) {
       await AsyncStorage.setItem(getActiveProfileStorageKey(authenticatedUserId), selectedProfile.id);
     }
@@ -1762,10 +1760,6 @@ export default function App() {
   useEffect(() => {
     console.log("ACTIVE_DAY_SOURCE_OF_TRUTH", activeDay);
   }, [activeDay]);
-
-  useEffect(() => {
-    setCurrentUserId(activeAppUserId ?? null);
-  }, [activeAppUserId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2606,6 +2600,7 @@ export default function App() {
       console.error('Failed to load messages:', messagesError);
     }
 
+    const profilesError = profilesByIdError ?? profilesByOwnerUidError ?? null;
     if (profilesError) {
       console.error("PROFILES QUERY ERROR", profilesError);
       console.error('Failed to load profiles:', profilesError);
@@ -2669,46 +2664,39 @@ export default function App() {
   };
 
   useEffect(() => {
-    void fetchSpotDefinitions();
-
+    console.log("ACTIVE_PROFILE_BOOT_START");
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
-      console.log('AUTH_STATE_CHANGED', {
-        event: 'INITIAL_SESSION',
-        userId: nextSession?.user.id ?? null,
-      });
       setSession(nextSession);
       setLoadingSession(false);
+      console.log("ACTIVE_PROFILE_AUTH_READY", nextSession?.user.id ?? null);
 
       if (nextSession) {
         void fetchSpotDefinitions();
         void hydrateActiveProfile(nextSession.user, 'auth_session_initialized');
         void fetchSharedData();
       } else {
-        console.log("PROFILE_STATE_RESET_REASON", 'no_session_on_init');
-        setCurrentUserId(null);
         setSwitchableAccounts([]);
-        setActiveUserOverride(null);
         setProfile(null);
+        activeProfileOwnerUidRef.current = null;
       }
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, nextSession) => {
-      console.log('AUTH_STATE_CHANGED', {
-        event,
-        userId: nextSession?.user.id ?? null,
-      });
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
 
       if (!nextSession) {
-        console.log("PROFILE_STATE_RESET_REASON", 'logout');
-        setCurrentUserId(null);
         setSwitchableAccounts([]);
-        setActiveUserOverride(null);
         setProfile(null);
+        activeProfileOwnerUidRef.current = null;
         resetFlow();
+        return;
+      }
+
+      if (activeProfileOwnerUidRef.current === nextSession.user.id && activeProfileIdRef.current) {
+        console.log("ACTIVE_PROFILE_OVERWRITE_BLOCKED");
         return;
       }
 
@@ -4781,7 +4769,7 @@ export default function App() {
   if (!profile) {
     return <NameSetupScreen userId={session.user.id} onSaved={(savedProfile) => {
       setProfile(savedProfile);
-      setCurrentUserId(savedProfile.id);
+      activeProfileOwnerUidRef.current = session.user.id;
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
@@ -5595,7 +5583,7 @@ export default function App() {
       const authUser = session?.user ?? null;
       const activeProfile = {
         id: activeAppUserId ?? null,
-        display_name: profile?.display_name ?? activeUserOverride?.display_name ?? null,
+        display_name: profile?.display_name ?? null,
       };
       console.log("PARTICIPATION_ACTIVE_PROFILE", activeProfile);
       console.log("PARTICIPATION_AUTH_USER", authUser);
