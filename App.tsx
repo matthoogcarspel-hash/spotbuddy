@@ -61,17 +61,7 @@ type SpotDistanceInfo = {
   spot: SpotName;
   distanceMeters: number | null;
 };
-type SpotMomentumLabel =
-  | 'Let’s go now'
-  | 'Let’s go big tomorrow'
-  | 'Happening now'
-  | 'Looks on today'
-  | 'Session forming today'
-  | 'Maybe forming today'
-  | 'Looks on tomorrow'
-  | 'Session forming tomorrow'
-  | 'Maybe forming tomorrow'
-  | 'Quiet right now';
+type SpotMomentumLabel = string;
 type SpotMomentumBuckets = {
   today: SpotMomentumLabel | null;
   tomorrow: SpotMomentumLabel | null;
@@ -131,6 +121,37 @@ const theme = {
   primaryPressed: '#1f72d4',
   live: '#21c47f',
   warm: '#c67a44',
+};
+const stableHash = (value: string): number => {
+  let hash = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    hash = ((hash << 5) - hash) + value.charCodeAt(index);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+};
+const getHomeSpotCardStatus = (
+  spotId: string,
+  selectedDayMode: ActiveDay,
+  plannedCount: number,
+  activeCount: number,
+): { label: SpotMomentumLabel; flames: number } => {
+  const randomPool =
+    activeCount >= 5
+      ? { labels: ['Go now', 'Send it now', 'Full send', 'Absolute mayhem'], flames: 5 }
+      : activeCount >= 3
+        ? { labels: ['It’s firing', 'Proper session', 'This is on'], flames: 4 }
+        : activeCount >= 1
+          ? { labels: ['Happening now', 'Game on', 'It’s on', 'Someone’s sending it'], flames: 3 }
+          : plannedCount >= 4
+            ? { labels: ['Getting spicy', 'Serious interest', 'Crowd is building'], flames: 2 }
+            : plannedCount >= 2
+              ? { labels: ['Session forming', 'People are circling', 'Getting interesting'], flames: 1 }
+              : plannedCount === 1
+                ? { labels: ['Tiny spark', 'One brave soul', 'First one is tempted'], flames: 0 }
+                : { labels: ['Still asleep', 'Nobody’s moving', 'Tumbleweeds only', 'Not much cooking'], flames: 0 };
+  const stableIndex = stableHash(`${spotId}${selectedDayMode}`) % randomPool.labels.length;
+  return { label: randomPool.labels[stableIndex], flames: randomPool.flames };
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
@@ -6769,14 +6790,10 @@ export default function App() {
           const plannedCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
           const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
           const selectedDayMode = activeDay;
-          let statusLabel: SpotMomentumLabel;
-          if (activeCount > 0) {
-            statusLabel = 'Happening now';
-          } else if (plannedCount > 0) {
-            statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
-          } else {
-            statusLabel = activeDay === 'today' ? 'Looks on today' : 'Looks on tomorrow';
-          }
+          const spotId = spot.name;
+          console.log("STATUS_INPUT", { spotId, plannedCount, activeCount });
+          const { label: statusLabel, flames } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
+          console.log("STATUS_OUTPUT", { label: statusLabel, flames });
 
           console.log("HOME_CARD_STATUS_COUNTS", {
             spotName: spot.name,
@@ -6814,6 +6831,9 @@ export default function App() {
                   <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
                     <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>{statusLabel}</Text>
                   </View>
+                  {flames > 0 ? (
+                    <Text style={{ color: '#ff8c42', fontSize: 12, fontWeight: '700' }}>{'🔥'.repeat(flames)}</Text>
+                  ) : null}
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
