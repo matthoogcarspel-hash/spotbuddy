@@ -5585,14 +5585,14 @@ export default function App() {
     };
 
     const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
-      const authUser = session?.user ?? null;
       const activeProfile = {
         id: activeAppUserId ?? null,
         display_name: profile?.display_name ?? null,
       };
-      console.log("PARTICIPATION_ACTIVE_PROFILE", activeProfile);
-      console.log("PARTICIPATION_AUTH_USER", authUser);
-      console.log("PARTICIPATION_TARGET_SESSION", sessionToJoin);
+      const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
+      console.log("JOIN_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+      console.log("JOIN_TARGET_SESSION_USER_ID", targetSession?.user_id ?? null);
+      console.log("JOIN_SELF_BLOCK", targetSession?.user_id === activeProfile?.id);
 
       const now = new Date();
       const sessionStart = new Date(now);
@@ -5623,7 +5623,6 @@ export default function App() {
       console.log('JOIN_ALLOWED_ACTIVE', { sessionId: sessionToJoin.id });
 
       const activeProfileId = activeProfile?.id ?? null;
-      console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
       if (!activeProfileId) {
         const reason = 'missing_active_profile';
         console.log("JOIN_FLOW_BLOCK_REASON", reason);
@@ -5641,35 +5640,17 @@ export default function App() {
         return;
       }
 
-      const currentAuthenticatedUserId = activeProfileId;
-      const activeAuthUserId = authUser?.id ?? null;
-      const clickedSessionUserId = sessionToJoin.userId;
-      const sessionOwnerProfileId = resolveSessionActorProfileId(sessionToJoin, availableProfiles);
-      const sessionOwnerAuthUserId = sessionToJoin.userOwnerUid ?? null;
-      const clickedSpotName = sessionToJoin.spot;
-      const clickedStartTime = sessionToJoin.start;
-      const clickedEndTime = sessionToJoin.end;
-      const sameProfile = Boolean(activeProfileId && sessionOwnerProfileId && activeProfileId === sessionOwnerProfileId);
-      const sameAuthOwner = Boolean(activeAuthUserId && sessionOwnerAuthUserId && activeAuthUserId === sessionOwnerAuthUserId);
-      const isOwnProfileSession = sameProfile;
-      const baseJoinReason = sameProfile ? 'same_active_profile' : 'eligible';
-      const baseCanJoin = !isOwnProfileSession;
-      console.log("JOIN_ELIGIBILITY_CHECK", {
-        activeProfileId,
-        resolvedSessionActorProfileId: sessionOwnerProfileId,
-        activeAuthUserId,
-        sessionOwnerAuthUserId,
-        sameProfile,
-        sameAuthOwner,
-        alreadyJoined: false,
-        canJoin: baseCanJoin,
-        reason: baseJoinReason,
-      });
-      if (!baseCanJoin) {
-        console.log("JOIN_FLOW_BLOCK_REASON", baseJoinReason);
+      const targetSessionUserId = targetSession.user_id ?? null;
+      if (targetSessionUserId === activeProfileId) {
+        console.log("JOIN_FLOW_BLOCK_REASON", 'same_active_profile');
         setSessionActionError('');
         return;
       }
+
+      const clickedSpotName = targetSession.spot;
+      const clickedStartTime = targetSession.start;
+      const clickedEndTime = targetSession.end;
+      const targetSessionDateKey = targetSession.createdAt ? getLocalDateKey(new Date(targetSession.createdAt)) : selectedPlanningDateKey;
 
       const duplicateCandidates = sessions.map((candidateSession) => ({
         id: candidateSession.id,
@@ -5677,38 +5658,39 @@ export default function App() {
         spot_name: candidateSession.spot,
         start_time: candidateSession.start,
         end_time: candidateSession.end,
-        user_id_matches_current_auth_user: candidateSession.userId === currentAuthenticatedUserId,
+        created_at: candidateSession.createdAt,
+        user_id_matches_current_auth_user: candidateSession.userId === activeProfileId,
         spot_name_matches_clicked_session: candidateSession.spot === clickedSpotName,
         start_time_matches_clicked_session: candidateSession.start === clickedStartTime,
         end_time_matches_clicked_session: candidateSession.end === clickedEndTime,
+        selected_day_matches_clicked_session: (
+          candidateSession.createdAt
+            ? getLocalDateKey(new Date(candidateSession.createdAt)) === targetSessionDateKey
+            : selectedPlanningDateKey === targetSessionDateKey
+        ),
       }));
       const exactDuplicateCandidatesForCurrentUser = duplicateCandidates.filter(
         (candidate) => (
-          candidate.user_id === currentAuthenticatedUserId
+          candidate.user_id === activeProfileId
           && candidate.spot_name === clickedSpotName
           && candidate.start_time === clickedStartTime
           && candidate.end_time === clickedEndTime
+          && (
+            candidate.created_at
+              ? getLocalDateKey(new Date(candidate.created_at)) === targetSessionDateKey
+              : selectedPlanningDateKey === targetSessionDateKey
+          )
         ),
       );
       const exactDuplicateForCurrentUser = exactDuplicateCandidatesForCurrentUser.length > 0;
-      console.log("JOIN_ELIGIBILITY_CHECK", {
-        activeProfileId,
-        resolvedSessionActorProfileId: sessionOwnerProfileId,
-        activeAuthUserId,
-        sessionOwnerAuthUserId,
-        sameProfile,
-        sameAuthOwner,
-        alreadyJoined: exactDuplicateForCurrentUser,
-        canJoin: !exactDuplicateForCurrentUser,
-        reason: exactDuplicateForCurrentUser ? 'duplicate_for_active_profile' : 'eligible',
-      });
       console.log('SPOT_PAGE_JOIN_EXACT_DUPLICATE_CHECK', {
         selectedSourceSession: sessionToJoin,
-        currentAuthenticatedUserId,
-        clickedSessionUserId,
+        currentAuthenticatedUserId: activeProfileId,
+        clickedSessionUserId: targetSessionUserId,
         spot_name: clickedSpotName,
         start_time: clickedStartTime,
         end_time: clickedEndTime,
+        selected_day: targetSessionDateKey,
         duplicateCandidateCount: duplicateCandidates.length,
         duplicateCandidates,
         exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
@@ -5721,11 +5703,12 @@ export default function App() {
         setSessionActionError('');
         console.log('SPOT_PAGE_JOIN_BLOCKED_EXACT_DUPLICATE', {
           selectedSourceSession: sessionToJoin,
-          currentAuthenticatedUserId,
-          clickedSessionUserId,
+          currentAuthenticatedUserId: activeProfileId,
+          clickedSessionUserId: targetSessionUserId,
           spot_name: clickedSpotName,
           start_time: clickedStartTime,
           end_time: clickedEndTime,
+          selected_day: targetSessionDateKey,
           duplicateCandidateCount: duplicateCandidates.length,
           duplicateCandidates,
           exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
@@ -5738,62 +5721,59 @@ export default function App() {
 
       const joinPayload = {
         spot_name: clickedSpotName,
-        user_id: currentAuthenticatedUserId,
+        user_id: activeProfileId,
         start_time: clickedStartTime,
         end_time: clickedEndTime,
         status: 'Gaat' as const,
-        intent: resolveSessionIntent(sessionToJoin.intent),
+        intent: resolveSessionIntent(targetSession.intent),
         checked_in_at: null,
         checked_out_at: null,
-        created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
+        created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
       };
-      console.log("SESSION_WRITE_PAYLOAD_USER_ID", joinPayload?.user_id ?? null);
-      console.log("JOIN_SUBMIT_PAYLOAD", joinPayload);
-      console.log('JOIN_INSERT_VALUES', {
-        currentUserId: currentAuthenticatedUserId,
-        clickedSessionUserId,
-        insertUserId: joinPayload.user_id,
-      });
+      const payload = joinPayload;
+      console.log("JOIN_PAYLOAD", payload ?? null);
       console.log('SPOT_PAGE_JOIN_INSERT_ATTEMPT', {
         selectedSourceSession: sessionToJoin,
-        currentUserId: currentAuthenticatedUserId,
-        clickedSessionUserId,
-        insertedUserId: joinPayload.user_id,
+        currentUserId: activeProfileId,
+        clickedSessionUserId: targetSessionUserId,
+        insertedUserId: payload.user_id,
         spot_name: clickedSpotName,
         start_time: clickedStartTime,
         end_time: clickedEndTime,
-        joinPayload,
+        selected_day: targetSessionDateKey,
+        joinPayload: payload,
       });
-      const joinResult = await createPlannedSession(joinPayload);
-      console.log("JOIN_RESULT", { data: joinResult.data ?? null, error: joinResult.error ?? null });
-      if (joinResult.error) {
-        const errorMessage = getSessionPersistenceErrorMessage(joinResult.error, 'Session could not be saved');
+      const { data, error } = await createPlannedSession(payload);
+      console.log("JOIN_RESULT", { data, error });
+      if (error) {
+        const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
         setSessionActionError(errorMessage);
         console.log('SPOT_PAGE_JOIN_ERROR', {
           selectedSourceSession: sessionToJoin,
-          currentUserId: currentAuthenticatedUserId,
-          clickedSessionOwnerUserId: clickedSessionUserId,
+          currentUserId: activeProfileId,
+          clickedSessionOwnerUserId: targetSessionUserId,
           spot_name: clickedSpotName,
           start_time: clickedStartTime,
           end_time: clickedEndTime,
+          selected_day: targetSessionDateKey,
           duplicateCandidateCount: duplicateCandidates.length,
           duplicateCandidates,
           exactDuplicateCount: exactDuplicateCandidatesForCurrentUser.length,
           exactDuplicateCandidatesForCurrentUser,
           exactDuplicateForCurrentUser,
-          supabaseError: joinResult.error,
-          joinPayload,
+          supabaseError: error,
+          joinPayload: payload,
           exactErrorReasonShownToUI: errorMessage,
         });
         return;
       }
 
       console.log('SPOT_PAGE_JOIN_SUCCESS', {
-        currentUserId: currentAuthenticatedUserId,
-        clickedSessionUserId,
-        insertedUserId: joinResult.data.user_id,
-        joinPayload,
-        insertedSession: joinResult.data,
+        currentUserId: activeProfileId,
+        clickedSessionUserId: targetSessionUserId,
+        insertedUserId: data?.user_id ?? null,
+        joinPayload: payload,
+        insertedSession: data ?? null,
       });
       await fetchSharedData();
       setSelectedTimelineSessionId(null);
