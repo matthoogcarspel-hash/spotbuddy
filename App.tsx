@@ -2034,7 +2034,8 @@ export default function App() {
   };
 
   const fetchBuddiesData = async () => {
-    if (!activeAppUserId) {
+    const activeProfileId = activeProfile?.id ?? null;
+    if (!activeProfileId) {
       setBuddyUsers([]);
       setOutgoingFollowStatusesByUserId({});
       setFollowingUserIds([]);
@@ -2045,27 +2046,27 @@ export default function App() {
 
     setLoadingBuddies(true);
     setBuddiesError('');
-    console.log('BUDDIES_CURRENT_USER_ID', { userId: activeAppUserId });
+    console.log('BUDDIES_CURRENT_USER_ID', { userId: activeProfileId });
 
     const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
       supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
-        .neq('id', activeAppUserId)
+        .neq('id', activeProfileId)
         .order('display_name', { ascending: true }),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('follower_id', activeAppUserId),
+        .eq('follower_id', activeProfileId),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', activeAppUserId)
+        .eq('following_id', activeProfileId)
         .eq('status', 'pending'),
       supabase
         .from('user_follows')
         .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', activeAppUserId)
+        .eq('following_id', activeProfileId)
         .eq('status', 'accepted'),
     ]);
 
@@ -2082,7 +2083,7 @@ export default function App() {
       const loadedUsers = (usersResponse.data ?? []) as BuddyUser[];
       console.log('BUDDIES_PROFILES_QUERY_RESULT', loadedUsers);
       console.log('BUDDIES_FILTERED_USERS_SHOWN', {
-        currentUserId: activeAppUserId,
+        currentUserId: activeProfileId,
         userIds: loadedUsers.map((userItem) => userItem.id),
       });
       setBuddyUsers(loadedUsers);
@@ -2161,25 +2162,31 @@ export default function App() {
   };
 
   const handleFollowUser = async (userIdToFollow: string) => {
-    if (!activeAppUserId || userIdToFollow === activeAppUserId) {
+    const activeProfileId = activeProfile?.id ?? null;
+    const targetProfile = buddyUsers.find((userItem) => userItem.id === userIdToFollow) ?? null;
+    console.log("FOLLOW_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+    console.log("FOLLOW_TARGET_PROFILE_ID", targetProfile?.id ?? null);
+    if (!activeProfileId || !targetProfile || targetProfile.id === activeProfileId) {
       return;
     }
 
     const payload = {
-      follower_id: activeAppUserId,
-      following_id: userIdToFollow,
+      follower_id: activeProfileId,
+      following_id: targetProfile.id,
       status: 'pending' as FollowStatus,
       responded_at: null as string | null,
     };
     const previousStatus = outgoingFollowStatusesByUserId[userIdToFollow];
-    console.log('BUDDIES_OUTGOING_FOLLOW_REQUEST_PAYLOAD', payload);
+    console.log("FOLLOW_REQUEST_PAYLOAD", payload ?? null);
     setBuddyActionUserId(userIdToFollow);
     setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToFollow]: 'pending' }));
     setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToFollow));
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('user_follows')
-      .upsert(payload, { onConflict: 'follower_id,following_id' });
+      .upsert(payload, { onConflict: 'follower_id,following_id' })
+      .select();
+    console.log("FOLLOW_REQUEST_RESULT", { data, error });
     if (error) {
       console.error('BUDDIES_FOLLOW_ERROR', error);
       setOutgoingFollowStatusesByUserId((previous) => {
@@ -2240,23 +2247,31 @@ export default function App() {
   };
 
   const handleAcceptFollowRequest = async (requestItem: FollowRequestItem) => {
-    if (!activeAppUserId) {
+    const activeProfileId = activeProfile?.id ?? null;
+    const targetProfile = requestItem.requester ?? null;
+    console.log("FOLLOW_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+    console.log("FOLLOW_TARGET_PROFILE_ID", targetProfile?.id ?? null);
+    if (!activeProfileId || !targetProfile || targetProfile.id === activeProfileId) {
       return;
     }
 
     const payload = {
       id: requestItem.id,
-      follower_id: requestItem.follower_id,
-      following_id: activeAppUserId,
+      follower_id: targetProfile.id,
+      following_id: activeProfileId,
       status: 'accepted' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
-    console.log('BUDDIES_ACCEPT_PAYLOAD', payload);
+    console.log("FOLLOW_ACCEPT_PAYLOAD", payload ?? null);
     setFollowRequestActionId(requestItem.id);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('user_follows')
       .update({ status: 'accepted', responded_at: payload.responded_at })
-      .eq('id', requestItem.id);
+      .eq('id', requestItem.id)
+      .eq('follower_id', payload.follower_id)
+      .eq('following_id', payload.following_id)
+      .select();
+    console.log("FOLLOW_ACCEPT_RESULT", { data, error });
 
     if (error) {
       console.error('BUDDIES_ACCEPT_ERROR', error);
@@ -2271,14 +2286,16 @@ export default function App() {
   };
 
   const handleRejectFollowRequest = async (requestItem: FollowRequestItem) => {
-    if (!activeAppUserId) {
+    const activeProfileId = activeProfile?.id ?? null;
+    const targetProfile = requestItem.requester ?? null;
+    if (!activeProfileId || !targetProfile || targetProfile.id === activeProfileId) {
       return;
     }
 
     const payload = {
       id: requestItem.id,
-      follower_id: requestItem.follower_id,
-      following_id: activeAppUserId,
+      follower_id: targetProfile.id,
+      following_id: activeProfileId,
       status: 'rejected' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
@@ -2287,7 +2304,9 @@ export default function App() {
     const { error } = await supabase
       .from('user_follows')
       .update({ status: 'rejected', responded_at: payload.responded_at })
-      .eq('id', requestItem.id);
+      .eq('id', requestItem.id)
+      .eq('follower_id', payload.follower_id)
+      .eq('following_id', payload.following_id);
 
     if (error) {
       console.error('BUDDIES_REJECT_ERROR', error);
