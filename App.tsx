@@ -136,6 +136,8 @@ const getHomeSpotCardStatus = (
   plannedCount: number,
   activeCount: number,
 ): { label: SpotMomentumLabel; flames: number } => {
+  const plannedCountBand = plannedCount >= 4 ? 'planned4plus' : plannedCount >= 2 ? 'planned2to3' : plannedCount === 1 ? 'planned1' : 'planned0';
+  const activeCountBand = activeCount >= 5 ? 'active5plus' : activeCount >= 3 ? 'active3to4' : activeCount >= 1 ? 'active1to2' : 'active0';
   const randomPool =
     activeCount >= 5
       ? { labels: ['Go now', 'Send it now', 'Full send', 'Absolute mayhem'], flames: 5 }
@@ -150,7 +152,7 @@ const getHomeSpotCardStatus = (
               : plannedCount === 1
                 ? { labels: ['Tiny spark', 'One brave soul', 'First one is tempted'], flames: 0 }
                 : { labels: ['Still asleep', 'Nobody’s moving', 'Tumbleweeds only', 'Not much cooking'], flames: 0 };
-  const stableIndex = stableHash(`${spotId}${selectedDayMode}`) % randomPool.labels.length;
+  const stableIndex = stableHash(`${spotId}|${selectedDayMode}|${plannedCountBand}|${activeCountBand}`) % randomPool.labels.length;
   return { label: randomPool.labels[stableIndex], flames: randomPool.flames };
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
@@ -6791,19 +6793,19 @@ export default function App() {
           const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
           const selectedDayMode = activeDay;
           const spotId = spot.name;
-          console.log("STATUS_INPUT", { spotId, plannedCount, activeCount });
           const { label: statusLabel, flames } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
-          console.log("STATUS_OUTPUT", { label: statusLabel, flames });
-
-          console.log("HOME_CARD_STATUS_COUNTS", {
+          console.log("HOME_CARD_RENDERED_COUNTS", {
             spotName: spot.name,
             plannedCount,
             activeCount,
             selectedDayMode
           });
-          console.log("HOME_CARD_STATUS_LABEL", {
+          console.log("HOME_CARD_STATUS_DECISION", {
             spotName: spot.name,
-            statusLabel
+            plannedCount,
+            activeCount,
+            label: statusLabel,
+            flames
           });
 
           return (
