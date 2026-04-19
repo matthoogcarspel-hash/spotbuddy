@@ -5652,10 +5652,7 @@ export default function App() {
         display_name: profile?.display_name ?? null,
       };
       const targetSession = { ...sessionToJoin, user_id: sessionToJoin.userId };
-      console.log("JOIN_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
-      console.log("JOIN_TARGET_SESSION_ID", targetSession?.id ?? null);
-      console.log("JOIN_TARGET_SESSION_USER_ID", targetSession?.user_id ?? null);
-      console.log("JOIN_SELF_BLOCK", targetSession?.user_id === activeProfile?.id);
+      console.log("JOIN_TARGET_SESSION", targetSession);
 
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
@@ -5686,9 +5683,8 @@ export default function App() {
         return;
       }
 
-      const payload = {
+      const createPayload = {
         spot_name: targetSession.spot,
-        spot_id: (targetSession as SpotSession & { spot_id?: string | null }).spot_id ?? null,
         user_id: activeProfileId,
         start_time: targetSession.start,
         end_time: targetSession.end,
@@ -5698,6 +5694,8 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
       };
+      console.log("JOIN_CREATE_SESSION_FIELD_NAMES", Object.keys(createPayload || {}));
+      const payload = { ...createPayload };
       console.log("JOIN_PAYLOAD", payload ?? null);
       const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
       console.log("JOIN_RESULT", { data, error });
