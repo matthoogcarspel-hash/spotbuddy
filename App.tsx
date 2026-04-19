@@ -2775,10 +2775,11 @@ export default function App() {
     }
 
     void (async () => {
+      console.log("BUDDIES_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
       const { data, error } = await supabase
         .from('user_follows')
-        .select('following_id')
-        .eq('follower_id', activeAppUserId)
+        .select('follower_id, following_id, status')
+        .or(`and(follower_id.eq.${activeAppUserId},status.eq.accepted),and(following_id.eq.${activeAppUserId},status.eq.accepted)`)
         .eq('status', 'accepted');
 
       if (error) {
@@ -2786,9 +2787,19 @@ export default function App() {
         return;
       }
 
-      setFollowingUserIds((data ?? []).map((item) => item.following_id));
+      const buddyRelations = data ?? [];
+      console.log("BUDDIES_RELATIONS_RESULT", buddyRelations ?? null);
+      const buddyProfileIds = Array.from(
+        new Set(
+          buddyRelations
+            .map((item) => (item.follower_id === activeAppUserId ? item.following_id : item.follower_id))
+            .filter((id): id is string => Boolean(id && id !== activeAppUserId)),
+        ),
+      );
+      console.log("BUDDIES_PROFILE_IDS", buddyProfileIds ?? null);
+      setFollowingUserIds(buddyProfileIds);
     })();
-  }, [activeAppUserId]);
+  }, [activeAppUserId, activeProfile?.id]);
 
   useEffect(() => {
     setSessionsBySpot((previous) => {
@@ -4026,6 +4037,7 @@ export default function App() {
       }
       return true;
     });
+    console.log("BUDDIES_FILTERED_SESSION_IDS", filteredSessions?.map(s => s.id) ?? []);
     const resolvedLiveSessionIdsByUser = new Map<string, string>();
     for (const item of visibleSessions) {
       const isActiveCheckedInSession = Boolean(item.checkedInAt)
