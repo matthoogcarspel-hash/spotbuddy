@@ -140,6 +140,7 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
 const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
 const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
+const activeProfileStorageKeyPrefix = 'spotbuddy_active_profile_id_v1';
 const HOME_SPOTS_LIMIT = 5;
 const adminAccountSwitcherEmail = 'matthoogcarspel@gmail.com';
 const createProfileId = () => {
@@ -1365,6 +1366,7 @@ export default function App() {
   const [switchAccountError, setSwitchAccountError] = useState('');
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [profileHydrationError, setProfileHydrationError] = useState('');
   const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
@@ -1490,6 +1492,7 @@ export default function App() {
 
     return undefined;
   }, []);
+  const getActiveProfileStorageKey = (ownerUid: string) => `${activeProfileStorageKeyPrefix}:${ownerUid}`;
 
   const handlePasswordResetRequest = async (email: string) => {
     console.log("PASSWORD_RESET_REQUESTED", { email });
@@ -1514,6 +1517,72 @@ export default function App() {
     }
     console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
+
+  const hydrateActiveProfile = async (authUser: AuthSession['user'] | null, reason: string) => {
+    console.log("PROFILE_HYDRATION_AUTH_READY", authUser);
+    if (!authUser?.id) {
+      setSwitchableAccounts([]);
+      setActiveUserOverride(null);
+      setProfile(null);
+      setCurrentUserId(null);
+      setProfileHydrationError('');
+      setLoadingProfile(false);
+      return;
+    }
+
+    setLoadingProfile(true);
+    setProfileHydrationError('');
+    console.log("PROFILE_HYDRATION_QUERY_START");
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('id, display_name, avatar_url, owner_uid, created_at')
+      .eq('owner_uid', authUser.id)
+      .order('created_at', { ascending: true });
+    console.log("PROFILE_HYDRATION_QUERY_RESULT", { data, error });
+
+    if (error) {
+      setSwitchableAccounts([]);
+      setActiveUserOverride(null);
+      setProfile(null);
+      setCurrentUserId(null);
+      setProfileHydrationError(error.message || 'Failed to load profiles');
+      setLoadingProfile(false);
+      return;
+    }
+
+    const ownedProfiles = (data ?? []) as SwitchableAccount[];
+    setSwitchableAccounts(ownedProfiles);
+    const persistedProfileId = await AsyncStorage.getItem(getActiveProfileStorageKey(authUser.id));
+    console.log("PROFILE_HYDRATION_PERSISTED_PROFILE_ID", persistedProfileId);
+
+    const selectedProfile = persistedProfileId
+      ? ownedProfiles.find((profileItem) => profileItem.id === persistedProfileId) ?? null
+      : null;
+    console.log("PROFILE_HYDRATION_SELECTED_PROFILE", selectedProfile);
+
+    const previousProfileId = activeUserOverride?.id ?? profile?.id ?? null;
+    const fallbackProfile = ownedProfiles.find((profileItem) => profileItem.id === previousProfileId) ?? ownedProfiles[0] ?? null;
+    console.log("PROFILE_HYDRATION_FALLBACK_PROFILE", fallbackProfile);
+
+    const resolvedProfile = selectedProfile ?? fallbackProfile ?? null;
+    setActiveUserOverride(null);
+    setProfile(resolvedProfile);
+    setCurrentUserId(resolvedProfile?.id ?? null);
+
+    if (resolvedProfile?.id) {
+      await AsyncStorage.setItem(getActiveProfileStorageKey(authUser.id), resolvedProfile.id);
+    } else {
+      await AsyncStorage.removeItem(getActiveProfileStorageKey(authUser.id));
+    }
+
+    console.log("PROFILE_HYDRATION_COMPLETE", {
+      activeProfileId: resolvedProfile?.id ?? null,
+      displayName: resolvedProfile?.display_name ?? null,
+      avatarUrl: resolvedProfile?.avatar_url ?? null
+    });
+    console.log("PROFILE_STATE_RESET_REASON", reason);
+    setLoadingProfile(false);
+  };
 
   const loadOwnedProfiles = async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -1676,9 +1745,12 @@ export default function App() {
     setShowAdminCreateProfile(false);
     setSwitchableAccounts([]);
     setSelectedSpot(null);
-    setActiveUserOverride(selectedProfile);
+    setActiveUserOverride(null);
+    setProfile(selectedProfile);
     setCurrentUserId(selectedProfile.id);
-    await fetchProfile(selectedProfile.id);
+    if (authenticatedUserId) {
+      await AsyncStorage.setItem(getActiveProfileStorageKey(authenticatedUserId), selectedProfile.id);
+    }
     await fetchSharedData();
     await fetchBuddiesData();
     console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: selectedProfile.id, activeUserEmail: activeAppUserEmail });
@@ -1698,6 +1770,10 @@ export default function App() {
   useEffect(() => {
     console.log("ACTIVE_DAY_SOURCE_OF_TRUTH", activeDay);
   }, [activeDay]);
+
+  useEffect(() => {
+    setCurrentUserId(activeAppUserId ?? null);
+  }, [activeAppUserId]);
 
   useEffect(() => {
     let isMounted = true;
@@ -2239,52 +2315,6 @@ export default function App() {
     await fetchBuddiesData();
   };
 
-  const fetchProfile = async (userId: string, options?: { showLoader?: boolean }) => {
-    const showLoader = options?.showLoader ?? true;
-
-    if (showLoader) {
-      setLoadingProfile(true);
-    }
-
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, display_name, avatar_url, owner_uid, created_at')
-      .eq('id', userId)
-      .maybeSingle();
-    let resolvedProfile = data ?? null;
-
-    if (!resolvedProfile && !error) {
-      const ownerLookup = await supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, owner_uid, created_at')
-        .eq('owner_uid', userId)
-        .order('created_at', { ascending: true })
-        .limit(1);
-      if (!ownerLookup.error) {
-        resolvedProfile = ownerLookup.data?.[0] ?? null;
-      }
-    }
-
-    if (error) {
-      setProfile(null);
-      console.error('Failed to load profile:', error);
-    } else {
-      setProfile(resolvedProfile);
-      console.log('PROFILE_STATE_LOADED', {
-        requestedUserId: userId,
-        profileUserId: resolvedProfile?.id ?? null,
-        displayName: resolvedProfile?.display_name ?? null,
-        avatarUrl: resolvedProfile?.avatar_url ?? null,
-      });
-    }
-
-    if (showLoader) {
-      setLoadingProfile(false);
-    }
-
-    return resolvedProfile;
-  };
-
   const mapSessionStatus = (status: string): SessionStatus => {
     if (status === 'Ik ben geweest' || status === 'finished') {
       return 'Uitchecken';
@@ -2648,9 +2678,6 @@ export default function App() {
 
   useEffect(() => {
     void fetchSpotDefinitions();
-    void supabase.auth.getUser().then(({ data }) => {
-      setCurrentUserId(data.user?.id ?? null);
-    });
 
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
@@ -2659,27 +2686,18 @@ export default function App() {
         userId: nextSession?.user.id ?? null,
       });
       setSession(nextSession);
-      setActiveUserOverride(null);
-      setCurrentUserId(nextSession?.user.id ?? null);
       setLoadingSession(false);
 
       if (nextSession) {
-        setProfile(null);
-        console.log('PROFILE_STATE_RESET', {
-          reason: 'auth_session_initialized',
-          previousUserId: profile?.id ?? null,
-          nextUserId: nextSession.user.id,
-        });
         void fetchSpotDefinitions();
-        void fetchProfile(nextSession.user.id);
+        void hydrateActiveProfile(nextSession.user, 'auth_session_initialized');
         void fetchSharedData();
       } else {
+        console.log("PROFILE_STATE_RESET_REASON", 'no_session_on_init');
+        setCurrentUserId(null);
+        setSwitchableAccounts([]);
+        setActiveUserOverride(null);
         setProfile(null);
-        console.log('PROFILE_STATE_RESET', {
-          reason: 'no_session_on_init',
-          previousUserId: profile?.id ?? null,
-          nextUserId: null,
-        });
       }
     });
 
@@ -2691,22 +2709,18 @@ export default function App() {
         userId: nextSession?.user.id ?? null,
       });
       setSession(nextSession);
-      setActiveUserOverride(null);
-      setCurrentUserId(nextSession?.user.id ?? null);
-
-      console.log('PROFILE_STATE_RESET', {
-        reason: nextSession ? 'auth_user_changed' : 'logout',
-        previousUserId: profile?.id ?? null,
-        nextUserId: nextSession?.user.id ?? null,
-      });
-      setProfile(null);
 
       if (!nextSession) {
+        console.log("PROFILE_STATE_RESET_REASON", 'logout');
+        setCurrentUserId(null);
+        setSwitchableAccounts([]);
+        setActiveUserOverride(null);
+        setProfile(null);
         resetFlow();
         return;
       }
 
-      void fetchProfile(nextSession.user.id);
+      void hydrateActiveProfile(nextSession.user, 'auth_user_changed');
       void fetchSpotDefinitions();
       void fetchSharedData();
     });
@@ -2716,22 +2730,22 @@ export default function App() {
     };
   }, []);
 
-  const headerProfile = profile
+  const headerProfile = activeProfile
     ? {
-      userId: profile.id,
-      displayName: profile.display_name,
-      avatarUrl: profile.avatar_url,
+      userId: activeProfile.id,
+      displayName: activeProfile.display_name,
+      avatarUrl: activeProfile.avatar_url,
     }
     : null;
 
   useEffect(() => {
-    console.log('HEADER_PROFILE_RENDER', {
-      sessionUserId: activeAppUserId ?? null,
-      profileUserId: headerProfile?.userId ?? null,
+    console.log("PROFILE_RENDER_STATE", {
+      authUserId: authenticatedUserId ?? null,
+      activeProfileId: headerProfile?.userId ?? null,
       displayName: headerProfile?.displayName ?? null,
       avatarUrl: headerProfile?.avatarUrl ?? null,
     });
-  }, [headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId, activeAppUserId]);
+  }, [authenticatedUserId, headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId]);
 
   useEffect(() => {
     if (showProfile && profile) {
@@ -3217,7 +3231,7 @@ export default function App() {
     console.log("ACTIVE_DAY", activeDay);
   }, [activeDay]);
   const plannedSession = useMemo(() => {
-    const currentUserId = session?.user?.id;
+    const currentUserId = activeAppUserId;
     if (!currentUserId) {
       return null;
     }
@@ -3244,7 +3258,7 @@ export default function App() {
         const bCreatedAt = b.createdAt ? new Date(b.createdAt).getTime() : 0;
         return bCreatedAt - aCreatedAt;
       })[0] ?? null;
-  }, [activeDateEnd, activeDateStart, activeDay, sessionsBySpot, session?.user?.id]);
+  }, [activeAppUserId, activeDateEnd, activeDateStart, activeDay, sessionsBySpot]);
   const activeBannerSession = activeCheckedInSession ?? plannedSession;
   useEffect(() => {
     console.log("USER_STATUS_BANNER_SESSION", activeBannerSession);
@@ -4747,7 +4761,7 @@ export default function App() {
       onSignupSuccess={() => {
         void supabase.auth.getSession().then(({ data }) => {
           if (data.session) {
-            void fetchProfile(data.session.user.id);
+            void hydrateActiveProfile(data.session.user, 'signup_success');
             void fetchSharedData();
           }
         });
@@ -4756,8 +4770,28 @@ export default function App() {
     />;
   }
 
+  if (profileHydrationError && session) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+        <Text style={{ color: theme.text, textAlign: 'center' }}>{profileHydrationError}</Text>
+        <Pressable
+          onPress={() => {
+            void hydrateActiveProfile(session.user, 'retry_after_profile_query_error');
+          }}
+          style={{ marginTop: 16, backgroundColor: theme.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 }}
+        >
+          <Text style={{ color: theme.text, fontWeight: '600' }}>Retry</Text>
+        </Pressable>
+      </SafeAreaView>
+    );
+  }
+
   if (!profile) {
-    return <NameSetupScreen userId={session.user.id} onSaved={setProfile} />;
+    return <NameSetupScreen userId={session.user.id} onSaved={(savedProfile) => {
+      setProfile(savedProfile);
+      setCurrentUserId(savedProfile.id);
+      void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
+    }} />;
   }
 
   if (showYourSpotsPage) {
