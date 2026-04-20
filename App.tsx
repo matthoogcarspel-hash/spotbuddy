@@ -1186,13 +1186,19 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDa
   
   const activeProfileId = currentProfileId ?? null;
   const sameProfile = Boolean(item.userId && activeProfileId && item.userId === activeProfileId);
+  const canJoin = Boolean(
+    activeProfileId
+    && item?.id
+    && item.userId !== activeProfileId
+    && !alreadyJoined,
+  );
   let joinBlockReason = 'eligible';
   let canShowJoin = false;
   if (!isSelected) {
     joinBlockReason = 'not_selected';
   } else if (!isVisibleInCurrentMode) {
     joinBlockReason = 'not_visible_in_mode';
-  } else if (!activeProfileId) {
+  } else if (!canJoin) {
     joinBlockReason = 'missing_active_profile';
   } else if (sameProfile) {
     joinBlockReason = 'same_active_profile';
@@ -3933,7 +3939,8 @@ export default function App() {
   }, [activeDay, filteredMessages]);
 
   const timelineSessions = useMemo(() => {
-    const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    const dedupedSessions = Array.from(new Map(safeSessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
     
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
@@ -3947,7 +3954,12 @@ export default function App() {
     
     const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
       if (timelineFilter === 'buddies') {
-        return followingUserIds.includes(item.userId);
+        if (!activeAppUserId) {
+          return false;
+        }
+        const isSelf = item.userId === activeAppUserId;
+        const isBuddyUser = followingUserIds.includes(item.userId);
+        return isSelf || isBuddyUser;
       }
       return true;
     });
@@ -5498,73 +5510,64 @@ export default function App() {
       const activeProfile = {
         id: activeAppUserId ?? null,
       };
-      console.log('JOIN_ATTEMPT', {
-        actorProfileId: activeProfile?.id ?? null,
-        targetSessionId: targetSession?.id ?? null,
-        targetSessionUserId: targetSession?.userId ?? null,
-        selectedDay: activeDay,
-      });
+      const sessionOwnerId = targetSession?.userId ?? null;
 
-      const activeProfileId = activeProfile.id;
-      if (!activeProfileId || typeof activeProfileId !== 'string') {
-        setSessionActionError('Session could not be joined');
-        return;
-      }
-      if (!targetSession?.id || typeof targetSession.id !== 'string') {
-        setSessionActionError('Session could not be joined');
-        return;
-      }
-      if (targetSession.userId === activeProfileId) {
+      try {
+        if (!activeProfile?.id) throw new Error('NO_ACTIVE_PROFILE');
+        if (!targetSession?.id) throw new Error('NO_SESSION');
+
+        console.log('JOIN_ATTEMPT', {
+          actor: activeProfile.id,
+          session: targetSession.id,
+          owner: sessionOwnerId,
+        });
+
+        if (sessionOwnerId === activeProfile.id) {
+          return { error: 'SELF_JOIN_BLOCKED' };
+        }
+
+        if (activeDay !== 'today') {
+          throw new Error('NON_JOINABLE_DAY');
+        }
+
+        const existingParticipantsResponse = await supabase
+          .from('session_participants')
+          .select('session_id, user_id')
+          .eq('session_id', targetSession.id);
+        if (existingParticipantsResponse.error) {
+          throw existingParticipantsResponse.error;
+        }
+
+        const existingParticipants = Array.isArray(existingParticipantsResponse.data)
+          ? existingParticipantsResponse.data
+          : [];
+        const alreadyJoined = existingParticipants.some(
+          (p) => p?.session_id === targetSession.id && p?.user_id === activeProfile.id,
+        );
+        if (alreadyJoined) {
+          return;
+        }
+
+        const joinResult = await supabase
+          .from('session_participants')
+          .insert({
+            session_id: targetSession.id,
+            user_id: activeProfile.id,
+          });
+
+        console.log('JOIN_RESULT', { data: joinResult.data ?? null, error: joinResult.error ?? null });
+
+        if (joinResult.error) {
+          throw joinResult.error;
+        }
+
         setSessionActionError('');
-        return;
-      }
-      if (activeDay !== 'today') {
+        await fetchSharedData();
+        setSelectedTimelineSessionId(null);
+      } catch (error) {
+        console.error('JOIN_ERROR', error);
         setSessionActionError('Session could not be joined');
-        return;
       }
-
-      const duplicateCheck = await supabase
-        .from('session_participants')
-        .select('id')
-        .eq('session_id', targetSession.id)
-        .eq('user_id', activeProfileId)
-        .maybeSingle();
-      const alreadyJoined = Boolean(duplicateCheck.data);
-      console.log('JOIN_DUPLICATE_CHECK', {
-        alreadyJoined,
-      });
-      if (duplicateCheck.error) {
-        console.error('JOIN_DUPLICATE_CHECK_ERROR', duplicateCheck.error);
-        setSessionActionError('Session could not be joined');
-        return;
-      }
-      if (alreadyJoined) {
-        setSessionActionError('');
-        return;
-      }
-
-      const joinResult = await supabase
-        .from('session_participants')
-        .insert([{ session_id: targetSession.id, user_id: activeProfileId }])
-        .select('id, session_id, user_id');
-      console.log('JOIN_DB_RESULT', {
-        data: joinResult.data ?? null,
-        error: joinResult.error ?? null,
-      });
-
-      if (joinResult.error) {
-        console.error('JOIN_DB_ERROR', joinResult.error);
-        setSessionActionError('Session could not be joined');
-        return;
-      }
-
-      setSessionActionError('');
-      await fetchSharedData();
-      console.log('JOIN_REFETCH_DONE', {
-        selectedSpot: selectedSpot ?? null,
-        selectedDay: activeDay,
-      });
-      setSelectedTimelineSessionId(null);
     };
     const handleSave = async () => {
       
