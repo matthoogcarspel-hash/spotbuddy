@@ -37,7 +37,6 @@ type SpotSession = {
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
-  participants: string[];
   userOwnerUid?: string | null;
   resolvedActorProfileId?: string | null;
 };
@@ -2850,9 +2849,6 @@ export default function App() {
           userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by,
           userName: row.display_name,
           userAvatarUrl: row.avatar_url,
-          participants: Array.isArray(row.participants)
-            ? row.participants.filter((participant): participant is string => typeof participant === 'string')
-            : [],
           userOwnerUid: row.owner_uid ?? null,
           resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
         });
@@ -3914,7 +3910,7 @@ export default function App() {
 
     return (
       [...sessions]
-        .filter((sessionItem) => (Array.isArray(sessionItem.participants) ? sessionItem.participants : []).includes(activeAppUserId))
+        .filter((sessionItem) => sessionItem.userId === activeAppUserId)
         .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot))
         .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
         .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
@@ -4409,19 +4405,18 @@ export default function App() {
     intent: SessionIntent;
     checked_in_at: null;
     checked_out_at: null;
-    participants?: string[];
     created_at?: string;
   }) => {
     
     if (!activeProfile?.id) {
       return { data: null, error: { message: 'missing_auth_user_id' } } as const;
     }
-    const writePayload = { ...payload, user_id: activeProfile.id, participants: [activeProfile.id] };
+    const writePayload = { ...payload, user_id: activeProfile.id };
     
     return supabase
       .from('sessions')
       .insert(writePayload)
-      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent, participants')
+      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent')
       .single();
   };
 
@@ -4617,7 +4612,6 @@ export default function App() {
     const insertPayload = {
       spot_name: canonicalSpot,
       user_id: activeProfileId,
-      participants: [activeProfileId],
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
@@ -5808,22 +5802,31 @@ export default function App() {
       const joinDateRange = getIsoDateRangeForLocalDateKey(activeDateKey);
       const duplicateResult = await supabase
         .from('sessions')
-        .select('id')
+        .select('id, user_id, profile_id, spot_name, spot_id, start_time, end_time')
         .eq('user_id', activeProfile.id)
         .eq('spot_name', payload.spot_name)
         .eq('start_time', payload.start_time)
         .eq('end_time', payload.end_time)
         .gte('created_at', joinDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
         .lt('created_at', joinDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z')
-        .limit(1)
-        .maybeSingle();
+        .limit(10);
 
       if (duplicateResult.error) {
         console.error('JOIN_ERROR', duplicateResult.error);
         return false;
       }
 
-      const alreadyJoined = Boolean(duplicateResult.data?.id);
+      const existingSessions = duplicateResult.data ?? [];
+      const alreadyJoined = existingSessions.some((existingSession) => {
+        const sameSpot = normalizeSpotName(existingSession.spot_name ?? payload.spot_name) === normalizeSpotName(payload.spot_name);
+        const existingProfileId = existingSession.profile_id ?? existingSession.user_id ?? null;
+        return (
+          existingProfileId === activeProfile.id
+          && existingSession.start_time === normalizedStart
+          && existingSession.end_time === normalizedEnd
+          && sameSpot
+        );
+      });
 
       console.log('JOIN_DUPLICATE_CHECK', {
         activeProfileId: activeProfile?.id ?? null,
@@ -5856,12 +5859,7 @@ export default function App() {
 
       const writeResult = await supabase
         .from('sessions')
-        .insert({
-          ...payload,
-          participants: [activeProfile.id],
-        })
-        .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent, participants')
-        .single();
+        .insert([payload]);
 
       console.log('JOIN_WRITE_RESULT', {
         data: writeResult.data,
