@@ -1156,6 +1156,7 @@ type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
   currentProfileId: string | null | undefined;
   alreadyJoined: boolean;
+  sessionParticipants: Array<{ session_id: string; user_id: string }>;
   activeDay: ActiveDay;
   isVisibleInCurrentMode: boolean;
   timelineWindowStartMinutes: number;
@@ -1165,7 +1166,7 @@ type SessionRowProps = {
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentProfileId, alreadyJoined, sessionParticipants, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
   const intentLabel = getIntentGoingLabel(resolvedIntent);
@@ -1186,12 +1187,31 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDa
   
   const activeProfileId = currentProfileId ?? null;
   const sameProfile = Boolean(item.userId && activeProfileId && item.userId === activeProfileId);
-  const canJoin = Boolean(
-    activeProfileId
-    && item?.id
-    && item.userId !== activeProfileId
-    && !alreadyJoined,
-  );
+  const targetSession = item;
+  const safeParticipants = Array.isArray(sessionParticipants) ? sessionParticipants : [];
+  const normalizedParticipants = safeParticipants.map((p) => ({
+    session_id: p?.session_id ?? null,
+    user_id: p?.user_id ?? null,
+  }));
+  const alreadyJoinedByParticipants = normalizedParticipants.some((p) => {
+    return p?.session_id === targetSession?.id && p?.user_id === activeProfileId;
+  });
+  const canJoin =
+    Boolean(activeProfileId) &&
+    Boolean(targetSession?.id) &&
+    targetSession?.userId !== activeProfileId &&
+    !alreadyJoinedByParticipants &&
+    isVisibleInCurrentMode;
+  console.log('JOIN_CTA_DECISION', {
+    activeProfileId: activeProfileId ?? null,
+    targetSessionId: targetSession?.id ?? null,
+    targetSessionOwnerId: targetSession?.userId ?? null,
+    participantsLoaded: Array.isArray(sessionParticipants),
+    participantsCount: safeParticipants.length,
+    alreadyJoined: alreadyJoinedByParticipants,
+    isSessionVisibleInCurrentMode: isVisibleInCurrentMode,
+    canJoin,
+  });
   let joinBlockReason = 'eligible';
   let canShowJoin = false;
   if (!isSelected) {
@@ -1202,7 +1222,7 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDa
     joinBlockReason = 'missing_active_profile';
   } else if (sameProfile) {
     joinBlockReason = 'same_active_profile';
-  } else if (alreadyJoined) {
+  } else if (alreadyJoinedByParticipants || alreadyJoined) {
     joinBlockReason = 'duplicate_for_active_profile';
   } else if (state === 'completed') {
     joinBlockReason = 'session_completed';
@@ -1263,6 +1283,7 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDa
 type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
   sessionParticipantsBySessionId: Record<string, string[]>;
+  sessionParticipants: Array<{ session_id: string; user_id: string }>;
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   activeDay: ActiveDay;
@@ -1279,6 +1300,7 @@ type SessionTimelineProps = {
 function SessionTimeline({
   timelineSessions,
   sessionParticipantsBySessionId,
+  sessionParticipants,
   selectedTimelineSessionId,
   currentProfileId,
   activeDay,
@@ -1390,6 +1412,7 @@ function SessionTimeline({
               timelineSession={timelineSession}
               currentProfileId={currentProfileId}
               alreadyJoined={alreadyJoined}
+              sessionParticipants={sessionParticipants}
               activeDay={activeDay}
               isVisibleInCurrentMode={timelineFilter === 'everyone' || timelineSession.isBuddy}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
@@ -1440,6 +1463,7 @@ export default function App() {
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [sessionParticipantsBySessionId, setSessionParticipantsBySessionId] = useState<Record<string, string[]>>({});
+  const [sessionParticipants, setSessionParticipants] = useState<Array<{ session_id: string; user_id: string }>>([]);
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
@@ -2572,10 +2596,35 @@ export default function App() {
           .select('session_id, user_id')
           .in('session_id', sessionIds)
       : { data: [], error: null };
-    if (sessionParticipantsResponse.error) {
-      console.error('Failed to load session participants:', sessionParticipantsResponse.error);
+    const sessionParticipantsError = sessionParticipantsResponse.error;
+    const shouldFallbackToEmptyParticipants = Boolean(
+      sessionParticipantsError
+      && (
+        sessionParticipantsError?.code === 'PGRST205'
+        || String(sessionParticipantsError?.message ?? '').includes('Could not find the table public.session_participants')
+        || String(sessionParticipantsError?.message ?? '').includes('404')
+      ),
+    );
+    if (sessionParticipantsError && shouldFallbackToEmptyParticipants) {
+      console.log('SESSION_PARTICIPANTS_FALLBACK_EMPTY', {
+        reason: sessionParticipantsError?.code ?? sessionParticipantsError?.message ?? 'unknown',
+      });
+    } else if (sessionParticipantsError) {
+      console.error('Failed to load session participants:', sessionParticipantsError);
     }
-    const nextSessionParticipantsBySessionId = (sessionParticipantsResponse.data ?? []).reduce<Record<string, string[]>>((accumulator, row) => {
+    const resolvedSessionParticipants = shouldFallbackToEmptyParticipants
+      ? []
+      : (Array.isArray(sessionParticipantsResponse.data) ? sessionParticipantsResponse.data : []).reduce<Array<{ session_id: string; user_id: string }>>((accumulator, row) => {
+        const sessionId = typeof row.session_id === 'string' ? row.session_id : null;
+        const userId = typeof row.user_id === 'string' ? row.user_id : null;
+        if (!sessionId || !userId) {
+          return accumulator;
+        }
+        accumulator.push({ session_id: sessionId, user_id: userId });
+        return accumulator;
+      }, []);
+    setSessionParticipants(resolvedSessionParticipants);
+    const nextSessionParticipantsBySessionId = resolvedSessionParticipants.reduce<Record<string, string[]>>((accumulator, row) => {
       const sessionId = typeof row.session_id === 'string' ? row.session_id : null;
       const userId = typeof row.user_id === 'string' ? row.user_id : null;
       if (!sessionId || !userId) {
@@ -3955,16 +4004,22 @@ export default function App() {
     
     
     const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
-      const sessionOwnerId = typeof item?.userId === 'string' ? item.userId : null;
+      const session = item;
+      const sessionOwnerId = typeof session?.userId === 'string' ? session.userId : (typeof (session as { user_id?: unknown })?.user_id === 'string' ? (session as { user_id: string }).user_id : null);
       const activeProfileId = activeProfile?.id ?? null;
-      const isSelf = Boolean(activeProfileId && sessionOwnerId && sessionOwnerId === activeProfileId);
-      const isBuddyUser = Boolean(sessionOwnerId && (Array.isArray(followingUserIds) ? followingUserIds : []).includes(sessionOwnerId));
-      const include = timelineFilter === 'buddies' ? (isSelf || isBuddyUser) : true;
+      const isBuddy = (userId: string | null | undefined) => Boolean(userId && (Array.isArray(followingUserIds) ? followingUserIds : []).includes(userId));
+      const include =
+        timelineFilter === 'buddies'
+          ? (
+            sessionOwnerId === activeProfile?.id ||
+            isBuddy(sessionOwnerId)
+          )
+          : true;
       console.log('BUDDIES_VISIBILITY_CHECK', {
         activeProfileId,
-        sessionOwnerId: sessionOwnerId,
-        isSelf,
-        isBuddyUser,
+        sessionOwnerId,
+        isSelf: sessionOwnerId === activeProfile?.id,
+        isBuddyUser: isBuddy(sessionOwnerId),
         include,
       });
       return include;
@@ -6232,6 +6287,7 @@ export default function App() {
           <SessionTimeline
             timelineSessions={timelineSessions}
             sessionParticipantsBySessionId={sessionParticipantsBySessionId}
+            sessionParticipants={sessionParticipants}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             activeDay={activeDay}
