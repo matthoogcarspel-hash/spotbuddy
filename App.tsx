@@ -1219,7 +1219,7 @@ type SessionRowProps = {
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
   activeDay: ActiveDay;
-  ownSessionsOnThisSpotDay: SpotSession[];
+  hasOwnSessionOnSelectedSpotDay: boolean;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
@@ -1235,7 +1235,7 @@ function SessionRow({
   currentProfileId,
   selectedSpot,
   activeDay,
-  ownSessionsOnThisSpotDay,
+  hasOwnSessionOnSelectedSpotDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
@@ -1278,37 +1278,23 @@ function SessionRow({
       && sameSpot(session, selectedSpot)
     );
   });
-  const safeOwnSessionsOnThisSpotDay = Array.isArray(ownSessionsOnThisSpotDay) ? ownSessionsOnThisSpotDay : [];
-  const existingOwnSessionOnSpotDay = safeOwnSessionsOnThisSpotDay.find((session) => {
-    return (
-      session?.user_id === activeProfileId
-      && sameSpot(session, selectedSpot)
-      && isSessionOnActiveDay(session, activeDay)
-    );
-  }) ?? null;
-  const hasOwnSessionOnSpotDay = Boolean(existingOwnSessionOnSpotDay);
-  const canJoinGroup = Boolean(activeProfileId)
+  const canRenderAnyJoinCTA = !hasOwnSessionOnSelectedSpotDay;
+  const canJoinGroup = canRenderAnyJoinCTA
+    && Boolean(activeProfileId)
     && safeVisibleRows.length > 0
-    && !alreadyJoinedGroup
-    && !hasOwnSessionOnSpotDay;
+    && !alreadyJoinedGroup;
 
   console.log('GROUP_VISIBLE_ROWS', {
     startTime: group.startTime,
     endTime: group.endTime,
     visibleRows: safeVisibleRows.length,
   });
-  console.log("SINGLE_SESSION_RULE_CHECK", {
-    activeProfileId: activeProfileId ?? null,
-    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-    activeDay,
-    existingSessionId: existingOwnSessionOnSpotDay?.id ?? null,
-    hasOwnSessionOnSpotDay,
-  });
-  console.log("SINGLE_SESSION_JOIN_DECISION", {
+  console.log("HARD_JOIN_CTA_DECISION", {
     groupStart: group.startTime,
     groupEnd: group.endTime,
+    hasOwnSessionOnSelectedSpotDay,
     alreadyJoinedGroup,
-    hasOwnSessionOnSpotDay,
+    visibleRows: safeVisibleRows.length,
     canJoinGroup,
   });
 
@@ -1407,7 +1393,7 @@ type SessionTimelineProps = {
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
   activeDay: ActiveDay;
-  activeDateKey: string;
+  hasOwnSessionOnSelectedSpotDay: boolean;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1425,7 +1411,7 @@ function SessionTimeline({
   currentProfileId,
   selectedSpot,
   activeDay,
-  activeDateKey,
+  hasOwnSessionOnSelectedSpotDay,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1453,16 +1439,6 @@ function SessionTimeline({
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
   const safeSessions = useMemo(() => (Array.isArray(timelineSessions) ? timelineSessions : []), [timelineSessions]);
-  const ownSessionsOnThisSpotDay = useMemo(() => {
-    const safeSessionItems = (Array.isArray(safeSessions) ? safeSessions : []).map((sessionEntry) => sessionEntry?.item).filter(Boolean);
-    return safeSessionItems.filter((session) => {
-      return (
-        session?.user_id === (currentProfileId ?? null)
-        && sameSpot(session, selectedSpot)
-        && isSessionForLocalDate(session, activeDateKey)
-      );
-    });
-  }, [activeDateKey, currentProfileId, safeSessions, selectedSpot]);
   const groupedSessions = useMemo<SessionGroup[]>(() => {
     const groups = new Map<string, SessionGroup>();
 
@@ -1580,7 +1556,7 @@ function SessionTimeline({
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
                 activeDay={activeDay}
-                ownSessionsOnThisSpotDay={ownSessionsOnThisSpotDay}
+                hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -3844,16 +3820,12 @@ export default function App() {
       return null;
     }
 
-    return (
-      allUserSessions
-        .filter((sessionItem) => sessionItem.userId === activeAppUserId)
-        .filter((sessionItem) => !editingSessionId || sessionItem.id !== editingSessionId)
-        .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
-        .filter((sessionItem) => isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes))
-        .find((sessionItem) => hasTimeOverlap(currentPlanningStart, currentPlanningEnd, sessionItem.start, sessionItem.end))
-      ?? null
-    );
-  }, [activeDateEnd, activeDateStart, allUserSessions, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, activeAppUserId]);
+    if (editingSessionId && existingOwnSessionOnSelectedSpotDay?.id === editingSessionId) {
+      return null;
+    }
+
+    return existingOwnSessionOnSelectedSpotDay;
+  }, [activeAppUserId, currentPlanningEnd, currentPlanningStart, editingSessionId, existingOwnSessionOnSelectedSpotDay]);
   useEffect(() => {
     
   }, [planningNowReference]);
@@ -3961,6 +3933,24 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
+  const existingOwnSessionOnSelectedSpotDay = useMemo(() => {
+    const safeSessions = Array.isArray(sessions) ? sessions : [];
+    return safeSessions.find((session) => {
+      return (
+        session?.user_id === activeProfile?.id
+        && sameSpot(session, selectedSpot)
+        && isSessionOnActiveDay(session, activeDay)
+      );
+    }) ?? null;
+  }, [activeDay, activeProfile?.id, selectedSpot, sessions]);
+  const hasOwnSessionOnSelectedSpotDay = Boolean(existingOwnSessionOnSelectedSpotDay);
+  console.log("HARD_SINGLE_SESSION_STATE", {
+    activeProfileId: activeProfile?.id ?? null,
+    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    activeDay,
+    existingSessionId: existingOwnSessionOnSelectedSpotDay?.id ?? null,
+    hasOwnSessionOnSelectedSpotDay,
+  });
   
   
   const joinedSession = useMemo(() => {
@@ -3996,22 +3986,14 @@ export default function App() {
     && !joinedSession.checkedOutAt,
   );
   
-  const hasPlannedSessionAtSelectedSpot = Boolean(joinedSession);
-  const hasConflictingSession = Boolean(
-    allUserSessions.some(
-      (sessionItem) =>
-        (!editingSessionId || sessionItem.id !== editingSessionId)
-        && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd)
-        && isSessionStillRelevantForPlanning(sessionItem, currentLocalMinutes),
-    ),
-  );
-  const canPlanSession = !hasPlannedSessionAtSelectedSpot && !hasConflictingSession;
-  const shouldHidePlanSessionButton = hasPlannedSessionAtSelectedSpot || hasConflictingSession;
+  const hasConflictingSession = hasOwnSessionOnSelectedSpotDay;
+  const canPlanSession = !hasOwnSessionOnSelectedSpotDay;
+  const shouldHidePlanSessionButton = hasOwnSessionOnSelectedSpotDay;
   const shouldDisablePlanSessionButton = !shouldHidePlanSessionButton && !canPlanSession;
   const planSessionVisible = !shouldHidePlanSessionButton && !shouldDisablePlanSessionButton;
   useEffect(() => {
     
-  }, [activeDay, hasConflictingSession, planSessionVisible]);
+  }, [activeDay, hasOwnSessionOnSelectedSpotDay, planSessionVisible]);
 
   
   if (shouldHidePlanSessionButton) {
@@ -5825,31 +5807,24 @@ export default function App() {
         return { ok: false, reason: 'NO_SELECTED_SPOT' as const };
       }
 
-      const safeSessions = Array.isArray(sessions) ? sessions : [];
-      const existingOwnSessionOnSpotDay = safeSessions.find((session) => {
-        if (session?.user_id !== activeProfile?.id) {
-          return false;
-        }
-        if (!sameSpot(session, joinSelectedSpot)) {
-          return false;
-        }
-        if (!isSessionOnActiveDay(session, joinActiveDay)) {
-          return false;
-        }
-        return true;
-      }) ?? null;
-      const hasOwnSessionOnSpotDay = Boolean(existingOwnSessionOnSpotDay);
-      console.log("SINGLE_SESSION_RULE_CHECK", {
-        activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: (joinSelectedSpot as { name?: string } | null)?.name ?? joinSelectedSpot ?? null,
-        activeDay: joinActiveDay,
-        existingSessionId: existingOwnSessionOnSpotDay?.id ?? null,
-        hasOwnSessionOnSpotDay,
+      const { data: ownSessions, error: ownSessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('user_id', activeProfile.id);
+
+      if (ownSessionsError) {
+        console.error("HARD_SINGLE_SESSION_QUERY_ERROR", ownSessionsError);
+        return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED' as const };
+      }
+
+      const safeOwnSessions = Array.isArray(ownSessions) ? ownSessions : [];
+      const existingOwnSession = safeOwnSessions.find((session) => {
+        return sameSpot(session, joinSelectedSpot) && isSessionOnActiveDay(session, joinActiveDay);
       });
-      if (hasOwnSessionOnSpotDay) {
-        console.log("SINGLE_SESSION_JOIN_BLOCKED", {
-          reason: "USER_ALREADY_HAS_SESSION_ON_SPOT_DAY",
-          existingSessionId: existingOwnSessionOnSpotDay?.id ?? null,
+
+      if (existingOwnSession) {
+        console.log("HARD_SINGLE_SESSION_BLOCKED", {
+          existingSessionId: existingOwnSession.id,
         });
         showAlert('You already have a session on this spot today');
         return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
@@ -5991,7 +5966,7 @@ export default function App() {
 
       
       if (planningOverlapBlockingSession) {
-        setFormError('You already have a session at this time');
+        setFormError('You already have a session on this spot today');
         return;
       }
 
@@ -6001,6 +5976,33 @@ export default function App() {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
         
+        return;
+      }
+
+      const { data: ownSessions, error: ownSessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('user_id', activeProfileId);
+
+      if (ownSessionsError) {
+        console.error("HARD_SINGLE_SESSION_QUERY_ERROR", ownSessionsError);
+        setFormError('Planning the session failed. Please try again.');
+        return;
+      }
+
+      const safeOwnSessions = Array.isArray(ownSessions) ? ownSessions : [];
+      const existingOwnSession = safeOwnSessions.find((session) => {
+        if (editingSessionId && session?.id === editingSessionId) {
+          return false;
+        }
+        return sameSpot(session, selectedSpot) && isSessionOnActiveDay(session, activeDay);
+      });
+
+      if (existingOwnSession) {
+        console.log("HARD_SINGLE_SESSION_BLOCKED", {
+          existingSessionId: existingOwnSession.id,
+        });
+        setFormError('You already have a session on this spot today');
         return;
       }
 
@@ -6050,7 +6052,7 @@ export default function App() {
       }
 
       if (exactDuplicateResult.data) {
-        setFormError('You already have a session at this time');
+        setFormError('You already have a session on this spot today');
         setSaveError({
           message: 'sessions_unique',
           details: `duplicate_planned_session_id:${exactDuplicateResult.data.id}`,
@@ -6279,7 +6281,7 @@ export default function App() {
                   return;
                 }
                 if (hasConflictingSession) {
-                  setSessionActionError('You already have a session at this time');
+                  setSessionActionError('You already have a session on this spot today');
                   return;
                 }
                 openEmptyPlanningForm();
@@ -6599,7 +6601,7 @@ export default function App() {
             currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
             activeDay={activeDay}
-            activeDateKey={activeDateKey}
+            hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
