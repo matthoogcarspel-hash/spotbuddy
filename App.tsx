@@ -3954,11 +3954,12 @@ export default function App() {
     
     const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
       const sessionOwnerId = typeof item?.userId === 'string' ? item.userId : null;
-      const isSelf = Boolean(activeAppUserId && sessionOwnerId && sessionOwnerId === activeAppUserId);
+      const activeProfileId = activeProfile?.id ?? null;
+      const isSelf = Boolean(activeProfileId && sessionOwnerId && sessionOwnerId === activeProfileId);
       const isBuddyUser = Boolean(sessionOwnerId && (Array.isArray(followingUserIds) ? followingUserIds : []).includes(sessionOwnerId));
       const include = timelineFilter === 'buddies' ? (isSelf || isBuddyUser) : true;
       console.log('BUDDIES_VISIBILITY_CHECK', {
-        activeProfileId: activeProfile?.id ?? null,
+        activeProfileId,
         sessionOwnerId: sessionOwnerId,
         isSelf,
         isBuddyUser,
@@ -5515,10 +5516,10 @@ export default function App() {
       };
       const targetSessionOwnerId = targetSession?.userId ?? null;
       const joinTable = 'session_participants';
-      console.log('JOIN_SCHEMA_TARGET', {
-        readTable: joinTable,
-        writeTable: joinTable,
-        strategy: 'participants-table',
+      console.log('JOIN_MODEL_SELECTED', {
+        rootCause: 'A',
+        readTarget: joinTable,
+        writeTarget: joinTable,
       });
 
       try {
@@ -5532,6 +5533,7 @@ export default function App() {
         });
 
         if (targetSessionOwnerId === activeProfile.id) {
+          setSessionActionError('You cannot join your own session');
           return { error: 'SELF_JOIN_BLOCKED' };
         }
 
@@ -5555,6 +5557,7 @@ export default function App() {
         );
         console.log('JOIN_DUPLICATE_CHECK', { alreadyJoined });
         if (alreadyJoined) {
+          setSessionActionError('You already joined this session');
           return;
         }
 
