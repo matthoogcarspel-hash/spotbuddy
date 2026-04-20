@@ -1258,6 +1258,7 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, avai
 
 type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
+  sessionParticipantsBySessionId: Record<string, string[]>;
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   currentAuthUserId: string | null | undefined;
@@ -1274,6 +1275,7 @@ type SessionTimelineProps = {
 
 function SessionTimeline({
   timelineSessions,
+  sessionParticipantsBySessionId,
   selectedTimelineSessionId,
   currentProfileId,
   currentAuthUserId,
@@ -1378,14 +1380,17 @@ function SessionTimeline({
               const candidate = timelineSession.item;
               const alreadyJoined = Boolean(
                 activeProfileId
-                && visibleTimelineSessions.some(({ item }) => (
-                  item.id !== candidate.id
-                  && item.userId === activeProfileId
-                  && item.spot === candidate.spot
-                  && item.start === candidate.start
-                  && item.end === candidate.end
-                  && !item.checkedOutAt
-                )),
+                && (
+                  (sessionParticipantsBySessionId[candidate.id] ?? []).includes(activeProfileId)
+                  || visibleTimelineSessions.some(({ item }) => (
+                    item.id !== candidate.id
+                    && item.userId === activeProfileId
+                    && item.spot === candidate.spot
+                    && item.start === candidate.start
+                    && item.end === candidate.end
+                    && !item.checkedOutAt
+                  ))
+                ),
               );
               return (
             <SessionRow
@@ -1442,6 +1447,7 @@ export default function App() {
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
+  const [sessionParticipantsBySessionId, setSessionParticipantsBySessionId] = useState<Record<string, string[]>>({});
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
@@ -2563,6 +2569,32 @@ export default function App() {
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
+    const sessionIds = sessionsData
+      .map((row) => row.id)
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    const sessionParticipantsResponse = sessionIds.length
+      ? await supabase
+          .from('session_participants')
+          .select('session_id, user_id')
+          .in('session_id', sessionIds)
+      : { data: [], error: null };
+    if (sessionParticipantsResponse.error) {
+      console.error('Failed to load session participants:', sessionParticipantsResponse.error);
+    }
+    const nextSessionParticipantsBySessionId = (sessionParticipantsResponse.data ?? []).reduce<Record<string, string[]>>((accumulator, row) => {
+      const sessionId = typeof row.session_id === 'string' ? row.session_id : null;
+      const userId = typeof row.user_id === 'string' ? row.user_id : null;
+      if (!sessionId || !userId) {
+        return accumulator;
+      }
+      const current = accumulator[sessionId] ?? [];
+      if (!current.includes(userId)) {
+        current.push(userId);
+      }
+      accumulator[sessionId] = current;
+      return accumulator;
+    }, {});
+    setSessionParticipantsBySessionId(nextSessionParticipantsBySessionId);
     
     const messagesResponse = selectedSpot
       ? await supabase
@@ -3612,9 +3644,15 @@ export default function App() {
   );
   const viewedSpot = selectedSpot;
   const savedSpots = favoriteSpots;
+  const safeMySpots = Array.isArray(savedSpots) ? savedSpots : [];
   const selectedSpotName = viewedSpot ?? null;
-  const isSelectedSpotSaved = viewedSpot ? savedSpots.includes(viewedSpot) : false;
-  const canAddSelectedSpotToMySpots = Boolean(viewedSpot && !isSelectedSpotSaved && savedSpots.length < HOME_SPOTS_LIMIT);
+  const currentSpot = selectedSpotName ? { id: selectedSpotName } : null;
+  const isAlreadyAdded = Boolean(
+    currentSpot
+    && safeMySpots.some((spotId) => spotId === currentSpot.id),
+  );
+  const isSelectedSpotSaved = isAlreadyAdded;
+  const canAddSelectedSpotToMySpots = Boolean(currentSpot && !isAlreadyAdded && safeMySpots.length < HOME_SPOTS_LIMIT);
   const selectedSpotDefinition = useMemo(
     () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
     [selectedSpot, spotDefinitions],
@@ -5465,36 +5503,18 @@ export default function App() {
       setSessionActionError(message);
     };
 
-    const getSessionDateKeyForJoin = (targetSession: SpotSession & { date?: string | null; session_date?: string | null; day?: string | null }) => {
-      if (targetSession.createdAt) {
-        return getLocalDateKey(new Date(targetSession.createdAt));
+    async function joinSession(sessionId: string, userId: string) {
+      const { error } = await supabase
+        .from('session_participants')
+        .insert([{ session_id: sessionId, user_id: userId }]);
+
+      if (error) {
+        console.error('JOIN ERROR:', error);
+        return false;
       }
 
-      if (targetSession.session_date) {
-        return targetSession.session_date;
-      }
-
-      if (targetSession.date) {
-        return targetSession.date;
-      }
-
-      return selectedPlanningDateKey;
-    };
-
-    const buildJoinSessionPayload = (targetSession: SpotSession, activeProfileId: string) => {
-      const targetSessionDateKey = getSessionDateKeyForJoin(targetSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
-      return {
-        spot_name: targetSession.spot,
-        user_id: activeProfileId,
-        start_time: targetSession.start,
-        end_time: targetSession.end,
-        status: 'Gaat' as const,
-        intent: resolveSessionIntent(targetSession.intent),
-        checked_in_at: null,
-        checked_out_at: null,
-        created_at: getIsoDateFromLocalDateKey(targetSessionDateKey) ?? undefined,
-      };
-    };
+      return true;
+    }
 
     const resolveTargetSessionProfileIdForJoin = (sessionToJoin: SpotSession) => {
       const profileIds = new Set(availableProfiles.map((profileItem) => profileItem.id));
@@ -5530,7 +5550,7 @@ export default function App() {
 
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
-        setSessionActionError('Session could not be saved');
+        setSessionActionError('Session could not be joined');
         return;
       }
 
@@ -5544,17 +5564,7 @@ export default function App() {
         return;
       }
 
-      const targetSessionDateKey = getSessionDateKeyForJoin(targetSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
-      const duplicateJoin = sessions.some((candidateSession) => {
-        const candidateSessionDateKey = getSessionDateKeyForJoin(candidateSession as SpotSession & { date?: string | null; session_date?: string | null; day?: string | null });
-        return (
-          candidateSession.userId === activeProfileId
-          && candidateSession.spot === targetSession.spot
-          && candidateSession.start === targetSession.start
-          && candidateSession.end === targetSession.end
-          && candidateSessionDateKey === targetSessionDateKey
-        );
-      });
+      const duplicateJoin = (sessionParticipantsBySessionId[targetSession.id] ?? []).includes(activeProfileId);
       
       if (duplicateJoin) {
         const blockReason = 'duplicate_join';
@@ -5562,16 +5572,24 @@ export default function App() {
         setSessionActionError('');
         return;
       }
-      const blockReason = null;
-      
+      setSessionParticipantsBySessionId((previous) => {
+        const current = previous[targetSession.id] ?? [];
+        if (current.includes(activeProfileId)) {
+          return previous;
+        }
+        return {
+          ...previous,
+          [targetSession.id]: [...current, activeProfileId],
+        };
+      });
 
-      const createPayload = buildJoinSessionPayload(targetSession, activeProfileId);
-      const payload = { ...createPayload };
-      const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
-      
-      if (error) {
-        const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
-        setSessionActionError(errorMessage);
+      const joinSucceeded = await joinSession(targetSession.id, activeProfileId);
+      if (!joinSucceeded) {
+        setSessionParticipantsBySessionId((previous) => ({
+          ...previous,
+          [targetSession.id]: (previous[targetSession.id] ?? []).filter((id) => id !== activeProfileId),
+        }));
+        setSessionActionError('Session could not be joined');
         return;
       }
       await fetchSharedData();
@@ -5769,30 +5787,32 @@ export default function App() {
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
                 </View>
               ) : null}
-              <Pressable
-                disabled={isSelectedSpotSaved || !canAddSelectedSpotToMySpots}
-                onPress={() => {
-                  if (!selectedSpot) {
-                    return;
-                  }
-                  handleSpotSaveAction(selectedSpot, 'add');
-                }}
-                style={{
-                  marginTop: 10,
-                  alignSelf: 'flex-start',
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  backgroundColor: theme.bgElevated,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  opacity: isSelectedSpotSaved || !canAddSelectedSpotToMySpots ? 0.45 : 1,
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
-                  Add to my spots
-                </Text>
-              </Pressable>
+              {!isAlreadyAdded && (
+                <Pressable
+                  disabled={!canAddSelectedSpotToMySpots}
+                  onPress={() => {
+                    if (!selectedSpot) {
+                      return;
+                    }
+                    handleSpotSaveAction(selectedSpot, 'add');
+                  }}
+                  style={{
+                    marginTop: 10,
+                    alignSelf: 'flex-start',
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: theme.border,
+                    backgroundColor: theme.bgElevated,
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    opacity: canAddSelectedSpotToMySpots ? 1 : 0.45,
+                  }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                    Add to my spots
+                  </Text>
+                </Pressable>
+              )}
             </View>
             <Pressable
               onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
@@ -6222,6 +6242,7 @@ export default function App() {
           </View>
           <SessionTimeline
             timelineSessions={timelineSessions}
+            sessionParticipantsBySessionId={sessionParticipantsBySessionId}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             currentAuthUserId={authenticatedUserId}
