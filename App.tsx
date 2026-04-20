@@ -1085,9 +1085,9 @@ type SessionBarProps = {
 
 function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
   const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
-    planned: { bar: '#204f86', text: '#d7ecff', border: '#63a7ff', borderStyle: 'dashed' },
-    planned_no_check_in: { bar: '#6c4f1c', text: '#fff2dd', border: '#d9a04c', borderStyle: 'dashed' },
-    live: { bar: '#1c8c73', text: '#ecfff7', border: '#35d3ac' },
+    planned: { bar: '#1b3f68', text: '#cae2ff', border: '#5f91c2', borderStyle: 'dashed', opacity: 0.9 },
+    planned_no_check_in: { bar: '#5c471e', text: '#f5e3c6', border: '#bc9153', borderStyle: 'dashed', opacity: 0.88 },
+    live: { bar: '#1f9c7f', text: '#f2fff9', border: '#63e4be' },
     completed: { bar: '#5d6674', text: '#e2e8f1', border: '#8f98a8', opacity: 0.65 },
   };
   const intentStyle = getIntentVisualStyle(intent);
@@ -1115,6 +1115,10 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           borderColor: stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
           opacity: (stateStyle[state].opacity ?? 1) * intentStyle.barOpacity,
+          shadowColor: state === 'live' ? '#63e4be' : '#000000',
+          shadowOpacity: state === 'live' ? 0.2 : 0.06,
+          shadowRadius: state === 'live' ? 4 : 1,
+          shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
           paddingHorizontal: 6,
         }}
@@ -1202,11 +1206,27 @@ type SessionRowProps = {
   timelineFilter: TimelineFilter;
   followingUserIds: string[];
   isSelected: boolean;
+  isActiveGroup: boolean;
+  nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
   onJoin: (request: SessionJoinRequest) => void;
 };
 
-function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timelineWindowStartMinutes, timelineWindowEndMinutes, timelineFilter, followingUserIds, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({
+  group,
+  currentProfileId,
+  selectedSpot,
+  activeDay,
+  timelineWindowStartMinutes,
+  timelineWindowEndMinutes,
+  timelineFilter,
+  followingUserIds,
+  isSelected,
+  isActiveGroup,
+  nearOverlapWithPrevious,
+  onSelect,
+  onJoin,
+}: SessionRowProps) {
   const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
@@ -1244,6 +1264,11 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
     groupEnd: group.endTime,
     riderCount: safeGroupSessions.length,
   });
+  console.log('TIMELINE_GROUP_VISUAL_STATE', {
+    startTime: group.startTime,
+    endTime: group.endTime,
+    isActiveGroup,
+  });
 
   const canJoin = Boolean(activeProfileId) && !alreadyJoinedGroup;
   let canShowJoin = false;
@@ -1259,13 +1284,25 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
   }
 
   return (
-    <Pressable onPress={() => onSelect(group.key)} style={{ marginBottom: 6 }}>
+    <Pressable
+      onPress={() => onSelect(group.key)}
+      style={{
+        marginTop: nearOverlapWithPrevious ? 2 : 0,
+        marginBottom: nearOverlapWithPrevious ? 8 : 6,
+        borderRadius: 10,
+        backgroundColor: isActiveGroup ? '#193a4a66' : 'transparent',
+        borderWidth: isActiveGroup ? 1 : 0,
+        borderColor: isActiveGroup ? '#5ec8ffaa' : 'transparent',
+        paddingVertical: isActiveGroup ? 2 : 0,
+        paddingHorizontal: isActiveGroup ? 4 : 0,
+      }}
+    >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
         <View style={{ width: 80 }}>
-          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 11, fontWeight: '700' }}>
+          <Text numberOfLines={1} style={{ color: '#e5f3ff', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 }}>
             {group.startTime}–{group.endTime}
           </Text>
-          <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 9, marginTop: 1 }}>
+          <Text numberOfLines={1} style={{ color: '#9fb2c8', fontSize: 9, marginTop: 1 }}>
             {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
           </Text>
         </View>
@@ -1371,6 +1408,8 @@ function SessionTimeline({
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const isCurrentTimeMarkerVisible = showNowMarker && currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
   const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
+  const nowPosition = clamp(currentPercent, 0, 100);
+  console.log('TIMELINE_NOW_POSITION', nowPosition);
   const renderRange = useMemo(
     () => ({
       timelineWindowStartMinutes,
@@ -1440,6 +1479,16 @@ function SessionTimeline({
         })),
     [currentProfileId, followingUserIds, groupedTimelineSessions, timelineFilter],
   );
+  const activeRowsCount = useMemo(
+    () =>
+      visibleGroups.filter((group) =>
+        group.sessions.some(({ state, roundedStartMinutes, roundedEndMinutes }) =>
+          state === 'live'
+          || (state === 'planned' && currentLocalMinutes >= roundedStartMinutes && currentLocalMinutes <= roundedEndMinutes),
+        )).length,
+    [currentLocalMinutes, visibleGroups],
+  );
+  console.log('TIMELINE_ACTIVE_ROWS_COUNT', activeRowsCount);
 
   useEffect(() => {
     
@@ -1463,7 +1512,7 @@ function SessionTimeline({
             <View
               style={{
                 position: 'absolute',
-                left: `${currentPercent}%`,
+                left: `${nowPosition}%`,
                 top: 0,
                 bottom: 0,
                 width: 0,
@@ -1472,25 +1521,25 @@ function SessionTimeline({
             >
               <View
                 style={{
-                  width: 8,
-                  height: 8,
+                  width: 9,
+                  height: 9,
                   borderRadius: 999,
-                  backgroundColor: '#d8eeffcc',
+                  backgroundColor: '#e6f6ff',
                   shadowColor: '#d8eeff',
-                  shadowOpacity: 0.28,
-                  shadowRadius: 5,
+                  shadowOpacity: 0.32,
+                  shadowRadius: 6,
                   shadowOffset: { width: 0, height: 0 },
                 }}
               />
-              <Text style={{ marginTop: 2, color: '#cfe6ffcc', fontSize: 10, fontWeight: '600' }}>Now</Text>
+              <Text style={{ marginTop: 2, color: '#ecf7ff', fontSize: 10, fontWeight: '700', letterSpacing: 0.2 }}>Now</Text>
               <View
                 style={{
-                  marginTop: 4,
-                  width: 1,
+                  marginTop: 3,
+                  width: 2,
                   flex: 1,
-                  borderLeftWidth: 1,
-                  borderStyle: 'dashed',
-                  borderColor: '#cfe6ff80',
+                  borderLeftWidth: 2,
+                  borderStyle: 'solid',
+                  borderColor: '#cde9ffb8',
                 }}
               />
             </View>
@@ -1498,13 +1547,18 @@ function SessionTimeline({
         ) : null}
 
         {visibleGroups.length > 0 ? (
-          visibleGroups.map((group) => (
+          visibleGroups.map((group, index) => (
               <SessionRow
                 key={group.key}
                 group={group}
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
                 activeDay={activeDay}
+                isActiveGroup={group.sessions.some(({ state, roundedStartMinutes, roundedEndMinutes }) =>
+                  state === 'live'
+                  || (state === 'planned' && currentLocalMinutes >= roundedStartMinutes && currentLocalMinutes <= roundedEndMinutes),
+                )}
+                nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               timelineFilter={timelineFilter}
