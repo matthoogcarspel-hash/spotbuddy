@@ -2564,6 +2564,8 @@ export default function App() {
     const sessionIds = sessionsData
       .map((row) => row.id)
       .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    console.log('ACTIVE_SESSION_PARTICIPANTS_CALLSITE', 'App.tsx:2563');
+    console.log('PARTICIPANTS_LOAD_IMPLEMENTATION_ID', 'participants-loader-v1-app-fetchSharedData');
     const sessionParticipantsResponse = sessionIds.length
       ? await supabase
           .from('session_participants')
@@ -5516,6 +5518,7 @@ export default function App() {
       };
       const targetSessionOwnerId = targetSession?.userId ?? null;
       const joinTable = 'session_participants';
+      console.log('JOIN_IMPLEMENTATION_ID', 'join-session-v1-app-selectedSpot');
       console.log('JOIN_MODEL_SELECTED', {
         rootCause: 'A',
         readTarget: joinTable,
