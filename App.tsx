@@ -554,7 +554,7 @@ const getSpotMomentumLabelForDay = ({
 }): SpotMomentumLabel | null => {
   const normalizedSpotName = normalizeSpotName(spotName);
   const activeDateKey = activeDay === 'today' ? todayLocalDateKey : tomorrowLocalDateKey;
-  const spotSessionsForDay = sessions.filter((sessionItem) => {
+  const spotSessionsForDay = (Array.isArray(sessions) ? sessions : []).filter((sessionItem) => {
     if (normalizeSpotName(sessionItem.spot) !== normalizedSpotName) {
       return false;
     }
@@ -568,13 +568,13 @@ const getSpotMomentumLabelForDay = ({
 
   const checkedInUsers = activeDay === 'today'
     ? dedupeActiveCheckedInSessionsByUser(
-      spotSessionsForDay.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem)),
+      (Array.isArray(spotSessionsForDay) ? spotSessionsForDay : []).filter((sessionItem) => isRealCheckedInLiveSession(sessionItem)),
     )
     : [];
   const checkedInCount = checkedInUsers.length;
-  const activeSessions = spotSessionsForDay.filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
+  const activeSessions = (Array.isArray(spotSessionsForDay) ? spotSessionsForDay : []).filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
   const activeSessionsToday = activeDay === 'today' ? activeSessions.length : 0;
-  const plannedSessions = spotSessionsForDay.filter((sessionItem) => !sessionItem.checkedInAt && !sessionItem.checkedOutAt && hasPlannedTimeWindow(sessionItem));
+  const plannedSessions = (Array.isArray(spotSessionsForDay) ? spotSessionsForDay : []).filter((sessionItem) => !sessionItem.checkedInAt && !sessionItem.checkedOutAt && hasPlannedTimeWindow(sessionItem));
   const plannedSessionsToday = activeDay === 'today' ? plannedSessions.length : 0;
   const plannedSessionsTomorrow = activeDay === 'tomorrow' ? plannedSessions.length : 0;
   const plannedIntents = plannedSessions.map((sessionItem) => sessionItem.intent);
@@ -678,7 +678,7 @@ const getTimelineStatusOrder = (state: TimelineState) =>
   state === 'live' ? 0 : state === 'planned' ? 1 : state === 'planned_no_check_in' ? 2 : 3;
 const timelineJoinButtonWidthPercent = 11;
 const timelineJoinButtonGapPercent = 1.2;
-const getLiveSessions = (sessions: SpotSession[]) => sessions.filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
+const getLiveSessions = (sessions: SpotSession[]) => (Array.isArray(sessions) ? sessions : []).filter((sessionItem) => isLiveSession(sessionItem) && !isSessionExpired(sessionItem));
 const getMostRecentSessionByCreatedAt = (sessions: SpotSession[]) =>
   [...sessions].sort((a, b) => {
     const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
@@ -707,7 +707,7 @@ const getCurrentUserLiveSession = (sessions: SpotSession[], userId: string | nul
     return null;
   }
 
-  const userSessions = sessions.filter((sessionItem) => sessionItem.userId === userId);
+  const userSessions = (Array.isArray(sessions) ? sessions : []).filter((sessionItem) => sessionItem.userId === userId);
   const liveUserSessions = getLiveSessions(userSessions);
   return getMostRecentSessionByCreatedAt(liveUserSessions);
 };
@@ -769,14 +769,14 @@ const resolveSessionActorProfileId = (
     return directMatch.id;
   }
 
-  const ownerUidMatches = profiles.filter((profileItem) => profileItem.owner_uid && profileItem.owner_uid === sessionItem.userOwnerUid);
+  const ownerUidMatches = (Array.isArray(profiles) ? profiles : []).filter((profileItem) => profileItem.owner_uid && profileItem.owner_uid === sessionItem.userOwnerUid);
   if (ownerUidMatches.length === 1) {
     return ownerUidMatches[0].id;
   }
 
   const sessionDisplayName = normalizeDisplayName(sessionItem.userName);
   if (sessionDisplayName) {
-    const displayNameMatches = ownerUidMatches.filter(
+    const displayNameMatches = (Array.isArray(ownerUidMatches) ? ownerUidMatches : []).filter(
       (profileItem) => normalizeDisplayName(profileItem.display_name) === sessionDisplayName,
     );
     if (displayNameMatches.length > 0) {
@@ -1345,7 +1345,7 @@ function SessionTimeline({
   );
   const visibleTimelineSessions = useMemo(
     () =>
-      timelineSessions.filter(({ item }) => {
+      (Array.isArray(timelineSessions) ? timelineSessions : []).filter(({ item }) => {
         const hasPlannedWindow = hasPlannedTimeWindow(item);
         const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
         const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
@@ -1514,6 +1514,7 @@ export default function App() {
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
+  const [spots, setSpots] = useState<SpotSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<SpotSearchResult[]>([]);
   const [spotsTestCount, setSpotsTestCount] = useState(0);
   const [diagSpotsQueryCount, setDiagSpotsQueryCount] = useState(0);
@@ -1563,6 +1564,27 @@ export default function App() {
   const authenticatedUserId = session?.user.id ?? null;
   const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
+  const query = homeSpotSearchQuery;
+  const filteredSpots = useMemo(() => {
+    const safeSpots = Array.isArray(spots) ? spots : [];
+
+    if (!query || query.trim() === "") {
+      return safeSpots;
+    }
+
+    const q = query.toLowerCase();
+
+    return safeSpots.filter((spot) => {
+      return (
+        (spot.name && spot.name.toLowerCase().includes(q)) ||
+        (spot.country && spot.country.toLowerCase().includes(q))
+      );
+    });
+  }, [spots, query]);
+  if (!Array.isArray(spots)) {
+    console.log("SPOTS INVALID:", spots);
+    return null;
+  }
   const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
@@ -1886,7 +1908,7 @@ export default function App() {
 
         const parsedFavoriteSpots = storedValue ? JSON.parse(storedValue) : null;
         const loadedFavoriteSpotsRaw = Array.isArray(parsedFavoriteSpots)
-          ? parsedFavoriteSpots.filter((value): value is SpotName => typeof value === 'string')
+          ? (Array.isArray(parsedFavoriteSpots) ? parsedFavoriteSpots : []).filter((value): value is SpotName => typeof value === 'string')
           : [];
         const loadedFavoriteSpots = loadedFavoriteSpotsRaw.slice(0, HOME_SPOTS_LIMIT);
         if (loadedFavoriteSpotsRaw.length !== loadedFavoriteSpots.length) {
@@ -1897,7 +1919,7 @@ export default function App() {
         const loadedOrderMode: SpotOrderMode = storedOrderMode === 'manual' ? 'manual' : 'distance';
         const parsedManualOrder = storedManualOrder ? JSON.parse(storedManualOrder) : null;
         const loadedManualOrderRaw = Array.isArray(parsedManualOrder)
-          ? parsedManualOrder.filter((value): value is SpotName => typeof value === 'string')
+          ? (Array.isArray(parsedManualOrder) ? parsedManualOrder : []).filter((value): value is SpotName => typeof value === 'string')
           : [];
         const dedupedManualOrder: SpotName[] = [];
         for (const spotName of loadedManualOrderRaw) {
@@ -1905,7 +1927,7 @@ export default function App() {
             dedupedManualOrder.push(spotName);
           }
         }
-        const normalizedManualOrder = dedupedManualOrder.filter((spotName) => loadedFavoriteSpots.includes(spotName));
+        const normalizedManualOrder = (Array.isArray(dedupedManualOrder) ? dedupedManualOrder : []).filter((spotName) => loadedFavoriteSpots.includes(spotName));
         for (const spotName of loadedFavoriteSpots) {
           if (!normalizedManualOrder.includes(spotName)) {
             normalizedManualOrder.push(spotName);
@@ -1992,7 +2014,7 @@ export default function App() {
     setSearchResults([]);
   };
   const filterSpots = () => {
-    setSearchResults(allSpots);
+    setSearchResults(filteredSpots);
   };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
     console.log("SEARCH_SELECTED_RESULT", selectedSpot);
@@ -2008,7 +2030,7 @@ export default function App() {
       if (!previousFavoriteSpots.includes(spotName)) {
         return previousFavoriteSpots;
       }
-      const nextSelectedSpots = previousFavoriteSpots.filter((favoriteSpot) => favoriteSpot !== spotName);
+      const nextSelectedSpots = (Array.isArray(previousFavoriteSpots) ? previousFavoriteSpots : []).filter((favoriteSpot) => favoriteSpot !== spotName);
       console.log("SPOT_REMOVED", spotName);
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
@@ -2016,7 +2038,7 @@ export default function App() {
       return nextSelectedSpots;
     });
     setManualOrder((previousManualOrder) => {
-      const nextManualOrder = previousManualOrder.filter((manualSpot) => manualSpot !== spotName);
+      const nextManualOrder = (Array.isArray(previousManualOrder) ? previousManualOrder : []).filter((manualSpot) => manualSpot !== spotName);
       void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).catch((error) => {
         console.error('Failed to persist spot manual order', error);
       });
@@ -2196,6 +2218,7 @@ export default function App() {
       }
 
       setSpotsTestCount(Array.isArray(data) ? data.length : 0);
+      setSpots(data || []);
       setAllSpots(data ?? []);
       setSearchResults(data ?? []);
     })();
@@ -2244,7 +2267,7 @@ export default function App() {
         }
       }
       const favoriteSpotSet = new Set(favoriteSpots);
-      const filteredOrder = dedupedManualOrder.filter((spotName) => favoriteSpotSet.has(spotName));
+      const filteredOrder = (Array.isArray(dedupedManualOrder) ? dedupedManualOrder : []).filter((spotName) => favoriteSpotSet.has(spotName));
       for (const spotName of favoriteSpots) {
         if (!filteredOrder.includes(spotName)) {
           filteredOrder.push(spotName);
@@ -2353,7 +2376,7 @@ export default function App() {
       const acceptedFollowingUserIds = (followsResponse.data ?? [])
         .filter((item) => item.status === 'accepted')
         .map((item) => item.following_id);
-      console.log('BUDDIES_ACCEPTED_OUTGOING_FOLLOWS', (followsResponse.data ?? []).filter((item) => item.status === 'accepted'));
+      console.log('BUDDIES_ACCEPTED_OUTGOING_FOLLOWS', (Array.isArray((followsResponse.data ?? [])) ? (followsResponse.data ?? []) : []).filter((item) => item.status === 'accepted'));
       console.log('BUDDIES_FOLLOWING_LIST_UPDATED', acceptedFollowingUserIds);
       setFollowingUserIds(acceptedFollowingUserIds);
     }
@@ -2431,7 +2454,7 @@ export default function App() {
     console.log("FOLLOW_REQUEST_PAYLOAD", payload ?? null);
     setBuddyActionUserId(userIdToFollow);
     setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToFollow]: 'pending' }));
-    setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToFollow));
+    setFollowingUserIds((previous) => (Array.isArray(previous) ? previous : []).filter((id) => id !== userIdToFollow));
 
     const { data, error } = await supabase
       .from('user_follows')
@@ -2470,7 +2493,7 @@ export default function App() {
     };
     console.log('BUDDIES_UNFOLLOW_ACTION_PAYLOAD', payload);
     setBuddyActionUserId(userIdToUnfollow);
-    setFollowingUserIds((previous) => previous.filter((id) => id !== userIdToUnfollow));
+    setFollowingUserIds((previous) => (Array.isArray(previous) ? previous : []).filter((id) => id !== userIdToUnfollow));
     setOutgoingFollowStatusesByUserId((previous) => {
       const nextValue = { ...previous };
       delete nextValue[userIdToUnfollow];
@@ -2854,7 +2877,7 @@ export default function App() {
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
       console.log('SESSIONS_LOADED_FOR_TIMELINE', {
         total: loadedSessions.length,
-        planned: loadedSessions.filter((item) => isPlannedSession(item)).map((item) => ({
+        planned: (Array.isArray(loadedSessions) ? loadedSessions : []).filter((item) => isPlannedSession(item)).map((item) => ({
           id: item.id,
           spot: item.spot,
           start: item.start,
@@ -2863,7 +2886,7 @@ export default function App() {
           checkedInAt: item.checkedInAt,
           checkedOutAt: item.checkedOutAt,
         })),
-        live: loadedSessions.filter((item) => isLiveSession(item)).map((item) => ({
+        live: (Array.isArray(loadedSessions) ? loadedSessions : []).filter((item) => isLiveSession(item)).map((item) => ({
           id: item.id,
           spot: item.spot,
           start: item.start,
@@ -3552,7 +3575,7 @@ export default function App() {
   const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
-      next[spot] = sessionsBySpot[spot].filter((item) => isIsoInRange(item.createdAt, activeDateStart, activeDateEnd));
+      next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isIsoInRange(item.createdAt, activeDateStart, activeDateEnd));
     }
     console.log("SESSION_FILTER_RESULT", { activeDay, count: Object.values(next).flat().length });
     return next;
@@ -3565,7 +3588,7 @@ export default function App() {
     const allSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === activeAppUserId);
-    const filteredSessions = allSessions.filter((sessionItem) => !isSessionExpired(sessionItem));
+    const filteredSessions = (Array.isArray(allSessions) ? allSessions : []).filter((sessionItem) => !isSessionExpired(sessionItem));
     console.log("ACTIVE_SESSION_FILTERED", {
       beforeCount: allSessions.length,
       afterCount: filteredSessions.length
@@ -3592,7 +3615,7 @@ export default function App() {
   );
   const pendingBuddyRequestsCount = useMemo(() => {
     if (!buddyRequests) return 0;
-    return buddyRequests.filter((r) => r.status === 'pending').length;
+    return (Array.isArray(buddyRequests) ? buddyRequests : []).filter((r) => r.status === 'pending').length;
   }, [buddyRequests]);
   const pendingRequestsCount: number | null = Number.isFinite(pendingBuddyRequestsCount) ? pendingBuddyRequestsCount : null;
   const hasPendingRequests = (pendingRequestsCount ?? 0) > 0;
@@ -4243,7 +4266,7 @@ export default function App() {
   }, [activeCheckedInSession, planningOverlapBlockingSession]);
   const filteredMessages = useMemo(
     () =>
-      messages.filter((message) => {
+      (Array.isArray(messages) ? messages : []).filter((message) => {
         const belongsToDay = isIsoInRange(message.createdAt, activeDateStart, activeDateEnd);
         console.log("MESSAGE_DAY_CLASSIFICATION", { id: message.id, createdAt: message.createdAt, activeDay, belongsToDay });
         return belongsToDay;
@@ -4268,7 +4291,7 @@ export default function App() {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
     console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: activeAppUserId ?? null, toggleMode });
-    const filteredSessions = dedupedSessions.filter((item) => {
+    const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
       if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
         return false;
       }
@@ -4277,7 +4300,7 @@ export default function App() {
     });
     console.log("SESSION_FILTER_RESULT", { activeDay, count: filteredSessions.length });
     console.log("SESSIONS AFTER SPOT FILTER", filteredSessions);
-    const visibleSessions = filteredSessions.filter((item) => {
+    const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
       if (timelineFilter === 'buddies') {
         return followingUserIds.includes(item.userId);
       }
@@ -4364,9 +4387,9 @@ export default function App() {
       const visibleSessions = timelineSessions
         .map(({ item }) => item)
         .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
-      const liveSessions = visibleSessions.filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
+      const liveSessions = (Array.isArray(visibleSessions) ? visibleSessions : []).filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
       const liveCount = liveSessions.length;
-      const plannedCount = visibleSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
+      const plannedCount = (Array.isArray(visibleSessions) ? visibleSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
       const selectedDayMode = activeDay;
 
       console.log("SPOT_STATUS_COUNTS", {
@@ -4436,14 +4459,14 @@ export default function App() {
     console.log('TIMELINE_FILTERED_SESSIONS', {
       selectedSpot,
       totalSpotSessions: sessions.length,
-      plannedSessions: sessions.filter((item) => isPlannedSession(item)).map((item) => ({
+      plannedSessions: (Array.isArray(sessions) ? sessions : []).filter((item) => isPlannedSession(item)).map((item) => ({
         id: item.id,
         start: item.start,
         end: item.end,
         intent: item.intent,
         checkedInAt: item.checkedInAt,
       })),
-      liveSessions: sessions.filter((item) => isLiveSession(item)).map((item) => ({
+      liveSessions: (Array.isArray(sessions) ? sessions : []).filter((item) => isLiveSession(item)).map((item) => ({
         id: item.id,
         start: item.start,
         end: item.end,
@@ -5317,7 +5340,7 @@ export default function App() {
 
   if (showBuddies) {
     const trimmedSearch = searchUsersInput.trim().toLowerCase();
-    const filteredBuddyUsers = buddyUsers.filter((userItem) => {
+    const filteredBuddyUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => {
       if (!trimmedSearch) {
         return true;
       }
@@ -5334,7 +5357,7 @@ export default function App() {
         display_name: userItem.display_name,
       })),
     });
-    const followedUsers = buddyUsers.filter((userItem) => followingUserIds.includes(userItem.id));
+    const followedUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => followingUserIds.includes(userItem.id));
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
@@ -6560,7 +6583,7 @@ export default function App() {
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {hours.filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
+                  {(Array.isArray(hours) ? hours : []).filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
                     <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
@@ -6830,7 +6853,6 @@ export default function App() {
   console.log("YOUR_SPOTS_VISIBLE_ORDER", visibleSpots.map((s) => s.name));
   console.log("HOME_SCROLL_CONTAINER_ACTIVE");
   console.log("HOME_SPOTS_RENDER_COUNT", visibleSpots.length);
-
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
@@ -7057,8 +7079,8 @@ export default function App() {
         ) : null}
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
-          const plannedCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
-          const activeCount = daySpotSessions.filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
+          const plannedCount = (Array.isArray(daySpotSessions) ? daySpotSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
+          const activeCount = (Array.isArray(daySpotSessions) ? daySpotSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
           const selectedDayMode = activeDay;
           const spotId = spot.name;
           const { label: statusLabel, symbol } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);

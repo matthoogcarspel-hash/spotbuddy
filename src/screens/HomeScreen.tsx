@@ -18,6 +18,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
   const safeSpots = Array.isArray(spots) ? spots : [];
 
   if (!Array.isArray(spots)) {
+    console.log("SPOTS INVALID:", spots);
     return null;
   }
 
@@ -71,8 +72,8 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
 
       <View>
         {safeSpots.map((spot) => {
-          const plannedCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Gaat').length ?? 0;
-          const liveCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Is er al').length ?? 0;
+          const plannedCount = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((session) => session.status === 'Gaat').length ?? 0;
+          const liveCount = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((session) => session.status === 'Is er al').length ?? 0;
 
           return (
             <Pressable
