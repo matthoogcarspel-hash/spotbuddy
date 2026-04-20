@@ -3811,6 +3811,16 @@ export default function App() {
   );
   const currentPlanningStart = startHour === null ? null : `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`;
   const currentPlanningEnd = endHour === null ? null : `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`;
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const existingOwnSessionOnSelectedSpotDay = safeSessions.find((session) => {
+    return (
+      session?.user_id === activeProfile?.id
+      && sameSpot(session, selectedSpot)
+      && isSessionOnActiveDay(session, activeDay)
+    );
+  });
+
+  const hasOwnSessionOnSelectedSpotDay = Boolean(existingOwnSessionOnSelectedSpotDay);
   const planningOverlapBlockingSession = useMemo(() => {
     if (!activeAppUserId || !currentPlanningStart || !currentPlanningEnd) {
       return null;
@@ -3933,17 +3943,6 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  const existingOwnSessionOnSelectedSpotDay = useMemo(() => {
-    const safeSessions = Array.isArray(sessions) ? sessions : [];
-    return safeSessions.find((session) => {
-      return (
-        session?.user_id === activeProfile?.id
-        && sameSpot(session, selectedSpot)
-        && isSessionOnActiveDay(session, activeDay)
-      );
-    }) ?? null;
-  }, [activeDay, activeProfile?.id, selectedSpot, sessions]);
-  const hasOwnSessionOnSelectedSpotDay = Boolean(existingOwnSessionOnSelectedSpotDay);
   console.log("HARD_SINGLE_SESSION_STATE", {
     activeProfileId: activeProfile?.id ?? null,
     selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
