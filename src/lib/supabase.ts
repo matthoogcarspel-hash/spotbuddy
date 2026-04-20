@@ -3,6 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 
 export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = SUPABASE_URL ?? '';
+
+console.log("SUPABASE URL:", supabaseUrl);
 
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.warn('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
@@ -17,7 +20,7 @@ export type Profile = {
   created_at?: string;
 };
 
-export const supabase = createClient(SUPABASE_URL ?? '', SUPABASE_ANON_KEY ?? '', {
+export const supabase = createClient(supabaseUrl, SUPABASE_ANON_KEY ?? '', {
   auth: {
     storage: AsyncStorage,
     autoRefreshToken: true,
