@@ -186,15 +186,7 @@ const getHomeSpotCardStatus = (
   const activeCountBucket = getActiveCountBucket(activeCount);
   const stableKey = `${spotId}|${selectedDayMode}|${plannedCountBucket}|${activeCountBucket}`;
 
-  console.log('STATUS_V2_INPUT', {
-    spotId,
-    selectedDayMode,
-    plannedCount,
-    activeCount,
-    plannedCountBucket,
-    activeCountBucket,
-    stableKey,
-  });
+  
 
   if (activeCount > 0) {
     if (activeCount === 1) {
@@ -522,16 +514,16 @@ const getSessionState = (sessionItem: SpotSession, now = new Date()): Determinis
   const endDate = getSessionEndTime(sessionItem);
 
   if (endDate < now) {
-    console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'finished' });
+    
     return 'finished';
   }
 
   if (startDate <= now && now <= endDate) {
-    console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'active' });
+    
     return 'active';
   }
 
-  console.log("SESSION_STATE_DEBUG", { sessionId: sessionItem.id, start: startDate.toISOString(), end: endDate.toISOString(), state: 'planned' });
+  
   return 'planned';
 };
 const isLiveSession = (sessionItem: SpotSession, now = new Date()) => getSessionState(sessionItem, now) === 'active';
@@ -611,14 +603,7 @@ const getSpotMomentumLabelForDay = ({
     }
   }
 
-  console.log("MOMENTUM_DECISION", {
-    spot: spotName,
-    activeDay,
-    checkedInCount,
-    plannedToday: plannedSessionsToday,
-    plannedTomorrow: plannedSessionsTomorrow,
-    label
-  });
+  
 
   return label;
 };
@@ -811,21 +796,13 @@ const isSessionExpired = (sessionItem: SpotSession, now = new Date()) => {
   const sessionEndTime = getSessionEndTime(sessionItem);
   const isExpired = sessionEndTime.getTime() < now.getTime();
   const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
-  console.log("SESSION_EXPIRY_CHECK", {
-    startTime: sessionWithOptionalTimes?.startTime ?? sessionItem.start,
-    endTime: sessionWithOptionalTimes?.endTime ?? sessionItem.end,
-    now: new Date(),
-    isExpired
-  });
+  
   return isExpired;
 };
 const isGoingLaterSession = (sessionItem: SpotSession, currentLocalMinutes: number) => {
   const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
-  console.log("MOMENTUM_HELPER_FIXED");
-  console.log("GOING_LATER_SESSION_CHECK", {
-    startTime: sessionWithOptionalTimes?.startTime,
-    endTime: sessionWithOptionalTimes?.endTime
-  });
+  
+  
 
   if (isLiveSession(sessionItem)) {
     return false;
@@ -848,11 +825,7 @@ const getSessionDisplayState = (
   sessionItem: SpotSession,
   nowMinutes: number,
 ): SpotMomentumLabel | null => {
-  console.log("DISPLAY_LABEL_INPUT", {
-    startTime: (sessionItem as SpotSession & { startTime?: string }).startTime,
-    endTime: (sessionItem as SpotSession & { endTime?: string }).endTime,
-    now: new Date()
-  });
+  
   const now = new Date();
   const sessionStartTime = getSessionStartTime(sessionItem);
   const sessionDateKey = getLocalDateKey(sessionStartTime);
@@ -888,7 +861,7 @@ const getSessionDisplayState = (
     }
   }
 
-  console.log("DISPLAY_LABEL_RESULT", label);
+  
 
   return label;
 };
@@ -1026,11 +999,11 @@ const registerForPushNotifications = async (userId: string) => {
     return;
   }
 
-  console.log('push permission granted');
+  
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
   if (!projectId) {
-    console.warn('Push registration skipped: missing EAS projectId.');
+    console.error('Push registration skipped: missing EAS projectId.');
     return;
   }
 
@@ -1052,10 +1025,10 @@ const registerForPushNotifications = async (userId: string) => {
     return;
   }
 
-  console.log('push token saved');
+  
 };
 const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: SpotDefinition[]): NearestSpotResult | null => {
-  console.log('NEAREST_SPOT_DEBUG_USER_COORDINATES', currentCoordinates);
+  
   let nearestSpot: SpotName | null = null;
   let nearestDistanceMeters = Number.POSITIVE_INFINITY;
 
@@ -1065,12 +1038,7 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: Sp
       longitude: spot.longitude,
     };
     const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
-    console.log('NEAREST_SPOT_DEBUG_SPOT_DISTANCE', {
-      spot: spot.spot,
-      userCoordinates: currentCoordinates,
-      spotCoordinates,
-      distanceMeters,
-    });
+    
     if (distanceMeters < nearestDistanceMeters) {
       nearestSpot = spot.spot;
       nearestDistanceMeters = distanceMeters;
@@ -1215,7 +1183,7 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, avai
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
   const startTime = hasPlannedWindow ? item.start : formatMinutesAsHourMinute(sessionStartMinutes);
   const endTime = hasPlannedWindow ? item.end : formatMinutesAsHourMinute(sessionEndMinutes);
-  console.log("TIMELINE_BAR_POSITION_DEBUG", { startTime, endTime, leftPercent, widthPercent });
+  
   const activeProfileId = currentProfileId ?? null;
   const activeAuthUserId = currentAuthUserId ?? null;
   const sessionOwnerProfileId = resolveSessionActorProfileId(item, availableProfiles);
@@ -1244,19 +1212,9 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, avai
     canShowJoin = true;
   }
   if (isSelected) {
-    console.log("JOIN_ELIGIBILITY_CHECK", {
-      activeProfileId,
-      resolvedSessionActorProfileId: sessionOwnerProfileId,
-      activeAuthUserId,
-      sessionOwnerAuthUserId,
-      sameProfile,
-      sameAuthOwner,
-      alreadyJoined,
-      canJoin: canShowJoin,
-      reason: joinBlockReason,
-    });
+    
     if (!canShowJoin) {
-      console.log("JOIN_FLOW_BLOCK_REASON", joinBlockReason);
+      
     }
   }
 
@@ -1358,7 +1316,7 @@ function SessionTimeline({
   );
 
   useEffect(() => {
-    console.log("TIMELINE_RENDER_RANGE", renderRange);
+    
   }, [renderRange]);
 
   return (
@@ -1516,10 +1474,6 @@ export default function App() {
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
   const [spots, setSpots] = useState<SpotSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<SpotSearchResult[]>([]);
-  const [spotsTestCount, setSpotsTestCount] = useState(0);
-  const [diagSpotsQueryCount, setDiagSpotsQueryCount] = useState(0);
-  const [diagSpotsQueryError, setDiagSpotsQueryError] = useState<string | null>(null);
-  const [diagRawStatus, setDiagRawStatus] = useState<number | null>(null);
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
@@ -1582,7 +1536,7 @@ export default function App() {
     });
   }, [spots, query]);
   if (!Array.isArray(spots)) {
-    console.log("SPOTS INVALID:", spots);
+    
     return null;
   }
   const activeProfile = profile ?? null;
@@ -1626,7 +1580,7 @@ export default function App() {
   const getActiveProfileStorageKey = (ownerUid: string) => `${activeProfileStorageKeyPrefix}:${ownerUid}`;
 
   const handlePasswordResetRequest = async (email: string) => {
-    console.log("PASSWORD_RESET_REQUESTED", { email });
+    
     // sender name / email template branding is configured in Supabase dashboard, not in app code
     const { error } = await supabase.auth.resetPasswordForEmail(
       email,
@@ -1638,28 +1592,28 @@ export default function App() {
       return { error: 'Could not send reset link. Please try again.' };
     }
 
-    console.log("PASSWORD_RESET_SENT", { email });
+    
     return { error: null };
   };
 
   useEffect(() => {
     if (isAccountSwitcherVisible) {
-      console.log("ADMIN_CREATE_PROFILE_VISIBLE", authenticatedUserEmail);
+      
     }
-    console.log("ACCOUNT_SWITCHER_VISIBLE", authenticatedUserEmail);
+    
   }, [authenticatedUserEmail, isAccountSwitcherVisible]);
 
   const hydrateActiveProfile = async (authUser: AuthSession['user'] | null, _reason: string) => {
-    console.log("ACTIVE_PROFILE_BOOT_START");
-    console.log("ACTIVE_PROFILE_AUTH_READY", authUser?.id ?? null);
+    
+    
     if (!authUser?.id) {
       setSwitchableAccounts([]);
       setProfile(null);
       activeProfileOwnerUidRef.current = null;
       setProfileHydrationError('');
       setLoadingProfile(false);
-      console.log("ACTIVE_PROFILE_RESOLVED", null);
-      console.log("ACTIVE_PROFILE_LOADING_DONE");
+      
+      
       return;
     }
 
@@ -1671,7 +1625,7 @@ export default function App() {
         .select('id, display_name, avatar_url, owner_uid, created_at')
         .eq('owner_uid', authUser.id)
         .order('created_at', { ascending: true });
-      console.log("ACTIVE_PROFILE_OWNED_COUNT", data?.length ?? 0);
+      
 
       if (error) {
         setSwitchableAccounts([]);
@@ -1683,12 +1637,12 @@ export default function App() {
       const ownedProfiles = (data ?? []) as SwitchableAccount[];
       setSwitchableAccounts(ownedProfiles);
       const savedProfileId = await AsyncStorage.getItem(getActiveProfileStorageKey(authUser.id));
-      console.log("ACTIVE_PROFILE_SAVED_ID", savedProfileId ?? null);
+      
 
       const resolvedProfile = (savedProfileId
         ? ownedProfiles.find((profileItem) => profileItem.id === savedProfileId) ?? null
         : null) ?? ownedProfiles[0] ?? null;
-      console.log("ACTIVE_PROFILE_RESOLVED", resolvedProfile?.id ?? null);
+      
 
       setProfile(resolvedProfile);
       activeProfileOwnerUidRef.current = authUser.id;
@@ -1700,48 +1654,48 @@ export default function App() {
       }
     } finally {
       setLoadingProfile(false);
-      console.log("ACTIVE_PROFILE_LOADING_DONE");
+      
     }
   };
 
   const loadOwnedProfiles = async () => {
     const { data: { user } } = await supabase.auth.getUser();
-    console.log("SWITCH_ACCOUNT_CURRENT_USER", user);
+    
     if (!user?.id) {
       setSwitchAccountError('You must be logged in to switch account');
       setSwitchableAccounts([]);
-      console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", []);
+      
       return [] as SwitchableAccount[];
     }
 
     setSwitchAccountError('');
-    console.log("SWITCH_ACCOUNT_QUERY_START");
+    
     const { data, error } = await supabase
       .from('profiles')
       .select('id, display_name, avatar_url, owner_uid, created_at')
       .eq('owner_uid', user.id)
       .order('created_at', { ascending: true });
-    console.log("SWITCH_ACCOUNT_QUERY_RESULT", { data, error });
+    
 
     if (error) {
       console.error('ACCOUNT_SWITCHER_LOAD_ERROR', error);
       setSwitchAccountError(error.message || 'Failed to load switchable profiles');
       setSwitchableAccounts([]);
-      console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", []);
+      
       return [] as SwitchableAccount[];
     }
 
     const loadedProfiles = (data ?? []) as SwitchableAccount[];
     setSwitchableAccounts(loadedProfiles);
-    console.log("SWITCH_ACCOUNT_STATE_SET", loadedProfiles);
-    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", loadedProfiles);
+    
+    
     return loadedProfiles;
   };
 
   const createAdminProfile = async (profileName: string, avatarFile?: string | null) => {
-    console.log("ADMIN_CREATE_PROFILE_START");
+    
     const { data: { user } } = await supabase.auth.getUser();
-    console.log("ADMIN_USER", user);
+    
 
     if (!user?.id) {
       throw new Error('You must be logged in');
@@ -1764,7 +1718,7 @@ export default function App() {
     try {
       avatarUrl = await uploadAvatarIfExists(avatarFile);
     } catch (e) {
-      console.log("AVATAR_UPLOAD_FAILED", e);
+      
     }
 
     const payload = {
@@ -1772,7 +1726,7 @@ export default function App() {
       owner_uid: user.id,
       avatar_url: avatarUrl,
     };
-    console.log("PROFILE_INSERT_PAYLOAD", payload);
+    
 
     const { data, error } = await supabase
       .from("profiles")
@@ -1780,12 +1734,12 @@ export default function App() {
       .select()
       .single();
 
-    console.log("PROFILE_INSERT_RESULT", { data, error });
+    
     if (error) {
       throw error;
     }
 
-    console.log("PROFILE_CREATE_SUCCESS", data);
+    
     return data;
   };
 
@@ -1794,7 +1748,7 @@ export default function App() {
     const currentUserEmail = normalizeEmail(session?.user?.email ?? '');
     const isAdmin = currentUserEmail === adminAccountSwitcherEmail;
 
-    console.log("SUPABASE_ADMIN_MULTI_PROFILE_MODE", currentUserEmail);
+    
 
     if (!session?.user?.id) {
       setAdminCreateError('You must be logged in');
@@ -1803,7 +1757,7 @@ export default function App() {
 
     if (!isAdmin) {
       setAdminCreateError('You are not allowed to create profiles');
-      console.log("PROFILE_INSERT_FAILED", { reason: 'not_admin' });
+      
       return;
     }
 
@@ -1823,20 +1777,16 @@ export default function App() {
       setAdminCreateNameInput('');
       setAdminCreateAvatarInputUri(null);
       setShowAdminCreateProfile(false);
-      console.log("SWITCH_ACCOUNT_REFRESH_AFTER_CREATE");
+      
       const profiles = await loadOwnedProfiles();
-      console.log("SWITCH_ACCOUNT_REFRESH_COMPLETE");
-      console.log("PROFILES_AFTER_CREATE", profiles);
-      console.log("ADMIN_CREATE_PROFILE_SUCCESS", {
-        username,
-        ownerUid: session.user.id,
-        isAdmin,
-      });
-      console.log("PROFILE_CREATE_SUCCESS", createdProfile);
+      
+      
+      
+      
     } catch (error) {
-      console.log("PROFILE_CREATE_FAILED_REAL", error);
-      console.log("REAL_PROFILE_ERROR", error);
-      console.log("REAL_PROFILE_ERROR_STRING", error?.message);
+      
+      
+      
       setAdminCreateSuccess(false);
       setAdminCreateError(
         error?.message ||
@@ -1848,7 +1798,7 @@ export default function App() {
   };
 
   const handleSelectAccount = async (selectedProfile: SwitchableAccount) => {
-    console.log("SWITCH_ACCOUNT_SELECTED_PROFILE", selectedProfile);
+    
     const fromUser = {
       id: activeAppUserId,
       email: activeAppUserEmail,
@@ -1857,7 +1807,7 @@ export default function App() {
       id: selectedProfile.id,
       email: activeAppUserEmail,
     };
-    console.log("ACCOUNT_SWITCH_SELECTED", { fromUser, toUser });
+    
 
     setShowAccountSwitcher(false);
     setShowBuddies(false);
@@ -1871,25 +1821,25 @@ export default function App() {
     }
     await fetchSharedData();
     await fetchBuddiesData();
-    console.log("ACCOUNT_SWITCH_REFRESH_COMPLETE", { activeUserId: selectedProfile.id, activeUserEmail: activeAppUserEmail });
+    
   };
 
   useEffect(() => {
-    console.log("SWITCH_ACCOUNT_VISIBLE_PROFILES", visibleProfiles);
+    
   }, [visibleProfiles]);
 
   useEffect(() => {
-    console.log("HOME_SPOTS_LIMIT", HOME_SPOTS_LIMIT);
+    
   }, []);
 
   useEffect(() => {
-    console.log("HOME_SELECTED_SPOTS_COUNT", favoriteSpots.length);
+    
   }, [favoriteSpots]);
   useEffect(() => {
-    console.log("MY_SPOTS_COUNT", favoriteSpots?.length ?? 0);
+    
   }, [favoriteSpots]);
   useEffect(() => {
-    console.log("ACTIVE_DAY_SOURCE_OF_TRUTH", activeDay);
+    
   }, [activeDay]);
 
   useEffect(() => {
@@ -1941,12 +1891,12 @@ export default function App() {
         setFavoriteSpots(loadedFavoriteSpots);
         setOrderMode(loadedOrderMode);
         setManualOrder(normalizedManualOrder);
-        console.log("FAVORITE_SPOTS_LOADED", loadedFavoriteSpots);
-        console.log("SELECTED_SPOTS_LOADED", loadedFavoriteSpots);
+        
+        
       } catch (error) {
         console.error('Failed to load favorite spots', error);
-        console.log("FAVORITE_SPOTS_LOADED", []);
-        console.log("SELECTED_SPOTS_LOADED", []);
+        
+        
       }
     })();
 
@@ -1962,28 +1912,28 @@ export default function App() {
   }, []);
 
   const addSelectedSpot = (spotName: SpotName) => {
-    console.log("SPOT_ADD_HANDLER_ACTIVE");
+    
     setFavoriteSpots((previousFavoriteSpots) => {
       const selectedSpots = previousFavoriteSpots;
       const currentCount = selectedSpots.length;
-      console.log("SPOT_ADD_ATTEMPT", { spotName, currentCount, selectedSpots });
+      
 
       if (selectedSpots.includes(spotName)) {
-        console.log("SPOT_ADD_DUPLICATE_BLOCKED", { spotName });
+        
         setHomeSpotsLimitMessage('');
         setHomeSpotSearchQuery('');
         return previousFavoriteSpots;
       }
 
-      console.log("SPOT_ADD_LIMIT_CHECK", { currentCount, limit: HOME_SPOTS_LIMIT });
+      
       if (currentCount >= HOME_SPOTS_LIMIT) {
-        console.log("SPOT_ADD_BLOCKED_LIMIT", { spotName, currentCount });
+        
         setHomeSpotsLimitMessage('Your home screen can show up to 5 spots. Remove one to add another.');
         return previousFavoriteSpots;
       }
 
       const nextSelectedSpots = [...selectedSpots, spotName];
-      console.log("SPOT_ADD_SUCCESS", { spotName, nextSelectedSpots });
+      
       setHomeSpotsLimitMessage('');
       setManualOrder((previousManualOrder) => {
         if (previousManualOrder.includes(spotName)) {
@@ -1998,7 +1948,7 @@ export default function App() {
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       }).then(() => {
-        console.log("SPOT_ADD_PERSISTED", { nextSelectedSpots });
+        
       });
       setHomeSpotSearchQuery('');
       return nextSelectedSpots;
@@ -2006,8 +1956,8 @@ export default function App() {
   };
   const openSpotLookup = (spotName: SpotName) => {
     const isSavedSpot = favoriteSpots.includes(spotName);
-    console.log("SPOT_IS_SAVED", isSavedSpot);
-    console.log("SPOT_LOOKUP_OPENED", { spotName, saved: isSavedSpot });
+    
+    
     setSelectedSpot(spotName);
     setShowYourSpotsPage(false);
     setHomeSpotSearchQuery('');
@@ -2017,7 +1967,7 @@ export default function App() {
     setSearchResults(filteredSpots);
   };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
-    console.log("SEARCH_SELECTED_RESULT", selectedSpot);
+    
     if (searchBlurTimeoutRef.current) {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
@@ -2031,7 +1981,7 @@ export default function App() {
         return previousFavoriteSpots;
       }
       const nextSelectedSpots = (Array.isArray(previousFavoriteSpots) ? previousFavoriteSpots : []).filter((favoriteSpot) => favoriteSpot !== spotName);
-      console.log("SPOT_REMOVED", spotName);
+      
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
@@ -2046,7 +1996,7 @@ export default function App() {
     });
   };
   const handleSpotSaveAction = (spotName: SpotName, action: 'add' | 'remove') => {
-    console.log("SPOT_SAVE_ACTION", { spotName, action });
+    
     if (action === 'add') {
       addSelectedSpot(spotName);
       return;
@@ -2055,13 +2005,13 @@ export default function App() {
   };
   const persistManualOrder = (nextManualOrder: SpotName[]) => {
     void AsyncStorage.setItem(spotManualOrderStorageKey, JSON.stringify(nextManualOrder)).then(() => {
-      console.log("YOUR_SPOTS_REORDER_PERSISTED", nextManualOrder);
+      
     }).catch((error) => {
       console.error('Failed to persist spot manual order', error);
     });
   };
   const moveManualSpot = (spotName: SpotName, index: number, direction: 'up' | 'down') => {
-    console.log("YOUR_SPOTS_DRAG_CONTROL_PRESSED", { spotName, index });
+    
     setManualOrder((previousManualOrder) => {
       const currentIndex = previousManualOrder.indexOf(spotName);
       if (currentIndex < 0) {
@@ -2074,18 +2024,14 @@ export default function App() {
       const nextManualOrder = [...previousManualOrder];
       const [movedSpot] = nextManualOrder.splice(currentIndex, 1);
       nextManualOrder.splice(targetIndex, 0, movedSpot);
-      console.log("YOUR_SPOTS_REORDER_COMMIT", {
-        fromIndex: currentIndex,
-        toIndex: targetIndex,
-        nextSelectedSpots: nextManualOrder,
-      });
+      
       persistManualOrder(nextManualOrder);
       return nextManualOrder;
     });
   };
   const updateManualOrder = (nextManualOrder: SpotName[]) => {
     setManualOrder(nextManualOrder);
-    console.log("YOUR_SPOTS_MANUAL_ORDER_UPDATED", nextManualOrder);
+    
     persistManualOrder(nextManualOrder);
   };
   const updateOrderMode = (nextOrderMode: SpotOrderMode) => {
@@ -2094,92 +2040,6 @@ export default function App() {
       console.error('Failed to persist spot order mode', error);
     });
   };
-  useEffect(() => {
-    console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
-  }, [homeSpotSearchQuery]);
-  const mySpots = favoriteSpots;
-  const searchTerm = homeSpotSearchQuery;
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("DIAG_SUPABASE_URL", SUPABASE_URL ?? null);
-    console.log("DIAG_HAS_ANON_KEY", Boolean(SUPABASE_ANON_KEY));
-    console.log("DIAG_CLIENT_EXISTS", Boolean(supabase));
-  }, [showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    let isMounted = true;
-
-    (async () => {
-      const { data: spotsData, error: spotsError } = await supabase
-        .from('spots')
-        .select('*')
-        .limit(3);
-
-      console.log("DIAG_SPOTS_QUERY_DATA", spotsData);
-      console.log("DIAG_SPOTS_QUERY_ERROR", spotsError);
-      console.log("DIAG_SPOTS_QUERY_COUNT", Array.isArray(spotsData) ? spotsData.length : 0);
-
-      if (!isMounted) {
-        return;
-      }
-
-      setDiagSpotsQueryCount(Array.isArray(spotsData) ? spotsData.length : 0);
-      setDiagSpotsQueryError(spotsError?.message ?? null);
-    })();
-
-    return () => {
-      isMounted = false;
-    };
-  }, [showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-
-    void fetch(`${SUPABASE_URL}/rest/v1/spots?select=country,name,longitude,latitude&limit=3`, {
-      headers: {
-        apikey: SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
-      },
-    })
-      .then(async (res) => {
-        const text = await res.text();
-        console.log("DIAG_RAW_STATUS", res.status);
-        console.log("DIAG_RAW_TEXT", text);
-        setDiagRawStatus(res.status);
-      })
-      .catch((err) => {
-        console.log("DIAG_RAW_ERROR", err);
-      });
-  }, [showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("DIAG_MY_SPOTS_SOURCE", mySpots ?? null);
-  }, [mySpots, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("DIAG_ALL_SPOTS_STATE", allSpots ?? null);
-  }, [allSpots, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("DIAG_SEARCH_RESULTS_STATE", searchResults ?? null);
-  }, [searchResults, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("DIAG_SEARCH_TERM", searchTerm ?? null);
-  }, [searchTerm, showYourSpotsPage]);
   useEffect(() => {
     if (!showYourSpotsPage) {
       return;
@@ -2190,7 +2050,6 @@ export default function App() {
     (async () => {
       const query = homeSpotSearchQuery.trim();
       let data: SpotSearchResult[] | null = null;
-      let error: unknown = null;
 
       if (query.length > 0) {
         const response = await supabase
@@ -2199,25 +2058,18 @@ export default function App() {
           .ilike('name', `%${query}%`)
           .limit(20);
         data = (response.data as SpotSearchResult[] | null) ?? null;
-        error = response.error;
       } else {
         const response = await supabase
           .from('spots')
           .select('*')
           .limit(20);
         data = (response.data as SpotSearchResult[] | null) ?? null;
-        error = response.error;
       }
-
-      console.log("QUERY:", query);
-      console.log("RESULT DATA:", data);
-      console.log("RESULT ERROR:", error);
 
       if (!isMounted) {
         return;
       }
 
-      setSpotsTestCount(Array.isArray(data) ? data.length : 0);
       setSpots(data || []);
       setAllSpots(data ?? []);
       setSearchResults(data ?? []);
@@ -2227,37 +2079,6 @@ export default function App() {
       isMounted = false;
     };
   }, [homeSpotSearchQuery, showYourSpotsPage]);
-  useEffect(() => {
-    console.log("HOME_HIDE_ACTION_REMOVED");
-  }, []);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("YOUR_SPOTS_PAGE_OPENED");
-  }, [showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    const query = homeSpotSearchQuery;
-    console.log("YOUR_SPOTS_PAGE_SEARCH_QUERY", query);
-  }, [homeSpotSearchQuery, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    if (orderMode === 'manual') {
-      console.log("YOUR_SPOTS_REORDER_UI_ACTIVE");
-    }
-    console.log("YOUR_SPOTS_PAGE_ORDER_MODE", orderMode);
-  }, [orderMode, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("YOUR_SPOTS_MANUAL_ORDER_UPDATED", manualOrder);
-  }, [manualOrder, showYourSpotsPage]);
   useEffect(() => {
     setManualOrder((previousManualOrder) => {
       const dedupedManualOrder: SpotName[] = [];
@@ -2320,7 +2141,7 @@ export default function App() {
 
     setLoadingBuddies(true);
     setBuddiesError('');
-    console.log('BUDDIES_CURRENT_USER_ID', { userId: activeProfileId });
+    
 
     const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
       supabase
@@ -2346,20 +2167,12 @@ export default function App() {
 
     if (usersResponse.error) {
       console.error('BUDDIES_USERS_LOAD_ERROR', usersResponse.error);
-      console.log('BUDDIES_USERS_QUERY_ERROR_DETAIL', {
-        message: usersResponse.error.message,
-        details: usersResponse.error.details,
-        hint: usersResponse.error.hint,
-        code: usersResponse.error.code,
-      });
+      
       setBuddiesError('Could not load users');
     } else {
       const loadedUsers = (usersResponse.data ?? []) as BuddyUser[];
-      console.log('BUDDIES_PROFILES_QUERY_RESULT', loadedUsers);
-      console.log('BUDDIES_FILTERED_USERS_SHOWN', {
-        currentUserId: activeProfileId,
-        userIds: loadedUsers.map((userItem) => userItem.id),
-      });
+      
+      
       setBuddyUsers(loadedUsers);
     }
 
@@ -2367,7 +2180,7 @@ export default function App() {
       console.error('BUDDIES_FOLLOWING_LOAD_ERROR', followsResponse.error);
       setBuddiesError('Could not load buddies');
     } else {
-      console.log('BUDDIES_FOLLOWING_RELATIONSHIPS_LOADED', followsResponse.data ?? []);
+      
       const outgoingStatuses = (followsResponse.data ?? []).reduce<Record<string, FollowStatus>>((acc, relation) => {
         acc[relation.following_id] = relation.status as FollowStatus;
         return acc;
@@ -2376,8 +2189,8 @@ export default function App() {
       const acceptedFollowingUserIds = (followsResponse.data ?? [])
         .filter((item) => item.status === 'accepted')
         .map((item) => item.following_id);
-      console.log('BUDDIES_ACCEPTED_OUTGOING_FOLLOWS', (Array.isArray((followsResponse.data ?? [])) ? (followsResponse.data ?? []) : []).filter((item) => item.status === 'accepted'));
-      console.log('BUDDIES_FOLLOWING_LIST_UPDATED', acceptedFollowingUserIds);
+      
+      
       setFollowingUserIds(acceptedFollowingUserIds);
     }
 
@@ -2388,8 +2201,8 @@ export default function App() {
     } else {
       const pendingIncomingRelations = (incomingRequestsResponse.data ?? []) as IncomingFollowRelation[];
       const acceptedIncomingRelations = (incomingAcceptedResponse.data ?? []) as IncomingFollowRelation[];
-      console.log('BUDDIES_PENDING_INCOMING_REQUESTS', pendingIncomingRelations);
-      console.log('BUDDIES_ACCEPTED_INCOMING_FOLLOWS', acceptedIncomingRelations);
+      
+      
       const incomingRequesterIds = pendingIncomingRelations.map((requestItem) => requestItem.follower_id);
       const incomingAcceptedFollowerIds = acceptedIncomingRelations.map((relationItem) => relationItem.follower_id);
       const allIncomingUserIds = Array.from(new Set([...incomingRequesterIds, ...incomingAcceptedFollowerIds]));
@@ -2403,15 +2216,10 @@ export default function App() {
 
         if (incomingUsersResponse.error) {
           console.error('BUDDIES_INCOMING_REQUESTS_USERS_LOAD_ERROR', incomingUsersResponse.error);
-          console.log('BUDDIES_INCOMING_REQUESTS_USERS_QUERY_ERROR_DETAIL', {
-            message: incomingUsersResponse.error.message,
-            details: incomingUsersResponse.error.details,
-            hint: incomingUsersResponse.error.hint,
-            code: incomingUsersResponse.error.code,
-          });
+          
           setBuddiesError('Could not load requesters');
         } else {
-          console.log('BUDDIES_JOINED_PROFILE_ROWS', incomingUsersResponse.data ?? []);
+          
           (incomingUsersResponse.data ?? []).forEach((incomingUser) => {
             incomingUsersById[incomingUser.id] = incomingUser as BuddyUser;
           });
@@ -2426,8 +2234,8 @@ export default function App() {
         .map((relationItem) => incomingUsersById[relationItem.follower_id] ?? null)
         .filter((userItem): userItem is BuddyUser => Boolean(userItem))
         .sort((a, b) => a.display_name.localeCompare(b.display_name));
-      console.log('BUDDIES_INCOMING_REQUESTS_LOADED', incomingRequests);
-      console.log('BUDDIES_INCOMING_ACCEPTED_FOLLOWERS_LOADED', incomingFollowers);
+      
+      
       setIncomingFollowRequests(incomingRequests);
       setFollowerUsers(incomingFollowers);
     }
@@ -2438,8 +2246,8 @@ export default function App() {
   const handleFollowUser = async (userIdToFollow: string) => {
     const activeProfileId = activeProfile?.id ?? null;
     const targetProfile = buddyUsers.find((userItem) => userItem.id === userIdToFollow) ?? null;
-    console.log("FOLLOW_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
-    console.log("FOLLOW_TARGET_PROFILE_ID", targetProfile?.id ?? null);
+    
+    
     if (!activeProfileId || !targetProfile || targetProfile.id === activeProfileId) {
       return;
     }
@@ -2451,7 +2259,7 @@ export default function App() {
       responded_at: null as string | null,
     };
     const previousStatus = outgoingFollowStatusesByUserId[userIdToFollow];
-    console.log("FOLLOW_REQUEST_PAYLOAD", payload ?? null);
+    
     setBuddyActionUserId(userIdToFollow);
     setOutgoingFollowStatusesByUserId((previous) => ({ ...previous, [userIdToFollow]: 'pending' }));
     setFollowingUserIds((previous) => (Array.isArray(previous) ? previous : []).filter((id) => id !== userIdToFollow));
@@ -2460,7 +2268,7 @@ export default function App() {
       .from('user_follows')
       .upsert(payload, { onConflict: 'follower_id,following_id' })
       .select();
-    console.log("FOLLOW_REQUEST_RESULT", { data, error });
+    
     if (error) {
       console.error('BUDDIES_FOLLOW_ERROR', error);
       setOutgoingFollowStatusesByUserId((previous) => {
@@ -2477,7 +2285,7 @@ export default function App() {
       return;
     }
 
-    console.log('BUDDIES_FOLLOW_SUCCESS', payload);
+    
     setBuddyActionUserId(null);
     await fetchBuddiesData();
   };
@@ -2491,7 +2299,7 @@ export default function App() {
       follower_id: activeAppUserId,
       following_id: userIdToUnfollow,
     };
-    console.log('BUDDIES_UNFOLLOW_ACTION_PAYLOAD', payload);
+    
     setBuddyActionUserId(userIdToUnfollow);
     setFollowingUserIds((previous) => (Array.isArray(previous) ? previous : []).filter((id) => id !== userIdToUnfollow));
     setOutgoingFollowStatusesByUserId((previous) => {
@@ -2515,7 +2323,7 @@ export default function App() {
       return;
     }
 
-    console.log('BUDDIES_UNFOLLOW_SUCCESS', payload);
+    
     setBuddyActionUserId(null);
     await fetchBuddiesData();
   };
@@ -2523,8 +2331,8 @@ export default function App() {
   const handleAcceptFollowRequest = async (requestItem: FollowRequestItem) => {
     const activeProfileId = activeProfile?.id ?? null;
     const targetProfile = requestItem.requester ?? null;
-    console.log("FOLLOW_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
-    console.log("FOLLOW_TARGET_PROFILE_ID", targetProfile?.id ?? null);
+    
+    
     if (!activeProfileId || !targetProfile || targetProfile.id === activeProfileId) {
       return;
     }
@@ -2536,7 +2344,7 @@ export default function App() {
       status: 'accepted' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
-    console.log("FOLLOW_ACCEPT_PAYLOAD", payload ?? null);
+    
     setFollowRequestActionId(requestItem.id);
     const { data, error } = await supabase
       .from('user_follows')
@@ -2545,7 +2353,7 @@ export default function App() {
       .eq('follower_id', payload.follower_id)
       .eq('following_id', payload.following_id)
       .select();
-    console.log("FOLLOW_ACCEPT_RESULT", { data, error });
+    
 
     if (error) {
       console.error('BUDDIES_ACCEPT_ERROR', error);
@@ -2554,7 +2362,7 @@ export default function App() {
       return;
     }
 
-    console.log('BUDDIES_ACCEPT_SUCCESS', payload);
+    
     setFollowRequestActionId(null);
     await fetchBuddiesData();
   };
@@ -2573,7 +2381,7 @@ export default function App() {
       status: 'rejected' as FollowStatus,
       responded_at: new Date().toISOString(),
     };
-    console.log('BUDDIES_REJECT_PAYLOAD', payload);
+    
     setFollowRequestActionId(requestItem.id);
     const { error } = await supabase
       .from('user_follows')
@@ -2589,7 +2397,7 @@ export default function App() {
       return;
     }
 
-    console.log('BUDDIES_REJECT_SUCCESS', payload);
+    
     setFollowRequestActionId(null);
     await fetchBuddiesData();
   };
@@ -2644,19 +2452,10 @@ export default function App() {
       };
     }
 
-    console.log('STALE_SESSION_DETECTED', {
-      sessionId: row.id,
-      originalStatus: row.status,
-      checkedInAt: row.checked_in_at,
-      createdAt: row.created_at,
-    });
+    
 
     const autoClosedAt = getSessionAutoCloseTimestamp(staleReferenceDate);
-    console.log('STALE_SESSION_AUTO_CLOSED', {
-      sessionId: row.id,
-      checkedOutAt: autoClosedAt,
-      nextStatus: 'Uitchecken',
-    });
+    
 
     return {
       status: 'Uitchecken' as SessionStatus,
@@ -2674,7 +2473,7 @@ export default function App() {
         },
       })
         .then((res) => res.json())
-        .then((data) => console.log('RAW_SPOTS', data))
+        .then(() => undefined)
         .catch((error) => console.error('RAW_SPOTS_ERROR', error));
     }
 
@@ -2729,15 +2528,7 @@ export default function App() {
           }
         }
 
-        console.log('SPOTS_COORDINATES_DEBUG', {
-          spotName,
-          rawLatitudeValue,
-          rawLongitudeValue,
-          normalizedLatitudeValue: latitudeValue,
-          normalizedLongitudeValue: longitudeValue,
-          fallbackLatitudeValue: fallbackSpot?.latitude ?? null,
-          fallbackLongitudeValue: fallbackSpot?.longitude ?? null,
-        });
+        
 
         if (!spotName || Number.isNaN(latitudeValue) || Number.isNaN(longitudeValue)) {
           return null;
@@ -2752,19 +2543,19 @@ export default function App() {
       .filter((spot): spot is SpotDefinition => Boolean(spot));
 
     if (mappedSpots.length === 0) {
-      console.warn('Spots table is empty or unreadable, falling back to local spots');
+      console.error('Spots table is empty or unreadable, falling back to local spots');
       return;
     }
 
-    console.log('SPOTS_SOURCE_LOADED', { source: 'supabase_spots', count: mappedSpots.length });
+    
     setSpotDefinitions(mappedSpots);
   };
 
   const fetchSharedData = async () => {
     setLoadingData(true);
-    console.log("SESSIONS VISIBILITY BUG PATH ACTIVE");
-    console.log("MESSAGES QUERY PATH ACTIVE");
-    console.log("MESSAGES QUERY START", { selectedSpot });
+    
+    
+    
 
     const sessionsResponse = await supabase
       .from('sessions')
@@ -2772,7 +2563,7 @@ export default function App() {
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
-    console.log("SESSIONS RAW RESULT", sessionsData);
+    
     const messagesResponse = selectedSpot
       ? await supabase
           .from('messages')
@@ -2783,9 +2574,9 @@ export default function App() {
     const messagesData = messagesResponse.data ?? [];
     const messagesError = messagesResponse.error;
     if (!selectedSpot) {
-      console.log("MESSAGES QUERY SKIPPED", { reason: "NO_SELECTED_SPOT", selectedSpot });
+      
     }
-    console.log("MESSAGES RAW RESULT", messagesData);
+    
 
     const sessionIdentityValues = [...new Set(
       sessionsData
@@ -2805,7 +2596,7 @@ export default function App() {
           .in('owner_uid', sessionIdentityValues)
       : { data: [], error: null };
     const profilesData = [...(profilesByIdData ?? []), ...(profilesByOwnerUidData ?? [])];
-    console.log("SESSION PROFILES RAW RESULT", profilesData);
+    
     if (profilesByIdError || profilesByOwnerUidError) {
       console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
     }
@@ -2846,7 +2637,7 @@ export default function App() {
           resolved_actor_profile_id: resolvedProfile?.id ?? null,
         };
       });
-      console.log("SESSIONS MERGED RESULT", mergedSessions);
+      
 
       for (const row of mergedSessions) {
         const spot = row.spot_name as SpotName;
@@ -2875,27 +2666,7 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      console.log('SESSIONS_LOADED_FOR_TIMELINE', {
-        total: loadedSessions.length,
-        planned: (Array.isArray(loadedSessions) ? loadedSessions : []).filter((item) => isPlannedSession(item)).map((item) => ({
-          id: item.id,
-          spot: item.spot,
-          start: item.start,
-          end: item.end,
-          intent: item.intent,
-          checkedInAt: item.checkedInAt,
-          checkedOutAt: item.checkedOutAt,
-        })),
-        live: (Array.isArray(loadedSessions) ? loadedSessions : []).filter((item) => isLiveSession(item)).map((item) => ({
-          id: item.id,
-          spot: item.spot,
-          start: item.start,
-          end: item.end,
-          intent: item.intent,
-          checkedInAt: item.checkedInAt,
-          checkedOutAt: item.checkedOutAt,
-        })),
-      });
+      
 
       setSessionsBySpot(nextSessionsBySpot);
     }
@@ -2940,7 +2711,7 @@ export default function App() {
           avatar_url: profile?.avatar_url ?? null,
         };
       });
-      console.log("MESSAGES MERGED RESULT", mergedMessages);
+      
 
       const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
 
@@ -2962,19 +2733,19 @@ export default function App() {
 
       setMessagesBySpot(nextMessagesBySpot);
     } else {
-      console.log("MESSAGES MERGED RESULT", []);
+      
     }
 
     setLoadingData(false);
   };
 
   useEffect(() => {
-    console.log("ACTIVE_PROFILE_BOOT_START");
+    
     supabase.auth.getSession().then(({ data }) => {
       const nextSession = data.session;
       setSession(nextSession);
       setLoadingSession(false);
-      console.log("ACTIVE_PROFILE_AUTH_READY", nextSession?.user.id ?? null);
+      
 
       if (nextSession) {
         void fetchSpotDefinitions();
@@ -3001,7 +2772,7 @@ export default function App() {
       }
 
       if (activeProfileOwnerUidRef.current === nextSession.user.id && activeProfileIdRef.current) {
-        console.log("ACTIVE_PROFILE_OVERWRITE_BLOCKED");
+        
         return;
       }
 
@@ -3024,12 +2795,7 @@ export default function App() {
     : null;
 
   useEffect(() => {
-    console.log("PROFILE_RENDER_STATE", {
-      authUserId: authenticatedUserId ?? null,
-      activeProfileId: headerProfile?.userId ?? null,
-      displayName: headerProfile?.displayName ?? null,
-      avatarUrl: headerProfile?.avatarUrl ?? null,
-    });
+    
   }, [authenticatedUserId, headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId]);
 
   useEffect(() => {
@@ -3061,7 +2827,7 @@ export default function App() {
     }
 
     void (async () => {
-      console.log("BUDDIES_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
+      
       const { data, error } = await supabase
         .from('user_follows')
         .select('follower_id, following_id, status')
@@ -3074,7 +2840,7 @@ export default function App() {
       }
 
       const buddyRelations = data ?? [];
-      console.log("BUDDIES_RELATIONS_RESULT", buddyRelations ?? null);
+      
       const buddyProfileIds = Array.from(
         new Set(
           buddyRelations
@@ -3082,7 +2848,7 @@ export default function App() {
             .filter((id): id is string => Boolean(id && id !== activeAppUserId)),
         ),
       );
-      console.log("BUDDIES_PROFILE_IDS", buddyProfileIds ?? null);
+      
       setFollowingUserIds(buddyProfileIds);
     })();
   }, [activeAppUserId, activeProfile?.id]);
@@ -3116,7 +2882,7 @@ export default function App() {
         return;
       }
 
-      console.warn('SPOT_DETAIL_SELECTED_SPOT_MISSING', { selectedSpot });
+      console.error('SPOT_DETAIL_SELECTED_SPOT_MISSING', { selectedSpot });
       setSelectedSpot(null);
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
@@ -3150,7 +2916,7 @@ export default function App() {
   }, [selectedSpot]);
 
   useEffect(() => {
-    console.log('SHOW_FORM', showForm);
+    
   }, [showForm]);
 
   useEffect(() => {
@@ -3158,7 +2924,7 @@ export default function App() {
       return;
     }
 
-    console.log('SPOT_DETAIL_SELECTED_SPOT_NAME', { selectedSpot });
+    
   }, [selectedSpot]);
 
   useEffect(() => {
@@ -3175,7 +2941,7 @@ export default function App() {
 
       setLoadingSpotNotificationPreferences(true);
       setNotificationPreferencesError('');
-      console.log('NOTIFICATION_PREFS_LOAD_START', { userId: activeAppUserId, spotName: selectedSpot });
+      
 
       const { data, error } = await supabase
         .from('spot_notification_preferences')
@@ -3200,22 +2966,14 @@ export default function App() {
         return;
       }
 
-      console.log('NOTIFICATION_PREFS_LOAD_SUCCESS', {
-        userId: activeAppUserId,
-        spotName: selectedSpot,
-        rawPreferences: data,
-      });
+      
       const loadedPreferences: SpotNotificationPreferences = {
         session_planning_notification_mode: resolveNotificationMode(data?.session_planning_notification_mode),
         checkin_notification_mode: resolveNotificationMode(data?.checkin_notification_mode),
         chat_notification_mode: resolveNotificationMode(data?.chat_notification_mode),
       };
       setSpotNotificationPreferences(loadedPreferences);
-      console.log('NOTIFICATION_PREFS_LOADED_VALUES_AFTER_REFRESH', {
-        userId: activeAppUserId,
-        spotName: selectedSpot,
-        loadedPreferences,
-      });
+      
       setLoadingSpotNotificationPreferences(false);
     };
 
@@ -3252,7 +3010,7 @@ export default function App() {
 
     let active = true;
     setIsResolvingNearestSpot(true);
-    console.log('WEB_GPS_REQUEST_STARTED');
+    
 
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       setCurrentCoordinates(null);
@@ -3262,7 +3020,7 @@ export default function App() {
         reason: 'GEOLOCATION_UNAVAILABLE',
         platform: Platform.OS,
       };
-      console.log('WEB_GPS_LOCATION_ERROR', error);
+      
       return () => {
         active = false;
       };
@@ -3283,7 +3041,7 @@ export default function App() {
         setCurrentCoordinates(coordinates);
         const nearest = getNearestSpot(coordinates, spotDefinitions);
         setNearestSpotResult(nearest);
-        console.log('WEB_GPS_LOCATION_SUCCESS', { latitude, longitude });
+        
         setIsResolvingNearestSpot(false);
       },
       (error) => {
@@ -3294,7 +3052,7 @@ export default function App() {
         setCurrentCoordinates(null);
         setNearestSpotResult(null);
         setIsResolvingNearestSpot(false);
-        console.log('WEB_GPS_LOCATION_ERROR', error);
+        
       },
       {
         enableHighAccuracy: true,
@@ -3320,17 +3078,12 @@ export default function App() {
       gpsWatcherRef.current.remove();
       gpsWatcherRef.current = null;
       gpsWatcherSessionIdRef.current = null;
-      console.log('GPS_MONITORING_STOPPED', {
-        reason,
-      });
+      
     };
 
     if (!isNativePlatform) {
       stopWatcher('NON_NATIVE_PLATFORM');
-      console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-        reason: 'NON_NATIVE_PLATFORM',
-        platform: Platform.OS,
-      });
+      
       return () => {
         active = false;
       };
@@ -3341,9 +3094,7 @@ export default function App() {
       && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
     );
     if (!shouldRunGpsWatcher || !gpsActiveCheckedInSession) {
-      console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-        reason: 'NO_LIVE_SESSION_FOR_MONITORING',
-      });
+      
       setCurrentCoordinates(null);
       setNearestSpotResult(null);
       setIsResolvingNearestSpot(false);
@@ -3372,11 +3123,7 @@ export default function App() {
         }
 
         setLocationPermissionStatus(permissionResponse.status);
-        console.log('GPS_NATIVE_PERMISSION_STATUS', {
-          status: permissionResponse.status,
-          canAskAgain: permissionResponse.canAskAgain,
-          granted: permissionResponse.granted,
-        });
+        
 
         if (permissionResponse.status !== 'granted') {
           stopWatcher('PERMISSION_NOT_GRANTED');
@@ -3390,12 +3137,7 @@ export default function App() {
           setCurrentCoordinates(coordinates);
           const nearest = getNearestSpot(coordinates, spotDefinitions);
           setNearestSpotResult(nearest);
-          console.log('GPS_POSITION_UPDATED', {
-            latitude: coordinates.latitude,
-            longitude: coordinates.longitude,
-            nearestSpot: nearest?.spot ?? null,
-            nearestDistanceMeters: nearest?.distanceMeters ?? null,
-          });
+          
         };
 
         const currentPosition = await Location.getCurrentPositionAsync({});
@@ -3433,10 +3175,7 @@ export default function App() {
 
         gpsWatcherRef.current = nextWatcher;
         gpsWatcherSessionIdRef.current = gpsActiveCheckedInSession.id;
-        console.log('GPS_MONITORING_STARTED', {
-          sessionId: gpsActiveCheckedInSession.id,
-          distanceIntervalMeters: 75,
-        });
+        
       } catch (error) {
         if (!active) {
           return;
@@ -3464,10 +3203,7 @@ export default function App() {
   }, [gpsActiveCheckedInSession, isNativePlatform, spotDefinitions]);
 
   useEffect(() => {
-    console.log('HOME_NEAREST_SPOT_NAME', {
-      nearestSpotName: nearestSpotResult?.spot ?? null,
-      distanceMeters: nearestSpotResult?.distanceMeters ?? null,
-    });
+    
   }, [nearestSpotResult]);
 
   const activeDayContext = useMemo(() => {
@@ -3506,25 +3242,19 @@ export default function App() {
       : [];
     const duplicateCount = activeUserSessions.length > 1 ? activeUserSessions.length - 1 : 0;
     if (userId && chosenSession) {
-      console.log("ACTIVE_CHECKED_IN_SESSION_RESOLVED", { userId, chosenSession, duplicateCount });
+      
     }
     return chosenSession;
   }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   useEffect(() => {
-    console.log("ACTIVE_DAY_LIVE_RULES", { activeDay });
+    
   }, [activeDay]);
   useEffect(() => {
-    console.log("CHECKOUT_STATE_EVALUATION", {
-      activeDay,
-      userId: activeAppUserId ?? null,
-      spotName: selectedSpot ?? null,
-      hasActiveCheckedInSession,
-      activeSession: activeCheckedInSession ?? null
-    });
+    
   }, [activeCheckedInSession, activeDay, hasActiveCheckedInSession, selectedSpot, activeAppUserId]);
   useEffect(() => {
-    console.log("ACTIVE_DAY", activeDay);
+    
   }, [activeDay]);
   const plannedSession = useMemo(() => {
     const currentUserId = activeAppUserId;
@@ -3538,10 +3268,7 @@ export default function App() {
       .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd));
     const userSessions = allCandidateSessions
       .filter((sessionItem) => getSessionState(sessionItem) === 'planned');
-    console.log("SESSION_FILTER_RESULT", {
-      activeDay,
-      count: userSessions.length,
-    });
+    
 
     return userSessions
       .sort((a, b) => {
@@ -3557,7 +3284,7 @@ export default function App() {
   }, [activeAppUserId, activeDateEnd, activeDateStart, activeDay, sessionsBySpot]);
   const activeBannerSession = activeCheckedInSession ?? plannedSession;
   useEffect(() => {
-    console.log("USER_STATUS_BANNER_SESSION", activeBannerSession);
+    
   }, [activeBannerSession]);
   const plannedSessionIntentLabel = useMemo(() => {
     if (!plannedSession) {
@@ -3577,7 +3304,7 @@ export default function App() {
     for (const spot of spotNames) {
       next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isIsoInRange(item.createdAt, activeDateStart, activeDateEnd));
     }
-    console.log("SESSION_FILTER_RESULT", { activeDay, count: Object.values(next).flat().length });
+    
     return next;
   }, [activeDateEnd, activeDateStart, activeDay, sessionsBySpot, spotNames]);
   const allUserSessions = useMemo(() => {
@@ -3589,10 +3316,7 @@ export default function App() {
       .flat()
       .filter((sessionItem) => sessionItem.userId === activeAppUserId);
     const filteredSessions = (Array.isArray(allSessions) ? allSessions : []).filter((sessionItem) => !isSessionExpired(sessionItem));
-    console.log("ACTIVE_SESSION_FILTERED", {
-      beforeCount: allSessions.length,
-      afterCount: filteredSessions.length
-    });
+    
 
     return filteredSessions;
   }, [activeAppUserId, sessionsBySpot]);
@@ -3642,10 +3366,7 @@ export default function App() {
       if (!isNativePlatform) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
-        console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-          reason: 'NON_NATIVE_PLATFORM',
-          platform: Platform.OS,
-        });
+        
         return;
       }
 
@@ -3653,16 +3374,8 @@ export default function App() {
       if (!activeAppUserId || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
-        console.log('AUTO_CHECKOUT_SKIPPED', {
-          reason: 'not_checked_in',
-        });
-        console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-          reason: 'MISSING_REQUIREMENTS',
-          hasUser: Boolean(activeAppUserId),
-          hasCoordinates: Boolean(currentCoordinates),
-          hasActiveCheckedInSession: Boolean(gpsActiveCheckedInSession),
-          isActiveLiveStatus,
-        });
+        
+        
         return;
       }
 
@@ -3672,11 +3385,7 @@ export default function App() {
       if (!activeSpotDefinition) {
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
-        console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-          reason: 'SPOT_COORDINATES_MISSING',
-          sessionId: gpsActiveCheckedInSession.id,
-          sessionSpot: gpsActiveCheckedInSession.spot,
-        });
+        
         return;
       }
 
@@ -3687,28 +3396,13 @@ export default function App() {
       const distanceMeters = getDistanceMeters(currentCoordinates, spotCoordinates);
       const isOutsideRadius = distanceMeters > AUTO_CHECKOUT_RADIUS_METERS;
       const spotId = gpsActiveCheckedInSession.id;
-      console.log('AUTO_CHECKOUT_DISTANCE_CHECK', {
-        distanceMeters,
-        thresholdMeters: AUTO_CHECKOUT_RADIUS_METERS,
-        selectedSpot: gpsActiveCheckedInSession.spot,
-      });
-      console.log('GPS_DISTANCE_FROM_SPOT', {
-        sessionId: gpsActiveCheckedInSession.id,
-        spot: gpsActiveCheckedInSession.spot,
-        distanceMeters,
-        outsideRadiusMeters: AUTO_CHECKOUT_RADIUS_METERS,
-        isOutsideRadius,
-      });
+      
+      
 
       if (!isOutsideRadius) {
-        console.log('AUTO_CHECKOUT_SKIPPED', {
-          reason: 'still_inside_radius',
-        });
+        
         if (autoCheckoutOutsideCountRef.current !== 0 || autoCheckoutOutsideSinceRef.current !== null) {
-          console.log('GPS_BACK_INSIDE', {
-            sessionId: gpsActiveCheckedInSession.id,
-            distanceMeters,
-          });
+          
         }
         autoCheckoutOutsideCountRef.current = 0;
         autoCheckoutOutsideSinceRef.current = null;
@@ -3717,28 +3411,19 @@ export default function App() {
       }
 
       if (hasAutoCheckedOutRef.current) {
-        console.log('AUTO_CHECKOUT_SKIPPED', {
-          reason: 'already_auto_checked_out',
-        });
+        
         return;
       }
 
       if (autoCheckoutInFlightRef.current) {
-        console.log('GPS_AUTO_CHECKOUT_SKIPPED', {
-          reason: 'CHECKOUT_ALREADY_IN_FLIGHT',
-          sessionId: gpsActiveCheckedInSession.id,
-        });
+        
         return;
       }
 
       autoCheckoutInFlightRef.current = true;
       hasAutoCheckedOutRef.current = true;
-      console.log('AUTO_CHECKOUT_TRIGGERED', {
-        distanceMeters,
-        threshold: AUTO_CHECKOUT_RADIUS_METERS,
-        spotId,
-      });
-      console.log('GPS_AUTO_CHECKOUT_TRIGGERED', { sessionId: gpsActiveCheckedInSession.id, distanceMeters });
+      
+      
 
       await handleQuickCheckOut();
       const autoCheckoutFailed = activeCheckedInSession?.id === gpsActiveCheckedInSession.id;
@@ -3759,9 +3444,7 @@ export default function App() {
         gpsWatcherRef.current.remove();
         gpsWatcherRef.current = null;
         gpsWatcherSessionIdRef.current = null;
-        console.log('GPS_MONITORING_STOPPED', {
-          reason: 'AUTO_CHECKOUT_COMPLETED',
-        });
+        
       }
       setAutoCheckoutNotice('Automatically checked out\nYou appear to have left the spot');
       await fetchSharedData();
@@ -3805,7 +3488,7 @@ export default function App() {
   }, [nowReference]);
   const timelineMode = windowInfo.mode;
   useEffect(() => {
-    console.log("TIMELINE_CONTEXT", { activeDay, now: new Date() });
+    
   }, [activeDay, timelineMode]);
   const timelineWindow = useMemo(
     () => ({
@@ -3819,19 +3502,16 @@ export default function App() {
     [timelineWindow.endMinutes, timelineWindow.startMinutes],
   );
   useEffect(() => {
-    console.log("TIMELINE_RANGE_ACTIVE", {
-      startHour: Math.floor(timelineWindow.startMinutes / 60),
-      endHour: Math.floor(timelineWindow.endMinutes / 60),
-    });
+    
   }, [timelineWindow.endMinutes, timelineWindow.startMinutes]);
   useEffect(() => {
-    console.log("TIMELINE_LABELS_RENDERED", timelineLabels);
+    
   }, [timelineLabels]);
   useEffect(() => {
-    console.log("TIMELINE_NOW_REFERENCE", nowReference);
+    
   }, [nowReference]);
   useEffect(() => {
-    console.log("TIMELINE_WINDOW_COMPUTED", windowInfo);
+    
   }, [windowInfo]);
   const startHourOptions = useMemo(
     () =>
@@ -3869,7 +3549,7 @@ export default function App() {
     );
   }, [activeDateEnd, activeDateStart, allUserSessions, currentLocalMinutes, currentPlanningEnd, currentPlanningStart, editingSessionId, activeAppUserId]);
   useEffect(() => {
-    console.log('PLANNING_NOW_REFERENCE', planningNowReference);
+    
   }, [planningNowReference]);
   useEffect(() => {
     if (!showForm || !planningNowReference.isToday || startHour === null) {
@@ -3882,11 +3562,7 @@ export default function App() {
     }
 
     const adjustedStart = minuteValueToHourMinute(planningNowReference.earliestStartMinutes);
-    console.log('PLANNING_START_TIME_ADJUSTED', {
-      reason: 'start_in_past_for_today',
-      from: startTotalMinutes,
-      to: planningNowReference.earliestStartMinutes,
-    });
+    
     setStartHour(adjustedStart.hour);
     setStartMinute(adjustedStart.minute);
   }, [planningNowReference.earliestStartMinutes, planningNowReference.isToday, showForm, startHour, startMinute]);
@@ -3912,12 +3588,7 @@ export default function App() {
 
     const adjustedEndMinutes = getDefaultEndMinutesForStart(startTotalMinutes);
     const adjustedEnd = minuteValueToHourMinute(adjustedEndMinutes);
-    console.log('PLANNING_START_TIME_ADJUSTED', {
-      reason: 'end_realigned_after_start_change',
-      start: startTotalMinutes,
-      previousEnd: currentEndTotalMinutes,
-      nextEnd: adjustedEndMinutes,
-    });
+    
     setEndHour(adjustedEnd.hour);
     setEndMinute(adjustedEnd.minute);
   }, [endHour, endMinute, showForm, startHour, startMinute]);
@@ -3960,24 +3631,21 @@ export default function App() {
   const selectedSpotWithinCheckInRadius = selectedSpotDistanceMeters !== null
     ? selectedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS
     : false;
-  console.log("CHECKIN_RADIUS_DEP_READY", {
-    selectedSpotName,
-    selectedSpotWithinCheckInRadius,
-  });
+  
   const withinRange = selectedSpotWithinCheckInRadius;
   const shouldShowSpotCheckIn = activeDay === 'today' && !isCheckedInAtSelectedSpot;
   const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
   const canCheckIn = shouldShowSpotCheckIn && withinRange && !hasPlannedSession && !hasActiveCheckedInSession;
   const checkInCtaVisible = canCheckIn;
   useEffect(() => {
-    console.log("CHECKIN_CTA_VISIBLE", { activeDay, withinRange, hasActiveCheckedInSession, visible: checkInCtaVisible });
+    
   }, [activeDay, withinRange, hasActiveCheckedInSession, checkInCtaVisible]);
   const canCheckOut = shouldShowSpotCheckOut;
   useEffect(() => {
-    console.log("SPOT_PAGE_CHECKOUT_BUTTON_VISIBLE", { visible: shouldShowSpotCheckOut, activeDay, spotName: selectedSpot ?? null });
+    
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  console.log('SPOT_PAGE_CHECKIN_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckIn });
-  console.log('SPOT_PAGE_CHECKOUT_VISIBLE', { selectedSpot, visible: shouldShowSpotCheckOut });
+  
+  
   const joinedSession = useMemo(() => {
     if (!activeAppUserId || !selectedSpot) {
       return null;
@@ -4010,13 +3678,7 @@ export default function App() {
     && !joinedSession.checkedInAt
     && !joinedSession.checkedOutAt,
   );
-  console.log("JOINED_SESSION_STATE_RESOLVED", {
-    userId: activeAppUserId ?? null,
-    activeDay,
-    joinedSession,
-    canEdit: canEditJoinedSession,
-    canCancel: canCancelJoinedSession,
-  });
+  
   const hasPlannedSessionAtSelectedSpot = Boolean(joinedSession);
   const hasConflictingSession = Boolean(
     allUserSessions.some(
@@ -4031,19 +3693,15 @@ export default function App() {
   const shouldDisablePlanSessionButton = !shouldHidePlanSessionButton && !canPlanSession;
   const planSessionVisible = !shouldHidePlanSessionButton && !shouldDisablePlanSessionButton;
   useEffect(() => {
-    console.log("PLAN_SESSION_CTA_VISIBLE", { activeDay, hasConflictingSession, visible: planSessionVisible });
+    
   }, [activeDay, hasConflictingSession, planSessionVisible]);
 
-  console.log('SPOT_PAGE_HAS_PLANNED_SESSION', {
-    selectedSpot,
-    hasPlannedSessionAtSelectedSpot,
-    editableSessionId: joinedSession?.id ?? null,
-  });
+  
   if (shouldHidePlanSessionButton) {
-    console.log('SPOT_PAGE_PLAN_BUTTON_HIDDEN', { selectedSpot });
+    
   }
   if (shouldDisablePlanSessionButton) {
-    console.log('SPOT_PAGE_PLAN_BUTTON_DISABLED', { selectedSpot });
+    
   }
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
     const authUser = session?.user ?? null;
@@ -4051,12 +3709,12 @@ export default function App() {
       id: activeProfile?.id ?? null,
       display_name: activeProfile?.display_name ?? null,
     };
-    console.log("PARTICIPATION_ACTIVE_PROFILE", activeParticipationProfile);
-    console.log("PARTICIPATION_AUTH_USER", authUser);
-    console.log("PARTICIPATION_TARGET_SESSION", sessionToCancel);
+    
+    
+    
 
     const activeProfileId = activeProfile?.id ?? null;
-    console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+    
     if (!activeProfileId) {
       setSessionActionError('Could not cancel session');
       return;
@@ -4075,50 +3733,32 @@ export default function App() {
       && sessionToCancel.status !== 'finished'
       && sessionToCancel.status !== 'Uitchecken',
     );
-    console.log("CANCEL_ELIGIBILITY_CHECK", {
-      activeProfileId,
-      targetSessionId,
-      targetParticipationId,
-      isOwnerSession,
-      isJoinedParticipation,
-      canCancel: canCancelSession,
-      reason: canCancelSession ? 'eligible' : 'not_owned_by_active_profile_or_not_cancellable',
-    });
+    
 
     if (!canCancelSession) {
       setSessionActionError('Could not cancel session');
-      console.log('SPOT_PAGE_CANCEL_BLOCKED', {
-        sessionId: sessionToCancel.id,
-        sessionUserId: sessionToCancel.userId,
-        currentUserId: activeProfileId,
-        isPlannedSession: isPlannedSession(sessionToCancel),
-        canCancelSession,
-      });
+      
       return;
     }
 
-    console.log("CANCEL_TARGET_RESOLUTION", {
-      targetSessionId,
-      targetParticipationId,
-      resolutionMode: 'session_row_delete_by_id',
-    });
+    
     const sessionId = sessionToCancel.id;
-    console.log("CANCEL_SESSION_ID", sessionId);
-    console.log("SESSION_DELETE_FILTER_USER_ID", activeProfile?.id ?? null);
+    
+    
     const { data, error } = await supabase
       .from('sessions')
       .delete()
       .eq('id', sessionId)
       .eq('user_id', activeProfileId);
-    console.log("CANCEL_RESULT", error, data);
+    
 
     if (error) {
       setSessionActionError('Could not cancel session');
-      console.log('SPOT_PAGE_CANCEL_DELETE_ERROR', error);
+      
       return;
     }
 
-    console.log('SPOT_PAGE_CANCEL_DELETE_RESULT', data);
+    
     await fetchSharedData();
     setSessionActionError('');
     setEditingSessionId(null);
@@ -4135,13 +3775,13 @@ export default function App() {
   const nearestSpotCanCheckIn = activeDay === 'today' && !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
   const isHomeCheckoutButtonVisible = Boolean(activeDay === 'today' && nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
   useEffect(() => {
-    console.log("HOME_CHECKOUT_BUTTON_VISIBLE", { visible: isHomeCheckoutButtonVisible, activeDay, nearestSpotName });
+    
   }, [activeDay, isHomeCheckoutButtonVisible, nearestSpotName]);
-  console.log('HOME_TOP_RIGHT_CONTROLS_ACTIVE');
-  console.log('SPOT_SEARCH_COMPACT_MODE');
-  console.log('NEAREST_SPOT_COMPACT_LAYOUT', { nearestSpot: nearestSpotName, distanceMeters });
-  console.log('NEAREST_SPOT_CARD_STATE', { nearestSpot: nearestSpotName, distanceMeters, canCheckIn: nearestSpotCanCheckIn });
-  console.log("APP_RENDER_RECOVERED");
+  
+  
+  
+  
+  
   useEffect(() => {
     if (!homeQuickCheckInError) {
       return;
@@ -4152,16 +3792,9 @@ export default function App() {
     }
   }, [activeCheckedInSession, homeQuickCheckInError, nearestSpotWithinRange, quickCheckInWindowError]);
   useEffect(() => {
-    console.log('AUTO_CHECKIN_DEBUG', {
-      nearestSpotName,
-      distanceMeters,
-      activeCheckedInSession,
-    });
+    
     const isWithinAutoCheckInRadius = distanceMeters !== null && distanceMeters <= AUTO_CHECKIN_PROMPT_RADIUS_METERS;
-    console.log('AUTO_CHECKIN_DISTANCE_CHECK', {
-      distance: distanceMeters,
-      threshold: AUTO_CHECKIN_PROMPT_RADIUS_METERS,
-    });
+    
 
     if (autoCheckInPromptShownRef.current || autoCheckInPromptDismissed) {
       return;
@@ -4172,14 +3805,8 @@ export default function App() {
       isWithinAutoCheckInRadius &&
       !hasActiveCheckedInSession
     ) {
-      console.log('AUTO_CHECKIN_PROMPT_SHOWN', {
-        nearestSpotName,
-        distanceMeters,
-      });
-      console.log('AUTO_CHECKIN_CANDIDATE', {
-        spot: nearestSpotName,
-        distanceMeters,
-      });
+      
+      
       setShowAutoCheckinPrompt(true);
       autoCheckInPromptShownRef.current = true;
     }
@@ -4216,11 +3843,11 @@ export default function App() {
         return aDistance - bDistance;
       });
     const sortedSpotsForLog = orderedSpots.map((spotItem) => ({ name: spotItem.spot }));
-    console.log("HOME_SORTED_SPOTS", sortedSpotsForLog.map((s) => s.name));
+    
     return orderedSpots;
   }, [currentCoordinates, favoriteSpots, manualOrder, orderMode, spotDefinitions]);
   useEffect(() => {
-    console.log("HOME_SELECTED_SPOTS_ORDER_MODE", orderMode);
+    
   }, [orderMode]);
   const homeLiveCountBySpot = useMemo(
     () =>
@@ -4242,33 +3869,22 @@ export default function App() {
         checkedOutAt: sessionItem.checkedOutAt,
       })),
     };
-    console.log("HOME LIVE COUNT SOURCE", homeSessionsSource);
+    
   }, [sessionsBySpot]);
   useEffect(() => {
-    console.log('HOME_LIVE_COUNT_BY_SPOT', homeLiveCountBySpot);
+    
   }, [homeLiveCountBySpot]);
   useEffect(() => {
-    console.log('HOME_CURRENT_USER_LIVE_SESSION', {
-      userId: activeAppUserId ?? null,
-      liveSessionId: activeCheckedInSession?.id ?? null,
-      spot: activeCheckedInSession?.spot ?? null,
-      checkedInAt: activeCheckedInSession?.checkedInAt ?? null,
-      checkedOutAt: activeCheckedInSession?.checkedOutAt ?? null,
-    });
+    
   }, [activeCheckedInSession, activeAppUserId]);
   useEffect(() => {
-    console.log('ACTIVE_SESSION_LOAD', {
-      activeCheckedInSessionId: activeCheckedInSession?.id ?? null,
-      activeSpot: activeCheckedInSession?.spot ?? null,
-      blockingSessionId: planningOverlapBlockingSession?.id ?? null,
-      blockingStatus: planningOverlapBlockingSession?.status ?? null,
-    });
+    
   }, [activeCheckedInSession, planningOverlapBlockingSession]);
   const filteredMessages = useMemo(
     () =>
       (Array.isArray(messages) ? messages : []).filter((message) => {
         const belongsToDay = isIsoInRange(message.createdAt, activeDateStart, activeDateEnd);
-        console.log("MESSAGE_DAY_CLASSIFICATION", { id: message.id, createdAt: message.createdAt, activeDay, belongsToDay });
+        
         return belongsToDay;
       }),
     [activeDateEnd, activeDateStart, activeDay, messages],
@@ -4284,13 +3900,13 @@ export default function App() {
     [filteredMessages],
   );
   useEffect(() => {
-    console.log("DAY_FILTERED_MESSAGES", { activeDay, count: filteredMessages.length, messageIds: filteredMessages.map((m) => m.id) });
+    
   }, [activeDay, filteredMessages]);
 
   const timelineSessions = useMemo(() => {
     const dedupedSessions = Array.from(new Map(sessions.map((item) => [item.id, item])).values());
     const toggleMode = timelineFilter;
-    console.log("SESSIONS FILTER INPUT", { selectedSpot, currentUserId: activeAppUserId ?? null, toggleMode });
+    
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
       if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
         return false;
@@ -4298,15 +3914,15 @@ export default function App() {
 
       return getSessionState(item) !== 'finished';
     });
-    console.log("SESSION_FILTER_RESULT", { activeDay, count: filteredSessions.length });
-    console.log("SESSIONS AFTER SPOT FILTER", filteredSessions);
+    
+    
     const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
       if (timelineFilter === 'buddies') {
         return followingUserIds.includes(item.userId);
       }
       return true;
     });
-    console.log("BUDDIES_FILTERED_SESSION_IDS", filteredSessions?.map(s => s.id) ?? []);
+    
     const resolvedLiveSessionIdsByUser = new Map<string, string>();
     for (const item of visibleSessions) {
       const isActiveCheckedInSession = Boolean(item.checkedInAt)
@@ -4327,7 +3943,7 @@ export default function App() {
         resolvedLiveSessionIdsByUser.set(item.userId, item.id);
       }
     }
-    console.log("SESSIONS AFTER VISIBILITY FILTER", visibleSessions);
+    
     return visibleSessions
       .filter((item) => {
         const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
@@ -4376,8 +3992,8 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, sessions, timelineFilter]);
-  console.log("TIMELINE_SESSIONS_DECLARED", Array.isArray(timelineSessions) ? timelineSessions.length : null);
-  console.log("TIMELINE_SESSIONS_CRASH_FIX_READY");
+  
+  
   const selectedSpotMomentumLabel = useMemo(
     () => {
       if (!selectedSpot) {
@@ -4392,12 +4008,7 @@ export default function App() {
       const plannedCount = (Array.isArray(visibleSessions) ? visibleSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
       const selectedDayMode = activeDay;
 
-      console.log("SPOT_STATUS_COUNTS", {
-        liveCount,
-        plannedCount,
-        visibleSessions: visibleSessions?.length ?? 0,
-        selectedDayMode
-      });
+      
 
       let statusLabel: SpotMomentumLabel = 'Quiet right now';
       if (liveCount > 0) {
@@ -4406,7 +4017,7 @@ export default function App() {
         statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
       }
 
-      console.log("SPOT_STATUS_LABEL", statusLabel);
+      
       return statusLabel;
     },
     [activeDay, selectedSpot, timelineSessions],
@@ -4423,12 +4034,7 @@ export default function App() {
       const defaultStart = minuteValueToHourMinute(nowReference.earliestStartMinutes);
       const defaultEndMinutes = getDefaultEndMinutesForStart(nowReference.earliestStartMinutes);
       const defaultEnd = minuteValueToHourMinute(defaultEndMinutes);
-      console.log('PLANNING_START_TIME_ADJUSTED', {
-        reason: 'default_start_when_opening_today_form',
-        selectedPlanningDateKey,
-        defaultStartMinutes: nowReference.earliestStartMinutes,
-        defaultEndMinutes,
-      });
+      
       setStartHour(defaultStart.hour);
       setStartMinute(defaultStart.minute);
       setEndHour(defaultEnd.hour);
@@ -4456,33 +4062,7 @@ export default function App() {
     }
   }, [selectedTimelineSessionId, timelineSessions]);
   useEffect(() => {
-    console.log('TIMELINE_FILTERED_SESSIONS', {
-      selectedSpot,
-      totalSpotSessions: sessions.length,
-      plannedSessions: (Array.isArray(sessions) ? sessions : []).filter((item) => isPlannedSession(item)).map((item) => ({
-        id: item.id,
-        start: item.start,
-        end: item.end,
-        intent: item.intent,
-        checkedInAt: item.checkedInAt,
-      })),
-      liveSessions: (Array.isArray(sessions) ? sessions : []).filter((item) => isLiveSession(item)).map((item) => ({
-        id: item.id,
-        start: item.start,
-        end: item.end,
-        intent: item.intent,
-        checkedInAt: item.checkedInAt,
-      })),
-      timelineSessions: timelineSessions.map(({ item, state }) => ({
-        id: item.id,
-        status: item.status,
-        intent: item.intent,
-        timelineState: state,
-        start: item.start,
-        end: item.end,
-        checkedInAt: item.checkedInAt,
-      })),
-    });
+    
   }, [selectedSpot, sessions, timelineSessions]);
   const checkedInUsers = useMemo(
     () => {
@@ -4496,7 +4076,7 @@ export default function App() {
       });
       const dedupedUsers = dedupeActiveCheckedInSessionsByUser(liveSessions)
         .sort((a, b) => getSessionRecencyMs(b) - getSessionRecencyMs(a));
-      console.log("NOW_AT_SPOT_REAL_CHECKED_IN_USERS", dedupedUsers.map((u) => (u as SpotSession & { user_id?: string; name?: string }).user_id || u.userId || (u as SpotSession & { name?: string }).name));
+      
       return dedupedUsers;
     },
     [activeDateEnd, activeDateStart, sessions],
@@ -4515,13 +4095,13 @@ export default function App() {
     : upcomingSessions.length > 0
       ? 'upcoming'
       : 'empty';
-  console.log("NOW_AT_SPOT_LIVE_USERS", checkedInUsers);
-  console.log("NOW_AT_SPOT_UPCOMING_SESSIONS", upcomingSessions);
-  console.log("NOW_AT_SPOT_MODE", mode);
+  
+  
+  
   const liveKiterCountLabel = `${checkedInUsers.length} ${checkedInUsers.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
   const shouldShowNowAtSpotPanel = activeDay === 'today' && checkedInUsers.length > 0;
   useEffect(() => {
-    console.log("NOW_AT_SPOT_VISIBLE", { activeDay, visible: shouldShowNowAtSpotPanel, checkedInCount: checkedInUsers.length });
+    
   }, [activeDay, checkedInUsers.length, shouldShowNowAtSpotPanel]);
   const getSessionPersistenceErrorMessage = (error: {
     code?: string;
@@ -4565,12 +4145,12 @@ export default function App() {
     checked_out_at: null;
     created_at?: string;
   }) => {
-    console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+    
     if (!activeProfile?.id) {
       return { data: null, error: { message: 'missing_auth_user_id' } } as const;
     }
     const writePayload = { ...payload, user_id: activeProfile.id };
-    console.log("SESSION_WRITE_PAYLOAD_USER_ID", writePayload?.user_id ?? null);
+    
     return supabase
       .from('sessions')
       .insert(writePayload)
@@ -4583,12 +4163,7 @@ export default function App() {
       return false;
     }
 
-    console.log('NOTIFICATION_MODE_SAVE_START', {
-      userId: activeAppUserId,
-      spotName: selectedSpot,
-      preferenceKey,
-      nextPreferences,
-    });
+    
     setSavingNotificationPreferenceKey(preferenceKey);
     setNotificationPreferencesError('');
     const savePayload = {
@@ -4598,7 +4173,7 @@ export default function App() {
       checkin_notification_mode: nextPreferences.checkin_notification_mode,
       chat_notification_mode: nextPreferences.chat_notification_mode,
     };
-    console.log('NOTIFICATION_MODE_SAVE_PAYLOAD', savePayload);
+    
 
     const saveResult = await supabase
       .from('spot_notification_preferences')
@@ -4609,12 +4184,7 @@ export default function App() {
         },
       );
     const { error } = saveResult;
-    console.log('NOTIFICATION_MODE_SAVE_RESULT', {
-      userId: activeAppUserId,
-      spotName: selectedSpot,
-      preferenceKey,
-      error: error ?? null,
-    });
+    
 
     setSavingNotificationPreferenceKey(null);
 
@@ -4624,12 +4194,7 @@ export default function App() {
       return false;
     }
 
-    console.log('NOTIFICATION_MODE_SAVE_SUCCESS', {
-      userId: activeAppUserId,
-      spotName: selectedSpot,
-      preferenceKey,
-      nextPreferences,
-    });
+    
     return true;
   };
 
@@ -4642,7 +4207,7 @@ export default function App() {
     source: 'spot_page' | 'home_quick';
   }): Promise<{ ok: true; spot: SpotName } | { ok: false; reason: string; error?: unknown }> => {
     const activeProfileId = activeProfile?.id ?? null;
-    console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+    
     if (!activeProfileId) {
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
@@ -4677,8 +4242,8 @@ export default function App() {
         .order('checked_in_at', { ascending: false });
     const deleteGhostSessionsForUser = async (userId: string) => {
       const payload = { user_id: userId };
-      console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
-      console.log("SESSION_DELETE_FILTER_USER_ID", activeProfile?.id ?? null);
+      
+      
       const cleanupResponse = await supabase
         .from('sessions')
         .delete()
@@ -4687,30 +4252,22 @@ export default function App() {
         .is('checked_out_at', null);
 
       if (cleanupResponse.error) {
-        console.log('SESSION_GHOST_CLEANUP_ERROR', { userId, error: cleanupResponse.error, source });
+        
       }
     };
 
     const latestOpenSessionResponse = await getLatestOpenSession();
     if (latestOpenSessionResponse.error) {
-      console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'fetch_latest_open_session', error: latestOpenSessionResponse.error, source });
+      
       return { ok: false, reason: 'fetch_latest_open_session_failed', error: latestOpenSessionResponse.error };
     }
     const existingCheckedInSessionsForDayResponse = await getExistingActiveCheckedInSessionsForDay();
     if (existingCheckedInSessionsForDayResponse.error) {
-      console.log('SPOT_PAGE_CHECKIN_ERROR', {
-        stage: 'fetch_existing_checked_in_sessions_for_day',
-        error: existingCheckedInSessionsForDayResponse.error,
-        source,
-      });
+      
       return { ok: false, reason: 'fetch_existing_checked_in_sessions_for_day_failed', error: existingCheckedInSessionsForDayResponse.error };
     }
     const existingCheckedInSessionsForDay = existingCheckedInSessionsForDayResponse.data ?? [];
-    console.log("CHECKIN_DUPLICATE_GUARD", {
-      userId: activeProfileId,
-      activeDay,
-      existingCheckedInSessionsCount: existingCheckedInSessionsForDay.length,
-    });
+    
     const activeSession = existingCheckedInSessionsForDay
       .slice()
       .sort((a, b) => {
@@ -4725,7 +4282,7 @@ export default function App() {
         await fetchSharedData();
         return { ok: true, spot: canonicalSpot };
       }
-      console.log("CHECKIN_BLOCKED_DUPLICATE", { userId: activeProfileId, activeSession });
+      
       return { ok: false, reason: `already_checked_in_other_spot:${activeSession.spot_name}` };
     }
 
@@ -4740,15 +4297,10 @@ export default function App() {
 
     if (latestOpenSession?.status === 'Gaat') {
       if (normalizeSpotName(latestOpenSession.spot_name) !== normalizeSpotName(canonicalSpot)) {
-        console.log('CHECKIN_OVERRIDE_PLANNED_SESSION_FOUND', {
-          source,
-          plannedSessionId: latestOpenSession.id,
-          plannedSpot: latestOpenSession.spot_name,
-          targetSpot: canonicalSpot,
-        });
+        
         const payload = { user_id: activeProfileId };
-        console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
-        console.log("SESSION_DELETE_FILTER_USER_ID", activeProfile?.id ?? null);
+        
+        
         const clearPlannedResult = await supabase
           .from('sessions')
           .delete()
@@ -4756,16 +4308,11 @@ export default function App() {
           .eq('user_id', activeProfileId);
 
         if (clearPlannedResult.error) {
-          console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'clear_planned_session_other_spot', error: clearPlannedResult.error, source });
+          
           return { ok: false, reason: 'clear_planned_session_other_spot_failed', error: clearPlannedResult.error };
         }
 
-        console.log('CHECKIN_OVERRIDE_PLANNED_SESSION_CLEARED', {
-          source,
-          clearedSessionId: latestOpenSession.id,
-          clearedSpot: latestOpenSession.spot_name,
-          targetSpot: canonicalSpot,
-        });
+        
         await deleteGhostSessionsForUser(activeProfileId);
       } else {
 
@@ -4775,12 +4322,12 @@ export default function App() {
         checked_in_at: nowIso,
         checked_out_at: null,
       } as const;
-      console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, source });
+      
       if (source === 'home_quick') {
-        console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'update', sessionId: latestOpenSession.id, payload: updatePayload, spot: canonicalSpot });
+        
       }
       const payload = { user_id: activeProfileId };
-      console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
+      
       const checkInResponse = await supabase
         .from('sessions')
         .update(updatePayload)
@@ -4788,11 +4335,11 @@ export default function App() {
         .eq('user_id', activeProfileId);
 
       if (checkInResponse.error) {
-        console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'update_existing_session', error: checkInResponse.error, source });
+        
         return { ok: false, reason: 'update_existing_session_failed', error: checkInResponse.error };
       }
 
-      console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'updated_planned_session', sessionId: latestOpenSession.id, selectedSpot: canonicalSpot, source });
+      
       await fetchSharedData();
       return { ok: true, spot: canonicalSpot };
       }
@@ -4810,22 +4357,22 @@ export default function App() {
       checked_in_at: nowIso,
       checked_out_at: null,
     };
-    console.log("SESSION_WRITE_PAYLOAD_USER_ID", insertPayload?.user_id ?? null);
-    console.log('SPOT_PAGE_CHECKIN_PAYLOAD', { mode: 'insert', payload: insertPayload, source });
+    
+    
     if (source === 'home_quick') {
-      console.log('HOME_QUICK_CHECKIN_PAYLOAD_USED', { mode: 'insert', payload: insertPayload, spot: canonicalSpot });
+      
     }
     const insertResult = await supabase.from('sessions').insert(insertPayload);
 
     if (insertResult.error) {
-      console.log('SPOT_PAGE_CHECKIN_ERROR', { stage: 'insert_new_live_session', error: insertResult.error, payload: insertPayload, source });
+      
       if (isUniqueConstraintError(insertResult.error)) {
         return { ok: false, reason: 'unique_constraint_live_session', error: insertResult.error };
       }
       return { ok: false, reason: 'insert_new_live_session_failed', error: insertResult.error };
     }
 
-    console.log('SPOT_PAGE_CHECKIN_SUCCESS', { mode: 'inserted_live_session', selectedSpot: canonicalSpot, source });
+    
     await fetchSharedData();
     return { ok: true, spot: canonicalSpot };
   };
@@ -4849,27 +4396,27 @@ export default function App() {
     spot: SpotName;
     source: 'spot_page' | 'home_quick';
   }): Promise<{ errorMessage: string | null; checkedInSpot: SpotName | null }> => {
-    console.log('CHECKIN_SHARED_FLOW_SPOT_USED', { source, spot });
+    
     const checkInResult = await runCheckInFlowForSpot({ spot, source });
     if (!checkInResult.ok) {
       const failureResult = checkInResult as { ok: false; reason: string; error?: unknown };
       const failureReason = failureResult.reason;
       const failureError = failureResult.error ?? null;
-      console.log('CHECKIN_SHARED_FLOW_ERROR_RESULT', { source, spot, reason: failureReason, error: failureError });
+      
       return { errorMessage: mapCheckInFailureToMessage(failureReason), checkedInSpot: null };
     }
 
-    console.log('CHECKIN_SHARED_FLOW_SUCCESS_RESULT', { source, spot: checkInResult.spot });
+    
     return { errorMessage: null, checkedInSpot: checkInResult.spot };
   };
 
   const handleUpdateSessionStatus = async (status: SessionStatus) => {
     setSessionActionError('');
     const actionLabel = status === 'Is er al' ? 'SPOT_PAGE_CHECKIN' : 'SPOT_PAGE_CHECKOUT';
-    console.log(`${actionLabel}_BUTTON_PRESSED`, { selectedSpot, status });
+    
 
     const activeProfileId = activeProfile?.id ?? null;
-    console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+    
     if (!activeProfileId) {
       return;
     }
@@ -4888,7 +4435,7 @@ export default function App() {
 
     if (status === 'Is er al') {
       if (!selectedSpot) {
-        console.warn('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot });
+        console.error('SPOT_PAGE_CHECKIN_MISSING_SPOT_NAME', { selectedSpot });
         return;
       }
       if (!selectedSpotWithinCheckInRadius) {
@@ -4906,7 +4453,7 @@ export default function App() {
 
     const latestOpenSessionResponse = await getLatestOpenSession();
     if (latestOpenSessionResponse.error) {
-      console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: latestOpenSessionResponse.error });
+      
       setSessionActionError('Check-out failed. Please try again.');
       return;
     }
@@ -4918,7 +4465,7 @@ export default function App() {
     }
 
     const payload = { user_id: activeProfileId };
-    console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
+    
     const result = await supabase
       .from('sessions')
       .update({
@@ -4929,12 +4476,12 @@ export default function App() {
       .eq('user_id', activeProfileId);
 
     if (result.error) {
-      console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: false, error: result.error });
+      
       setSessionActionError('Check-out failed. Please try again.');
       return;
     }
 
-    console.log('SPOT_PAGE_CHECKOUT_RESULT', { ok: true, sessionId: checkedInSession.id });
+    
     await fetchSharedData();
     setSessionActionError('');
   };
@@ -4953,13 +4500,13 @@ export default function App() {
   };
 
   const handleQuickCheckIn = async (spot: SpotName) => {
-    console.log('HOME_QUICK_CHECKIN_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
-    console.log('CHECKIN_HERE_PRESSED', { spot, activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
+    
+    
     setHomeQuickCheckInError('');
 
     if (quickCheckInWindowError) {
       setHomeQuickCheckInError(quickCheckInWindowError);
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, reason: 'outside_window', quickCheckInWindowError });
+      
       return;
     }
 
@@ -4973,44 +4520,34 @@ export default function App() {
     );
     if (!isPressedSpotWithinRange) {
       setHomeQuickCheckInError('You are too far from the spot (&gt;1 km)');
-      console.log('HOME_QUICK_CHECKIN_RESULT', {
-        ok: false,
-        reason: 'out_of_range',
-        spot,
-        nearestSpotResult: nearestSpotResult
-          ? { spot: nearestSpotResult.spot, distanceMeters: nearestSpotResult.distanceMeters }
-          : null,
-      });
+      
       return;
     }
 
     setQuickCheckInSpotInFlight(spot);
-    console.log('HOME_QUICK_CHECKIN_SELECTED_SPOT', { spot });
+    
     const { errorMessage: checkInErrorMessage, checkedInSpot } = await handleCheckInWithSharedFlow({ spot, source: 'home_quick' });
     setQuickCheckInSpotInFlight(null);
 
     if (checkInErrorMessage) {
       setHomeQuickCheckInError(checkInErrorMessage);
-      console.log('HOME_QUICK_CHECKIN_ERROR_RESULT', { spot, error: checkInErrorMessage });
-      console.log('HOME_QUICK_CHECKIN_RESULT', { ok: false, spot, reason: checkInErrorMessage });
+      
+      
       return;
     }
 
     const resolvedSpot = checkedInSpot ?? spot;
     setSelectedSpot(resolvedSpot);
-    console.log('CHECKIN_HERE_SUCCESS', { spot: resolvedSpot });
-    console.log('CHECKIN_HERE_NAVIGATE_TO_SPOT', { spot: resolvedSpot });
+    
+    
     setHomeQuickCheckInError('');
-    console.log('HOME_QUICK_CHECKIN_SUCCESS_RESULT', { spot: resolvedSpot });
-    console.log('HOME_QUICK_CHECKIN_RESULT', { ok: true, spot: resolvedSpot });
+    
+    
   };
   const handleAutoCheckInDismiss = () => {
     setAutoCheckInPromptDismissed(true);
     setShowAutoCheckinPrompt(false);
-    console.log('AUTO_CHECKIN_DISMISSED', {
-      nearestSpotName,
-      distanceMeters,
-    });
+    
   };
   const handleAutoCheckInConfirm = async () => {
     if (!nearestSpotName || distanceMeters === null) {
@@ -5018,32 +4555,29 @@ export default function App() {
     }
 
     setShowAutoCheckinPrompt(false);
-    console.log('AUTO_CHECKIN_CONFIRMED', {
-      nearestSpotName,
-      distanceMeters,
-    });
+    
     await handleQuickCheckIn(nearestSpotName);
   };
 
   const handleQuickCheckOut = async () => {
-    console.log('HOME_QUICK_CHECKOUT_PRESSED', { activeCheckedInSessionId: activeCheckedInSession?.id ?? null });
+    
     setHomeQuickCheckInError('');
 
     const activeProfileId = activeProfile?.id ?? null;
-    console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+    
     if (!activeProfileId) {
       return;
     }
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
-      console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: false, reason: 'no_live_session' });
+      
       return;
     }
 
     setHomeQuickCheckOutInFlight(true);
     const payload = { user_id: activeProfileId };
-    console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
+    
     const result = await supabase
       .from('sessions')
       .update({
@@ -5056,14 +4590,14 @@ export default function App() {
     setHomeQuickCheckOutInFlight(false);
 
     if (result.error) {
-      console.log('HOME_QUICK_CHECKOUT_FAILURE', { error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
+      
       setHomeQuickCheckInError('Check-out failed. Please try again.');
-      console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: false, error: result.error, activeCheckedInSessionId: activeCheckedInSession.id });
+      
       return;
     }
 
-    console.log('HOME_QUICK_CHECKOUT_SUCCESS', { activeCheckedInSessionId: activeCheckedInSession.id });
-    console.log('HOME_QUICK_CHECKOUT_RESULT', { ok: true, activeCheckedInSessionId: activeCheckedInSession.id });
+    
+    
     setHomeQuickCheckInError('');
     await fetchSharedData();
   };
@@ -5138,17 +4672,7 @@ export default function App() {
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
             </View>
-            <View style={{ backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 10, marginTop: 8 }}>
-              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Diagnostics</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>has anon key: {Boolean(SUPABASE_ANON_KEY) ? 'true' : 'false'}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>client exists: {Boolean(supabase) ? 'true' : 'false'}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>spots query count: {diagSpotsQueryCount}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>spots query error: {diagSpotsQueryError ?? 'none'}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>raw status: {diagRawStatus ?? 'pending'}</Text>
-            </View>
-
             <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Spots test count: {spotsTestCount}</Text>
             <TextInput
               value={homeSpotSearchQuery}
               onChangeText={(value) => {
@@ -5235,7 +4759,7 @@ export default function App() {
                       webDragOverIndexRef.current = manualIndex;
                       setDraggingManualSpot(spot);
                       setDragManualOrder([...manualOrderToRender]);
-                      console.log("YOUR_SPOTS_DRAG_START", { spotName: spot });
+                      
                     },
                     onPanResponderMove: (_, gestureState) => {
                       const startIndex = dragStartIndexRef.current;
@@ -5258,7 +4782,7 @@ export default function App() {
                       const fromIndex = dragStartIndexRef.current ?? manualIndex;
                       const draggedSpotName = dragSpotNameRef.current;
                       const toIndex = draggedSpotName ? nextManualOrder.indexOf(draggedSpotName) : fromIndex;
-                      console.log("YOUR_SPOTS_DRAG_END", { fromIndex, toIndex });
+                      
                       if (nextManualOrder.length > 0) {
                         updateManualOrder(nextManualOrder);
                       }
@@ -5348,15 +4872,7 @@ export default function App() {
       const searchableName = userItem.display_name.toLowerCase();
       return searchableName.includes(trimmedSearch);
     });
-    console.log('BUDDIES_SEARCH_RESULTS', {
-      query: searchUsersInput,
-      normalizedQuery: trimmedSearch,
-      resultCount: filteredBuddyUsers.length,
-      results: filteredBuddyUsers.map((userItem) => ({
-        id: userItem.id,
-        display_name: userItem.display_name,
-      })),
-    });
+    
     const followedUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => followingUserIds.includes(userItem.id));
 
     return (
@@ -5585,13 +5101,13 @@ export default function App() {
       const normalizedEmail = normalizeEmail(session.user.email ?? '');
 
       if (!isAvatarOnlyUpdate && hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
-        console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+        
         setProfileEditError('Username not allowed');
         return;
       }
 
       if (!isAvatarOnlyUpdate && hasRestrictedWord(trimmedName)) {
-        console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+        
         setProfileEditError('Username contains restricted words');
         return;
       }
@@ -5636,8 +5152,8 @@ export default function App() {
           return;
         }
         avatarUrl = publicUrl;
-        console.log("AVATAR_UPLOAD_URL", avatarUrl);
-        console.log("AVATAR_UPDATE_PROFILE_ID", activeProfileId);
+        
+        
 
         if (!activeProfileId) {
           setIsSavingProfile(false);
@@ -5649,7 +5165,7 @@ export default function App() {
           .from('profiles')
           .update({ avatar_url: avatarUrl })
           .eq('id', activeProfileId);
-        console.log('profile avatar update result', avatarUpdateResult);
+        
         const { error: avatarUpdateError } = avatarUpdateResult;
 
         if (avatarUpdateError) {
@@ -5667,13 +5183,13 @@ export default function App() {
         const payload = {
           display_name: trimmedName,
         };
-        console.log('profile update payload', payload);
+        
 
         const updateResult = await supabase
           .from('profiles')
           .update(payload)
           .eq('id', session.user.id);
-        console.log('profile update result', updateResult);
+        
         const { error: updateError } = updateResult;
 
         if (updateError) {
@@ -5696,7 +5212,7 @@ export default function App() {
         .select('id, display_name, avatar_url, created_at')
         .eq('id', session.user.id)
         .single();
-      console.log('reloaded profile', freshProfile);
+      
 
       if (freshProfileError) {
         setIsSavingProfile(false);
@@ -5775,7 +5291,7 @@ export default function App() {
                   const nextOpen = !showAccountSwitcher;
                   setShowAccountSwitcher(nextOpen);
                   if (nextOpen) {
-                    console.log("SWITCH_ACCOUNT_OPENED");
+                    
                     void loadOwnedProfiles();
                   }
                 }}
@@ -5792,7 +5308,7 @@ export default function App() {
                     setAdminCreateWarning('');
                   }
                   if (nextOpen) {
-                    console.log("ADMIN_CREATE_PROFILE_OPENED");
+                    
                   }
                 }}
                 style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
@@ -5866,7 +5382,7 @@ export default function App() {
                 <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
                   {(() => {
                     const data = visibleProfiles;
-                    console.log("SWITCH_ACCOUNT_RENDER_COUNT", Array.isArray(data) ? data.length : 0);
+                    
                     return null;
                   })()}
                   {switchAccountError ? (
@@ -5884,7 +5400,7 @@ export default function App() {
                   </View>
                   {visibleProfiles.map((account) => {
                     const profile = account;
-                    console.log("SWITCH_ACCOUNT_RENDER_ITEM", profile);
+                    
                     const isActive = account.id === activeAppUserId;
                     return (
                       <Pressable
@@ -6007,10 +5523,10 @@ export default function App() {
         user_id: resolveTargetSessionProfileIdForJoin(sessionToJoin),
         owner_uid: sessionToJoin.userOwnerUid ?? null,
       };
-      console.log("ASYMMETRIC_JOIN_ACTIVE_PROFILE_ID", activeProfile?.id ?? null);
-      console.log("ASYMMETRIC_JOIN_TARGET_SESSION", targetSession ?? null);
-      console.log("ASYMMETRIC_JOIN_TARGET_USER_ID", targetSession?.user_id ?? null);
-      console.log("ASYMMETRIC_JOIN_TARGET_OWNER_UID", targetSession?.owner_uid ?? null);
+      
+      
+      
+      
 
       const activeProfileId = activeProfile?.id ?? null;
       if (!activeProfileId) {
@@ -6019,11 +5535,11 @@ export default function App() {
       }
 
       const selfBlock = targetSession?.user_id === activeProfile?.id;
-      console.log("ASYMMETRIC_JOIN_SELF_BLOCK", selfBlock);
+      
       if (selfBlock) {
         const blockReason = 'self_join';
-        console.log("ASYMMETRIC_JOIN_DUPLICATE_BLOCK", false);
-        console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
+        
+        
         setSessionActionError('');
         return;
       }
@@ -6039,20 +5555,20 @@ export default function App() {
           && candidateSessionDateKey === targetSessionDateKey
         );
       });
-      console.log("ASYMMETRIC_JOIN_DUPLICATE_BLOCK", duplicateJoin ?? false);
+      
       if (duplicateJoin) {
         const blockReason = 'duplicate_join';
-        console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
+        
         setSessionActionError('');
         return;
       }
       const blockReason = null;
-      console.log("ASYMMETRIC_JOIN_BLOCK_REASON", blockReason ?? null);
+      
 
       const createPayload = buildJoinSessionPayload(targetSession, activeProfileId);
       const payload = { ...createPayload };
       const { data, error } = await createPlannedSession(payload as Parameters<typeof createPlannedSession>[0]);
-      console.log("ASYMMETRIC_JOIN_RESULT", { data, error });
+      
       if (error) {
         const errorMessage = getSessionPersistenceErrorMessage(error, 'Session could not be saved');
         setSessionActionError(errorMessage);
@@ -6063,16 +5579,10 @@ export default function App() {
       setSessionActionError('');
     };
     const handleSave = async () => {
-      console.log('SPOT_PAGE_PLANNING_SAVE_PRESSED');
+      
       setSaveError(null);
-      console.log('SPOT_PAGE_PLANNING_SELECTED_SPOT', { selectedSpot });
-      console.log('SPOT_PAGE_PLANNING_TIME_PAYLOAD', {
-        startHour,
-        startMinute,
-        endHour,
-        endMinute,
-        selectedPlanningDateKey,
-      });
+      
+      
 
       if (startHour === null) {
         setFormError('Choose a start time first.');
@@ -6103,32 +5613,23 @@ export default function App() {
 
       const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
       if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
-        console.log('PLANNING_PAST_TIME_BLOCKED', {
-          startTotalMinutes,
-          earliestStartMinutes: nowReference.earliestStartMinutes,
-          selectedPlanningDateKey,
-          editingSessionId,
-        });
+        
         setFormError('Start time cannot be in the past.');
         return;
       }
 
-      console.log('BLOCKING_SESSION', planningOverlapBlockingSession);
+      
       if (planningOverlapBlockingSession) {
         setFormError('You already have a session at this time');
         return;
       }
 
       const activeProfileId = activeProfile?.id ?? null;
-      console.log("ACTIVE_PROFILE_SESSION_USER_ID", activeProfile?.id ?? null);
+      
       if (!activeProfileId) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', {
-          reason: 'missing_auth_or_profile',
-          selectedSpot,
-          hasSessionUserId: Boolean(activeAppUserId),
-        });
+        
         return;
       }
 
@@ -6143,9 +5644,9 @@ export default function App() {
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
       };
-      console.log("SESSION_WRITE_PAYLOAD_USER_ID", payload?.user_id ?? null);
-      console.log("PLAN_SESSION_ACTIVE_DAY", { activeDay, plannedDate: selectedPlanningDateKey });
-      console.log('SESSION_INTENT_SAVE_PAYLOAD', payload);
+      
+      
+      
       const plannedDateRange = getIsoDateRangeForLocalDateKey(selectedPlanningDateKey);
       const exactDuplicateQuery = supabase
         .from('sessions')
@@ -6173,7 +5674,7 @@ export default function App() {
           code: exactDuplicateResult.error.code,
           response: exactDuplicateResult,
         });
-        console.log('SPOT_PAGE_PLANNING_SAVE_DUPLICATE_QUERY_ERROR', { error: exactDuplicateResult.error, payload, editingSessionId });
+        
         return;
       }
 
@@ -6183,27 +5684,11 @@ export default function App() {
           message: 'sessions_unique',
           details: `duplicate_planned_session_id:${exactDuplicateResult.data.id}`,
         });
-        console.log('SPOT_PAGE_PLANNING_SAVE_BLOCKED_DUPLICATE', {
-          payload,
-          editingSessionId,
-          duplicateSessionId: exactDuplicateResult.data.id,
-        });
+        
         return;
       }
 
-      console.log('SPOT_PAGE_PLANNING_SAVE_PAYLOAD', {
-        payload,
-        payloadInspection: {
-          userId: payload.user_id,
-          spot: payload.spot_name,
-          dateDaySource: currentLocalDateKey,
-          start: payload.start_time,
-          end: payload.end_time,
-          status: payload.status,
-          checkedInAt: payload.checked_in_at,
-          checkedOutAt: payload.checked_out_at,
-        },
-      });
+      
       let result;
       if (editingSessionId) {
         result = await supabase
@@ -6229,15 +5714,15 @@ export default function App() {
           code: result.error.code,
           response: result,
         });
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR', { error: result.error, payload, editingSessionId });
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_MESSAGE', result.error.message ?? null);
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_DETAILS', result.error.details ?? null);
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_HINT', result.error.hint ?? null);
-        console.log('SPOT_PAGE_PLANNING_SAVE_ERROR_FULL_RESPONSE', result);
+        
+        
+        
+        
+        
         return;
       }
 
-      console.log('SPOT_PAGE_PLANNING_SAVE_RESULT', result.data);
+      
       await fetchSharedData();
       resetForm();
       setSessionActionError('');
@@ -6439,12 +5924,7 @@ export default function App() {
             if (canCancelJoinedSession) {
               topActions.push('Cancel');
             }
-            console.log("TOP_ACTIONS_RENDER", {
-              userId: activeAppUserId ?? null,
-              activeSession: activeCheckedInSession ?? null,
-              joinedSession,
-              actions: topActions,
-            });
+            
             return null;
           })()}
           {joinedSession && (canEditJoinedSession || canCancelJoinedSession) ? (
@@ -6608,7 +6088,7 @@ export default function App() {
                       key={`intent-${option.value}`}
                       onPress={() => {
                         setIntent(option.value);
-                        console.log('SESSION_INTENT_SELECTED', option.value);
+                        
                       }}
                       style={{
                         flex: 1,
@@ -6787,7 +6267,7 @@ export default function App() {
                   return;
                 }
 
-                console.log('USER OBJECT', { id: activeAppUserId });
+                
                 const activeMessageDateIso = getIsoDateFromLocalDateKey(activeDateKey) ?? new Date().toISOString();
                 const payload = {
                   user_id: activeAppUserId,
@@ -6795,14 +6275,14 @@ export default function App() {
                   spot_name: selectedSpot,
                   created_at: activeMessageDateIso,
                 };
-                console.log('INSERT PAYLOAD', payload);
+                
                 if (!activeAppUserId) {
                   console.error('NO AUTH USER');
                   return;
                 }
 
-                console.log('USER ID', activeAppUserId);
-                console.log('SENDING MESSAGE', payload);
+                
+                
                 const { error } = await supabase.from('messages').insert(payload);
 
                 if (error) {
@@ -6846,13 +6326,13 @@ export default function App() {
     );
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
-  console.log("HOME_SPOTS_RENDERED", favoriteSpots ?? []);
-  console.log("HOME_VISIBLE_SPOTS", visibleSpots.map((s) => s.name));
-  console.log("YOUR_SPOTS_ORDER_MODE", orderMode);
-  console.log("YOUR_SPOTS_MANUAL_ORDER", manualOrder);
-  console.log("YOUR_SPOTS_VISIBLE_ORDER", visibleSpots.map((s) => s.name));
-  console.log("HOME_SCROLL_CONTAINER_ACTIVE");
-  console.log("HOME_SPOTS_RENDER_COUNT", visibleSpots.length);
+  
+  
+  
+  
+  
+  
+  
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
@@ -6966,7 +6446,7 @@ export default function App() {
         {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
         <View style={{ marginBottom: 12 }}>
           {(() => {
-            console.log("HOME_DAY_TOGGLE_RENDERED");
+            
             return null;
           })()}
           <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
@@ -6994,7 +6474,7 @@ export default function App() {
         </View>
         <View style={{ marginBottom: 12 }}>
           {(() => {
-            console.log("HOME_SEARCH_REMOVED_FROM_MAIN_PAGE");
+            
             return null;
           })()}
           {isResolvingNearestSpot ? (
@@ -7013,7 +6493,7 @@ export default function App() {
           )}
           {nearestSpotResult && (
             (() => {
-              console.log("HOME_NEAREST_SPOT_CONTEXT_ROW", { nearestSpot: nearestSpotResult.spot, distanceMeters: nearestSpotResult.distanceMeters });
+              
               return null;
             })()
           )}
@@ -7084,19 +6564,8 @@ export default function App() {
           const selectedDayMode = activeDay;
           const spotId = spot.name;
           const { label: statusLabel, symbol } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
-          console.log("HOME_CARD_RENDERED_COUNTS", {
-            spotName: spot.name,
-            plannedCount,
-            activeCount,
-            selectedDayMode
-          });
-          console.log("HOME_CARD_STATUS_DECISION", {
-            spotName: spot.name,
-            plannedCount,
-            activeCount,
-            label: statusLabel,
-            symbol
-          });
+          
+          
 
           return (
             <Pressable

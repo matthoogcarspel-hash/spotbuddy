@@ -53,7 +53,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   };
 
   const handleSave = async () => {
-    console.log('SAVE_BUTTON_CLICKED');
+    
     setSaveStatusText('Save button works');
     setSaveButtonClicked(true);
 
@@ -72,13 +72,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     const normalizedEmail = normalizeEmail(authUserData.user?.email ?? '');
 
     if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) {
-      console.log('SPOTBUDDY_NAME_BLOCKED', trimmedName);
+      
       setError('Username not allowed');
       return;
     }
 
     if (hasRestrictedWord(trimmedName)) {
-      console.log('USERNAME_VALIDATION_FAILED', trimmedName);
+      
       setError('Username contains restricted words');
       return;
     }
@@ -117,7 +117,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
         avatarUrl = publicUrl;
       } catch (uploadError) {
-        console.log('AVATAR_UPLOAD_FAILED', uploadError);
+        
         setWarning('Photo upload failed. Profile will be created without an avatar.');
       }
     }
@@ -149,7 +149,7 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       return;
     }
 
-    console.log('PROFILE_CREATED', trimmedName, avatarUrl);
+    
     onSaved(savedProfile);
   };
 

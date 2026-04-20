@@ -18,7 +18,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
   const safeSpots = Array.isArray(spots) ? spots : [];
 
   if (!Array.isArray(spots)) {
-    console.log("SPOTS INVALID:", spots);
+    
     return null;
   }
 
