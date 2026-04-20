@@ -1515,9 +1515,7 @@ export default function App() {
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [spotSearchResults, setSpotSearchResults] = useState<SpotSearchResult[]>([]);
   const [searchingSpots, setSearchingSpots] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const spotSearchDebounceTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
   const dragStartIndexRef = useRef<number | null>(null);
@@ -1935,10 +1933,6 @@ export default function App() {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
     }
-    if (spotSearchDebounceTimeoutRef.current) {
-      clearTimeout(spotSearchDebounceTimeoutRef.current);
-      spotSearchDebounceTimeoutRef.current = null;
-    }
   }, []);
 
   const addSelectedSpot = (spotName: SpotName) => {
@@ -1990,12 +1984,69 @@ export default function App() {
     console.log("SPOT_LOOKUP_OPENED", { spotName, saved: isSavedSpot });
     setSelectedSpot(spotName);
     setShowYourSpotsPage(false);
-    setIsSearchFocused(false);
     setHomeSpotSearchQuery('');
     setSpotSearchResults([]);
   };
+  const searchSpots = async (q: string) => {
+    console.log("SEARCH_RAW_INPUT", q);
+    const term = q.trim();
+
+    if (!term) {
+      setSpotSearchResults([]);
+      setSearchingSpots(false);
+      return;
+    }
+
+    setSearchingSpots(true);
+    const { data, error } = await supabase
+      .from('spots')
+      .select('country,name,longitude,latitude')
+      .or(`country.ilike.%${term}%,name.ilike.%${term}%`)
+      .limit(20);
+
+    console.log("SEARCH_DB_RESULT", { data, error });
+
+    let rows = data ?? [];
+    if (error) {
+      const [countryResult, nameResult] = await Promise.all([
+        supabase.from('spots').select('country,name,longitude,latitude').ilike('country', `%${term}%`).limit(20),
+        supabase.from('spots').select('country,name,longitude,latitude').ilike('name', `%${term}%`).limit(20),
+      ]);
+      const merged = [...(countryResult.data ?? []), ...(nameResult.data ?? [])];
+      const dedupedMap = new Map<string, SpotSearchResult>();
+      for (const row of merged) {
+        const name = (row.name ?? '').toString().trim();
+        const country = (row.country ?? '').toString().trim();
+        const longitude = Number(row.longitude);
+        const latitude = Number(row.latitude);
+        if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
+          continue;
+        }
+        const dedupeKey = `${country}|${name}|${longitude}|${latitude}`;
+        dedupedMap.set(dedupeKey, { country, name, longitude, latitude });
+      }
+      rows = [...dedupedMap.values()].slice(0, 20);
+    }
+
+    const mappedResults = rows
+      .map((row) => {
+        const name = (row.name ?? '').toString().trim();
+        const country = (row.country ?? '').toString().trim();
+        const longitude = Number(row.longitude);
+        const latitude = Number(row.latitude);
+
+        if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
+          return null;
+        }
+
+        return { name, country, longitude, latitude } satisfies SpotSearchResult;
+      })
+      .filter((row): row is SpotSearchResult => row !== null);
+    setSpotSearchResults(mappedResults);
+    setSearchingSpots(false);
+  };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
-    console.log("SEARCH_SPOT_SELECTED", selectedSpot);
+    console.log("SEARCH_SELECTED_RESULT", selectedSpot);
     if (searchBlurTimeoutRef.current) {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
@@ -2091,67 +2142,6 @@ export default function App() {
     const query = homeSpotSearchQuery;
     console.log("YOUR_SPOTS_PAGE_SEARCH_QUERY", query);
   }, [homeSpotSearchQuery, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    if (spotSearchDebounceTimeoutRef.current) {
-      clearTimeout(spotSearchDebounceTimeoutRef.current);
-      spotSearchDebounceTimeoutRef.current = null;
-    }
-    const q = homeSpotSearchQuery.trim();
-    console.log("SEARCH_INPUT", q);
-
-    if (!q) {
-      setSpotSearchResults([]);
-      setSearchingSpots(false);
-      return;
-    }
-
-    spotSearchDebounceTimeoutRef.current = setTimeout(() => {
-      void (async () => {
-        setSearchingSpots(true);
-        const { data, error } = await supabase
-          .from('spots')
-          .select('country,name,longitude,latitude')
-          .or(`name.ilike.%${q}%,country.ilike.%${q}%`)
-          .order('country', { ascending: true })
-          .limit(20);
-        console.log("SEARCH_QUERY_RESULT", { data, error });
-        console.log("SEARCH_RESULT_COUNT", Array.isArray(data) ? data.length : 0);
-        if (error) {
-          console.error('SPOT_SEARCH_QUERY_FAILED', error);
-          setSpotSearchResults([]);
-          setSearchingSpots(false);
-          return;
-        }
-
-        const mappedResults = (data ?? [])
-          .map((row) => {
-            const name = (row.name ?? '').toString().trim();
-            const country = (row.country ?? '').toString().trim();
-            const longitude = Number(row.longitude);
-            const latitude = Number(row.latitude);
-
-            if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
-              return null;
-            }
-
-            return { name, country, longitude, latitude } satisfies SpotSearchResult;
-          })
-          .filter((row): row is SpotSearchResult => row !== null);
-        setSpotSearchResults(mappedResults);
-        setSearchingSpots(false);
-      })();
-      spotSearchDebounceTimeoutRef.current = null;
-    }, 200);
-  }, [homeSpotSearchQuery, showYourSpotsPage]);
-  useEffect(() => {
-    if (!showYourSpotsPage) {
-      return;
-    }
-    console.log("YOUR_SPOTS_SEARCH_FOCUS", isSearchFocused);
-  }, [isSearchFocused, showYourSpotsPage]);
   useEffect(() => {
     if (!showYourSpotsPage) {
       return;
@@ -5012,9 +5002,7 @@ export default function App() {
   }
 
   if (showYourSpotsPage) {
-    const search = homeSpotSearchQuery.trim();
-    const isResultsVisible = isSearchFocused && search.length > 0;
-    console.log("YOUR_SPOTS_SEARCH_RESULTS_VISIBLE", isResultsVisible);
+    console.log("SEARCH_RENDER_COUNT", Array.isArray(spotSearchResults) ? spotSearchResults.length : 0);
     const manualOrderToRender = orderMode === 'manual' && dragManualOrder ? dragManualOrder : manualOrder;
     const manualOrderCards = manualOrderToRender
       .map((spotName) => {
@@ -5042,20 +5030,21 @@ export default function App() {
             <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
             <TextInput
               value={homeSpotSearchQuery}
-              onChangeText={setHomeSpotSearchQuery}
+              onChangeText={(value) => {
+                setHomeSpotSearchQuery(value);
+                void searchSpots(value);
+              }}
               onFocus={() => {
                 if (searchBlurTimeoutRef.current) {
                   clearTimeout(searchBlurTimeoutRef.current);
                   searchBlurTimeoutRef.current = null;
                 }
-                setIsSearchFocused(true);
               }}
               onBlur={() => {
                 if (searchBlurTimeoutRef.current) {
                   clearTimeout(searchBlurTimeoutRef.current);
                 }
                 searchBlurTimeoutRef.current = setTimeout(() => {
-                  setIsSearchFocused(false);
                   searchBlurTimeoutRef.current = null;
                 }, 120);
               }}
@@ -5063,29 +5052,22 @@ export default function App() {
               placeholderTextColor={theme.textMuted}
               style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
             />
-            {isResultsVisible ? (
-              searchingSpots ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>Searching spots...</Text>
-              ) : spotSearchResults.length > 0 ? (
-                <View style={{ marginTop: 8 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {spotSearchResults.length}</Text>
-                  {spotSearchResults.map((spotItem) => (
-                    <Pressable
-                      key={`your-spots-page-search-${spotItem.country}-${spotItem.name}`}
-                      onPressIn={() => handleSearchResultPress(spotItem)}
-                      style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                    >
-                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{`${spotItem.country} - ${spotItem.name}`}</Text>
-                      <Text style={{ color: favoriteSpots.includes(spotItem.name) ? theme.textSoft : theme.primary, fontSize: 13, fontWeight: '700' }}>
-                        {favoriteSpots.includes(spotItem.name) ? 'Saved' : 'Open'}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : (
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>No matching spots.</Text>
-              )
+            {searchingSpots ? (
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>Searching spots...</Text>
             ) : null}
+            <View style={{ marginTop: 8 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {spotSearchResults.length}</Text>
+              {spotSearchResults.map((spotItem) => (
+                <Pressable
+                  key={`your-spots-page-search-${spotItem.country}-${spotItem.name}-${spotItem.longitude}-${spotItem.latitude}`}
+                  onPressIn={() => handleSearchResultPress(spotItem)}
+                  style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{`${spotItem.country} - ${spotItem.name}`}</Text>
+                  <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Open</Text>
+                </Pressable>
+              ))}
+            </View>
             {homeSpotsLimitMessage ? (
               <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text>
             ) : null}
