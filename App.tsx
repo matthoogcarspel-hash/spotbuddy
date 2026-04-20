@@ -3863,6 +3863,11 @@ export default function App() {
   const shouldHidePlanSessionButton = hasOwnSessionOnSelectedSpotDay;
   const shouldDisablePlanSessionButton = false;
   const planSessionVisible = !shouldHidePlanSessionButton && !shouldDisablePlanSessionButton;
+  const hasSessionForSelectedSpotToday = hasOwnSessionOnSelectedSpotDay;
+  const headerStateLabel = hasSessionForSelectedSpotToday ? 'You have a session today' : null;
+  const headerHelperText = hasSessionForSelectedSpotToday
+    ? 'You’re going today. Others can join you.'
+    : 'See who’s going or start a session.';
   console.log("TOP_CTA_SHARED_DECISION", {
     hasOwnSessionOnSelectedSpotDay,
     existingSessionId: existingOwnSessionOnSelectedSpotDay?.id ?? null,
@@ -5978,6 +5983,7 @@ export default function App() {
             <View style={{ flex: 1, paddingRight: 12 }}>
               <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
+              {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
               {selectedSpotMomentumLabel ? (
                 <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
@@ -6113,7 +6119,7 @@ export default function App() {
             </View>
           ) : null}
 
-          {!shouldHidePlanSessionButton ? (
+          {!hasSessionForSelectedSpotToday ? (
             <Pressable
               disabled={shouldDisablePlanSessionButton}
               onPress={() => {
@@ -6132,53 +6138,47 @@ export default function App() {
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
             </Pressable>
           ) : null}
-          {(() => {
-            const topActions: string[] = [];
-            if (canEditJoinedSession) {
-              topActions.push('Edit');
-            }
-            if (canCancelJoinedSession) {
-              topActions.push('Cancel');
-            }
-            
-            return null;
-          })()}
-          {joinedSession && (canEditJoinedSession || canCancelJoinedSession) ? (
+          {hasSessionForSelectedSpotToday ? (
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              {canEditJoinedSession ? (
-                <Pressable
-                  onPress={() => {
-                    setEditingSessionId(joinedSession.id);
-                    const parsedStart = parseHourMinuteParts(joinedSession.start);
-                    const parsedEnd = parseHourMinuteParts(joinedSession.end);
-                    setStartHour(parsedStart.hour);
-                    setStartMinute(parsedStart.minute);
-                    setEndHour(parsedEnd.hour);
-                    setEndMinute(parsedEnd.minute);
-                    setIntent(resolveSessionIntent(joinedSession.intent));
-                    setShowForm(true);
-                    setActivePicker(null);
-                    setSessionActionError('');
-                    setFormError('');
-                    setSaveError(null);
-                  }}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
-                </Pressable>
-              ) : null}
-              {canCancelJoinedSession ? (
-                <Pressable
-                  onPress={() => {
-                    void handleCancelPlannedSession(joinedSession);
-                  }}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
-                >
-                  <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel</Text>
-                </Pressable>
-              ) : null}
+              <Pressable
+                disabled={!joinedSession || !canEditJoinedSession}
+                onPress={() => {
+                  if (!joinedSession || !canEditJoinedSession) {
+                    return;
+                  }
+                  setEditingSessionId(joinedSession.id);
+                  const parsedStart = parseHourMinuteParts(joinedSession.start);
+                  const parsedEnd = parseHourMinuteParts(joinedSession.end);
+                  setStartHour(parsedStart.hour);
+                  setStartMinute(parsedStart.minute);
+                  setEndHour(parsedEnd.hour);
+                  setEndMinute(parsedEnd.minute);
+                  setIntent(resolveSessionIntent(joinedSession.intent));
+                  setShowForm(true);
+                  setActivePicker(null);
+                  setSessionActionError('');
+                  setFormError('');
+                  setSaveError(null);
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a', opacity: joinedSession && canEditJoinedSession ? 1 : 0.45 }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit session</Text>
+              </Pressable>
+              <Pressable
+                disabled={!joinedSession || !canCancelJoinedSession}
+                onPress={() => {
+                  if (!joinedSession || !canCancelJoinedSession) {
+                    return;
+                  }
+                  void handleCancelPlannedSession(joinedSession);
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
+              >
+                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+              </Pressable>
             </View>
           ) : null}
+          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 8 }}>{headerHelperText}</Text>
           {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
           {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
 
