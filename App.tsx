@@ -37,6 +37,7 @@ type SpotSession = {
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
+  participants: string[];
   userOwnerUid?: string | null;
   resolvedActorProfileId?: string | null;
 };
@@ -1227,7 +1228,9 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
   const resolvedIntent = resolveSessionIntent(representative?.item.intent);
   const representativeState = representative?.state ?? 'planned';
-  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
+  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) =>
+    (Array.isArray(sessionEntry.item.participants) ? sessionEntry.item.participants : []).includes(activeProfileId ?? ''),
+  );
 
   console.log('SESSION_GROUP_JOIN_DECISION', {
     startTime: group.startTime,
@@ -2828,6 +2831,9 @@ export default function App() {
           userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by,
           userName: row.display_name,
           userAvatarUrl: row.avatar_url,
+          participants: Array.isArray(row.participants)
+            ? row.participants.filter((participant): participant is string => typeof participant === 'string')
+            : [],
           userOwnerUid: row.owner_uid ?? null,
           resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
         });
@@ -3889,7 +3895,7 @@ export default function App() {
 
     return (
       [...sessions]
-        .filter((sessionItem) => sessionItem.userId === activeAppUserId)
+        .filter((sessionItem) => (Array.isArray(sessionItem.participants) ? sessionItem.participants : []).includes(activeAppUserId))
         .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot))
         .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
         .filter((sessionItem) => hasPlannedTimeWindow(sessionItem))
@@ -4384,18 +4390,19 @@ export default function App() {
     intent: SessionIntent;
     checked_in_at: null;
     checked_out_at: null;
+    participants?: string[];
     created_at?: string;
   }) => {
     
     if (!activeProfile?.id) {
       return { data: null, error: { message: 'missing_auth_user_id' } } as const;
     }
-    const writePayload = { ...payload, user_id: activeProfile.id };
+    const writePayload = { ...payload, user_id: activeProfile.id, participants: [activeProfile.id] };
     
     return supabase
       .from('sessions')
       .insert(writePayload)
-      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent')
+      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent, participants')
       .single();
   };
 
@@ -4591,6 +4598,7 @@ export default function App() {
     const insertPayload = {
       spot_name: canonicalSpot,
       user_id: activeProfileId,
+      participants: [activeProfileId],
       start_time: getNowLocalHourMinute(),
       end_time: getQuickCheckInEndTime(),
       status: 'Is er al',
@@ -5709,7 +5717,7 @@ export default function App() {
       targetSession,
       activeProfile,
       activeDay: joinActiveDay,
-      selectedSpot: joinSelectedSpot,
+      selectedSpot: _joinSelectedSpot,
     }: {
       targetSession: SpotSession;
       activeProfile: { id: string | null };
@@ -5736,59 +5744,47 @@ export default function App() {
         return false;
       }
 
-      const { data: existingOwnSessions, error: existingOwnSessionsError } = await supabase
+      console.log('JOIN_FLOW_START', {
+        sessionId: targetSession.id,
+        activeProfileId: activeProfile.id,
+      });
+
+      const { data: session, error: sessionError } = await supabase
         .from('sessions')
         .select('*')
-        .eq('user_id', activeProfile.id);
+        .eq('id', targetSession.id)
+        .single();
 
-      if (existingOwnSessionsError) {
-        console.error('JOIN_ERROR', existingOwnSessionsError);
+      if (sessionError || !session) {
+        console.error('JOIN_ERROR', sessionError ?? { reason: 'SESSION_NOT_FOUND' });
         return false;
       }
 
-      const safeExistingOwnSessions = Array.isArray(existingOwnSessions) ? existingOwnSessions : [];
-
-      const duplicate = safeExistingOwnSessions.find((s) => {
-        return (
-          s?.spot_name === targetSession?.spot &&
-          s?.status === targetSession?.status &&
-          s?.start_time === targetSession?.start &&
-          s?.end_time === targetSession?.end
-        );
+      console.log('JOIN_FLOW_SESSION', {
+        participants: session.participants,
       });
 
-      console.log('JOIN_DUPLICATE_CHECK', {
-        alreadyJoined: Boolean(duplicate),
-        activeProfileId: activeProfile.id,
-        targetSessionId: targetSession.id,
-      });
+      const safeParticipants = Array.isArray(session.participants)
+        ? session.participants.filter((participant): participant is string => typeof participant === 'string')
+        : [];
+      const alreadyJoined = safeParticipants.includes(activeProfile.id);
 
-      if (duplicate) {
+      if (alreadyJoined) {
+        console.log('JOIN_FLOW_DONE', { success: true });
         return true;
       }
 
-      const payload = {
-        user_id: activeProfile.id,
-        spot_name: targetSession.spot,
-        start_time: targetSession.start,
-        end_time: targetSession.end,
-        status: targetSession.status,
-        intent: targetSession.intent ?? targetSession.status ?? 'Likely going',
-      };
+      const updatedParticipants = [...safeParticipants, activeProfile.id];
 
-      const { data, error } = await supabase
-        .from('sessions')
-        .insert([payload])
-        .select();
-
-      console.log('JOIN_ATTEMPT', {
-        actorProfileId: activeProfile.id,
-        targetSessionId: targetSession.id,
-        targetSessionOwnerId: targetSession.userId,
-        payload,
+      console.log('JOIN_FLOW_UPDATE', {
+        before: safeParticipants,
+        after: updatedParticipants,
       });
 
-      console.log('JOIN_RESULT', { data, error });
+      const { error } = await supabase
+        .from('sessions')
+        .update({ participants: updatedParticipants })
+        .eq('id', targetSession.id);
 
       if (error) {
         console.error('JOIN_ERROR', error);
@@ -5796,10 +5792,7 @@ export default function App() {
       }
 
       await fetchSharedData();
-      console.log('JOIN_REFETCH_DONE', {
-        selectedSpot: (joinSelectedSpot as { name?: string } | null)?.name ?? joinSelectedSpot ?? null,
-        activeDay: joinActiveDay,
-      });
+      console.log('JOIN_FLOW_DONE', { success: true });
       return true;
     }
 
