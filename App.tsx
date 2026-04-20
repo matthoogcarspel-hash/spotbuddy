@@ -1155,8 +1155,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
 type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
   currentProfileId: string | null | undefined;
-  alreadyJoined: boolean;
-  sessionParticipants: Array<{ session_id: string; user_id: string }>;
+  filteredSessions: SpotSession[];
   activeDay: ActiveDay;
   isVisibleInCurrentMode: boolean;
   timelineWindowStartMinutes: number;
@@ -1166,7 +1165,7 @@ type SessionRowProps = {
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentProfileId, alreadyJoined, sessionParticipants, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentProfileId, filteredSessions, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
   const intentLabel = getIntentGoingLabel(resolvedIntent);
@@ -1188,27 +1187,26 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, sessionP
   const activeProfileId = currentProfileId ?? null;
   const sameProfile = Boolean(item.userId && activeProfileId && item.userId === activeProfileId);
   const targetSession = item;
-  const safeParticipants = Array.isArray(sessionParticipants) ? sessionParticipants : [];
-  const normalizedParticipants = safeParticipants.map((p) => ({
-    session_id: p?.session_id ?? null,
-    user_id: p?.user_id ?? null,
-  }));
-  const alreadyJoinedByParticipants = normalizedParticipants.some((p) => {
-    return p?.session_id === targetSession?.id && p?.user_id === activeProfileId;
+  const safeSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
+  const alreadyJoined = safeSessions.some((session) => {
+    return (
+      session?.userId === activeProfileId &&
+      session?.spot === targetSession?.spot &&
+      session?.start === targetSession?.start &&
+      session?.end === targetSession?.end
+    );
   });
   const canJoin =
     Boolean(activeProfileId) &&
     Boolean(targetSession?.id) &&
     targetSession?.userId !== activeProfileId &&
-    !alreadyJoinedByParticipants &&
+    !alreadyJoined &&
     isVisibleInCurrentMode;
   console.log('JOIN_CTA_DECISION', {
     activeProfileId: activeProfileId ?? null,
     targetSessionId: targetSession?.id ?? null,
     targetSessionOwnerId: targetSession?.userId ?? null,
-    participantsLoaded: Array.isArray(sessionParticipants),
-    participantsCount: safeParticipants.length,
-    alreadyJoined: alreadyJoinedByParticipants,
+    alreadyJoined,
     isSessionVisibleInCurrentMode: isVisibleInCurrentMode,
     canJoin,
   });
@@ -1222,7 +1220,7 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, sessionP
     joinBlockReason = 'missing_active_profile';
   } else if (sameProfile) {
     joinBlockReason = 'same_active_profile';
-  } else if (alreadyJoinedByParticipants || alreadyJoined) {
+  } else if (alreadyJoined) {
     joinBlockReason = 'duplicate_for_active_profile';
   } else if (state === 'completed') {
     joinBlockReason = 'session_completed';
@@ -1282,8 +1280,7 @@ function SessionRow({ timelineSession, currentProfileId, alreadyJoined, sessionP
 
 type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
-  sessionParticipantsBySessionId: Record<string, string[]>;
-  sessionParticipants: Array<{ session_id: string; user_id: string }>;
+  filteredSessions: SpotSession[];
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   activeDay: ActiveDay;
@@ -1299,8 +1296,7 @@ type SessionTimelineProps = {
 
 function SessionTimeline({
   timelineSessions,
-  sessionParticipantsBySessionId,
-  sessionParticipants,
+  filteredSessions,
   selectedTimelineSessionId,
   currentProfileId,
   activeDay,
@@ -1400,19 +1396,13 @@ function SessionTimeline({
         {visibleTimelineSessions.length > 0 ? (
           visibleTimelineSessions.map((timelineSession) => (
             (() => {
-              const activeProfileId = currentProfileId ?? null;
-              const candidate = timelineSession.item;
-              const alreadyJoined = Boolean(
-                activeProfileId
-                && (Array.isArray(sessionParticipantsBySessionId[candidate.id]) ? sessionParticipantsBySessionId[candidate.id] : []).includes(activeProfileId),
-              );
+              const safeFilteredSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
               return (
             <SessionRow
               key={timelineSession.item.id}
               timelineSession={timelineSession}
               currentProfileId={currentProfileId}
-              alreadyJoined={alreadyJoined}
-              sessionParticipants={sessionParticipants}
+              filteredSessions={safeFilteredSessions}
               activeDay={activeDay}
               isVisibleInCurrentMode={timelineFilter === 'everyone' || timelineSession.isBuddy}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
@@ -1462,8 +1452,6 @@ export default function App() {
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
-  const [sessionParticipantsBySessionId, setSessionParticipantsBySessionId] = useState<Record<string, string[]>>({});
-  const [sessionParticipants, setSessionParticipants] = useState<Array<{ session_id: string; user_id: string }>>([]);
   const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
@@ -2575,6 +2563,11 @@ export default function App() {
 
   const fetchSharedData = async () => {
     setLoadingData(true);
+    console.log('JOIN_MODEL_SELECTED', {
+      rootCause: 'E',
+      readTarget: 'sessions',
+      writeTarget: 'sessions',
+    });
     
     
     
@@ -2585,60 +2578,7 @@ export default function App() {
       .in('spot_name', [...spotNames])
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
-    const sessionIds = sessionsData
-      .map((row) => row.id)
-      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0);
-    console.log('ACTIVE_SESSION_PARTICIPANTS_CALLSITE', 'App.tsx:2563');
-    console.log('PARTICIPANTS_LOAD_IMPLEMENTATION_ID', 'participants-loader-v1-app-fetchSharedData');
-    const sessionParticipantsResponse = sessionIds.length
-      ? await supabase
-          .from('session_participants')
-          .select('session_id, user_id')
-          .in('session_id', sessionIds)
-      : { data: [], error: null };
-    const sessionParticipantsError = sessionParticipantsResponse.error;
-    const shouldFallbackToEmptyParticipants = Boolean(
-      sessionParticipantsError
-      && (
-        sessionParticipantsError?.code === 'PGRST205'
-        || String(sessionParticipantsError?.message ?? '').includes('Could not find the table public.session_participants')
-        || String(sessionParticipantsError?.message ?? '').includes('404')
-      ),
-    );
-    if (sessionParticipantsError && shouldFallbackToEmptyParticipants) {
-      console.log('SESSION_PARTICIPANTS_FALLBACK_EMPTY', {
-        reason: sessionParticipantsError?.code ?? sessionParticipantsError?.message ?? 'unknown',
-      });
-    } else if (sessionParticipantsError) {
-      console.error('Failed to load session participants:', sessionParticipantsError);
-    }
-    const resolvedSessionParticipants = shouldFallbackToEmptyParticipants
-      ? []
-      : (Array.isArray(sessionParticipantsResponse.data) ? sessionParticipantsResponse.data : []).reduce<Array<{ session_id: string; user_id: string }>>((accumulator, row) => {
-        const sessionId = typeof row.session_id === 'string' ? row.session_id : null;
-        const userId = typeof row.user_id === 'string' ? row.user_id : null;
-        if (!sessionId || !userId) {
-          return accumulator;
-        }
-        accumulator.push({ session_id: sessionId, user_id: userId });
-        return accumulator;
-      }, []);
-    setSessionParticipants(resolvedSessionParticipants);
-    const nextSessionParticipantsBySessionId = resolvedSessionParticipants.reduce<Record<string, string[]>>((accumulator, row) => {
-      const sessionId = typeof row.session_id === 'string' ? row.session_id : null;
-      const userId = typeof row.user_id === 'string' ? row.user_id : null;
-      if (!sessionId || !userId) {
-        return accumulator;
-      }
-      const current = accumulator[sessionId] ?? [];
-      if (!current.includes(userId)) {
-        current.push(userId);
-      }
-      accumulator[sessionId] = current;
-      return accumulator;
-    }, {});
-    setSessionParticipantsBySessionId(nextSessionParticipantsBySessionId);
-    
+
     const messagesResponse = selectedSpot
       ? await supabase
           .from('messages')
@@ -3368,7 +3308,9 @@ export default function App() {
     const resolvedIntent = resolveSessionIntent(plannedSession.intent);
     return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
-  const sessions = selectedSpot ? sessionsBySpot[selectedSpot] : [];
+  const sessions = Array.isArray(selectedSpot ? sessionsBySpot[selectedSpot] : [])
+    ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
+    : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
@@ -4127,6 +4069,10 @@ export default function App() {
   const selectedTimelineSession = useMemo(
     () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
     [selectedTimelineSessionId, timelineSessions],
+  );
+  const filteredTimelineSessionsForJoin = useMemo(
+    () => (Array.isArray(timelineSessions) ? timelineSessions : []).map(({ item }) => item),
+    [timelineSessions],
   );
   const openEmptyPlanningForm = () => {
     const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
@@ -5567,78 +5513,123 @@ export default function App() {
       setSessionActionError(message);
     };
 
+    async function joinSessionViaSessionsModel({
+      targetSession,
+      activeProfile,
+      activeDay: joinActiveDay,
+      selectedSpot: joinSelectedSpot,
+    }: {
+      targetSession: SpotSession;
+      activeProfile: { id: string | null };
+      activeDay: ActiveDay;
+      selectedSpot: SpotName | null;
+    }) {
+      if (!activeProfile?.id) {
+        console.error('JOIN_ERROR', { reason: 'NO_ACTIVE_PROFILE' });
+        return false;
+      }
+
+      if (!targetSession?.id) {
+        console.error('JOIN_ERROR', { reason: 'NO_TARGET_SESSION' });
+        return false;
+      }
+
+      if (targetSession.userId === activeProfile.id) {
+        console.error('JOIN_ERROR', { reason: 'SELF_JOIN_BLOCKED' });
+        return false;
+      }
+
+      if (joinActiveDay !== 'today') {
+        console.error('JOIN_ERROR', { reason: 'NON_JOINABLE_DAY' });
+        return false;
+      }
+
+      const { data: existingOwnSessions, error: existingOwnSessionsError } = await supabase
+        .from('sessions')
+        .select('*')
+        .eq('user_id', activeProfile.id);
+
+      if (existingOwnSessionsError) {
+        console.error('JOIN_ERROR', existingOwnSessionsError);
+        return false;
+      }
+
+      const safeExistingOwnSessions = Array.isArray(existingOwnSessions) ? existingOwnSessions : [];
+
+      const duplicate = safeExistingOwnSessions.find((s) => {
+        return (
+          s?.spot_name === targetSession?.spot &&
+          s?.status === targetSession?.status &&
+          s?.start_time === targetSession?.start &&
+          s?.end_time === targetSession?.end
+        );
+      });
+
+      console.log('JOIN_DUPLICATE_CHECK', {
+        alreadyJoined: Boolean(duplicate),
+        activeProfileId: activeProfile.id,
+        targetSessionId: targetSession.id,
+      });
+
+      if (duplicate) {
+        return true;
+      }
+
+      const payload = {
+        user_id: activeProfile.id,
+        spot_name: targetSession.spot,
+        start_time: targetSession.start,
+        end_time: targetSession.end,
+        status: targetSession.status,
+        intent: targetSession.intent ?? targetSession.status ?? 'Likely going',
+      };
+
+      const { data, error } = await supabase
+        .from('sessions')
+        .insert([payload])
+        .select();
+
+      console.log('JOIN_ATTEMPT', {
+        actorProfileId: activeProfile.id,
+        targetSessionId: targetSession.id,
+        targetSessionOwnerId: targetSession.userId,
+        payload,
+      });
+
+      console.log('JOIN_RESULT', { data, error });
+
+      if (error) {
+        console.error('JOIN_ERROR', error);
+        return false;
+      }
+
+      await fetchSharedData();
+      console.log('JOIN_REFETCH_DONE', {
+        selectedSpot: (joinSelectedSpot as { name?: string } | null)?.name ?? joinSelectedSpot ?? null,
+        activeDay: joinActiveDay,
+      });
+      return true;
+    }
+
     const joinSession = async (targetSession: SpotSession) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
       };
-      const targetSessionOwnerId = targetSession?.userId ?? null;
-      const joinTable = 'session_participants';
-      console.log('JOIN_IMPLEMENTATION_ID', 'join-session-v1-app-selectedSpot');
-      console.log('JOIN_MODEL_SELECTED', {
-        rootCause: 'A',
-        readTarget: joinTable,
-        writeTarget: joinTable,
+
+      const didJoin = await joinSessionViaSessionsModel({
+        targetSession,
+        activeProfile,
+        activeDay,
+        selectedSpot,
       });
 
-      try {
-        if (!activeProfile?.id) throw new Error('NO_ACTIVE_PROFILE');
-        if (!targetSession?.id) throw new Error('NO_SESSION');
-
-        console.log('JOIN_ATTEMPT', {
-          actorProfileId: activeProfile?.id ?? null,
-          targetSessionId: targetSession?.id ?? null,
-          targetSessionOwnerId: (targetSession as { user_id?: string | null })?.user_id ?? targetSessionOwnerId ?? null,
-        });
-
-        if (targetSessionOwnerId === activeProfile.id) {
-          setSessionActionError('You cannot join your own session');
-          return { error: 'SELF_JOIN_BLOCKED' };
-        }
-
-        if (activeDay !== 'today') {
-          throw new Error('NON_JOINABLE_DAY');
-        }
-
-        const existingParticipantsResponse = await supabase
-          .from(joinTable)
-          .select('session_id, user_id')
-          .eq('session_id', targetSession.id);
-        if (existingParticipantsResponse.error) {
-          throw existingParticipantsResponse.error;
-        }
-
-        const existingParticipants = Array.isArray(existingParticipantsResponse.data)
-          ? existingParticipantsResponse.data
-          : [];
-        const alreadyJoined = existingParticipants.some(
-          (p) => p?.session_id === targetSession.id && p?.user_id === activeProfile.id,
-        );
-        console.log('JOIN_DUPLICATE_CHECK', { alreadyJoined });
-        if (alreadyJoined) {
-          setSessionActionError('You already joined this session');
-          return;
-        }
-
-        const joinResult = await supabase
-          .from(joinTable)
-          .insert({
-            session_id: targetSession.id,
-            user_id: activeProfile.id,
-          });
-
-        console.log('JOIN_RESULT', { data: joinResult.data ?? null, error: joinResult.error ?? null });
-
-        if (joinResult.error) {
-          throw joinResult.error;
-        }
-
-        setSessionActionError('');
-        await fetchSharedData();
-        setSelectedTimelineSessionId(null);
-      } catch (error) {
-        console.error('JOIN_ERROR', error);
+      if (!didJoin) {
         setSessionActionError('Session could not be joined');
+        return;
       }
+
+      setSessionActionError('');
+      setSelectedTimelineSessionId(null);
     };
     const handleSave = async () => {
       
@@ -6286,8 +6277,7 @@ export default function App() {
           </View>
           <SessionTimeline
             timelineSessions={timelineSessions}
-            sessionParticipantsBySessionId={sessionParticipantsBySessionId}
-            sessionParticipants={sessionParticipants}
+            filteredSessions={filteredTimelineSessionsForJoin}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             activeDay={activeDay}
