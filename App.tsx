@@ -10,6 +10,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
+import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
 import AuthScreen from './src/screens/AuthScreen';
@@ -127,102 +128,6 @@ const theme = {
   primaryPressed: '#1f72d4',
   live: '#21c47f',
   warm: '#c67a44',
-};
-const stableHash = (value: string): number => {
-  let hash = 0;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = ((hash << 5) - hash) + value.charCodeAt(index);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-};
-const stable = (options: string[], key: string) => options[stableHash(key) % options.length];
-const getPlannedCountBucket = (plannedCount: number) => {
-  if (plannedCount >= 6) {
-    return 'planned6plus';
-  }
-  if (plannedCount >= 4) {
-    return 'planned4to5';
-  }
-  if (plannedCount === 3) {
-    return 'planned3';
-  }
-  if (plannedCount === 2) {
-    return 'planned2';
-  }
-  if (plannedCount === 1) {
-    return 'planned1';
-  }
-  return 'planned0';
-};
-const getActiveCountBucket = (activeCount: number) => {
-  if (activeCount >= 8) {
-    return 'active8plus';
-  }
-  if (activeCount >= 6) {
-    return 'active6to7';
-  }
-  if (activeCount >= 4) {
-    return 'active4to5';
-  }
-  if (activeCount === 3) {
-    return 'active3';
-  }
-  if (activeCount === 2) {
-    return 'active2';
-  }
-  if (activeCount === 1) {
-    return 'active1';
-  }
-  return 'active0';
-};
-const getHomeSpotCardStatus = (
-  spotId: string,
-  selectedDayMode: ActiveDay,
-  plannedCount: number,
-  activeCount: number,
-): { label: SpotMomentumLabel; symbol: string } => {
-  const plannedCountBucket = getPlannedCountBucket(plannedCount);
-  const activeCountBucket = getActiveCountBucket(activeCount);
-  const stableKey = `${spotId}|${selectedDayMode}|${plannedCountBucket}|${activeCountBucket}`;
-
-  
-
-  if (activeCount > 0) {
-    if (activeCount === 1) {
-      return { symbol: '•', label: stable(['First one out', 'Someone’s there', 'Early mover'], stableKey) };
-    }
-    if (activeCount === 2) {
-      return { symbol: '⚡', label: stable(['Getting going', 'Two’s company', 'Starting to move'], stableKey) };
-    }
-    if (activeCount === 3) {
-      return { symbol: '🔥', label: stable(['Happening now', 'Game on', 'Session started'], stableKey) };
-    }
-    if (activeCount >= 4 && activeCount <= 5) {
-      return { symbol: '🔥🔥', label: stable(['It’s on', 'Good session', 'People are riding'], stableKey) };
-    }
-    if (activeCount >= 6 && activeCount <= 7) {
-      return { symbol: '🔥🔥🔥', label: stable(['It’s firing', 'Busy spot', 'Solid turnout'], stableKey) };
-    }
-    return { symbol: '🔥🔥🔥🔥', label: stable(['Go now', 'Full send', 'Packed'], stableKey) };
-  }
-
-  if (plannedCount === 0) {
-    return { symbol: '', label: stable(['Still asleep', 'Nobody’s moving', 'Not much cooking'], stableKey) };
-  }
-  if (plannedCount === 1) {
-    return { symbol: '•', label: stable(['Tiny spark', 'One brave soul', 'First one tempted'], stableKey) };
-  }
-  if (plannedCount === 2) {
-    return { symbol: '⚡', label: stable(['Session forming', 'Getting interesting', 'Momentum building'], stableKey) };
-  }
-  if (plannedCount === 3) {
-    return { symbol: '🔥', label: stable(['Getting spicy', 'Plans are stacking', 'This could work'], stableKey) };
-  }
-  if (plannedCount >= 4 && plannedCount <= 5) {
-    return { symbol: '🔥🔥', label: stable(['Crowd is building', 'Looks promising', 'People lining up'], stableKey) };
-  }
-  return { symbol: '🔥🔥🔥', label: stable(['Serious interest', 'Big plans', 'This might blow up'], stableKey) };
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = {
@@ -4282,27 +4187,23 @@ export default function App() {
         return null;
       }
 
-      const visibleSessions = timelineSessions
-        .map(({ item }) => item)
-        .filter((sessionItem) => normalizeSpotName(sessionItem.spot) === normalizeSpotName(selectedSpot));
-      const liveSessions = (Array.isArray(visibleSessions) ? visibleSessions : []).filter((sessionItem) => isRealCheckedInLiveSession(sessionItem));
-      const liveCount = liveSessions.length;
-      const plannedCount = (Array.isArray(visibleSessions) ? visibleSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
-      const selectedDayMode = activeDay;
+      const detailSessions = daySessionsBySpot[selectedSpot] ?? [];
+      const status = getSpotStatus({
+        spotName: selectedSpot,
+        sessions: detailSessions,
+        selectedDay: activeDay,
+        now: new Date(),
+        getSessionState,
+      });
 
-      
+      console.log('DETAIL_SPOT_STATUS_RESULT', {
+        spotName: selectedSpot,
+        label: status.label,
+      });
 
-      let statusLabel: SpotMomentumLabel = 'Quiet right now';
-      if (liveCount > 0) {
-        statusLabel = 'Happening now';
-      } else if (plannedCount > 0) {
-        statusLabel = activeDay === 'today' ? 'Session forming today' : 'Session forming tomorrow';
-      }
-
-      
-      return statusLabel;
+      return status.label;
     },
-    [activeDay, selectedSpot, timelineSessions],
+    [activeDay, daySessionsBySpot, selectedSpot],
   );
   const selectedTimelineSession = useMemo(() => {
     if (!selectedTimelineSessionId) {
@@ -6923,13 +6824,22 @@ export default function App() {
         ) : null}
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
-          const plannedCount = (Array.isArray(daySpotSessions) ? daySpotSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'planned').length;
-          const activeCount = (Array.isArray(daySpotSessions) ? daySpotSessions : []).filter((sessionItem) => getSessionState(sessionItem) === 'active').length;
-          const selectedDayMode = activeDay;
-          const spotId = spot.name;
-          const { label: statusLabel, symbol } = getHomeSpotCardStatus(spotId, selectedDayMode, plannedCount, activeCount);
-          
-          
+          const status = getSpotStatus({
+            spotName: spot.name,
+            sessions: daySpotSessions,
+            selectedDay: activeDay,
+            now: new Date(),
+            getSessionState,
+          });
+
+          const statusLabel = status.label;
+          const plannedCount = status.plannedCount;
+          const activeCount = status.activeCount;
+
+          console.log('HOME_SPOT_STATUS_RESULT', {
+            spotName: spot.name,
+            label: statusLabel,
+          });
 
           return (
             <Pressable
@@ -6955,7 +6865,7 @@ export default function App() {
                 <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
                   <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
                     <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>
-                      {symbol ? `${symbol} ${statusLabel}` : statusLabel}
+                      {statusLabel}
                     </Text>
                   </View>
                 </View>
