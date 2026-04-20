@@ -1170,6 +1170,22 @@ type SessionGroup = {
 };
 
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
+const getRoundedSessionWindow = (sessionItem: SpotSession) => {
+  const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
+  const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
+  const rawStartMinutes = hasPlannedWindow ? toMinutes(sessionItem.start) : (checkedInMinutes ?? timelineStartMinutes);
+  const rawEndMinutes = hasPlannedWindow
+    ? toMinutes(sessionItem.end)
+    : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+  const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
+  const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
+  return {
+    startMinutes: roundedStartMinutes,
+    endMinutes: roundedEndMinutes,
+    startTime: formatMinutesAsHourMinute(roundedStartMinutes),
+    endTime: formatMinutesAsHourMinute(roundedEndMinutes),
+  };
+};
 
 type SessionRowProps = {
   group: SessionGroup;
@@ -1320,12 +1336,7 @@ function SessionTimeline({
   const visibleTimelineSessions = useMemo(
     () =>
       (Array.isArray(timelineSessions) ? timelineSessions : []).filter(({ item }) => {
-        const hasPlannedWindow = hasPlannedTimeWindow(item);
-        const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-        const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
-        const sessionEndMinutes = hasPlannedWindow
-          ? toMinutes(item.end)
-          : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+        const { startMinutes: sessionStartMinutes, endMinutes: sessionEndMinutes } = getRoundedSessionWindow(item);
         return sessionEndMinutes >= timelineWindowStartMinutes && sessionStartMinutes <= timelineWindowEndMinutes;
       }),
     [timelineSessions, timelineWindowEndMinutes, timelineWindowStartMinutes],
@@ -1334,16 +1345,12 @@ function SessionTimeline({
     const groups = new Map<string, SessionGroup>();
 
     for (const timelineSession of visibleTimelineSessions) {
-      const hasPlannedWindow = hasPlannedTimeWindow(timelineSession.item);
-      const checkedInMinutes = getLocalMinutesFromIso(timelineSession.item.checkedInAt);
-      const rawStartMinutes = hasPlannedWindow ? toMinutes(timelineSession.item.start) : (checkedInMinutes ?? timelineStartMinutes);
-      const rawEndMinutes = hasPlannedWindow
-        ? toMinutes(timelineSession.item.end)
-        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
-      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
-      const startTime = formatMinutesAsHourMinute(roundedStartMinutes);
-      const endTime = formatMinutesAsHourMinute(roundedEndMinutes);
+      const {
+        startMinutes: roundedStartMinutes,
+        endMinutes: roundedEndMinutes,
+        startTime,
+        endTime,
+      } = getRoundedSessionWindow(timelineSession.item);
       const groupKey = `${startTime}-${endTime}`;
       const entry: SessionGroupEntry = {
         item: timelineSession.item,
@@ -4218,15 +4225,8 @@ export default function App() {
     }
 
     return timelineSessions.find(({ item }) => {
-      const hasPlannedWindow = hasPlannedTimeWindow(item);
-      const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-      const rawStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
-      const rawEndMinutes = hasPlannedWindow
-        ? toMinutes(item.end)
-        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
-      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
-      const groupKey = `${formatMinutesAsHourMinute(roundedStartMinutes)}-${formatMinutesAsHourMinute(roundedEndMinutes)}`;
+      const { startTime, endTime } = getRoundedSessionWindow(item);
+      const groupKey = `${startTime}-${endTime}`;
       return groupKey === selectedTimelineSessionId;
     }) ?? null;
   }, [selectedTimelineSessionId, timelineSessions]);
@@ -4261,15 +4261,8 @@ export default function App() {
     }
 
     const exists = timelineSessions.some(({ item }) => {
-      const hasPlannedWindow = hasPlannedTimeWindow(item);
-      const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-      const rawStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
-      const rawEndMinutes = hasPlannedWindow
-        ? toMinutes(item.end)
-        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
-      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
-      return `${formatMinutesAsHourMinute(roundedStartMinutes)}-${formatMinutesAsHourMinute(roundedEndMinutes)}` === selectedTimelineSessionId;
+      const { startTime, endTime } = getRoundedSessionWindow(item);
+      return `${startTime}-${endTime}` === selectedTimelineSessionId;
     });
 
     if (!exists) {
