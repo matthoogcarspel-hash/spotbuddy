@@ -1528,23 +1528,104 @@ export default function App() {
   const authenticatedUserId = session?.user.id ?? null;
   const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
+  const normalizeSearch = (value: unknown) => {
+    return String(value || '')
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .trim();
+  };
+  const COUNTRY_ALIASES: Record<string, string[]> = useMemo(() => {
+    const rawAliases = {
+      nederland: ['netherlands', 'holland', 'nl', 'nether'],
+      netherlands: ['nederland', 'holland', 'nl', 'nether'],
+      duitsland: ['germany', 'de'],
+      germany: ['duitsland', 'de'],
+      belgie: ['belgium', 'be', 'belgie', 'belgie'],
+      belgium: ['belgie', 'be'],
+      frankrijk: ['france', 'fr'],
+      france: ['frankrijk', 'fr'],
+      spanje: ['spain', 'es'],
+      spain: ['spanje', 'es'],
+      portugal: ['pt'],
+      denemarken: ['denmark', 'dk'],
+      denmark: ['denemarken', 'dk'],
+    };
+    const normalized: Record<string, string[]> = {};
+    Object.entries(rawAliases).forEach(([country, aliases]) => {
+      const normalizedCountry = normalizeSearch(country);
+      const normalizedAliases = aliases.map((alias) => normalizeSearch(alias)).filter(Boolean);
+      normalized[normalizedCountry] = Array.from(new Set(normalizedAliases));
+    });
+    return normalized;
+  }, []);
   const query = homeSpotSearchQuery;
   const filteredSpots = useMemo(() => {
-    const safeSpots = Array.isArray(spots) ? spots : [];
+    const safeSpots = Array.isArray(allSpots) ? allSpots : [];
+    const normalizedQuery = normalizeSearch(query);
+    console.log('SPOT_SEARCH_QUERY_NORMALIZED', normalizedQuery);
 
-    if (!query || query.trim() === "") {
-      return safeSpots;
+    if (!normalizedQuery) {
+      console.log('SPOT_SEARCH_RESULT_COUNT', 0);
+      console.log('SPOT_SEARCH_TOP_RESULTS', []);
+      return [];
     }
 
-    const q = query.toLowerCase();
+    const getAliasTerms = (normalizedCountry: string) => {
+      const directAliases = COUNTRY_ALIASES[normalizedCountry] ?? [];
+      const reverseAliases = Object.entries(COUNTRY_ALIASES)
+        .filter(([, aliases]) => aliases.includes(normalizedCountry))
+        .map(([country]) => country);
+      return Array.from(new Set([...directAliases, ...reverseAliases]));
+    };
 
-    return safeSpots.filter((spot) => {
-      return (
-        (spot.name && spot.name.toLowerCase().includes(q)) ||
-        (spot.country && spot.country.toLowerCase().includes(q))
-      );
-    });
-  }, [spots, query]);
+    const ranked = safeSpots
+      .map((spot) => {
+        const normalizedSpotName = normalizeSearch(spot.name);
+        const normalizedCountry = normalizeSearch(spot.country);
+        const aliasTerms = getAliasTerms(normalizedCountry);
+        const aliasMatch = aliasTerms.some((alias) => alias.includes(normalizedQuery) || normalizedQuery.includes(alias));
+
+        const matches = normalizedSpotName.includes(normalizedQuery)
+          || normalizedCountry.includes(normalizedQuery)
+          || aliasMatch
+          || normalizedQuery.includes(normalizedCountry);
+
+        if (!matches) {
+          return null;
+        }
+
+        let rank = 5;
+        if (normalizedSpotName.startsWith(normalizedQuery)) {
+          rank = 1;
+        } else if (normalizedCountry.startsWith(normalizedQuery)) {
+          rank = 2;
+        } else if (normalizedSpotName.includes(normalizedQuery)) {
+          rank = 3;
+        } else if (normalizedCountry.includes(normalizedQuery)) {
+          rank = 4;
+        }
+
+        return { spot, rank };
+      })
+      .filter((item): item is { spot: SpotSearchResult; rank: number } => item !== null)
+      .sort((a, b) => {
+        if (a.rank !== b.rank) {
+          return a.rank - b.rank;
+        }
+        const countryCompare = normalizeSearch(a.spot.country).localeCompare(normalizeSearch(b.spot.country));
+        if (countryCompare !== 0) {
+          return countryCompare;
+        }
+        return normalizeSearch(a.spot.name).localeCompare(normalizeSearch(b.spot.name));
+      })
+      .slice(0, 20)
+      .map((item) => item.spot);
+
+    console.log('SPOT_SEARCH_RESULT_COUNT', ranked.length);
+    console.log('SPOT_SEARCH_TOP_RESULTS', ranked.slice(0, 5));
+    return ranked;
+  }, [allSpots, query, COUNTRY_ALIASES]);
   if (!Array.isArray(spots)) {
     
     return null;
@@ -1973,9 +2054,6 @@ export default function App() {
     setHomeSpotSearchQuery('');
     setSearchResults([]);
   };
-  const filterSpots = () => {
-    setSearchResults(filteredSpots);
-  };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
     
     if (searchBlurTimeoutRef.current) {
@@ -2051,44 +2129,33 @@ export default function App() {
     });
   };
   useEffect(() => {
-    if (!showYourSpotsPage) {
+    setSearchResults(filteredSpots);
+  }, [filteredSpots]);
+  useEffect(() => {
+    if (!showYourSpotsPage || allSpots.length > 0) {
       return;
     }
 
     let isMounted = true;
 
     (async () => {
-      const query = homeSpotSearchQuery.trim();
-      let data: SpotSearchResult[] | null = null;
-
-      if (query.length > 0) {
-        const response = await supabase
-          .from('spots')
-          .select('*')
-          .ilike('name', `%${query}%`)
-          .limit(20);
-        data = (response.data as SpotSearchResult[] | null) ?? null;
-      } else {
-        const response = await supabase
-          .from('spots')
-          .select('*')
-          .limit(20);
-        data = (response.data as SpotSearchResult[] | null) ?? null;
-      }
+      const response = await supabase
+        .from('spots')
+        .select('*');
+      const data = (response.data as SpotSearchResult[] | null) ?? [];
 
       if (!isMounted) {
         return;
       }
 
-      setSpots(data || []);
-      setAllSpots(data ?? []);
-      setSearchResults(data ?? []);
+      setSpots(data);
+      setAllSpots(data);
     })();
 
     return () => {
       isMounted = false;
     };
-  }, [homeSpotSearchQuery, showYourSpotsPage]);
+  }, [showYourSpotsPage, allSpots.length]);
   useEffect(() => {
     setManualOrder((previousManualOrder) => {
       const dedupedManualOrder: SpotName[] = [];
@@ -4782,7 +4849,6 @@ export default function App() {
               value={homeSpotSearchQuery}
               onChangeText={(value) => {
                 setHomeSpotSearchQuery(value);
-                filterSpots();
               }}
               onFocus={() => {
                 if (searchBlurTimeoutRef.current) {
