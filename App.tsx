@@ -1516,6 +1516,9 @@ export default function App() {
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<SpotSearchResult[]>([]);
   const [spotsTestCount, setSpotsTestCount] = useState(0);
+  const [diagSpotsQueryCount, setDiagSpotsQueryCount] = useState(0);
+  const [diagSpotsQueryError, setDiagSpotsQueryError] = useState<string | null>(null);
+  const [diagRawStatus, setDiagRawStatus] = useState<number | null>(null);
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
@@ -2072,6 +2075,89 @@ export default function App() {
   useEffect(() => {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
+  const mySpots = favoriteSpots;
+  const searchTerm = homeSpotSearchQuery;
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("DIAG_SUPABASE_URL", SUPABASE_URL ?? null);
+    console.log("DIAG_HAS_ANON_KEY", Boolean(SUPABASE_ANON_KEY));
+    console.log("DIAG_CLIENT_EXISTS", Boolean(supabase));
+  }, [showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    let isMounted = true;
+
+    (async () => {
+      const { data: spotsData, error: spotsError } = await supabase
+        .from('spots')
+        .select('*')
+        .limit(3);
+
+      console.log("DIAG_SPOTS_QUERY_DATA", spotsData);
+      console.log("DIAG_SPOTS_QUERY_ERROR", spotsError);
+      console.log("DIAG_SPOTS_QUERY_COUNT", Array.isArray(spotsData) ? spotsData.length : 0);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setDiagSpotsQueryCount(Array.isArray(spotsData) ? spotsData.length : 0);
+      setDiagSpotsQueryError(spotsError?.message ?? null);
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+
+    void fetch(`${SUPABASE_URL}/rest/v1/spots?select=country,name,longitude,latitude&limit=3`, {
+      headers: {
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+      },
+    })
+      .then(async (res) => {
+        const text = await res.text();
+        console.log("DIAG_RAW_STATUS", res.status);
+        console.log("DIAG_RAW_TEXT", text);
+        setDiagRawStatus(res.status);
+      })
+      .catch((err) => {
+        console.log("DIAG_RAW_ERROR", err);
+      });
+  }, [showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("DIAG_MY_SPOTS_SOURCE", mySpots ?? null);
+  }, [mySpots, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("DIAG_ALL_SPOTS_STATE", allSpots ?? null);
+  }, [allSpots, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("DIAG_SEARCH_RESULTS_STATE", searchResults ?? null);
+  }, [searchResults, showYourSpotsPage]);
+  useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+    console.log("DIAG_SEARCH_TERM", searchTerm ?? null);
+  }, [searchTerm, showYourSpotsPage]);
   useEffect(() => {
     if (!showYourSpotsPage) {
       return;
@@ -5024,6 +5110,14 @@ export default function App() {
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
+            </View>
+            <View style={{ backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 10, marginTop: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Diagnostics</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>has anon key: {Boolean(SUPABASE_ANON_KEY) ? 'true' : 'false'}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>client exists: {Boolean(supabase) ? 'true' : 'false'}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>spots query count: {diagSpotsQueryCount}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>spots query error: {diagSpotsQueryError ?? 'none'}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>raw status: {diagRawStatus ?? 'pending'}</Text>
             </View>
 
             <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
