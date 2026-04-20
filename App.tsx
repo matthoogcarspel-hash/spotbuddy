@@ -1152,135 +1152,128 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   );
 }
 
+type SessionGroupEntry = {
+  item: SpotSession;
+  state: TimelineState;
+  isBuddy: boolean;
+  roundedStartMinutes: number;
+  roundedEndMinutes: number;
+};
+
+type SessionGroup = {
+  key: string;
+  startTime: string;
+  endTime: string;
+  startMinutes: number;
+  endMinutes: number;
+  sessions: SessionGroupEntry[];
+};
+
+const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
+
 type SessionRowProps = {
-  timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
+  group: SessionGroup;
   currentProfileId: string | null | undefined;
-  filteredSessions: SpotSession[];
   activeDay: ActiveDay;
-  isVisibleInCurrentMode: boolean;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
+  timelineFilter: TimelineFilter;
+  followingUserIds: string[];
   isSelected: boolean;
-  onSelect: (sessionId: string) => void;
+  onSelect: (groupKey: string) => void;
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentProfileId, filteredSessions, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
-  const { item, state, isBuddy } = timelineSession;
-  const resolvedIntent = resolveSessionIntent(item.intent);
-  const intentLabel = getIntentGoingLabel(resolvedIntent);
-  const intentStyle = getIntentVisualStyle(resolvedIntent);
-  const hasPlannedWindow = hasPlannedTimeWindow(item);
-  const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-  const sessionStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
-  const sessionEndMinutes = hasPlannedWindow
-    ? toMinutes(item.end)
-    : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
-  const clampedStartMinutes = clamp(sessionStartMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
-  const clampedEndMinutes = clamp(Math.max(sessionEndMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
+function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMinutes, timelineWindowEndMinutes, timelineFilter, followingUserIds, isSelected, onSelect, onJoin }: SessionRowProps) {
+  const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
+  const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
-  const startTime = hasPlannedWindow ? item.start : formatMinutesAsHourMinute(sessionStartMinutes);
-  const endTime = hasPlannedWindow ? item.end : formatMinutesAsHourMinute(sessionEndMinutes);
-  
+
   const activeProfileId = currentProfileId ?? null;
-  const sameProfile = Boolean(item.userId && activeProfileId && item.userId === activeProfileId);
-  const targetSession = item;
-  const safeSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
-  const alreadyJoined = safeSessions.some((session) => {
-    return (
-      session?.userId === activeProfileId &&
-      session?.spot === targetSession?.spot &&
-      session?.start === targetSession?.start &&
-      session?.end === targetSession?.end
-    );
-  });
-  const canJoin =
-    Boolean(activeProfileId) &&
-    Boolean(targetSession?.id) &&
-    targetSession?.userId !== activeProfileId &&
-    !alreadyJoined &&
-    isVisibleInCurrentMode;
-  console.log('JOIN_CTA_DECISION', {
-    activeProfileId: activeProfileId ?? null,
-    targetSessionId: targetSession?.id ?? null,
-    targetSessionOwnerId: targetSession?.userId ?? null,
-    alreadyJoined,
-    isSessionVisibleInCurrentMode: isVisibleInCurrentMode,
-    canJoin,
-  });
-  let joinBlockReason = 'eligible';
-  let canShowJoin = false;
-  if (!isSelected) {
-    joinBlockReason = 'not_selected';
-  } else if (!isVisibleInCurrentMode) {
-    joinBlockReason = 'not_visible_in_mode';
-  } else if (!canJoin) {
-    joinBlockReason = 'missing_active_profile';
-  } else if (sameProfile) {
-    joinBlockReason = 'same_active_profile';
-  } else if (alreadyJoined) {
-    joinBlockReason = 'duplicate_for_active_profile';
-  } else if (state === 'completed') {
-    joinBlockReason = 'session_completed';
-  } else if (activeDay !== 'today') {
-    joinBlockReason = 'non_joinable_day';
-  } else if (!hasPlannedWindow) {
-    joinBlockReason = 'missing_planned_window';
-  } else if (!isSessionJoinableNow(item)) {
-    joinBlockReason = 'outside_join_window';
-  } else {
-    canShowJoin = true;
-  }
-  if (isSelected) {
-    
-    if (!canShowJoin) {
-      
+  const visibleSessions = group.sessions.filter(({ item }) => {
+    if (item.userId === activeProfileId) {
+      return true;
     }
+    return timelineFilter === 'everyone' || followingUserIds.includes(item.userId);
+  });
+  const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
+  const sortedVisibleSessions = [...visibleSessions].sort((a, b) => {
+    if (stateRank[a.state] !== stateRank[b.state]) {
+      return stateRank[a.state] - stateRank[b.state];
+    }
+    return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
+  });
+
+  const representative = sortedVisibleSessions[0] ?? group.sessions[0];
+  const resolvedIntent = resolveSessionIntent(representative?.item.intent);
+  const representativeState = representative?.state ?? 'planned';
+  const alreadyJoinedGroup = group.sessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
+
+  console.log('SESSION_GROUP_JOIN_DECISION', {
+    startTime: group.startTime,
+    endTime: group.endTime,
+    alreadyJoinedGroup,
+  });
+
+  const canJoin = Boolean(activeProfileId) && Boolean(representative?.item?.id) && !alreadyJoinedGroup;
+  let canShowJoin = false;
+  if (
+    isSelected
+    && sortedVisibleSessions.length > 0
+    && canJoin
+    && representativeState !== 'completed'
+    && activeDay === 'today'
+    && isSessionJoinableNow(representative.item)
+  ) {
+    canShowJoin = true;
   }
 
   return (
-    <Pressable onPress={() => onSelect(item.id)} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-      <View style={{ width: 90, marginRight: 8 }}>
-        <Text numberOfLines={1} style={{ color: isBuddy ? theme.text : theme.textSoft, fontSize: 13, fontWeight: isBuddy ? '700' : '500' }}>
-          {item.userName}
-        </Text>
-        <View
-          style={{
-            marginTop: 3,
-            alignSelf: 'flex-start',
-            borderRadius: 999,
-            paddingHorizontal: 7,
-            paddingVertical: 2,
-            backgroundColor: intentStyle.badgeBackgroundColor,
-            borderWidth: 1,
-            borderColor: intentStyle.badgeBorderColor,
-            opacity: intentStyle.labelOpacity,
-          }}
-        >
-          <Text numberOfLines={1} style={{ color: intentStyle.labelColor, fontSize: 10, fontWeight: intentStyle.labelWeight }}>
-            {intentLabel}
+    <Pressable onPress={() => onSelect(group.key)} style={{ marginBottom: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 90, marginRight: 8 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
+            {group.startTime}–{group.endTime}
+          </Text>
+          <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 10, marginTop: 2 }}>
+            {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
           </Text>
         </View>
+        <SessionBar
+          leftPercent={leftPercent}
+          widthPercent={widthPercent}
+          state={representativeState}
+          intent={resolvedIntent}
+          isSelected={isSelected}
+          showJoinButton={canShowJoin}
+          onPress={() => onSelect(group.key)}
+          onJoin={() => {
+            if (representative) {
+              onJoin(representative.item);
+            }
+          }}
+        />
       </View>
-      <SessionBar
-        leftPercent={leftPercent}
-        widthPercent={widthPercent}
-        state={state}
-        intent={resolvedIntent}
-        isSelected={isSelected}
-        showJoinButton={canShowJoin}
-        onPress={() => onSelect(item.id)}
-        onJoin={() => onJoin(item)}
-      />
+
+      <View style={{ marginLeft: 98, marginTop: 6 }}>
+        {sortedVisibleSessions.map(({ item, isBuddy }) => {
+          const isSelf = Boolean(activeProfileId && item.userId === activeProfileId);
+          const marker = isSelf ? 'You' : isBuddy ? 'Buddy' : 'Other';
+          return (
+            <Text key={`group-user-${group.key}-${item.id}`} style={{ color: isSelf ? theme.text : theme.textSoft, fontSize: 12, marginBottom: 2 }}>
+              {item.userName} · {marker}
+            </Text>
+          );
+        })}
+      </View>
     </Pressable>
   );
 }
 
 type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
-  filteredSessions: SpotSession[];
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   activeDay: ActiveDay;
@@ -1288,6 +1281,7 @@ type SessionTimelineProps = {
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
+  followingUserIds: string[];
   showNowMarker: boolean;
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (sessionItem: SpotSession) => void;
@@ -1296,7 +1290,6 @@ type SessionTimelineProps = {
 
 function SessionTimeline({
   timelineSessions,
-  filteredSessions,
   selectedTimelineSessionId,
   currentProfileId,
   activeDay,
@@ -1304,6 +1297,7 @@ function SessionTimeline({
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
+  followingUserIds,
   showNowMarker,
   onSelectSession,
   onJoinSession,
@@ -1335,6 +1329,60 @@ function SessionTimeline({
         return sessionEndMinutes >= timelineWindowStartMinutes && sessionStartMinutes <= timelineWindowEndMinutes;
       }),
     [timelineSessions, timelineWindowEndMinutes, timelineWindowStartMinutes],
+  );
+  const groupedTimelineSessions = useMemo<SessionGroup[]>(() => {
+    const groups = new Map<string, SessionGroup>();
+
+    for (const timelineSession of visibleTimelineSessions) {
+      const hasPlannedWindow = hasPlannedTimeWindow(timelineSession.item);
+      const checkedInMinutes = getLocalMinutesFromIso(timelineSession.item.checkedInAt);
+      const rawStartMinutes = hasPlannedWindow ? toMinutes(timelineSession.item.start) : (checkedInMinutes ?? timelineStartMinutes);
+      const rawEndMinutes = hasPlannedWindow
+        ? toMinutes(timelineSession.item.end)
+        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
+      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
+      const startTime = formatMinutesAsHourMinute(roundedStartMinutes);
+      const endTime = formatMinutesAsHourMinute(roundedEndMinutes);
+      const groupKey = `${startTime}-${endTime}`;
+      const entry: SessionGroupEntry = {
+        item: timelineSession.item,
+        state: timelineSession.state,
+        isBuddy: timelineSession.isBuddy,
+        roundedStartMinutes,
+        roundedEndMinutes,
+      };
+
+      const existing = groups.get(groupKey);
+      if (!existing) {
+        groups.set(groupKey, {
+          key: groupKey,
+          startTime,
+          endTime,
+          startMinutes: roundedStartMinutes,
+          endMinutes: roundedEndMinutes,
+          sessions: [entry],
+        });
+      } else {
+        existing.sessions.push(entry);
+      }
+    }
+
+    const orderedGroups = Array.from(groups.values()).sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+    console.log('SESSION_GROUPS_COUNT', orderedGroups.length);
+    console.log('SESSION_GROUP_SAMPLE', orderedGroups[0]);
+    return orderedGroups;
+  }, [visibleTimelineSessions]);
+  const visibleGroups = useMemo(
+    () =>
+      groupedTimelineSessions.filter((group) =>
+        group.sessions.some(({ item }) => {
+          if (item.userId === currentProfileId) {
+            return true;
+          }
+          return timelineFilter === 'everyone' || followingUserIds.includes(item.userId);
+        })),
+    [currentProfileId, followingUserIds, groupedTimelineSessions, timelineFilter],
   );
 
   useEffect(() => {
@@ -1393,26 +1441,21 @@ function SessionTimeline({
           </View>
         ) : null}
 
-        {visibleTimelineSessions.length > 0 ? (
-          visibleTimelineSessions.map((timelineSession) => (
-            (() => {
-              const safeFilteredSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
-              return (
+        {visibleGroups.length > 0 ? (
+          visibleGroups.map((group) => (
             <SessionRow
-              key={timelineSession.item.id}
-              timelineSession={timelineSession}
+              key={group.key}
+              group={group}
               currentProfileId={currentProfileId}
-              filteredSessions={safeFilteredSessions}
               activeDay={activeDay}
-              isVisibleInCurrentMode={timelineFilter === 'everyone' || timelineSession.isBuddy}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
-              isSelected={selectedTimelineSessionId === timelineSession.item.id}
+              timelineFilter={timelineFilter}
+              followingUserIds={followingUserIds}
+              isSelected={selectedTimelineSessionId === group.key}
               onSelect={onSelectSession}
               onJoin={onJoinSession}
             />
-              );
-            })()
           ))
         ) : (
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
@@ -1423,6 +1466,7 @@ function SessionTimeline({
     </Pressable>
   );
 }
+
 
 export default function App() {
   const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
@@ -4058,8 +4102,6 @@ export default function App() {
   const timelineSessions = useMemo(() => {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeSessions.map((item) => [item.id, item])).values());
-    const toggleMode = timelineFilter;
-    
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
       if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
         return false;
@@ -4069,28 +4111,8 @@ export default function App() {
     });
     
     
-    const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
-      const session = item;
-      const sessionOwnerId = typeof session?.userId === 'string' ? session.userId : (typeof (session as { user_id?: unknown })?.user_id === 'string' ? (session as { user_id: string }).user_id : null);
-      const activeProfileId = activeProfile?.id ?? null;
-      const isBuddy = (userId: string | null | undefined) => Boolean(userId && (Array.isArray(followingUserIds) ? followingUserIds : []).includes(userId));
-      const include =
-        timelineFilter === 'buddies'
-          ? (
-            sessionOwnerId === activeProfile?.id ||
-            isBuddy(sessionOwnerId)
-          )
-          : true;
-      console.log('BUDDIES_VISIBILITY_CHECK', {
-        activeProfileId,
-        sessionOwnerId,
-        isSelf: sessionOwnerId === activeProfile?.id,
-        isBuddyUser: isBuddy(sessionOwnerId),
-        include,
-      });
-      return include;
-    });
-    
+    const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
+
     const resolvedLiveSessionIdsByUser = new Map<string, string>();
     for (const item of visibleSessions) {
       const isActiveCheckedInSession = Boolean(item.checkedInAt)
@@ -4159,7 +4181,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, activeProfile, sessions, timelineFilter]);
+  }, [activeDateEnd, activeDateStart, followingUserIds, sessions]);
   
   
   const selectedSpotMomentumLabel = useMemo(
@@ -4190,14 +4212,24 @@ export default function App() {
     },
     [activeDay, selectedSpot, timelineSessions],
   );
-  const selectedTimelineSession = useMemo(
-    () => timelineSessions.find(({ item }) => item.id === selectedTimelineSessionId) ?? null,
-    [selectedTimelineSessionId, timelineSessions],
-  );
-  const filteredTimelineSessionsForJoin = useMemo(
-    () => (Array.isArray(timelineSessions) ? timelineSessions : []).map(({ item }) => item),
-    [timelineSessions],
-  );
+  const selectedTimelineSession = useMemo(() => {
+    if (!selectedTimelineSessionId) {
+      return null;
+    }
+
+    return timelineSessions.find(({ item }) => {
+      const hasPlannedWindow = hasPlannedTimeWindow(item);
+      const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+      const rawStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
+      const rawEndMinutes = hasPlannedWindow
+        ? toMinutes(item.end)
+        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
+      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
+      const groupKey = `${formatMinutesAsHourMinute(roundedStartMinutes)}-${formatMinutesAsHourMinute(roundedEndMinutes)}`;
+      return groupKey === selectedTimelineSessionId;
+    }) ?? null;
+  }, [selectedTimelineSessionId, timelineSessions]);
   const openEmptyPlanningForm = () => {
     const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
     setEditingSessionId(null);
@@ -4228,7 +4260,18 @@ export default function App() {
       return;
     }
 
-    const exists = timelineSessions.some(({ item }) => item.id === selectedTimelineSessionId);
+    const exists = timelineSessions.some(({ item }) => {
+      const hasPlannedWindow = hasPlannedTimeWindow(item);
+      const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+      const rawStartMinutes = hasPlannedWindow ? toMinutes(item.start) : (checkedInMinutes ?? timelineStartMinutes);
+      const rawEndMinutes = hasPlannedWindow
+        ? toMinutes(item.end)
+        : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+      const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
+      const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
+      return `${formatMinutesAsHourMinute(roundedStartMinutes)}-${formatMinutesAsHourMinute(roundedEndMinutes)}` === selectedTimelineSessionId;
+    });
+
     if (!exists) {
       setSelectedTimelineSessionId(null);
     }
@@ -6400,7 +6443,6 @@ export default function App() {
           </View>
           <SessionTimeline
             timelineSessions={timelineSessions}
-            filteredSessions={filteredTimelineSessionsForJoin}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             activeDay={activeDay}
@@ -6408,6 +6450,7 @@ export default function App() {
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
             timelineFilter={timelineFilter}
+            followingUserIds={followingUserIds}
             showNowMarker={activeDay === 'today'}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
