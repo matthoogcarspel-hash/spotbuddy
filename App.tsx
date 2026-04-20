@@ -64,6 +64,8 @@ type SpotDistanceInfo = {
 type SpotSearchResult = {
   name: SpotName;
   country: string;
+  longitude: number;
+  latitude: number;
 };
 type SpotMomentumLabel = string;
 type SpotMomentumBuckets = {
@@ -1992,14 +1994,13 @@ export default function App() {
     setHomeSpotSearchQuery('');
     setSpotSearchResults([]);
   };
-  const handleSearchResultPress = (spotName: SpotName) => {
-    console.log("SPOT_OPENED_FROM_SEARCH", spotName);
-    console.log("SPOT_ADD_ROW_PRESSED", { spotName });
+  const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
+    console.log("SEARCH_SPOT_SELECTED", selectedSpot);
     if (searchBlurTimeoutRef.current) {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
     }
-    openSpotLookup(spotName);
+    openSpotLookup(selectedSpot.name);
   };
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
@@ -2098,10 +2099,10 @@ export default function App() {
       clearTimeout(spotSearchDebounceTimeoutRef.current);
       spotSearchDebounceTimeoutRef.current = null;
     }
-    const search = homeSpotSearchQuery.trim();
-    console.log("SEARCH_QUERY", search);
+    const q = homeSpotSearchQuery.trim();
+    console.log("SEARCH_INPUT", q);
 
-    if (!search) {
+    if (!q) {
       setSpotSearchResults([]);
       setSearchingSpots(false);
       return;
@@ -2112,11 +2113,12 @@ export default function App() {
         setSearchingSpots(true);
         const { data, error } = await supabase
           .from('spots')
-          .select('*')
-          .or(`name.ilike.%${search}%,country.ilike.%${search}%`)
+          .select('country,name,longitude,latitude')
+          .or(`name.ilike.%${q}%,country.ilike.%${q}%`)
           .order('country', { ascending: true })
           .limit(20);
-        console.log("SEARCH_RESULTS", data);
+        console.log("SEARCH_QUERY_RESULT", { data, error });
+        console.log("SEARCH_RESULT_COUNT", Array.isArray(data) ? data.length : 0);
         if (error) {
           console.error('SPOT_SEARCH_QUERY_FAILED', error);
           setSpotSearchResults([]);
@@ -2126,14 +2128,16 @@ export default function App() {
 
         const mappedResults = (data ?? [])
           .map((row) => {
-            const name = (row.name ?? row.spot_name ?? row.spot ?? '').toString().trim();
+            const name = (row.name ?? '').toString().trim();
             const country = (row.country ?? '').toString().trim();
+            const longitude = Number(row.longitude);
+            const latitude = Number(row.latitude);
 
-            if (!name) {
+            if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
               return null;
             }
 
-            return { name, country } satisfies SpotSearchResult;
+            return { name, country, longitude, latitude } satisfies SpotSearchResult;
           })
           .filter((row): row is SpotSearchResult => row !== null);
         setSpotSearchResults(mappedResults);
@@ -5064,13 +5068,14 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>Searching spots...</Text>
               ) : spotSearchResults.length > 0 ? (
                 <View style={{ marginTop: 8 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {spotSearchResults.length}</Text>
                   {spotSearchResults.map((spotItem) => (
                     <Pressable
                       key={`your-spots-page-search-${spotItem.country}-${spotItem.name}`}
-                      onPressIn={() => handleSearchResultPress(spotItem.name)}
+                      onPressIn={() => handleSearchResultPress(spotItem)}
                       style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                     >
-                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{spotItem.country ? `${spotItem.country} - ${spotItem.name}` : spotItem.name}</Text>
+                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{`${spotItem.country} - ${spotItem.name}`}</Text>
                       <Text style={{ color: favoriteSpots.includes(spotItem.name) ? theme.textSoft : theme.primary, fontSize: 13, fontWeight: '700' }}>
                         {favoriteSpots.includes(spotItem.name) ? 'Saved' : 'Open'}
                       </Text>
