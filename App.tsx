@@ -1170,6 +1170,12 @@ type SessionGroup = {
   sessions: SessionGroupEntry[];
 };
 
+type SessionJoinRequest = {
+  targetSession: SpotSession;
+  normalizedStart: string;
+  normalizedEnd: string;
+};
+
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
@@ -1191,6 +1197,7 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
 type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
+  selectedSpot: SpotName | null;
   activeDay: ActiveDay;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1198,10 +1205,10 @@ type SessionRowProps = {
   followingUserIds: string[];
   isSelected: boolean;
   onSelect: (groupKey: string) => void;
-  onJoin: (sessionItem: SpotSession) => void;
+  onJoin: (request: SessionJoinRequest) => void;
 };
 
-function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMinutes, timelineWindowEndMinutes, timelineFilter, followingUserIds, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timelineWindowStartMinutes, timelineWindowEndMinutes, timelineFilter, followingUserIds, isSelected, onSelect, onJoin }: SessionRowProps) {
   const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
@@ -1228,9 +1235,7 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
   const resolvedIntent = resolveSessionIntent(representative?.item.intent);
   const representativeState = representative?.state ?? 'planned';
-  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) =>
-    (Array.isArray(sessionEntry.item.participants) ? sessionEntry.item.participants : []).includes(activeProfileId ?? ''),
-  );
+  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
 
   console.log('SESSION_GROUP_JOIN_DECISION', {
     startTime: group.startTime,
@@ -1273,7 +1278,18 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
               onPress={(event) => {
                 event.stopPropagation();
                 if (representative) {
-                  onJoin(representative.item);
+                  console.log('GROUP_JOIN_CLICK', {
+                    activeProfileId: activeProfileId ?? null,
+                    selectedSpot: selectedSpot?.toString() ?? null,
+                    groupStart: group.startTime,
+                    groupEnd: group.endTime,
+                    sourceSessionId: representative.item.id ?? null,
+                  });
+                  onJoin({
+                    targetSession: representative.item,
+                    normalizedStart: group.startTime,
+                    normalizedEnd: group.endTime,
+                  });
                 }
               }}
               style={{
@@ -1328,6 +1344,7 @@ type SessionTimelineProps = {
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
+  selectedSpot: SpotName | null;
   activeDay: ActiveDay;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
@@ -1336,7 +1353,7 @@ type SessionTimelineProps = {
   followingUserIds: string[];
   showNowMarker: boolean;
   onSelectSession: (sessionId: string) => void;
-  onJoinSession: (sessionItem: SpotSession) => void;
+  onJoinSession: (request: SessionJoinRequest) => void;
   onClearSelection: () => void;
 };
 
@@ -1344,6 +1361,7 @@ function SessionTimeline({
   timelineSessions,
   selectedTimelineSessionId,
   currentProfileId,
+  selectedSpot,
   activeDay,
   currentLocalMinutes,
   timelineWindowStartMinutes,
@@ -1486,19 +1504,20 @@ function SessionTimeline({
 
         {visibleGroups.length > 0 ? (
           visibleGroups.map((group) => (
-            <SessionRow
-              key={group.key}
-              group={group}
-              currentProfileId={currentProfileId}
-              activeDay={activeDay}
+              <SessionRow
+                key={group.key}
+                group={group}
+                currentProfileId={currentProfileId}
+                selectedSpot={selectedSpot}
+                activeDay={activeDay}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               timelineFilter={timelineFilter}
               followingUserIds={followingUserIds}
               isSelected={selectedTimelineSessionId === group.key}
               onSelect={onSelectSession}
-              onJoin={onJoinSession}
-            />
+                onJoin={onJoinSession}
+              />
           ))
         ) : (
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
@@ -5715,11 +5734,15 @@ export default function App() {
 
     async function joinSessionViaSessionsModel({
       targetSession,
+      normalizedStart,
+      normalizedEnd,
       activeProfile,
       activeDay: joinActiveDay,
-      selectedSpot: _joinSelectedSpot,
+      selectedSpot: joinSelectedSpot,
     }: {
       targetSession: SpotSession;
+      normalizedStart: string;
+      normalizedEnd: string;
       activeProfile: { id: string | null };
       activeDay: ActiveDay;
       selectedSpot: SpotName | null;
@@ -5747,6 +5770,8 @@ export default function App() {
       console.log('JOIN_FLOW_START', {
         sessionId: targetSession.id,
         activeProfileId: activeProfile.id,
+        normalizedStart,
+        normalizedEnd,
       });
 
       const { data: session, error: sessionError } = await supabase
@@ -5761,48 +5786,111 @@ export default function App() {
       }
 
       console.log('JOIN_FLOW_SESSION', {
-        participants: session.participants,
+        sessionId: session.id ?? null,
+        sessionUserId: session.user_id ?? null,
+        sessionSpot: session.spot_name ?? null,
+        sessionStart: session.start_time ?? null,
+        sessionEnd: session.end_time ?? null,
       });
 
-      const safeParticipants = Array.isArray(session.participants)
-        ? session.participants.filter((participant): participant is string => typeof participant === 'string')
-        : [];
-      const alreadyJoined = safeParticipants.includes(activeProfile.id);
+      const payload = {
+        spot_name: joinSelectedSpot ?? session.spot_name ?? targetSession.spot,
+        user_id: activeProfile.id,
+        start_time: normalizedStart,
+        end_time: normalizedEnd,
+        status: 'Gaat' as const,
+        intent: resolveSessionIntent(session.intent ?? targetSession.intent),
+        checked_in_at: null,
+        checked_out_at: null,
+        created_at: getIsoDateFromLocalDateKey(activeDateKey) ?? undefined,
+      };
+
+      const joinDateRange = getIsoDateRangeForLocalDateKey(activeDateKey);
+      const duplicateResult = await supabase
+        .from('sessions')
+        .select('id')
+        .eq('user_id', activeProfile.id)
+        .eq('spot_name', payload.spot_name)
+        .eq('start_time', payload.start_time)
+        .eq('end_time', payload.end_time)
+        .gte('created_at', joinDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
+        .lt('created_at', joinDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z')
+        .limit(1)
+        .maybeSingle();
+
+      if (duplicateResult.error) {
+        console.error('JOIN_ERROR', duplicateResult.error);
+        return false;
+      }
+
+      const alreadyJoined = Boolean(duplicateResult.data?.id);
+
+      console.log('JOIN_DUPLICATE_CHECK', {
+        activeProfileId: activeProfile?.id ?? null,
+        targetSpot: joinSelectedSpot ?? null,
+        normalizedStart,
+        normalizedEnd,
+        alreadyJoined,
+      });
 
       if (alreadyJoined) {
         console.log('JOIN_FLOW_DONE', { success: true });
         return true;
       }
 
-      const updatedParticipants = [...safeParticipants, activeProfile.id];
-
       console.log('JOIN_FLOW_UPDATE', {
-        before: safeParticipants,
-        after: updatedParticipants,
+        mode: 'insert',
+        payload,
       });
 
-      const { error } = await supabase
-        .from('sessions')
-        .update({ participants: updatedParticipants })
-        .eq('id', targetSession.id);
+      console.log('JOIN_WRITE_TARGET', {
+        table: 'sessions',
+        sessionId: session.id ?? null,
+        activeProfileId: activeProfile?.id ?? null,
+        selectedSpot: joinSelectedSpot ?? null,
+        payload,
+      });
+      console.log('JOIN_WRITE_MODE', {
+        mode: 'insert',
+      });
 
-      if (error) {
-        console.error('JOIN_ERROR', error);
+      const writeResult = await supabase
+        .from('sessions')
+        .insert({
+          ...payload,
+          participants: [activeProfile.id],
+        })
+        .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent, participants')
+        .single();
+
+      console.log('JOIN_WRITE_RESULT', {
+        data: writeResult.data,
+        error: writeResult.error,
+      });
+
+      if (writeResult.error) {
+        console.error('JOIN_ERROR', writeResult.error);
         return false;
       }
 
       await fetchSharedData();
+      console.log('JOIN_REFETCH_DONE', {
+        selectedSpot: joinSelectedSpot ?? null,
+        activeDay: joinActiveDay,
+      });
       console.log('JOIN_FLOW_DONE', { success: true });
       return true;
     }
 
-    const joinSession = async (targetSession: SpotSession) => {
+    const joinSession = async ({ targetSession, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
       };
 
       const didJoin = await joinSessionViaSessionsModel({
         targetSession,
+        normalizedStart,
+        normalizedEnd,
         activeProfile,
         activeDay,
         selectedSpot,
@@ -6464,6 +6552,7 @@ export default function App() {
             timelineSessions={timelineSessions}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
+            selectedSpot={selectedSpot}
             activeDay={activeDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
@@ -6473,8 +6562,8 @@ export default function App() {
             showNowMarker={activeDay === 'today'}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
-            onJoinSession={(sessionItem) => {
-              void joinSession(sessionItem);
+            onJoinSession={(joinRequest) => {
+              void joinSession(joinRequest);
             }}
           />
           {selectedTimelineSession ? (
