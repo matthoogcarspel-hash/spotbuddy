@@ -868,7 +868,6 @@ const getSessionDisplayState = (
 const timelineStartMinutes = 8 * 60;
 const planningEndMinutes = 22 * 60;
 const timelineEndMinutes = planningEndMinutes;
-const timelinePastWindowMinutes = 2 * 60;
 const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
 const latestPlanningStartMinutes = planningEndMinutes - planningMinuteStep;
 const roundMinutesUpToStep = (minutes: number, step: number) => Math.ceil(minutes / step) * step;
@@ -1179,6 +1178,20 @@ type SessionJoinRequest = {
 };
 
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
+const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
+const getSelectedSpotName = (spot: SpotName | null) => {
+  if (!spot) {
+    return null;
+  }
+  return (spot as { name?: string } | null)?.name ?? String(spot);
+};
+const sameSpot = (session: SpotSession, selectedSpot: SpotName | null) => {
+  const selectedSpotName = getSelectedSpotName(selectedSpot);
+  if (!selectedSpotName) {
+    return true;
+  }
+  return normalizeSpotName(session?.spot) === normalizeSpotName(selectedSpotName);
+};
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -1200,13 +1213,11 @@ type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
-  activeDay: ActiveDay;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
   followingUserIds: string[];
   isSelected: boolean;
-  isActiveGroup: boolean;
   nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
   onJoin: (request: SessionJoinRequest) => void;
@@ -1216,13 +1227,11 @@ function SessionRow({
   group,
   currentProfileId,
   selectedSpot,
-  activeDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
   followingUserIds,
   isSelected,
-  isActiveGroup,
   nearOverlapWithPrevious,
   onSelect,
   onJoin,
@@ -1236,14 +1245,14 @@ function SessionRow({
   const activeProfileId = currentProfileId ?? null;
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
   const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
-  const visibleSessions = safeGroupSessions.filter(({ item }) => {
+  const safeVisibleRows = safeGroupSessions.filter(({ item }) => {
     if (item.userId === activeProfileId) {
       return true;
     }
     return timelineFilter === 'everyone' || safeFollowingUserIds.includes(item.userId);
   });
   const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
-  const sortedVisibleSessions = [...visibleSessions].sort((a, b) => {
+  const sortedVisibleSessions = [...safeVisibleRows].sort((a, b) => {
     if (stateRank[a.state] !== stateRank[b.state]) {
       return stateRank[a.state] - stateRank[b.state];
     }
@@ -1251,37 +1260,29 @@ function SessionRow({
   });
 
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
-  const representativeState = representative?.state ?? 'planned';
-  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
+  const safeSessions = safeGroupSessions.map((sessionEntry) => sessionEntry.item).filter(Boolean);
+  const alreadyJoinedGroup = safeSessions.some((session) => {
+    return (
+      session?.user_id === activeProfileId
+      && normalizeTime(session?.start_time) === group.startTime
+      && normalizeTime(session?.end_time) === group.endTime
+      && sameSpot(session, selectedSpot)
+    );
+  });
+  const canJoinGroup = Boolean(activeProfileId) && safeVisibleRows.length > 0 && !alreadyJoinedGroup;
 
-  console.log('SESSION_GROUP_JOIN_DECISION', {
+  console.log('GROUP_VISIBLE_ROWS', {
     startTime: group.startTime,
     endTime: group.endTime,
-    alreadyJoinedGroup,
+    visibleRows: safeVisibleRows.length,
   });
-  console.log('GROUP_HEADER_RENDER', {
+  console.log('PLANNED_JOIN_DECISION', {
     groupStart: group.startTime,
     groupEnd: group.endTime,
-    riderCount: safeGroupSessions.length,
+    alreadyJoinedGroup,
+    visibleRows: safeVisibleRows.length,
+    canJoinGroup,
   });
-  console.log('TIMELINE_GROUP_VISUAL_STATE', {
-    startTime: group.startTime,
-    endTime: group.endTime,
-    isActiveGroup,
-  });
-
-  const canJoin = Boolean(activeProfileId) && !alreadyJoinedGroup;
-  let canShowJoin = false;
-  if (
-    isSelected
-    && sortedVisibleSessions.length > 0
-    && canJoin
-    && representativeState !== 'completed'
-    && activeDay === 'today'
-    && isSessionJoinableNow(representative.item)
-  ) {
-    canShowJoin = true;
-  }
 
   return (
     <Pressable
@@ -1290,11 +1291,11 @@ function SessionRow({
         marginTop: nearOverlapWithPrevious ? 2 : 0,
         marginBottom: nearOverlapWithPrevious ? 8 : 6,
         borderRadius: 10,
-        backgroundColor: isActiveGroup ? '#193a4a66' : 'transparent',
-        borderWidth: isActiveGroup ? 1 : 0,
-        borderColor: isActiveGroup ? '#5ec8ffaa' : 'transparent',
-        paddingVertical: isActiveGroup ? 2 : 0,
-        paddingHorizontal: isActiveGroup ? 4 : 0,
+        backgroundColor: 'transparent',
+        borderWidth: 0,
+        borderColor: 'transparent',
+        paddingVertical: 0,
+        paddingHorizontal: 0,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
@@ -1307,12 +1308,12 @@ function SessionRow({
           </Text>
         </View>
         <View style={{ flex: 1, alignItems: 'flex-start' }}>
-          {canShowJoin ? (
+          {canJoinGroup ? (
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
                 if (representative) {
-                  console.log('GROUP_JOIN_CLICK', {
+                  console.log('GROUP_JOIN_CLICK_RESTORED', {
                     activeProfileId: activeProfileId ?? null,
                     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
                     groupStart: group.startTime,
@@ -1421,18 +1422,11 @@ function SessionTimeline({
     }),
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
-  const visibleTimelineSessions = useMemo(
-    () =>
-      (Array.isArray(timelineSessions) ? timelineSessions : []).filter(({ item }) => {
-        const { startMinutes: sessionStartMinutes, endMinutes: sessionEndMinutes } = getRoundedSessionWindow(item);
-        return sessionEndMinutes >= timelineWindowStartMinutes && sessionStartMinutes <= timelineWindowEndMinutes;
-      }),
-    [timelineSessions, timelineWindowEndMinutes, timelineWindowStartMinutes],
-  );
-  const groupedTimelineSessions = useMemo<SessionGroup[]>(() => {
+  const safeSessions = useMemo(() => (Array.isArray(timelineSessions) ? timelineSessions : []), [timelineSessions]);
+  const groupedSessions = useMemo<SessionGroup[]>(() => {
     const groups = new Map<string, SessionGroup>();
 
-    for (const timelineSession of visibleTimelineSessions) {
+    for (const timelineSession of safeSessions) {
       const {
         startMinutes: roundedStartMinutes,
         endMinutes: roundedEndMinutes,
@@ -1464,31 +1458,23 @@ function SessionTimeline({
     }
 
     const orderedGroups = Array.from(groups.values()).sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
-    console.log('SESSION_GROUPS_COUNT', orderedGroups.length);
-    console.log('SESSION_GROUP_SAMPLE', orderedGroups[0]);
+    console.log('SESSION_VISIBILITY_RESTORED', {
+      rawSessionsCount: safeSessions.length,
+      groupedCount: orderedGroups.length,
+    });
     return orderedGroups;
-  }, [visibleTimelineSessions]);
+  }, [safeSessions]);
   const visibleGroups = useMemo(
     () =>
-      groupedTimelineSessions.filter((group) =>
+      (Array.isArray(groupedSessions) ? groupedSessions : []).filter((group) =>
         group.sessions.some(({ item }) => {
           if (item.userId === currentProfileId) {
             return true;
           }
           return timelineFilter === 'everyone' || followingUserIds.includes(item.userId);
         })),
-    [currentProfileId, followingUserIds, groupedTimelineSessions, timelineFilter],
+    [currentProfileId, followingUserIds, groupedSessions, timelineFilter],
   );
-  const activeRowsCount = useMemo(
-    () =>
-      visibleGroups.filter((group) =>
-        group.sessions.some(({ state, roundedStartMinutes, roundedEndMinutes }) =>
-          state === 'live'
-          || (state === 'planned' && currentLocalMinutes >= roundedStartMinutes && currentLocalMinutes <= roundedEndMinutes),
-        )).length,
-    [currentLocalMinutes, visibleGroups],
-  );
-  console.log('TIMELINE_ACTIVE_ROWS_COUNT', activeRowsCount);
 
   useEffect(() => {
     
@@ -1553,11 +1539,6 @@ function SessionTimeline({
                 group={group}
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
-                activeDay={activeDay}
-                isActiveGroup={group.sessions.some(({ state, roundedStartMinutes, roundedEndMinutes }) =>
-                  state === 'live'
-                  || (state === 'planned' && currentLocalMinutes >= roundedStartMinutes && currentLocalMinutes <= roundedEndMinutes),
-                )}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -3764,24 +3745,11 @@ export default function App() {
       nowLabel: formatMinutesAsHourMinute(currentLocalMinutes),
     };
   }, [currentLocalMinutes, selectedPlanningDateKey]);
-  const windowInfo = useMemo(() => {
-    if (!nowReference.isToday) {
-      return {
-        startMinutes: timelineStartMinutes,
-        endMinutes: timelineEndMinutes,
-        mode: 'full_day',
-      };
-    }
-
-    const anchoredStartMinutes = nowReference.currentLocalMinutes - timelinePastWindowMinutes;
-    const startMinutes = clamp(anchoredStartMinutes, timelineStartMinutes, timelineEndMinutes);
-    const endMinutes = timelineEndMinutes;
-    return {
-      startMinutes,
-      endMinutes,
-      mode: 'live_today',
-    };
-  }, [nowReference]);
+  const windowInfo = useMemo(() => ({
+    startMinutes: timelineStartMinutes,
+    endMinutes: timelineEndMinutes,
+    mode: 'full_day',
+  }), []);
   const timelineMode = windowInfo.mode;
   useEffect(() => {
     
@@ -5869,7 +5837,7 @@ export default function App() {
       });
       const writeResult = await createPlannedSession(joinPayload);
       const { data, error } = writeResult;
-      console.log('JOIN_WRITE_RESULT', { data, error });
+      console.log('JOIN_WRITE_RESULT_RESTORED', { data, error });
 
       if (error) {
         console.error('JOIN_WRITE_ERROR_FULL', error);
