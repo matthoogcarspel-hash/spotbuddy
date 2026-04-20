@@ -1213,7 +1213,7 @@ type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
-  existingOwnSessionOnThisSpotDay: SpotSession | null;
+  ownSessionsOnThisSpotDay: SpotSession[];
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
@@ -1228,7 +1228,7 @@ function SessionRow({
   group,
   currentProfileId,
   selectedSpot,
-  existingOwnSessionOnThisSpotDay,
+  ownSessionsOnThisSpotDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
@@ -1271,22 +1271,31 @@ function SessionRow({
       && sameSpot(session, selectedSpot)
     );
   });
+  const safeOwnSessionsOnThisSpotDay = Array.isArray(ownSessionsOnThisSpotDay) ? ownSessionsOnThisSpotDay : [];
+  const targetStart = toMinutes(group.startTime);
+  const targetEnd = toMinutes(group.endTime);
+  const overlappingOwnSession = safeOwnSessionsOnThisSpotDay.find((session) => {
+    const existingStart = toMinutes(normalizeTime(session.start_time));
+    const existingEnd = toMinutes(normalizeTime(session.end_time));
+    return existingStart < targetEnd && existingEnd > targetStart;
+  }) ?? null;
+  const hasOverlap = Boolean(overlappingOwnSession);
   const canJoinGroup = Boolean(activeProfileId)
     && safeVisibleRows.length > 0
     && !alreadyJoinedGroup
-    && !existingOwnSessionOnThisSpotDay;
+    && !hasOverlap;
 
   console.log('GROUP_VISIBLE_ROWS', {
     startTime: group.startTime,
     endTime: group.endTime,
     visibleRows: safeVisibleRows.length,
   });
-  console.log("JOIN_SINGLE_SESSION_RULE", {
+  console.log("JOIN_OVERLAP_CHECK", {
+    activeProfileId: activeProfileId ?? null,
     groupStart: group.startTime,
     groupEnd: group.endTime,
-    alreadyJoinedGroup,
-    hasOwnSessionOnSpotDay: Boolean(existingOwnSessionOnThisSpotDay),
-    canJoinGroup,
+    overlappingSessionId: overlappingOwnSession?.id ?? null,
+    hasOverlap,
   });
 
   return (
@@ -1430,25 +1439,16 @@ function SessionTimeline({
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
   const safeSessions = useMemo(() => (Array.isArray(timelineSessions) ? timelineSessions : []), [timelineSessions]);
-  const existingOwnSessionOnThisSpotDay = useMemo(() => {
+  const ownSessionsOnThisSpotDay = useMemo(() => {
     const safeSessionItems = (Array.isArray(safeSessions) ? safeSessions : []).map((sessionEntry) => sessionEntry?.item).filter(Boolean);
-    const existingSession = safeSessionItems.find((session) => {
+    return safeSessionItems.filter((session) => {
       return (
         session?.user_id === (currentProfileId ?? null)
         && sameSpot(session, selectedSpot)
         && isSessionForLocalDate(session, activeDateKey)
       );
-    }) ?? null;
-    console.log("OWN_SESSION_ON_SPOT_DAY", {
-      activeProfileId: currentProfileId ?? null,
-      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-      activeDay,
-      existingSessionId: existingSession?.id ?? null,
-      existingStart: existingSession?.start_time ?? null,
-      existingEnd: existingSession?.end_time ?? null,
     });
-    return existingSession;
-  }, [activeDateKey, activeDay, currentProfileId, safeSessions, selectedSpot]);
+  }, [activeDateKey, currentProfileId, safeSessions, selectedSpot]);
   const groupedSessions = useMemo<SessionGroup[]>(() => {
     const groups = new Map<string, SessionGroup>();
 
@@ -1565,7 +1565,7 @@ function SessionTimeline({
                 group={group}
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
-                existingOwnSessionOnThisSpotDay={existingOwnSessionOnThisSpotDay}
+                ownSessionsOnThisSpotDay={ownSessionsOnThisSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -5811,23 +5811,38 @@ export default function App() {
       }
 
       const safeSessions = Array.isArray(sessions) ? sessions : [];
-      const existingOwnSessionOnThisSpotDay = safeSessions.find((session) => {
-        return (
-          session?.user_id === activeProfile?.id
-          && sameSpot(session, joinSelectedSpot)
-          && isSessionForLocalDate(session, activeDateKey)
-        );
+      const targetStart = toMinutes(normalizedStart);
+      const targetEnd = toMinutes(normalizedEnd);
+      const overlappingOwnSession = safeSessions.find((session) => {
+        if (session?.user_id !== activeProfile?.id) {
+          return false;
+        }
+        if (!sameSpot(session, joinSelectedSpot)) {
+          return false;
+        }
+        if (!isSessionForLocalDate(session, activeDateKey)) {
+          return false;
+        }
+
+        const existingStart = toMinutes(normalizeTime(session.start_time));
+        const existingEnd = toMinutes(normalizeTime(session.end_time));
+        return existingStart < targetEnd && existingEnd > targetStart;
       }) ?? null;
-      console.log("JOIN_HARD_BLOCK_CHECK", {
+      const hasOverlap = Boolean(overlappingOwnSession);
+      console.log("JOIN_OVERLAP_CHECK", {
         activeProfileId: activeProfile?.id ?? null,
-        hasOwnSessionOnSpotDay: Boolean(existingOwnSessionOnThisSpotDay),
+        groupStart: normalizedStart,
+        groupEnd: normalizedEnd,
+        overlappingSessionId: overlappingOwnSession?.id ?? null,
+        hasOverlap,
       });
-      if (existingOwnSessionOnThisSpotDay) {
-        console.log("JOIN_HARD_BLOCKED", {
-          reason: "USER_ALREADY_HAS_SESSION_ON_SPOT_DAY",
+      if (hasOverlap) {
+        console.log("JOIN_OVERLAP_BLOCKED", {
+          reason: "OVERLAPPING_SESSION",
+          overlappingSessionId: overlappingOwnSession?.id ?? null,
         });
-        showAlert('You already have a session on this spot today');
-        return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
+        showAlert('This session overlaps with one of your sessions');
+        return { ok: false, reason: 'OVERLAPPING_SESSION' as const };
       }
 
       const joinPayload = {
@@ -5915,7 +5930,7 @@ export default function App() {
       });
 
       if (!joinResult.ok) {
-        if (joinResult.reason !== 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+        if (joinResult.reason !== 'OVERLAPPING_SESSION') {
           setSessionActionError('Session could not be joined');
         }
         return;
