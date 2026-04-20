@@ -1124,8 +1124,7 @@ type SessionRowProps = {
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
   activeDay: ActiveDay;
-  ownSessionCountOnSelectedSpotDay: number;
-  hasOwnSessionOnSelectedSpotDay: boolean;
+  canRenderAnyJoinCTA: boolean;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
@@ -1141,8 +1140,7 @@ function SessionRow({
   currentProfileId,
   selectedSpot,
   activeDay,
-  ownSessionCountOnSelectedSpotDay,
-  hasOwnSessionOnSelectedSpotDay,
+  canRenderAnyJoinCTA,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
@@ -1185,7 +1183,6 @@ function SessionRow({
       && sameSpot(session, selectedSpot)
     );
   });
-  const canRenderAnyJoinCTA = Boolean(activeProfileId) && !hasOwnSessionOnSelectedSpotDay;
   const canJoinGroup = canRenderAnyJoinCTA
     && safeVisibleRows.length > 0
     && !alreadyJoinedGroup;
@@ -1195,14 +1192,11 @@ function SessionRow({
     endTime: group.endTime,
     visibleRows: safeVisibleRows.length,
   });
-  console.log("HARD_JOIN_CTA_DECISION", {
+  console.log("GROUP_JOIN_GATE", {
     groupStart: group.startTime,
     groupEnd: group.endTime,
-    ownSessionCountOnSelectedSpotDay,
-    hasOwnSessionOnSelectedSpotDay,
     alreadyJoinedGroup,
     visibleRows: safeVisibleRows.length,
-    canRenderAnyJoinCTA,
     canJoinGroup,
   });
 
@@ -1301,8 +1295,7 @@ type SessionTimelineProps = {
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
   activeDay: ActiveDay;
-  ownSessionCountOnSelectedSpotDay: number;
-  hasOwnSessionOnSelectedSpotDay: boolean;
+  canRenderAnyJoinCTA: boolean;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1320,8 +1313,7 @@ function SessionTimeline({
   currentProfileId,
   selectedSpot,
   activeDay,
-  ownSessionCountOnSelectedSpotDay,
-  hasOwnSessionOnSelectedSpotDay,
+  canRenderAnyJoinCTA,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1466,8 +1458,7 @@ function SessionTimeline({
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
                 activeDay={activeDay}
-                ownSessionCountOnSelectedSpotDay={ownSessionCountOnSelectedSpotDay}
-                hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
+                canRenderAnyJoinCTA={canRenderAnyJoinCTA}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -3721,16 +3712,19 @@ export default function App() {
     [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
   );
   const safeSessions = Array.isArray(sessions) ? sessions : [];
-  const existingOwnSessionsOnSelectedSpotDay = safeSessions.filter((session) => {
+  const existingOwnSessionsForSpotDay = safeSessions.filter((session) => {
     return (
       session?.user_id === activeProfile?.id
       && sameSpot(session, selectedSpot)
       && isSessionOnActiveDay(session, activeDay)
     );
   });
-  const existingOwnSessionOnSelectedSpotDay = existingOwnSessionsOnSelectedSpotDay[0] ?? null;
-  const ownSessionCountOnSelectedSpotDay = existingOwnSessionsOnSelectedSpotDay.length;
-  const hasOwnSessionOnSelectedSpotDay = ownSessionCountOnSelectedSpotDay > 0;
+  const existingOwnSessionOnSelectedSpotDay = existingOwnSessionsForSpotDay[0] ?? null;
+  const hasOwnSessionForSpotDay = existingOwnSessionsForSpotDay.length > 0;
+  const hasOwnSessionOnSelectedSpotDay = hasOwnSessionForSpotDay;
+  const canRenderAnyJoinCTA =
+    Boolean(activeProfile?.id) &&
+    !hasOwnSessionForSpotDay;
   useEffect(() => {
     
   }, [planningNowReference]);
@@ -3838,12 +3832,13 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  console.log("HARD_SINGLE_SESSION_STATE", {
+  console.log("GLOBAL_JOIN_GATE", {
     activeProfileId: activeProfile?.id ?? null,
     selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
     activeDay,
-    ownSessionCountOnSelectedSpotDay,
-    existingSessionIds: existingOwnSessionsOnSelectedSpotDay.map((session) => session?.id ?? null),
+    existingCount: existingOwnSessionsForSpotDay.length,
+    hasOwnSessionForSpotDay,
+    canRenderAnyJoinCTA,
   });
   
   
@@ -5708,14 +5703,20 @@ export default function App() {
       }
 
       const safeOwnSessionsFresh = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-      const existingOwnSessionsFreshOnSelectedSpotDay = safeOwnSessionsFresh.filter((session) => {
+      const existingOwnSessionsForSpotDay = safeOwnSessionsFresh.filter((session) => {
         return sameSpot(session, joinSelectedSpot) && isSessionOnActiveDay(session, joinActiveDay);
       });
+      console.log("DUPLICATE_JOIN_FRESH_CHECK", {
+        activeProfileId: activeProfile?.id ?? null,
+        selectedSpot: joinSelectedSpot?.name ?? joinSelectedSpot ?? null,
+        activeDay: joinActiveDay,
+        existingCount: existingOwnSessionsForSpotDay.length,
+      });
 
-      if (existingOwnSessionsFreshOnSelectedSpotDay.length > 0) {
-        console.log("HARD_SINGLE_SESSION_BLOCKED", {
-          existingSessionIds: existingOwnSessionsFreshOnSelectedSpotDay.map((session) => session?.id ?? null),
-          count: existingOwnSessionsFreshOnSelectedSpotDay.length,
+      if (existingOwnSessionsForSpotDay.length > 0) {
+        console.log("DUPLICATE_JOIN_BLOCKED", {
+          reason: "EXISTING_SESSION_ON_SPOT_DAY",
+          existingIds: existingOwnSessionsForSpotDay.map((s) => s?.id ?? null),
         });
         showAlert('You already have a session on this spot today');
         return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
@@ -5737,38 +5738,6 @@ export default function App() {
         payloadKeys: Object.keys(joinPayload || {}),
       });
 
-      const joinDateRange = getIsoDateRangeForLocalDateKey(activeDateKey);
-      const duplicateResult = await supabase
-        .from('sessions')
-        .select('id, user_id, spot_name, start_time, end_time')
-        .eq('user_id', activeProfile.id)
-        .eq('spot_name', joinPayload.spot_name)
-        .eq('start_time', joinPayload.start_time)
-        .eq('end_time', joinPayload.end_time)
-        .gte('created_at', joinDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
-        .lt('created_at', joinDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z')
-        .limit(10);
-
-      if (duplicateResult.error) {
-        console.error('JOIN_ERROR', duplicateResult.error);
-        return { ok: false, reason: 'DUPLICATE_CHECK_FAILED' as const };
-      }
-
-      const existingSessions = duplicateResult.data ?? [];
-      const alreadyJoined = existingSessions.length > 0;
-
-      console.log('JOIN_DUPLICATE_CHECK', {
-        activeProfileId: activeProfile?.id ?? null,
-        normalizedStart,
-        normalizedEnd,
-        alreadyJoined,
-      });
-
-      if (alreadyJoined) {
-        console.log('JOIN_FLOW_DONE', { success: true });
-        return { ok: true as const };
-      }
-
       console.log('JOIN_FLOW_UPDATE', {
         mode: 'insert',
         payload: joinPayload,
@@ -5778,6 +5747,11 @@ export default function App() {
       console.log('JOIN_WRITE_RESULT_RESTORED', { data, error });
 
       if (error) {
+        if (isUniqueConstraintError(error)) {
+          console.error("DUPLICATE_JOIN_DB_ERROR", error);
+          showAlert('You already have a session on this spot today');
+          return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
+        }
         console.error('JOIN_WRITE_ERROR_FULL', error);
         console.error('JOIN_ERROR', error);
         return { ok: false, reason: 'WRITE_FAILED' as const };
@@ -6488,8 +6462,7 @@ export default function App() {
             currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
             activeDay={activeDay}
-            ownSessionCountOnSelectedSpotDay={ownSessionCountOnSelectedSpotDay}
-            hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
+            canRenderAnyJoinCTA={canRenderAnyJoinCTA}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
