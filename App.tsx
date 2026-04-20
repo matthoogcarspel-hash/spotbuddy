@@ -1100,15 +1100,15 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
         event.stopPropagation();
         onPress();
       }}
-      style={{ flex: 1, height: 28, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
+      style={{ flex: 1, height: 22, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
     >
       <View
         style={{
           position: 'absolute',
           left: `${leftPercent}%`,
           width: `${widthPercent}%`,
-          top: 3,
-          bottom: 3,
+          top: 2,
+          bottom: 2,
           borderRadius: 999,
           backgroundColor: stateStyle[state].bar,
           borderWidth: intentStyle.barBorderWidth,
@@ -1116,10 +1116,10 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
           opacity: (stateStyle[state].opacity ?? 1) * intentStyle.barOpacity,
           justifyContent: 'center',
-          paddingHorizontal: 8,
+          paddingHorizontal: 6,
         }}
       >
-        <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 11, fontWeight: '700' }}>
+        <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 10, fontWeight: '700' }}>
           {timelineLabel}
         </Text>
       </View>
@@ -1170,7 +1170,6 @@ type SessionGroup = {
 };
 
 type SessionJoinRequest = {
-  targetSession: SpotSession;
   normalizedStart: string;
   normalizedEnd: string;
 };
@@ -1232,7 +1231,6 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
   });
 
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
-  const resolvedIntent = resolveSessionIntent(representative?.item.intent);
   const representativeState = representative?.state ?? 'planned';
   const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
 
@@ -1247,7 +1245,7 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
     riderCount: safeGroupSessions.length,
   });
 
-  const canJoin = Boolean(activeProfileId) && Boolean(representative?.item?.id) && !alreadyJoinedGroup;
+  const canJoin = Boolean(activeProfileId) && !alreadyJoinedGroup;
   let canShowJoin = false;
   if (
     isSelected
@@ -1261,13 +1259,13 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
   }
 
   return (
-    <Pressable onPress={() => onSelect(group.key)} style={{ marginBottom: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-        <View style={{ width: 90 }}>
-          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
+    <Pressable onPress={() => onSelect(group.key)} style={{ marginBottom: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+        <View style={{ width: 80 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 11, fontWeight: '700' }}>
             {group.startTime}–{group.endTime}
           </Text>
-          <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 10, marginTop: 2 }}>
+          <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 9, marginTop: 1 }}>
             {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
           </Text>
         </View>
@@ -1279,13 +1277,11 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
                 if (representative) {
                   console.log('GROUP_JOIN_CLICK', {
                     activeProfileId: activeProfileId ?? null,
-                    selectedSpot: selectedSpot?.toString() ?? null,
+                    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
                     groupStart: group.startTime,
                     groupEnd: group.endTime,
-                    sourceSessionId: representative.item.id ?? null,
                   });
                   onJoin({
-                    targetSession: representative.item,
                     normalizedStart: group.startTime,
                     normalizedEnd: group.endTime,
                   });
@@ -1306,7 +1302,7 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
         </View>
       </View>
 
-      <View style={{ marginTop: 2 }}>
+      <View style={{ marginTop: 1 }}>
         {sortedVisibleSessions.map(({ item, state }, index) => {
           const rider = item as SpotSession & { profile_name?: string; display_name?: string };
           console.log('GROUP_RIDER_ROW_RENDER', {
@@ -1315,8 +1311,8 @@ function SessionRow({ group, currentProfileId, selectedSpot, activeDay, timeline
             riderName: rider?.profile_name ?? rider?.display_name ?? rider?.userName ?? null,
           });
           return (
-            <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-              <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, width: 90, marginRight: 8 }}>
+            <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
+              <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, width: 80, marginRight: 4 }}>
                 {item.userName}
               </Text>
               <SessionBar
@@ -4412,6 +4408,11 @@ export default function App() {
       return { data: null, error: { message: 'missing_auth_user_id' } } as const;
     }
     const writePayload = { ...payload, user_id: activeProfile.id };
+    const planPayloadExample = writePayload;
+    console.log('PLAN_FLOW_SCHEMA_REFERENCE', {
+      table: 'sessions',
+      payloadKeys: Object.keys(planPayloadExample || {}),
+    });
     
     return supabase
       .from('sessions')
@@ -5727,14 +5728,12 @@ export default function App() {
     };
 
     async function joinSessionViaSessionsModel({
-      targetSession,
       normalizedStart,
       normalizedEnd,
       activeProfile,
       activeDay: joinActiveDay,
       selectedSpot: joinSelectedSpot,
     }: {
-      targetSession: SpotSession;
       normalizedStart: string;
       normalizedEnd: string;
       activeProfile: { id: string | null };
@@ -5746,67 +5745,46 @@ export default function App() {
         return false;
       }
 
-      if (!targetSession?.id) {
-        console.error('JOIN_ERROR', { reason: 'NO_TARGET_SESSION' });
-        return false;
-      }
-
-      if (targetSession.userId === activeProfile.id) {
-        console.error('JOIN_ERROR', { reason: 'SELF_JOIN_BLOCKED' });
-        return false;
-      }
-
       if (joinActiveDay !== 'today') {
         console.error('JOIN_ERROR', { reason: 'NON_JOINABLE_DAY' });
         return false;
       }
 
       console.log('JOIN_FLOW_START', {
-        sessionId: targetSession.id,
         activeProfileId: activeProfile.id,
         normalizedStart,
         normalizedEnd,
       });
 
-      const { data: session, error: sessionError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('id', targetSession.id)
-        .single();
-
-      if (sessionError || !session) {
-        console.error('JOIN_ERROR', sessionError ?? { reason: 'SESSION_NOT_FOUND' });
+      if (!joinSelectedSpot) {
+        console.error('JOIN_ERROR', { reason: 'NO_SELECTED_SPOT' });
         return false;
       }
 
-      console.log('JOIN_FLOW_SESSION', {
-        sessionId: session.id ?? null,
-        sessionUserId: session.user_id ?? null,
-        sessionSpot: session.spot_name ?? null,
-        sessionStart: session.start_time ?? null,
-        sessionEnd: session.end_time ?? null,
-      });
-
-      const payload = {
-        spot_name: joinSelectedSpot ?? session.spot_name ?? targetSession.spot,
+      const joinPayload = {
+        spot_name: joinSelectedSpot,
         user_id: activeProfile.id,
         start_time: normalizedStart,
         end_time: normalizedEnd,
         status: 'Gaat' as const,
-        intent: resolveSessionIntent(session.intent ?? targetSession.intent),
+        intent: resolveSessionIntent(intent),
         checked_in_at: null,
         checked_out_at: null,
         created_at: getIsoDateFromLocalDateKey(activeDateKey) ?? undefined,
       };
+      console.log('JOIN_FLOW_SCHEMA_REFERENCE', {
+        table: 'sessions',
+        payloadKeys: Object.keys(joinPayload || {}),
+      });
 
       const joinDateRange = getIsoDateRangeForLocalDateKey(activeDateKey);
       const duplicateResult = await supabase
         .from('sessions')
-        .select('id, user_id, profile_id, spot_name, spot_id, start_time, end_time')
+        .select('id, user_id, spot_name, start_time, end_time')
         .eq('user_id', activeProfile.id)
-        .eq('spot_name', payload.spot_name)
-        .eq('start_time', payload.start_time)
-        .eq('end_time', payload.end_time)
+        .eq('spot_name', joinPayload.spot_name)
+        .eq('start_time', joinPayload.start_time)
+        .eq('end_time', joinPayload.end_time)
         .gte('created_at', joinDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
         .lt('created_at', joinDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z')
         .limit(10);
@@ -5817,20 +5795,10 @@ export default function App() {
       }
 
       const existingSessions = duplicateResult.data ?? [];
-      const alreadyJoined = existingSessions.some((existingSession) => {
-        const sameSpot = normalizeSpotName(existingSession.spot_name ?? payload.spot_name) === normalizeSpotName(payload.spot_name);
-        const existingProfileId = existingSession.profile_id ?? existingSession.user_id ?? null;
-        return (
-          existingProfileId === activeProfile.id
-          && existingSession.start_time === normalizedStart
-          && existingSession.end_time === normalizedEnd
-          && sameSpot
-        );
-      });
+      const alreadyJoined = existingSessions.length > 0;
 
       console.log('JOIN_DUPLICATE_CHECK', {
         activeProfileId: activeProfile?.id ?? null,
-        targetSpot: joinSelectedSpot ?? null,
         normalizedStart,
         normalizedEnd,
         alreadyJoined,
@@ -5843,31 +5811,15 @@ export default function App() {
 
       console.log('JOIN_FLOW_UPDATE', {
         mode: 'insert',
-        payload,
+        payload: joinPayload,
       });
+      const writeResult = await createPlannedSession(joinPayload);
+      const { data, error } = writeResult;
+      console.log('JOIN_WRITE_RESULT', { data, error });
 
-      console.log('JOIN_WRITE_TARGET', {
-        table: 'sessions',
-        sessionId: session.id ?? null,
-        activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: joinSelectedSpot ?? null,
-        payload,
-      });
-      console.log('JOIN_WRITE_MODE', {
-        mode: 'insert',
-      });
-
-      const writeResult = await supabase
-        .from('sessions')
-        .insert([payload]);
-
-      console.log('JOIN_WRITE_RESULT', {
-        data: writeResult.data,
-        error: writeResult.error,
-      });
-
-      if (writeResult.error) {
-        console.error('JOIN_ERROR', writeResult.error);
+      if (error) {
+        console.error('JOIN_WRITE_ERROR_FULL', error);
+        console.error('JOIN_ERROR', error);
         return false;
       }
 
@@ -5880,13 +5832,12 @@ export default function App() {
       return true;
     }
 
-    const joinSession = async ({ targetSession, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+    const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
       };
 
       const didJoin = await joinSessionViaSessionsModel({
-        targetSession,
         normalizedStart,
         normalizedEnd,
         activeProfile,
