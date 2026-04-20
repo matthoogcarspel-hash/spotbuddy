@@ -2166,40 +2166,44 @@ export default function App() {
     let isMounted = true;
 
     (async () => {
-      const { data, error } = await supabase
-        .from('spots')
-        .select('*')
-        .limit(10);
-      console.log("SPOTS_TEST_DATA", data);
-      console.log("SPOTS_TEST_ERROR", error);
-      console.log("SPOTS_TEST_COUNT", Array.isArray(data) ? data.length : 0);
+      const query = homeSpotSearchQuery.trim();
+      let data: SpotSearchResult[] | null = null;
+      let error: unknown = null;
+
+      if (query.length > 0) {
+        const response = await supabase
+          .from('spots')
+          .select('*')
+          .ilike('name', `%${query}%`)
+          .limit(20);
+        data = (response.data as SpotSearchResult[] | null) ?? null;
+        error = response.error;
+      } else {
+        const response = await supabase
+          .from('spots')
+          .select('*')
+          .limit(20);
+        data = (response.data as SpotSearchResult[] | null) ?? null;
+        error = response.error;
+      }
+
+      console.log("QUERY:", query);
+      console.log("RESULT DATA:", data);
+      console.log("RESULT ERROR:", error);
 
       if (!isMounted) {
         return;
       }
 
-      const loadedSpots = (data ?? [])
-        .map((row) => {
-          const country = typeof row.country === 'string' ? row.country.trim() : '';
-          const name = typeof row.name === 'string' ? row.name.trim() : '';
-          const longitude = Number(row.longitude);
-          const latitude = Number(row.latitude);
-          if (!country || !name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
-            return null;
-          }
-          return { country, name, longitude, latitude } satisfies SpotSearchResult;
-        })
-        .filter((row): row is SpotSearchResult => row !== null);
-
       setSpotsTestCount(Array.isArray(data) ? data.length : 0);
-      setAllSpots(loadedSpots);
-      setSearchResults(loadedSpots);
+      setAllSpots(data ?? []);
+      setSearchResults(data ?? []);
     })();
 
     return () => {
       isMounted = false;
     };
-  }, [showYourSpotsPage]);
+  }, [homeSpotSearchQuery, showYourSpotsPage]);
   useEffect(() => {
     console.log("HOME_HIDE_ACTION_REMOVED");
   }, []);
