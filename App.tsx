@@ -10,7 +10,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
-import { Profile, supabase } from './src/lib/supabase';
+import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
@@ -2553,6 +2553,18 @@ export default function App() {
   };
 
   const fetchSpotDefinitions = async () => {
+    if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+      fetch(`${SUPABASE_URL}/rest/v1/spots?select=*`, {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      })
+        .then((res) => res.json())
+        .then((data) => console.log('RAW_SPOTS', data))
+        .catch((error) => console.error('RAW_SPOTS_ERROR', error));
+    }
+
     const { data, error } = await supabase
       .from('spots')
       .select('*');
