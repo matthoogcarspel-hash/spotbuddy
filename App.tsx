@@ -3953,15 +3953,18 @@ export default function App() {
     
     
     const visibleSessions = (Array.isArray(filteredSessions) ? filteredSessions : []).filter((item) => {
-      if (timelineFilter === 'buddies') {
-        if (!activeAppUserId) {
-          return false;
-        }
-        const isSelf = item.userId === activeAppUserId;
-        const isBuddyUser = followingUserIds.includes(item.userId);
-        return isSelf || isBuddyUser;
-      }
-      return true;
+      const sessionOwnerId = typeof item?.userId === 'string' ? item.userId : null;
+      const isSelf = Boolean(activeAppUserId && sessionOwnerId && sessionOwnerId === activeAppUserId);
+      const isBuddyUser = Boolean(sessionOwnerId && (Array.isArray(followingUserIds) ? followingUserIds : []).includes(sessionOwnerId));
+      const include = timelineFilter === 'buddies' ? (isSelf || isBuddyUser) : true;
+      console.log('BUDDIES_VISIBILITY_CHECK', {
+        activeProfileId: activeProfile?.id ?? null,
+        sessionOwnerId: sessionOwnerId,
+        isSelf,
+        isBuddyUser,
+        include,
+      });
+      return include;
     });
     
     const resolvedLiveSessionIdsByUser = new Map<string, string>();
@@ -4032,7 +4035,7 @@ export default function App() {
 
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
-  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, sessions, timelineFilter]);
+  }, [activeDateEnd, activeDateStart, activeDay, followingUserIds, selectedSpot, activeAppUserId, activeProfile, sessions, timelineFilter]);
   
   
   const selectedSpotMomentumLabel = useMemo(
@@ -5510,19 +5513,25 @@ export default function App() {
       const activeProfile = {
         id: activeAppUserId ?? null,
       };
-      const sessionOwnerId = targetSession?.userId ?? null;
+      const targetSessionOwnerId = targetSession?.userId ?? null;
+      const joinTable = 'session_participants';
+      console.log('JOIN_SCHEMA_TARGET', {
+        readTable: joinTable,
+        writeTable: joinTable,
+        strategy: 'participants-table',
+      });
 
       try {
         if (!activeProfile?.id) throw new Error('NO_ACTIVE_PROFILE');
         if (!targetSession?.id) throw new Error('NO_SESSION');
 
         console.log('JOIN_ATTEMPT', {
-          actor: activeProfile.id,
-          session: targetSession.id,
-          owner: sessionOwnerId,
+          actorProfileId: activeProfile?.id ?? null,
+          targetSessionId: targetSession?.id ?? null,
+          targetSessionOwnerId: (targetSession as { user_id?: string | null })?.user_id ?? targetSessionOwnerId ?? null,
         });
 
-        if (sessionOwnerId === activeProfile.id) {
+        if (targetSessionOwnerId === activeProfile.id) {
           return { error: 'SELF_JOIN_BLOCKED' };
         }
 
@@ -5531,7 +5540,7 @@ export default function App() {
         }
 
         const existingParticipantsResponse = await supabase
-          .from('session_participants')
+          .from(joinTable)
           .select('session_id, user_id')
           .eq('session_id', targetSession.id);
         if (existingParticipantsResponse.error) {
@@ -5544,12 +5553,13 @@ export default function App() {
         const alreadyJoined = existingParticipants.some(
           (p) => p?.session_id === targetSession.id && p?.user_id === activeProfile.id,
         );
+        console.log('JOIN_DUPLICATE_CHECK', { alreadyJoined });
         if (alreadyJoined) {
           return;
         }
 
         const joinResult = await supabase
-          .from('session_participants')
+          .from(joinTable)
           .insert({
             session_id: targetSession.id,
             user_id: activeProfile.id,
