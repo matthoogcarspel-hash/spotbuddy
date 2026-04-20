@@ -1208,11 +1208,13 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
 
   const activeProfileId = currentProfileId ?? null;
-  const visibleSessions = group.sessions.filter(({ item }) => {
+  const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
+  const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
+  const visibleSessions = safeGroupSessions.filter(({ item }) => {
     if (item.userId === activeProfileId) {
       return true;
     }
-    return timelineFilter === 'everyone' || followingUserIds.includes(item.userId);
+    return timelineFilter === 'everyone' || safeFollowingUserIds.includes(item.userId);
   });
   const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
   const sortedVisibleSessions = [...visibleSessions].sort((a, b) => {
@@ -1222,15 +1224,20 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
     return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
   });
 
-  const representative = sortedVisibleSessions[0] ?? group.sessions[0];
+  const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
   const resolvedIntent = resolveSessionIntent(representative?.item.intent);
   const representativeState = representative?.state ?? 'planned';
-  const alreadyJoinedGroup = group.sessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
+  const alreadyJoinedGroup = safeGroupSessions.some((sessionEntry) => sessionEntry.item.userId === activeProfileId);
 
   console.log('SESSION_GROUP_JOIN_DECISION', {
     startTime: group.startTime,
     endTime: group.endTime,
     alreadyJoinedGroup,
+  });
+  console.log('GROUP_HEADER_RENDER', {
+    groupStart: group.startTime,
+    groupEnd: group.endTime,
+    riderCount: safeGroupSessions.length,
   });
 
   const canJoin = Boolean(activeProfileId) && Boolean(representative?.item?.id) && !alreadyJoinedGroup;
@@ -1248,8 +1255,8 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
 
   return (
     <Pressable onPress={() => onSelect(group.key)} style={{ marginBottom: 10 }}>
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ width: 90, marginRight: 8 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+        <View style={{ width: 90 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
             {group.startTime}–{group.endTime}
           </Text>
@@ -1257,30 +1264,56 @@ function SessionRow({ group, currentProfileId, activeDay, timelineWindowStartMin
             {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
           </Text>
         </View>
-        <SessionBar
-          leftPercent={leftPercent}
-          widthPercent={widthPercent}
-          state={representativeState}
-          intent={resolvedIntent}
-          isSelected={isSelected}
-          showJoinButton={canShowJoin}
-          onPress={() => onSelect(group.key)}
-          onJoin={() => {
-            if (representative) {
-              onJoin(representative.item);
-            }
-          }}
-        />
+        <View style={{ flex: 1, alignItems: 'flex-start' }}>
+          {canShowJoin ? (
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation();
+                if (representative) {
+                  onJoin(representative.item);
+                }
+              }}
+              style={{
+                backgroundColor: '#1a66c9',
+                borderWidth: 1,
+                borderColor: '#81c0ff',
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+              }}
+            >
+              <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>Join</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
-      <View style={{ marginLeft: 98, marginTop: 6 }}>
-        {sortedVisibleSessions.map(({ item, isBuddy }) => {
-          const isSelf = Boolean(activeProfileId && item.userId === activeProfileId);
-          const marker = isSelf ? 'You' : isBuddy ? 'Buddy' : 'Other';
+      <View style={{ marginTop: 2 }}>
+        {sortedVisibleSessions.map(({ item, state }, index) => {
+          const rider = item as SpotSession & { profile_name?: string; display_name?: string };
+          console.log('GROUP_RIDER_ROW_RENDER', {
+            groupStart: group.startTime,
+            groupEnd: group.endTime,
+            riderName: rider?.profile_name ?? rider?.display_name ?? rider?.userName ?? null,
+          });
           return (
-            <Text key={`group-user-${group.key}-${item.id}`} style={{ color: isSelf ? theme.text : theme.textSoft, fontSize: 12, marginBottom: 2 }}>
-              {item.userName} · {marker}
-            </Text>
+            <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, width: 90, marginRight: 8 }}>
+                {item.userName}
+              </Text>
+              <SessionBar
+                leftPercent={leftPercent}
+                widthPercent={widthPercent}
+                state={state}
+                intent={resolveSessionIntent(item.intent)}
+                isSelected={isSelected}
+                showJoinButton={false}
+                onPress={() => onSelect(group.key)}
+                onJoin={() => {
+                  // Join is managed at the group header level.
+                }}
+              />
+            </View>
           );
         })}
       </View>
