@@ -81,11 +81,11 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
       .limit(1);
 
     if (existingUsersError) {
-      console.log('EMAIL_DUPLICATE_LOOKUP_FAILED', existingUsersError.message);
+      
     }
 
     if (!existingUsersError && !isAdminEmailException(normalizedEmail) && (existingUsers?.length ?? 0) > 0) {
-      console.log('EMAIL_DUPLICATE_BLOCKED', normalizedEmail);
+      
       setLoadingAction(null);
       setError('Email already in use');
       return;
