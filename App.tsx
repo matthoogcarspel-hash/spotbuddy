@@ -2561,8 +2561,10 @@ export default function App() {
     setSpotDefinitions(mappedSpots);
   };
 
-  const fetchSharedData = async () => {
-    setLoadingData(true);
+  const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
+    if (!skipLoadingState) {
+      setLoadingData(true);
+    }
     console.log('JOIN_MODEL_SELECTED', {
       rootCause: 'E',
       readTarget: 'sessions',
@@ -2698,7 +2700,9 @@ export default function App() {
     }
 
     if (messagesError || profilesError) {
-      setLoadingData(false);
+      if (!skipLoadingState) {
+        setLoadingData(false);
+      }
       return;
     }
 
@@ -2713,7 +2717,9 @@ export default function App() {
 
       if (messageProfilesError) {
         console.error('Failed to load message profiles:', messageProfilesError);
-        setLoadingData(false);
+        if (!skipLoadingState) {
+          setLoadingData(false);
+        }
         return;
       }
 
@@ -2751,7 +2757,9 @@ export default function App() {
       
     }
 
-    setLoadingData(false);
+    if (!skipLoadingState) {
+      setLoadingData(false);
+    }
   };
 
   useEffect(() => {
@@ -2919,6 +2927,55 @@ export default function App() {
 
     void fetchSharedData();
   }, [activeAppUserId, spotNames]);
+
+  useEffect(() => {
+    if (!activeAppUserId || spotNames.length === 0) {
+      return;
+    }
+
+    const realtimeChannel = supabase
+      .channel('sessions-realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'sessions' },
+        (payload) => {
+          console.log('SESSIONS_REALTIME_EVENT', {
+            eventType: payload?.eventType ?? null,
+            table: payload?.table ?? null,
+            recordId: payload?.new?.id ?? payload?.old?.id ?? null,
+          });
+
+          const payloadSpot = (payload?.new as { spot_name?: string } | null)?.spot_name
+            ?? (payload?.old as { spot_name?: string } | null)?.spot_name
+            ?? null;
+          if (selectedSpot && payloadSpot && normalizeSpotName(payloadSpot) !== normalizeSpotName(selectedSpot)) {
+            return;
+          }
+
+          void fetchSharedData({ skipLoadingState: true }).then(() => {
+            console.log('SESSIONS_REALTIME_REFETCH_DONE', {
+              selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+              activeDay,
+            });
+          });
+        },
+      )
+      .subscribe((status) => {
+        if (status !== 'SUBSCRIBED') {
+          return;
+        }
+
+        console.log('SESSIONS_REALTIME_SUBSCRIBED', {
+          selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+          activeDay,
+        });
+      });
+
+    return () => {
+      void supabase.removeChannel(realtimeChannel);
+      console.log('SESSIONS_REALTIME_UNSUBSCRIBED');
+    };
+  }, [activeAppUserId, activeDay, selectedSpot, spotNames]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
