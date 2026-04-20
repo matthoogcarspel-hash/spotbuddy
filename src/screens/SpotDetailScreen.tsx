@@ -69,7 +69,7 @@ export default function SpotDetailScreen({
   const [messageInput, setMessageInput] = useState('');
 
   const timelineConfig = useMemo(() => {
-    const visibleSessions = sessions
+    const visibleSessions = (Array.isArray(sessions) ? sessions : [])
       .filter((session) => timelineVisibleStatuses.includes(session.status))
       .map((session) => ({
         session,
@@ -91,7 +91,7 @@ export default function SpotDetailScreen({
     const now = new Date();
     const nowTotalMinutes = now.getHours() * 60 + now.getMinutes();
 
-    return timelineConfig.visibleSessions
+    return (Array.isArray(timelineConfig.visibleSessions) ? timelineConfig.visibleSessions : [])
       .filter(({ endMinutes }) => endMinutes > nowTotalMinutes && endMinutes > planningStartMinutes)
       .sort((first, second) => first.startMinutes - second.startMinutes);
   }, [timelineConfig.visibleSessions]);
