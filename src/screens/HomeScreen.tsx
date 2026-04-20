@@ -15,6 +15,11 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
   const [showProfile, setShowProfile] = useState(false);
   const logoAsset = Image.resolveAssetSource(require('../../assets/logo.png'));
   const logoAspectRatio = logoAsset.width / logoAsset.height;
+  const safeSpots = Array.isArray(spots) ? spots : [];
+
+  if (!Array.isArray(spots)) {
+    return null;
+  }
 
   if (showProfile) {
     return (
@@ -65,7 +70,7 @@ export default function HomeScreen({ spots, sessionsBySpot, onSelectSpot, profil
       </View>
 
       <View>
-        {spots.map((spot) => {
+        {safeSpots.map((spot) => {
           const plannedCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Gaat').length ?? 0;
           const liveCount = sessionsBySpot[spot]?.filter((session) => session.status === 'Is er al').length ?? 0;
 
