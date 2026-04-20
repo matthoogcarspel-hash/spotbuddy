@@ -1213,6 +1213,7 @@ type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
+  existingOwnSessionOnThisSpotDay: SpotSession | null;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
@@ -1227,6 +1228,7 @@ function SessionRow({
   group,
   currentProfileId,
   selectedSpot,
+  existingOwnSessionOnThisSpotDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
@@ -1269,18 +1271,21 @@ function SessionRow({
       && sameSpot(session, selectedSpot)
     );
   });
-  const canJoinGroup = Boolean(activeProfileId) && safeVisibleRows.length > 0 && !alreadyJoinedGroup;
+  const canJoinGroup = Boolean(activeProfileId)
+    && safeVisibleRows.length > 0
+    && !alreadyJoinedGroup
+    && !existingOwnSessionOnThisSpotDay;
 
   console.log('GROUP_VISIBLE_ROWS', {
     startTime: group.startTime,
     endTime: group.endTime,
     visibleRows: safeVisibleRows.length,
   });
-  console.log('PLANNED_JOIN_DECISION', {
+  console.log("JOIN_SINGLE_SESSION_RULE", {
     groupStart: group.startTime,
     groupEnd: group.endTime,
     alreadyJoinedGroup,
-    visibleRows: safeVisibleRows.length,
+    hasOwnSessionOnSpotDay: Boolean(existingOwnSessionOnThisSpotDay),
     canJoinGroup,
   });
 
@@ -1379,6 +1384,7 @@ type SessionTimelineProps = {
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
   activeDay: ActiveDay;
+  activeDateKey: string;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1396,6 +1402,7 @@ function SessionTimeline({
   currentProfileId,
   selectedSpot,
   activeDay,
+  activeDateKey,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1423,6 +1430,25 @@ function SessionTimeline({
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
   const safeSessions = useMemo(() => (Array.isArray(timelineSessions) ? timelineSessions : []), [timelineSessions]);
+  const existingOwnSessionOnThisSpotDay = useMemo(() => {
+    const safeSessionItems = (Array.isArray(safeSessions) ? safeSessions : []).map((sessionEntry) => sessionEntry?.item).filter(Boolean);
+    const existingSession = safeSessionItems.find((session) => {
+      return (
+        session?.user_id === (currentProfileId ?? null)
+        && sameSpot(session, selectedSpot)
+        && isSessionForLocalDate(session, activeDateKey)
+      );
+    }) ?? null;
+    console.log("OWN_SESSION_ON_SPOT_DAY", {
+      activeProfileId: currentProfileId ?? null,
+      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+      activeDay,
+      existingSessionId: existingSession?.id ?? null,
+      existingStart: existingSession?.start_time ?? null,
+      existingEnd: existingSession?.end_time ?? null,
+    });
+    return existingSession;
+  }, [activeDateKey, activeDay, currentProfileId, safeSessions, selectedSpot]);
   const groupedSessions = useMemo<SessionGroup[]>(() => {
     const groups = new Map<string, SessionGroup>();
 
@@ -1539,13 +1565,14 @@ function SessionTimeline({
                 group={group}
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
+                existingOwnSessionOnThisSpotDay={existingOwnSessionOnThisSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               timelineFilter={timelineFilter}
               followingUserIds={followingUserIds}
               isSelected={selectedTimelineSessionId === group.key}
-              onSelect={onSelectSession}
+                onSelect={onSelectSession}
                 onJoin={onJoinSession}
               />
           ))
@@ -5764,12 +5791,12 @@ export default function App() {
     }) {
       if (!activeProfile?.id) {
         console.error('JOIN_ERROR', { reason: 'NO_ACTIVE_PROFILE' });
-        return false;
+        return { ok: false, reason: 'NO_ACTIVE_PROFILE' as const };
       }
 
       if (joinActiveDay !== 'today') {
         console.error('JOIN_ERROR', { reason: 'NON_JOINABLE_DAY' });
-        return false;
+        return { ok: false, reason: 'NON_JOINABLE_DAY' as const };
       }
 
       console.log('JOIN_FLOW_START', {
@@ -5780,7 +5807,27 @@ export default function App() {
 
       if (!joinSelectedSpot) {
         console.error('JOIN_ERROR', { reason: 'NO_SELECTED_SPOT' });
-        return false;
+        return { ok: false, reason: 'NO_SELECTED_SPOT' as const };
+      }
+
+      const safeSessions = Array.isArray(sessions) ? sessions : [];
+      const existingOwnSessionOnThisSpotDay = safeSessions.find((session) => {
+        return (
+          session?.user_id === activeProfile?.id
+          && sameSpot(session, joinSelectedSpot)
+          && isSessionForLocalDate(session, activeDateKey)
+        );
+      }) ?? null;
+      console.log("JOIN_HARD_BLOCK_CHECK", {
+        activeProfileId: activeProfile?.id ?? null,
+        hasOwnSessionOnSpotDay: Boolean(existingOwnSessionOnThisSpotDay),
+      });
+      if (existingOwnSessionOnThisSpotDay) {
+        console.log("JOIN_HARD_BLOCKED", {
+          reason: "USER_ALREADY_HAS_SESSION_ON_SPOT_DAY",
+        });
+        showAlert('You already have a session on this spot today');
+        return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
       }
 
       const joinPayload = {
@@ -5813,7 +5860,7 @@ export default function App() {
 
       if (duplicateResult.error) {
         console.error('JOIN_ERROR', duplicateResult.error);
-        return false;
+        return { ok: false, reason: 'DUPLICATE_CHECK_FAILED' as const };
       }
 
       const existingSessions = duplicateResult.data ?? [];
@@ -5828,7 +5875,7 @@ export default function App() {
 
       if (alreadyJoined) {
         console.log('JOIN_FLOW_DONE', { success: true });
-        return true;
+        return { ok: true as const };
       }
 
       console.log('JOIN_FLOW_UPDATE', {
@@ -5842,7 +5889,7 @@ export default function App() {
       if (error) {
         console.error('JOIN_WRITE_ERROR_FULL', error);
         console.error('JOIN_ERROR', error);
-        return false;
+        return { ok: false, reason: 'WRITE_FAILED' as const };
       }
 
       await fetchSharedData();
@@ -5851,7 +5898,7 @@ export default function App() {
         activeDay: joinActiveDay,
       });
       console.log('JOIN_FLOW_DONE', { success: true });
-      return true;
+      return { ok: true as const };
     }
 
     const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
@@ -5859,7 +5906,7 @@ export default function App() {
         id: activeAppUserId ?? null,
       };
 
-      const didJoin = await joinSessionViaSessionsModel({
+      const joinResult = await joinSessionViaSessionsModel({
         normalizedStart,
         normalizedEnd,
         activeProfile,
@@ -5867,8 +5914,10 @@ export default function App() {
         selectedSpot,
       });
 
-      if (!didJoin) {
-        setSessionActionError('Session could not be joined');
+      if (!joinResult.ok) {
+        if (joinResult.reason !== 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+          setSessionActionError('Session could not be joined');
+        }
         return;
       }
 
@@ -6525,6 +6574,7 @@ export default function App() {
             currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
             activeDay={activeDay}
+            activeDateKey={activeDateKey}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
