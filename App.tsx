@@ -1155,9 +1155,9 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
 type SessionRowProps = {
   timelineSession: { item: SpotSession; state: TimelineState; isBuddy: boolean };
   currentProfileId: string | null | undefined;
-  currentAuthUserId: string | null | undefined;
-  availableProfiles: Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>;
   alreadyJoined: boolean;
+  activeDay: ActiveDay;
+  isVisibleInCurrentMode: boolean;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   isSelected: boolean;
@@ -1165,7 +1165,7 @@ type SessionRowProps = {
   onJoin: (sessionItem: SpotSession) => void;
 };
 
-function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, availableProfiles, alreadyJoined, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
+function SessionRow({ timelineSession, currentProfileId, alreadyJoined, activeDay, isVisibleInCurrentMode, timelineWindowStartMinutes, timelineWindowEndMinutes, isSelected, onSelect, onJoin }: SessionRowProps) {
   const { item, state, isBuddy } = timelineSession;
   const resolvedIntent = resolveSessionIntent(item.intent);
   const intentLabel = getIntentGoingLabel(resolvedIntent);
@@ -1185,25 +1185,23 @@ function SessionRow({ timelineSession, currentProfileId, currentAuthUserId, avai
   const endTime = hasPlannedWindow ? item.end : formatMinutesAsHourMinute(sessionEndMinutes);
   
   const activeProfileId = currentProfileId ?? null;
-  const activeAuthUserId = currentAuthUserId ?? null;
-  const sessionOwnerProfileId = resolveSessionActorProfileId(item, availableProfiles);
-  const sessionOwnerAuthUserId = item.userOwnerUid ?? null;
-  const sameAuthOwner = Boolean(activeAuthUserId && sessionOwnerAuthUserId && activeAuthUserId === sessionOwnerAuthUserId);
-  const sameProfile = Boolean(sessionOwnerProfileId && activeProfileId && sessionOwnerProfileId === activeProfileId);
+  const sameProfile = Boolean(item.userId && activeProfileId && item.userId === activeProfileId);
   let joinBlockReason = 'eligible';
   let canShowJoin = false;
   if (!isSelected) {
     joinBlockReason = 'not_selected';
+  } else if (!isVisibleInCurrentMode) {
+    joinBlockReason = 'not_visible_in_mode';
   } else if (!activeProfileId) {
     joinBlockReason = 'missing_active_profile';
-  } else if (!sessionOwnerProfileId) {
-    joinBlockReason = 'missing_session_owner_profile';
   } else if (sameProfile) {
     joinBlockReason = 'same_active_profile';
   } else if (alreadyJoined) {
     joinBlockReason = 'duplicate_for_active_profile';
   } else if (state === 'completed') {
     joinBlockReason = 'session_completed';
+  } else if (activeDay !== 'today') {
+    joinBlockReason = 'non_joinable_day';
   } else if (!hasPlannedWindow) {
     joinBlockReason = 'missing_planned_window';
   } else if (!isSessionJoinableNow(item)) {
@@ -1261,8 +1259,7 @@ type SessionTimelineProps = {
   sessionParticipantsBySessionId: Record<string, string[]>;
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
-  currentAuthUserId: string | null | undefined;
-  availableProfiles: Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>;
+  activeDay: ActiveDay;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1278,8 +1275,7 @@ function SessionTimeline({
   sessionParticipantsBySessionId,
   selectedTimelineSessionId,
   currentProfileId,
-  currentAuthUserId,
-  availableProfiles,
+  activeDay,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1380,26 +1376,16 @@ function SessionTimeline({
               const candidate = timelineSession.item;
               const alreadyJoined = Boolean(
                 activeProfileId
-                && (
-                  (sessionParticipantsBySessionId[candidate.id] ?? []).includes(activeProfileId)
-                  || visibleTimelineSessions.some(({ item }) => (
-                    item.id !== candidate.id
-                    && item.userId === activeProfileId
-                    && item.spot === candidate.spot
-                    && item.start === candidate.start
-                    && item.end === candidate.end
-                    && !item.checkedOutAt
-                  ))
-                ),
+                && (Array.isArray(sessionParticipantsBySessionId[candidate.id]) ? sessionParticipantsBySessionId[candidate.id] : []).includes(activeProfileId),
               );
               return (
             <SessionRow
               key={timelineSession.item.id}
               timelineSession={timelineSession}
               currentProfileId={currentProfileId}
-              currentAuthUserId={currentAuthUserId}
-              availableProfiles={availableProfiles}
               alreadyJoined={alreadyJoined}
+              activeDay={activeDay}
+              isVisibleInCurrentMode={timelineFilter === 'everyone' || timelineSession.isBuddy}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
               isSelected={selectedTimelineSessionId === timelineSession.item.id}
@@ -3646,11 +3632,16 @@ export default function App() {
   const savedSpots = favoriteSpots;
   const safeMySpots = Array.isArray(savedSpots) ? savedSpots : [];
   const selectedSpotName = viewedSpot ?? null;
-  const currentSpot = selectedSpotName ? { id: selectedSpotName } : null;
-  const isAlreadyAdded = Boolean(
-    currentSpot
-    && safeMySpots.some((spotId) => spotId === currentSpot.id),
-  );
+  const currentSpot = selectedSpotName ? { id: selectedSpotName, name: selectedSpotName } : null;
+  const isAlreadyAdded = safeMySpots.some((spot) => {
+    if (typeof spot === 'string') {
+      return spot === currentSpot?.id;
+    }
+    if (currentSpot?.id && (spot as { id?: string | null })?.id) {
+      return (spot as { id?: string | null }).id === currentSpot.id;
+    }
+    return (spot as { name?: string | null })?.name === currentSpot?.name;
+  });
   const isSelectedSpotSaved = isAlreadyAdded;
   const canAddSelectedSpotToMySpots = Boolean(currentSpot && !isAlreadyAdded && safeMySpots.length < HOME_SPOTS_LIMIT);
   const selectedSpotDefinition = useMemo(
@@ -5503,98 +5494,77 @@ export default function App() {
       setSessionActionError(message);
     };
 
-    async function joinSession(sessionId: string, userId: string) {
-      const { error } = await supabase
-        .from('session_participants')
-        .insert([{ session_id: sessionId, user_id: userId }]);
-
-      if (error) {
-        console.error('JOIN ERROR:', error);
-        return false;
-      }
-
-      return true;
-    }
-
-    const resolveTargetSessionProfileIdForJoin = (sessionToJoin: SpotSession) => {
-      const profileIds = new Set(availableProfiles.map((profileItem) => profileItem.id));
-      const candidateValues = [
-        sessionToJoin.resolvedActorProfileId,
-        sessionToJoin.userId,
-        (sessionToJoin as SpotSession & { user_id?: string | null }).user_id ?? null,
-        (sessionToJoin as SpotSession & { profile_id?: string | null }).profile_id ?? null,
-        (sessionToJoin as SpotSession & { created_by?: string | null }).created_by ?? null,
-      ];
-      for (const candidate of candidateValues) {
-        if (typeof candidate === 'string' && candidate.trim().length > 0 && profileIds.has(candidate)) {
-          return candidate;
-        }
-      }
-      return sessionToJoin.userId;
-    };
-
-    const handleJoinTimelineSession = async (sessionToJoin: SpotSession) => {
+    const joinSession = async (targetSession: SpotSession) => {
       const activeProfile = {
         id: activeAppUserId ?? null,
-        display_name: profile?.display_name ?? null,
       };
-      const targetSession = {
-        ...sessionToJoin,
-        user_id: resolveTargetSessionProfileIdForJoin(sessionToJoin),
-        owner_uid: sessionToJoin.userOwnerUid ?? null,
-      };
-      
-      
-      
-      
-
-      const activeProfileId = activeProfile?.id ?? null;
-      if (!activeProfileId) {
-        setSessionActionError('Session could not be joined');
-        return;
-      }
-
-      const selfBlock = targetSession?.user_id === activeProfile?.id;
-      
-      if (selfBlock) {
-        const blockReason = 'self_join';
-        
-        
-        setSessionActionError('');
-        return;
-      }
-
-      const duplicateJoin = (sessionParticipantsBySessionId[targetSession.id] ?? []).includes(activeProfileId);
-      
-      if (duplicateJoin) {
-        const blockReason = 'duplicate_join';
-        
-        setSessionActionError('');
-        return;
-      }
-      setSessionParticipantsBySessionId((previous) => {
-        const current = previous[targetSession.id] ?? [];
-        if (current.includes(activeProfileId)) {
-          return previous;
-        }
-        return {
-          ...previous,
-          [targetSession.id]: [...current, activeProfileId],
-        };
+      console.log('JOIN_ATTEMPT', {
+        actorProfileId: activeProfile?.id ?? null,
+        targetSessionId: targetSession?.id ?? null,
+        targetSessionUserId: targetSession?.userId ?? null,
+        selectedDay: activeDay,
       });
 
-      const joinSucceeded = await joinSession(targetSession.id, activeProfileId);
-      if (!joinSucceeded) {
-        setSessionParticipantsBySessionId((previous) => ({
-          ...previous,
-          [targetSession.id]: (previous[targetSession.id] ?? []).filter((id) => id !== activeProfileId),
-        }));
+      const activeProfileId = activeProfile.id;
+      if (!activeProfileId || typeof activeProfileId !== 'string') {
         setSessionActionError('Session could not be joined');
         return;
       }
-      await fetchSharedData();
-      setSelectedTimelineSessionId(null);
+      if (!targetSession?.id || typeof targetSession.id !== 'string') {
+        setSessionActionError('Session could not be joined');
+        return;
+      }
+      if (targetSession.userId === activeProfileId) {
+        setSessionActionError('');
+        return;
+      }
+      if (activeDay !== 'today') {
+        setSessionActionError('Session could not be joined');
+        return;
+      }
+
+      const duplicateCheck = await supabase
+        .from('session_participants')
+        .select('id')
+        .eq('session_id', targetSession.id)
+        .eq('user_id', activeProfileId)
+        .maybeSingle();
+      const alreadyJoined = Boolean(duplicateCheck.data);
+      console.log('JOIN_DUPLICATE_CHECK', {
+        alreadyJoined,
+      });
+      if (duplicateCheck.error) {
+        console.error('JOIN_DUPLICATE_CHECK_ERROR', duplicateCheck.error);
+        setSessionActionError('Session could not be joined');
+        return;
+      }
+      if (alreadyJoined) {
+        setSessionActionError('');
+        return;
+      }
+
+      const joinResult = await supabase
+        .from('session_participants')
+        .insert([{ session_id: targetSession.id, user_id: activeProfileId }])
+        .select('id, session_id, user_id');
+      console.log('JOIN_DB_RESULT', {
+        data: joinResult.data ?? null,
+        error: joinResult.error ?? null,
+      });
+
+      if (joinResult.error) {
+        console.error('JOIN_DB_ERROR', joinResult.error);
+        setSessionActionError('Session could not be joined');
+        return;
+      }
+
       setSessionActionError('');
+      await fetchSharedData();
+      console.log('JOIN_REFETCH_DONE', {
+        selectedSpot: selectedSpot ?? null,
+        selectedDay: activeDay,
+      });
+      setSelectedTimelineSessionId(null);
     };
     const handleSave = async () => {
       
@@ -6245,8 +6215,7 @@ export default function App() {
             sessionParticipantsBySessionId={sessionParticipantsBySessionId}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
-            currentAuthUserId={authenticatedUserId}
-            availableProfiles={availableProfiles}
+            activeDay={activeDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
@@ -6255,7 +6224,7 @@ export default function App() {
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
             onJoinSession={(sessionItem) => {
-              void handleJoinTimelineSession(sessionItem);
+              void joinSession(sessionItem);
             }}
           />
           {selectedTimelineSession ? (
