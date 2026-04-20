@@ -1515,6 +1515,7 @@ export default function App() {
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
   const [searchResults, setSearchResults] = useState<SpotSearchResult[]>([]);
+  const [spotsTestCount, setSpotsTestCount] = useState(0);
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
@@ -1987,20 +1988,8 @@ export default function App() {
     setHomeSpotSearchQuery('');
     setSearchResults([]);
   };
-  const filterSpots = (q: string) => {
-    const term = q.trim().toLowerCase();
-    console.log("SEARCH_TERM", term);
-
-    if (!term) {
-      setSearchResults([]);
-      return;
-    }
-
-    const filtered = allSpots
-      .filter((spot) => spot.name.toLowerCase().includes(term) || spot.country.toLowerCase().includes(term))
-      .slice(0, 20);
-    console.log("SEARCH_LOCAL_RESULT_COUNT", filtered.length);
-    setSearchResults(filtered);
+  const filterSpots = () => {
+    setSearchResults(allSpots);
   };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
     console.log("SEARCH_SELECTED_RESULT", selectedSpot);
@@ -2084,13 +2073,24 @@ export default function App() {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
   useEffect(() => {
+    if (!showYourSpotsPage) {
+      return;
+    }
+
     let isMounted = true;
 
     (async () => {
       const { data, error } = await supabase
         .from('spots')
-        .select('country,name,longitude,latitude');
-      console.log("ALL_SPOTS_LOAD_RESULT", { count: Array.isArray(data) ? data.length : 0, error });
+        .select('*')
+        .limit(10);
+      console.log("SPOTS_TEST_DATA", data);
+      console.log("SPOTS_TEST_ERROR", error);
+      console.log("SPOTS_TEST_COUNT", Array.isArray(data) ? data.length : 0);
+
+      if (!isMounted) {
+        return;
+      }
 
       const loadedSpots = (data ?? [])
         .map((row) => {
@@ -2105,10 +2105,7 @@ export default function App() {
         })
         .filter((row): row is SpotSearchResult => row !== null);
 
-      if (!isMounted) {
-        return;
-      }
-
+      setSpotsTestCount(Array.isArray(data) ? data.length : 0);
       setAllSpots(loadedSpots);
       setSearchResults(loadedSpots);
     })();
@@ -2116,7 +2113,7 @@ export default function App() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [showYourSpotsPage]);
   useEffect(() => {
     console.log("HOME_HIDE_ACTION_REMOVED");
   }, []);
@@ -5018,11 +5015,12 @@ export default function App() {
             </View>
 
             <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Spots test count: {spotsTestCount}</Text>
             <TextInput
               value={homeSpotSearchQuery}
               onChangeText={(value) => {
                 setHomeSpotSearchQuery(value);
-                filterSpots(value);
+                filterSpots();
               }}
               onFocus={() => {
                 if (searchBlurTimeoutRef.current) {
