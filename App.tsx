@@ -1513,8 +1513,8 @@ export default function App() {
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
-  const [spotSearchResults, setSpotSearchResults] = useState<SpotSearchResult[]>([]);
-  const [searchingSpots, setSearchingSpots] = useState(false);
+  const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SpotSearchResult[]>([]);
   const searchBlurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [draggingManualSpot, setDraggingManualSpot] = useState<SpotName | null>(null);
   const [dragManualOrder, setDragManualOrder] = useState<SpotName[] | null>(null);
@@ -1985,65 +1985,22 @@ export default function App() {
     setSelectedSpot(spotName);
     setShowYourSpotsPage(false);
     setHomeSpotSearchQuery('');
-    setSpotSearchResults([]);
+    setSearchResults([]);
   };
-  const searchSpots = async (q: string) => {
-    console.log("SEARCH_RAW_INPUT", q);
-    const term = q.trim();
+  const filterSpots = (q: string) => {
+    const term = q.trim().toLowerCase();
+    console.log("SEARCH_TERM", term);
 
     if (!term) {
-      setSpotSearchResults([]);
-      setSearchingSpots(false);
+      setSearchResults([]);
       return;
     }
 
-    setSearchingSpots(true);
-    const { data, error } = await supabase
-      .from('spots')
-      .select('country,name,longitude,latitude')
-      .or(`country.ilike.%${term}%,name.ilike.%${term}%`)
-      .limit(20);
-
-    console.log("SEARCH_DB_RESULT", { data, error });
-
-    let rows = data ?? [];
-    if (error) {
-      const [countryResult, nameResult] = await Promise.all([
-        supabase.from('spots').select('country,name,longitude,latitude').ilike('country', `%${term}%`).limit(20),
-        supabase.from('spots').select('country,name,longitude,latitude').ilike('name', `%${term}%`).limit(20),
-      ]);
-      const merged = [...(countryResult.data ?? []), ...(nameResult.data ?? [])];
-      const dedupedMap = new Map<string, SpotSearchResult>();
-      for (const row of merged) {
-        const name = (row.name ?? '').toString().trim();
-        const country = (row.country ?? '').toString().trim();
-        const longitude = Number(row.longitude);
-        const latitude = Number(row.latitude);
-        if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
-          continue;
-        }
-        const dedupeKey = `${country}|${name}|${longitude}|${latitude}`;
-        dedupedMap.set(dedupeKey, { country, name, longitude, latitude });
-      }
-      rows = [...dedupedMap.values()].slice(0, 20);
-    }
-
-    const mappedResults = rows
-      .map((row) => {
-        const name = (row.name ?? '').toString().trim();
-        const country = (row.country ?? '').toString().trim();
-        const longitude = Number(row.longitude);
-        const latitude = Number(row.latitude);
-
-        if (!name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
-          return null;
-        }
-
-        return { name, country, longitude, latitude } satisfies SpotSearchResult;
-      })
-      .filter((row): row is SpotSearchResult => row !== null);
-    setSpotSearchResults(mappedResults);
-    setSearchingSpots(false);
+    const filtered = allSpots
+      .filter((spot) => spot.name.toLowerCase().includes(term) || spot.country.toLowerCase().includes(term))
+      .slice(0, 20);
+    console.log("SEARCH_LOCAL_RESULT_COUNT", filtered.length);
+    setSearchResults(filtered);
   };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
     console.log("SEARCH_SELECTED_RESULT", selectedSpot);
@@ -2126,6 +2083,40 @@ export default function App() {
   useEffect(() => {
     console.log("SPOT_SEARCH_QUERY", homeSpotSearchQuery);
   }, [homeSpotSearchQuery]);
+  useEffect(() => {
+    let isMounted = true;
+
+    (async () => {
+      const { data, error } = await supabase
+        .from('spots')
+        .select('country,name,longitude,latitude');
+      console.log("ALL_SPOTS_LOAD_RESULT", { count: Array.isArray(data) ? data.length : 0, error });
+
+      const loadedSpots = (data ?? [])
+        .map((row) => {
+          const country = typeof row.country === 'string' ? row.country.trim() : '';
+          const name = typeof row.name === 'string' ? row.name.trim() : '';
+          const longitude = Number(row.longitude);
+          const latitude = Number(row.latitude);
+          if (!country || !name || Number.isNaN(longitude) || Number.isNaN(latitude)) {
+            return null;
+          }
+          return { country, name, longitude, latitude } satisfies SpotSearchResult;
+        })
+        .filter((row): row is SpotSearchResult => row !== null);
+
+      if (!isMounted) {
+        return;
+      }
+
+      setAllSpots(loadedSpots);
+      setSearchResults(loadedSpots);
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   useEffect(() => {
     console.log("HOME_HIDE_ACTION_REMOVED");
   }, []);
@@ -5002,7 +4993,6 @@ export default function App() {
   }
 
   if (showYourSpotsPage) {
-    console.log("SEARCH_RENDER_COUNT", Array.isArray(spotSearchResults) ? spotSearchResults.length : 0);
     const manualOrderToRender = orderMode === 'manual' && dragManualOrder ? dragManualOrder : manualOrder;
     const manualOrderCards = manualOrderToRender
       .map((spotName) => {
@@ -5032,7 +5022,7 @@ export default function App() {
               value={homeSpotSearchQuery}
               onChangeText={(value) => {
                 setHomeSpotSearchQuery(value);
-                void searchSpots(value);
+                filterSpots(value);
               }}
               onFocus={() => {
                 if (searchBlurTimeoutRef.current) {
@@ -5052,12 +5042,9 @@ export default function App() {
               placeholderTextColor={theme.textMuted}
               style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
             />
-            {searchingSpots ? (
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>Searching spots...</Text>
-            ) : null}
             <View style={{ marginTop: 8 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {spotSearchResults.length}</Text>
-              {spotSearchResults.map((spotItem) => (
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {searchResults.length}</Text>
+              {searchResults.map((spotItem) => (
                 <Pressable
                   key={`your-spots-page-search-${spotItem.country}-${spotItem.name}-${spotItem.longitude}-${spotItem.latitude}`}
                   onPressIn={() => handleSearchResultPress(spotItem)}
