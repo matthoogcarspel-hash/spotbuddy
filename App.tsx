@@ -1135,6 +1135,10 @@ function SessionRow({
     }
     return timelineFilter === 'everyone' || safeFollowingUserIds.includes(item.userId);
   });
+  const getRiderRowName = (sessionItem: SpotSession) => {
+    const rawName = typeof sessionItem.userName === 'string' ? sessionItem.userName.trim() : '';
+    return rawName.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim();
+  };
   const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
   const sortedVisibleSessions = [...safeVisibleRows].sort((a, b) => {
     if (stateRank[a.state] !== stateRank[b.state]) {
@@ -1166,6 +1170,11 @@ function SessionRow({
     hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
     allowed: joinEligibility.allowed,
     reason: joinEligibility.reason ?? null
+  });
+  console.log("GROUP_HEADER_RENDER", {
+    groupStart: group.startTime,
+    groupEnd: group.endTime,
+    riderCount: safeGroupSessions.length
   });
 
   return (
@@ -1233,15 +1242,16 @@ function SessionRow({
       <View style={{ marginTop: 1 }}>
         {sortedVisibleSessions.map(({ item, state }, index) => {
           const rider = item as SpotSession & { profile_name?: string; display_name?: string };
+          const riderRowName = getRiderRowName(item);
           console.log('GROUP_RIDER_ROW_RENDER', {
             groupStart: group.startTime,
             groupEnd: group.endTime,
-            riderName: rider?.profile_name ?? rider?.display_name ?? rider?.userName ?? null,
+            riderName: rider?.profile_name ?? rider?.display_name ?? null,
           });
           return (
             <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
               <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, width: 80, marginRight: 4 }}>
-                {item.userName}
+                {riderRowName}
               </Text>
               <SessionBar
                 leftPercent={leftPercent}
@@ -1363,7 +1373,7 @@ function SessionTimeline({
   const visibleGroups = useMemo(
     () =>
       (Array.isArray(groupedSessions) ? groupedSessions : []).filter((group) =>
-        group.sessions.some(({ item }) => {
+        (Array.isArray(group.sessions) ? group.sessions : []).some(({ item }) => {
           if (item.userId === currentProfileId) {
             return true;
           }
