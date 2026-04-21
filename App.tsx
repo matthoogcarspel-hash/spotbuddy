@@ -11,7 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
-import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
+import { canJoinSlot, getDayBoundsForDayKey, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -2688,12 +2688,16 @@ export default function App() {
     
 
     const selectedDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-    const sessionsResponse = await supabase
-      .from('sessions')
-      .select('*')
-      .in('spot_name', [...spotNames])
-      .eq('session_day', selectedDayKey)
-      .order('created_at', { ascending: true });
+    const dayBounds = getDayBoundsForDayKey(selectedDayKey);
+    const sessionsResponse = dayBounds
+      ? await supabase
+          .from('sessions')
+          .select('*')
+          .in('spot_name', [...spotNames])
+          .gte('created_at', dayBounds.start)
+          .lt('created_at', dayBounds.endExclusive)
+          .order('created_at', { ascending: true })
+      : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
 
     const messagesResponse = selectedSpot
@@ -2782,7 +2786,7 @@ export default function App() {
         nextSessionsBySpot[spot].push({
           id: row.id,
           spot,
-          sessionDay: typeof row.session_day === 'string' ? row.session_day : null,
+          sessionDay: getSessionDayKey(row),
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
           status: normalizedSession.status,
@@ -2799,13 +2803,6 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      console.log('SESSION_DAY_QUERY', {
-        activeDay: selectedDayKey,
-        sessionsReturned: loadedSessions.map((sessionItem) => ({
-          id: sessionItem.id,
-          session_day: sessionItem.sessionDay,
-        })),
-      });
       console.log('OWN_SESSION_MATCH', {
         activeDay: selectedDayKey,
         matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),

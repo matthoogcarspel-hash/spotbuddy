@@ -4,8 +4,6 @@ type SessionLike = {
   user_id?: string | null;
   spot?: string | null;
   spot_name?: string | null;
-  sessionDay?: string | null;
-  session_day?: string | null;
   createdAt?: string | null;
   created_at?: string | null;
   start?: string | null;
@@ -17,7 +15,7 @@ export const REAL_SESSION_SCHEMA_FIELDS = {
   spotField: 'spot_name',
   startField: 'start_time',
   endField: 'end_time',
-  dayField: 'session_day',
+  dayDerivedFromField: 'created_at',
 } as const;
 
 export const normalizeSpotName = (value: string | null | undefined) =>
@@ -43,14 +41,49 @@ export const normalizeSessionDay = (value: string | null | undefined) => {
 
   return parsed.toISOString().slice(0, 10);
 };
+
+export const buildCreatedAtForDayKey = (dayKey: string | null | undefined) => {
+  const normalizedDay = normalizeSessionDay(dayKey);
+  if (!normalizedDay) {
+    return null;
+  }
+
+  const now = new Date();
+  const hour = String(now.getUTCHours()).padStart(2, '0');
+  const minute = String(now.getUTCMinutes()).padStart(2, '0');
+  const second = String(now.getUTCSeconds()).padStart(2, '0');
+  const millis = String(now.getUTCMilliseconds()).padStart(3, '0');
+  return `${normalizedDay}T${hour}:${minute}:${second}.${millis}Z`;
+};
+
+export const getDayBoundsForDayKey = (dayKey: string | null | undefined) => {
+  const normalizedDay = normalizeSessionDay(dayKey);
+  if (!normalizedDay) {
+    return null;
+  }
+
+  const start = `${normalizedDay}T00:00:00.000Z`;
+  const startDate = new Date(start);
+  if (Number.isNaN(startDate.getTime())) {
+    return null;
+  }
+  const endDate = new Date(startDate);
+  endDate.setUTCDate(endDate.getUTCDate() + 1);
+
+  return {
+    start,
+    endExclusive: endDate.toISOString(),
+  };
+};
+
 export const normalizeSessionIdentity = (input: {
   user_id: string | null | undefined;
   spot_name: string | null | undefined;
-  session_day: string | null | undefined;
+  day_key: string | null | undefined;
 }) => ({
   user_id: (input.user_id ?? '').trim() || null,
   spot_name: normalizeSpotName(input.spot_name),
-  session_day: normalizeSessionDay(input.session_day),
+  day_key: normalizeSessionDay(input.day_key),
 });
 const getSessionUserId = (session: SessionLike | null | undefined) => session?.user_id ?? session?.userId ?? null;
 export const getSessionSpot = (session: SessionLike | null | undefined) => session?.spot_name ?? session?.spot ?? null;
@@ -68,15 +101,11 @@ export const sameSpot = (
 };
 
 export const getSessionDayKey = (session: SessionLike | null | undefined) => {
-  const rawSessionDay = typeof session?.session_day === 'string'
-    ? session.session_day.trim()
-    : (typeof session?.sessionDay === 'string' ? session.sessionDay.trim() : '');
-  const sessionDay = normalizeSessionDay(rawSessionDay);
-  if (sessionDay) {
-    return sessionDay;
-  }
+  const rawCreatedAt = typeof session?.created_at === 'string'
+    ? session.created_at.trim()
+    : (typeof session?.createdAt === 'string' ? session.createdAt.trim() : '');
 
-  return null;
+  return normalizeSessionDay(rawCreatedAt);
 };
 
 type OwnSessionArgs = {
