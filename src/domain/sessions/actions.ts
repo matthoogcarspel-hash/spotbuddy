@@ -38,23 +38,6 @@ const getIsoDateFromLocalDateKey = (localDateKey: string) => {
   return isoDate.toISOString();
 };
 
-const getIsoDateRangeForLocalDateKey = (localDateKey: string) => {
-  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
-  if (!yearPart || !monthPart || !dayPart) {
-    return null;
-  }
-
-  const dayStart = new Date();
-  dayStart.setFullYear(yearPart, monthPart - 1, dayPart);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  return {
-    dayStartIso: dayStart.toISOString(),
-    dayEndIso: dayEnd.toISOString(),
-  };
-};
-
 export async function planSession(input: {
   activeProfileId: string | null;
   selectedSpot: string;
@@ -107,31 +90,6 @@ export async function planSession(input: {
     checked_out_at: null,
     created_at: getIsoDateFromLocalDateKey(input.selectedPlanningDateKey) ?? undefined,
   };
-
-  const plannedDateRange = getIsoDateRangeForLocalDateKey(input.selectedPlanningDateKey);
-  const exactDuplicateQuery = supabase
-    .from('sessions')
-    .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
-    .eq('user_id', payload.user_id)
-    .eq('start_time', payload.start_time)
-    .eq('end_time', payload.end_time)
-    .eq('status', payload.status)
-    .is('checked_in_at', null)
-    .is('checked_out_at', null)
-    .gte('created_at', plannedDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
-    .lt('created_at', plannedDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z');
-
-  const exactDuplicateResult = input.editingSessionId
-    ? await exactDuplicateQuery.neq('id', input.editingSessionId).maybeSingle()
-    : await exactDuplicateQuery.maybeSingle();
-
-  if (exactDuplicateResult.error) {
-    return { ok: false, reason: 'EXACT_DUPLICATE_QUERY_FAILED', error: exactDuplicateResult.error };
-  }
-
-  if (exactDuplicateResult.data && normalizeSpotName(exactDuplicateResult.data.spot_name) === payload.spot_name) {
-    return { ok: false, reason: alreadyHasSessionReason };
-  }
 
   let result;
   if (input.editingSessionId) {
