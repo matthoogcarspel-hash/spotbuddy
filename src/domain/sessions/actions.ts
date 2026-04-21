@@ -1,4 +1,4 @@
-import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey, normalizeSpotName } from '../../lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey, normalizeSessionDay, normalizeSessionIdentity } from '../../lib/sessionHelpers';
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -26,33 +26,13 @@ const isUniqueConstraintError = (error: { code?: string; message?: string } | nu
   error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
 const alreadyHasSessionReason = 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
 
-const getIsoDateFromLocalDateKey = (localDateKey: string) => {
-  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
-  if (!yearPart || !monthPart || !dayPart) {
+const getSessionCreatedAtFromSessionDay = (sessionDay: string | null | undefined) => {
+  const normalizedSessionDay = normalizeSessionDay(sessionDay);
+  if (!normalizedSessionDay) {
     return null;
   }
 
-  const isoDate = new Date();
-  isoDate.setFullYear(yearPart, monthPart - 1, dayPart);
-  isoDate.setHours(12, 0, 0, 0);
-  return isoDate.toISOString();
-};
-
-const getIsoDateRangeForLocalDateKey = (localDateKey: string) => {
-  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
-  if (!yearPart || !monthPart || !dayPart) {
-    return null;
-  }
-
-  const dayStart = new Date();
-  dayStart.setFullYear(yearPart, monthPart - 1, dayPart);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  return {
-    dayStartIso: dayStart.toISOString(),
-    dayEndIso: dayEnd.toISOString(),
-  };
+  return `${normalizedSessionDay}T12:00:00.000Z`;
 };
 
 export async function planSession(input: {
@@ -69,69 +49,48 @@ export async function planSession(input: {
     return { ok: false, reason: 'MISSING_ACTIVE_PROFILE' };
   }
 
-  const canonicalSelectedSpot = normalizeSpotName(input.selectedSpot);
+  const sessionIdentity = normalizeSessionIdentity({
+    user_id: input.activeProfileId,
+    spot_name: input.selectedSpot,
+    session_day: input.selectedPlanningDateKey,
+  });
+  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.session_day) {
+    return { ok: false, reason: 'INVALID_SESSION_IDENTITY' };
+  }
+
+  console.log('READ_SESSION_QUERY', sessionIdentity);
   const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
     .from('sessions')
-    .select('*')
-    .eq('user_id', input.activeProfileId);
+    .select('id, user_id, spot_name, session_day')
+    .eq('user_id', sessionIdentity.user_id)
+    .eq('spot_name', sessionIdentity.spot_name)
+    .eq('session_day', sessionIdentity.session_day);
 
   if (ownSessionsFreshError) {
     return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError };
   }
 
-  const safeOwnSessionsFresh = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-  const ownSessionForSpotDay = getOwnSessionForSpotDay({
-    sessions: safeOwnSessionsFresh,
-    userId: input.activeProfileId,
-    spotName: canonicalSelectedSpot,
-    dayKey: input.selectedPlanningDateKey,
-    options: {
-      fallbackDayKey: input.selectedPlanningDateKey,
-      fallbackResolver: (session) => getSessionDayKey(session, { fallbackDayKey: input.selectedPlanningDateKey }),
-    },
-  });
-
-  const conflictSessions = ownSessionForSpotDay.ownSessions.filter((session) => session?.id !== input.editingSessionId);
+  const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : []).filter((session) => session?.id !== input.editingSessionId);
   if (conflictSessions.length > 0) {
     return { ok: false, reason: alreadyHasSessionReason };
   }
 
   const payload = {
-    spot_name: canonicalSelectedSpot,
-    user_id: input.activeProfileId,
+    spot_name: sessionIdentity.spot_name,
+    user_id: sessionIdentity.user_id,
     start_time: input.startTime,
     end_time: input.endTime,
     status: 'Gaat' as const,
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getIsoDateFromLocalDateKey(input.selectedPlanningDateKey) ?? undefined,
+    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.session_day) ?? undefined,
   };
-
-  const plannedDateRange = getIsoDateRangeForLocalDateKey(input.selectedPlanningDateKey);
-  const exactDuplicateQuery = supabase
-    .from('sessions')
-    .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
-    .eq('user_id', payload.user_id)
-    .eq('start_time', payload.start_time)
-    .eq('end_time', payload.end_time)
-    .eq('status', payload.status)
-    .is('checked_in_at', null)
-    .is('checked_out_at', null)
-    .gte('created_at', plannedDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
-    .lt('created_at', plannedDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z');
-
-  const exactDuplicateResult = input.editingSessionId
-    ? await exactDuplicateQuery.neq('id', input.editingSessionId).maybeSingle()
-    : await exactDuplicateQuery.maybeSingle();
-
-  if (exactDuplicateResult.error) {
-    return { ok: false, reason: 'EXACT_DUPLICATE_QUERY_FAILED', error: exactDuplicateResult.error };
-  }
-
-  if (exactDuplicateResult.data && normalizeSpotName(exactDuplicateResult.data.spot_name) === payload.spot_name) {
-    return { ok: false, reason: alreadyHasSessionReason };
-  }
+  console.log('WRITE_SESSION_INPUT', {
+    user_id: payload.user_id,
+    spot_name: payload.spot_name,
+    session_day: sessionIdentity.session_day,
+  });
 
   let result;
   if (input.editingSessionId) {
@@ -186,33 +145,32 @@ export async function joinSession(input: {
   if (!input.selectedSpot) {
     return { ok: false, reason: 'NO_SELECTED_SPOT' };
   }
-  const canonicalSelectedSpot = normalizeSpotName(input.selectedSpot);
+  const sessionIdentity = normalizeSessionIdentity({
+    user_id: input.activeProfileId,
+    spot_name: input.selectedSpot,
+    session_day: input.dayKey,
+  });
+  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.session_day) {
+    return { ok: false, reason: 'INVALID_SESSION_IDENTITY' };
+  }
 
+  console.log('READ_SESSION_QUERY', sessionIdentity);
   const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
     .from('sessions')
-    .select('*')
-    .eq('user_id', input.activeProfileId);
+    .select('id, user_id, spot_name, session_day')
+    .eq('user_id', sessionIdentity.user_id)
+    .eq('spot_name', sessionIdentity.spot_name)
+    .eq('session_day', sessionIdentity.session_day);
 
   if (ownSessionsFreshError) {
     return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError };
   }
 
-  const safeOwnSessionsFresh = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-  const ownSessionForSpotDay = getOwnSessionForSpotDay({
-    sessions: safeOwnSessionsFresh,
-    userId: input.activeProfileId,
-    spotName: canonicalSelectedSpot,
-    dayKey: input.dayKey,
-    options: {
-      fallbackDayKey: input.dayKey,
-      fallbackResolver: (session) => getSessionDayKey(session, { fallbackDayKey: input.dayKey }),
-    },
-  });
-  const existingOwnSessionsForSpotDay = ownSessionForSpotDay.ownSessions;
+  const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
 
   const joinEligibility = canJoinSlot({
     activeProfileId: input.activeProfileId,
-    ownSessionForSpotDay,
+    ownSessionForSpotDay: { hasOwnSession: existingOwnSessionsForSpotDay.length > 0 },
     targetGroupHasVisibleRows: input.targetGroupHasVisibleRows,
     alreadyJoinedGroup: input.alreadyJoinedGroup,
   });
@@ -225,16 +183,21 @@ export async function joinSession(input: {
   }
 
   const joinPayload = {
-    spot_name: canonicalSelectedSpot,
-    user_id: input.activeProfileId,
+    spot_name: sessionIdentity.spot_name,
+    user_id: sessionIdentity.user_id,
     start_time: input.normalizedStart,
     end_time: input.normalizedEnd,
     status: 'Gaat' as const,
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getIsoDateFromLocalDateKey(input.dayKey) ?? undefined,
+    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.session_day) ?? undefined,
   };
+  console.log('WRITE_SESSION_INPUT', {
+    user_id: joinPayload.user_id,
+    spot_name: joinPayload.spot_name,
+    session_day: sessionIdentity.session_day,
+  });
 
   const writeResult = await supabase.from('sessions').insert(joinPayload);
 
