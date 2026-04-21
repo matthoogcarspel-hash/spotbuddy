@@ -10,7 +10,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
-import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey } from './src/lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -1188,13 +1188,11 @@ function SessionRow({
     alreadyJoinedGroup,
   });
   const canJoinGroup = joinEligibility.allowed;
-  console.log("CAN_JOIN_SLOT_RESULT", {
-    activeProfileId: activeProfileId ?? null,
-    alreadyJoinedGroup,
-    targetGroupHasVisibleRows: safeVisibleRows.length > 0,
-    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+  console.log("SLICE1_JOIN_GATE", {
+    groupStart: group.startTime,
+    groupEnd: group.endTime,
     allowed: joinEligibility.allowed,
-    reason: joinEligibility.reason
+    reason: joinEligibility.reason ?? null
   });
 
   return (
@@ -3728,15 +3726,7 @@ export default function App() {
       },
     [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
   );
-  safeSessions.forEach((session) => {
-    console.log("SESSION_DAY_HELPER_RESULT", {
-      sessionId: session?.id ?? null,
-      sessionDay: getSessionDayKey(session, {
-        fallbackResolver: (sessionItem) => getLocalDateKey(getSessionStartTime(sessionItem as SpotSession)),
-      })
-    });
-  });
-  console.log("OWN_SESSION_HELPER_RESULT", {
+  console.log("SLICE1_OWN_SESSION_SOURCE", {
     activeProfileId: activeProfile?.id ?? null,
     selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
     activeDay,
@@ -3861,29 +3851,17 @@ export default function App() {
     && !joinedSession.checkedOutAt,
   );
   
-  const shouldHidePlanSessionButton = hasOwnSessionOnSelectedSpotDay;
-  const shouldDisablePlanSessionButton = false;
-  const planSessionVisible = !shouldHidePlanSessionButton && !shouldDisablePlanSessionButton;
-  const hasSessionForSelectedSpotToday = hasOwnSessionOnSelectedSpotDay;
-  const headerStateLabel = hasSessionForSelectedSpotToday ? 'You have a session today' : null;
-  const headerHelperText = hasSessionForSelectedSpotToday
+  const topCtaMode = hasOwnSessionOnSelectedSpotDay ? 'edit-cancel' : 'plan';
+  const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
+  const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
-  console.log("TOP_CTA_FROM_SHARED_HELPER", {
-    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+  console.log("SLICE1_TOP_CTA_STATE", {
     mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
   });
   useEffect(() => {
     
-  }, [activeDay, hasOwnSessionOnSelectedSpotDay, planSessionVisible]);
-
-  
-  if (shouldHidePlanSessionButton) {
-    
-  }
-  if (shouldDisablePlanSessionButton) {
-    
-  }
+  }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
     const authUser = session?.user ?? null;
     const activeParticipationProfile = {
@@ -6119,26 +6097,21 @@ export default function App() {
             </View>
           ) : null}
 
-          {!hasSessionForSelectedSpotToday ? (
+          {topCtaMode === 'plan' ? (
             <Pressable
-              disabled={shouldDisablePlanSessionButton}
               onPress={() => {
-                if (shouldDisablePlanSessionButton) {
-                  setSessionActionError('Finish your current session first');
-                  return;
-                }
                 if (hasOwnSessionOnSelectedSpotDay) {
                   setSessionActionError('You already have a session on this spot today');
                   return;
                 }
                 openEmptyPlanningForm();
               }}
-              style={{ marginTop: 14, ...primaryButtonStyle, opacity: shouldDisablePlanSessionButton ? 0.45 : 1 }}
+              style={{ marginTop: 14, ...primaryButtonStyle, opacity: 1 }}
             >
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
             </Pressable>
           ) : null}
-          {hasSessionForSelectedSpotToday ? (
+          {topCtaMode === 'edit-cancel' ? (
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable
                 disabled={!joinedSession || !canEditJoinedSession}
