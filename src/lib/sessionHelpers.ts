@@ -12,6 +12,14 @@ type SessionLike = {
   start_time?: string | null;
 };
 
+export const REAL_SESSION_SCHEMA_FIELDS = {
+  userField: 'user_id',
+  spotField: 'spot_name',
+  startField: 'start_time',
+  endField: 'end_time',
+  derivedDayStrategy: 'created_at_utc_date',
+} as const;
+
 type SessionDayKeyOptions = {
   fallbackDayKey?: string | null;
   fallbackResolver?: ((session: SessionLike | null | undefined) => string | null) | null;
@@ -84,6 +92,20 @@ export const getSessionDayKey = (session: SessionLike | null | undefined, option
   const normalizedFallbackDayKey = normalizeSessionDay(options.fallbackDayKey);
   if (normalizedFallbackDayKey) {
     return normalizedFallbackDayKey;
+  }
+
+  return null;
+};
+
+export const getDerivedSessionDayFromRealSchema = (session: SessionLike | null | undefined) => {
+  const createdAtDay = normalizeSessionDay(session?.created_at ?? session?.createdAt ?? null);
+  if (createdAtDay) {
+    return createdAtDay;
+  }
+
+  const startTimeDay = normalizeSessionDay(session?.start_time ?? session?.start ?? null);
+  if (startTimeDay) {
+    return startTimeDay;
   }
 
   return null;
