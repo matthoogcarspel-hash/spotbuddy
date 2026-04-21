@@ -31,6 +31,7 @@ type SessionIntent = 'maybe' | 'likely' | 'definitely';
 type SpotSession = {
   id: string;
   spot: SpotName;
+  sessionDay: string | null;
   start: string;
   end: string;
   status: SessionStatus;
@@ -414,8 +415,7 @@ const getSessionState = (sessionItem: SpotSession, now = new Date()): Determinis
 };
 const isLiveSession = (sessionItem: SpotSession, now = new Date()) => getSessionState(sessionItem, now) === 'active';
 const isSessionForLocalDate = (sessionItem: SpotSession, localDateKey: string) => {
-  const sessionStartTime = getSessionStartTime(sessionItem);
-  return getLocalDateKey(sessionStartTime) === localDateKey;
+  return (sessionItem.sessionDay ?? '') === localDateKey;
 };
 const getSpotMomentumLabelForDay = ({
   spotName,
@@ -1143,13 +1143,12 @@ function SessionRow({
   const safeSessions = safeGroupSessions.map((sessionEntry) => sessionEntry.item).filter(Boolean);
   const alreadyJoinedGroup = safeSessions.some((session) => {
     const selectedSpotName = (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null;
-    const sessionWithExtras = session as SpotSession & { spot_name?: string | null; session_day?: string | null };
     console.log("KZVS_EXISTING_SESSION_COMPARE", {
       sessionId: session?.id ?? null,
-      sessionSpotName: sessionWithExtras?.spot_name ?? session?.spot ?? null,
+      sessionSpotName: session?.spot ?? null,
       selectedSpotName,
       sameSpotResult: sameSpot(session, selectedSpot),
-      sessionDay: sessionWithExtras?.session_day ?? null,
+      sessionDay: session?.sessionDay ?? null,
       activeDay
     });
     return (
@@ -2767,6 +2766,7 @@ export default function App() {
         nextSessionsBySpot[spot].push({
           id: row.id,
           spot,
+          sessionDay: typeof row.session_day === 'string' ? row.session_day : null,
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
           status: normalizedSession.status,
@@ -3437,7 +3437,7 @@ export default function App() {
     const allCandidateSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === currentUserId)
-      .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd));
+      .filter((sessionItem) => isSessionOnActiveDay(sessionItem));
     const userSessions = allCandidateSessions
       .filter((sessionItem) => getSessionState(sessionItem) === 'planned');
     
@@ -3476,7 +3476,7 @@ export default function App() {
   const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
-      next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isIsoInRange(item.createdAt, activeDateStart, activeDateEnd));
+      next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isSessionOnActiveDay(item));
     }
     
     return next;
@@ -3502,7 +3502,7 @@ export default function App() {
       .filter(
         (sessionItem) =>
           isPlannedSession(sessionItem)
-          && isCreatedOnLocalDate(sessionItem.createdAt, currentDateKey)
+          && (sessionItem.sessionDay ?? '') === currentDateKey
           && toMinutes(sessionItem.start) > nowMinutes,
       )
       .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))[0] ?? null;
@@ -3690,6 +3690,19 @@ export default function App() {
   );
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+  const getLocalDay = (session: SpotSession) => getLocalDateKey(getSessionStartTime(session));
+  const isSessionOnActiveDay = (session: SpotSession) => (session.sessionDay ?? '') === activeDayKey;
+  useEffect(() => {
+    safeSessions.forEach((session) => {
+      console.log('FRONTEND_SESSION_DAY_DEBUG', {
+        sessionId: session.id,
+        sessionDay: session.sessionDay ?? null,
+        computedLocalDay: getLocalDay(session),
+        activeDay: activeDayKey,
+        includedInUI: isSessionOnActiveDay(session),
+      });
+    });
+  }, [activeDayKey, safeSessions]);
   const ownSessionForSpotDay = useMemo(
     () =>
       getOwnSessionForSpotDay({
@@ -3697,9 +3710,6 @@ export default function App() {
         userId: activeProfile?.id,
         spotName: getSelectedSpotName(selectedSpot),
         dayKey: activeDayKey,
-        options: {
-          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
-        },
       }) as {
         ownSession: SpotSession | null;
         hasOwnSession: boolean;
