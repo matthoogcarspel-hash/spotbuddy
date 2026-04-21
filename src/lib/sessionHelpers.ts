@@ -18,7 +18,11 @@ type SessionDayKeyOptions = {
   fallbackResolver?: ((session: SessionLike | null | undefined) => string | null) | null;
 };
 
-const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+export const normalizeSpotName = (value: string | null | undefined) =>
+  (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
 const coerceDate = (value: string | null | undefined) => {
   if (!value) {
     return null;
@@ -28,7 +32,19 @@ const coerceDate = (value: string | null | undefined) => {
 };
 
 const getSessionUserId = (session: SessionLike | null | undefined) => session?.user_id ?? session?.userId ?? null;
-const getSessionSpot = (session: SessionLike | null | undefined) => session?.spot_name ?? session?.spot ?? null;
+export const getSessionSpot = (session: SessionLike | null | undefined) => session?.spot_name ?? session?.spot ?? null;
+export const getSelectedSpotName = (spot: { name?: string | null } | string | null | undefined) =>
+  typeof spot === 'string' ? spot : (spot?.name ?? null);
+export const sameSpot = (
+  session: SessionLike | null | undefined,
+  selectedSpot: { name?: string | null } | string | null | undefined,
+) => {
+  const selectedSpotName = getSelectedSpotName(selectedSpot);
+  if (!selectedSpotName) {
+    return true;
+  }
+  return normalizeSpotName(getSessionSpot(session)) === normalizeSpotName(selectedSpotName);
+};
 
 export const getSessionDayKey = (session: SessionLike | null | undefined, options: SessionDayKeyOptions = {}) => {
   const sessionDay = typeof session?.session_day === 'string' ? session.session_day.trim() : '';
@@ -80,7 +96,7 @@ export const getOwnSessionForSpotDay = ({
     if (!session || getSessionUserId(session) !== userId) {
       return false;
     }
-    if (normalizedSpot && normalizeSpotName(getSessionSpot(session)) !== normalizedSpot) {
+    if (normalizedSpot && !sameSpot(session, spotName)) {
       return false;
     }
     return getSessionDayKey(session, options) === dayKey;

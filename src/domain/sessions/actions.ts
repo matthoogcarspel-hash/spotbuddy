@@ -1,4 +1,4 @@
-import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey } from '../../lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey, normalizeSpotName } from '../../lib/sessionHelpers';
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -68,6 +68,7 @@ export async function planSession(input: {
     return { ok: false, reason: 'MISSING_ACTIVE_PROFILE' };
   }
 
+  const canonicalSelectedSpot = normalizeSpotName(input.selectedSpot);
   const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
     .from('sessions')
     .select('*')
@@ -81,7 +82,7 @@ export async function planSession(input: {
   const ownSessionForSpotDay = getOwnSessionForSpotDay({
     sessions: safeOwnSessionsFresh,
     userId: input.activeProfileId,
-    spotName: input.selectedSpot,
+    spotName: canonicalSelectedSpot,
     dayKey: input.selectedPlanningDateKey,
     options: {
       fallbackDayKey: input.selectedPlanningDateKey,
@@ -95,7 +96,7 @@ export async function planSession(input: {
   }
 
   const payload = {
-    spot_name: input.selectedSpot,
+    spot_name: canonicalSelectedSpot,
     user_id: input.activeProfileId,
     start_time: input.startTime,
     end_time: input.endTime,
@@ -111,7 +112,6 @@ export async function planSession(input: {
     .from('sessions')
     .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
     .eq('user_id', payload.user_id)
-    .eq('spot_name', payload.spot_name)
     .eq('start_time', payload.start_time)
     .eq('end_time', payload.end_time)
     .eq('status', payload.status)
@@ -128,7 +128,7 @@ export async function planSession(input: {
     return { ok: false, reason: 'EXACT_DUPLICATE_QUERY_FAILED', error: exactDuplicateResult.error };
   }
 
-  if (exactDuplicateResult.data) {
+  if (exactDuplicateResult.data && normalizeSpotName(exactDuplicateResult.data.spot_name) === payload.spot_name) {
     return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' };
   }
 
@@ -182,6 +182,7 @@ export async function joinSession(input: {
   if (!input.selectedSpot) {
     return { ok: false, reason: 'NO_SELECTED_SPOT' };
   }
+  const canonicalSelectedSpot = normalizeSpotName(input.selectedSpot);
 
   const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
     .from('sessions')
@@ -196,12 +197,18 @@ export async function joinSession(input: {
   const ownSessionForSpotDay = getOwnSessionForSpotDay({
     sessions: safeOwnSessionsFresh,
     userId: input.activeProfileId,
-    spotName: input.selectedSpot,
+    spotName: canonicalSelectedSpot,
     dayKey: input.dayKey,
     options: {
       fallbackDayKey: input.dayKey,
       fallbackResolver: (session) => getSessionDayKey(session, { fallbackDayKey: input.dayKey }),
     },
+  });
+  const existingOwnSessionsForSpotDay = ownSessionForSpotDay.ownSessions;
+  console.log("KZVS_DUPLICATE_CHECK_RESULT", {
+    existingMatchCount: existingOwnSessionsForSpotDay.length,
+    matchedSessionIds: existingOwnSessionsForSpotDay.map((s) => s?.id ?? null),
+    selectedSpotName: input.selectedSpot ?? null
   });
 
   const joinEligibility = canJoinSlot({
@@ -216,7 +223,7 @@ export async function joinSession(input: {
   }
 
   const joinPayload = {
-    spot_name: input.selectedSpot,
+    spot_name: canonicalSelectedSpot,
     user_id: input.activeProfileId,
     start_time: input.normalizedStart,
     end_time: input.normalizedEnd,
