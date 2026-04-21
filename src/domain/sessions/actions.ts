@@ -1,8 +1,6 @@
 import {
   canJoinSlot,
-  getDerivedSessionDayFromRealSchema,
   getOwnSessionForSpotDay,
-  getSessionDayKey,
   normalizeSessionDay,
   normalizeSessionIdentity,
   REAL_SESSION_SCHEMA_FIELDS,
@@ -17,6 +15,7 @@ type SessionRecord = {
   id?: string | null;
   user_id?: string | null;
   spot_name?: string | null;
+  session_day?: string | null;
   created_at?: string | null;
   start_time?: string | null;
   end_time?: string | null;
@@ -61,45 +60,32 @@ const readOwnSessionsForSpotDay = async (input: {
   activeDay: string;
   selectedSpot: string | null;
 }) => {
-  const derivedDayStrategy = REAL_SESSION_SCHEMA_FIELDS.derivedDayStrategy;
   console.log('REAL_SESSION_SCHEMA_FIELDS', {
     userField: REAL_SESSION_SCHEMA_FIELDS.userField,
     spotField: REAL_SESSION_SCHEMA_FIELDS.spotField,
+    dayField: REAL_SESSION_SCHEMA_FIELDS.dayField,
     startField: REAL_SESSION_SCHEMA_FIELDS.startField,
     endField: REAL_SESSION_SCHEMA_FIELDS.endField,
-    derivedDayStrategy,
   });
   console.log('SCHEMA_ALIGNMENT_READ_QUERY', {
     selectedSpot: input.selectedSpot,
     activeDay: input.activeDay,
-    usingDayField: false,
-    derivedDayStrategy,
+    usingDayField: true,
+    dayField: REAL_SESSION_SCHEMA_FIELDS.dayField,
   });
 
   const { data, error } = await supabase
     .from('sessions')
-    .select('id, user_id, spot_name, created_at, start_time, end_time')
+    .select('id, user_id, spot_name, session_day, created_at, start_time, end_time')
     .eq('user_id', input.userId)
-    .eq('spot_name', input.spotName);
+    .eq('spot_name', input.spotName)
+    .eq('session_day', input.activeDay);
 
   if (error) {
     return { sessions: [], error };
   }
 
-  const ownSessions = (Array.isArray(data) ? data : []).filter((session) => (
-    getDerivedSessionDayFromRealSchema(session) === input.activeDay
-  ));
-
-  return { sessions: ownSessions, error: null };
-};
-
-const getSessionCreatedAtFromSessionDay = (sessionDay: string | null | undefined) => {
-  const normalizedSessionDay = normalizeSessionDay(sessionDay);
-  if (!normalizedSessionDay) {
-    return null;
-  }
-
-  return `${normalizedSessionDay}T12:00:00.000Z`;
+  return { sessions: Array.isArray(data) ? data : [], error: null };
 };
 
 export async function planSession(input: {
@@ -145,18 +131,17 @@ export async function planSession(input: {
   const payload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
+    session_day: sessionIdentity.day_key,
     start_time: input.startTime,
     end_time: input.endTime,
     status: 'Gaat' as const,
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.day_key) ?? undefined,
   };
-  console.log('WRITE_SESSION_INPUT', {
-    user_id: payload.user_id,
-    spot_name: payload.spot_name,
-    active_day: sessionIdentity.day_key,
+  console.log('SESSION_DAY_WRITE', {
+    session_day_written: payload.session_day,
+    activeDay: sessionIdentity.day_key,
   });
 
   let result;
@@ -164,6 +149,7 @@ export async function planSession(input: {
     result = await supabase
       .from('sessions')
       .update({
+        session_day: payload.session_day,
         start_time: payload.start_time,
         end_time: payload.end_time,
         intent: payload.intent,
@@ -252,18 +238,17 @@ export async function joinSession(input: {
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
+    session_day: sessionIdentity.day_key,
     start_time: input.normalizedStart,
     end_time: input.normalizedEnd,
     status: 'Gaat' as const,
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.day_key) ?? undefined,
   };
-  console.log('WRITE_SESSION_INPUT', {
-    user_id: joinPayload.user_id,
-    spot_name: joinPayload.spot_name,
-    active_day: sessionIdentity.day_key,
+  console.log('SESSION_DAY_WRITE', {
+    session_day_written: joinPayload.session_day,
+    activeDay: sessionIdentity.day_key,
   });
 
   const writeResult = await supabase.from('sessions').insert(joinPayload);
@@ -284,6 +269,7 @@ export async function cancelSession(input: {
   session: {
     id: string;
     spot: string;
+    sessionDay: string | null;
     userId: string;
     status: SessionStatus;
     checkedInAt: string | null;
@@ -302,16 +288,12 @@ export async function cancelSession(input: {
         id: input.session.id,
         user_id: input.session.userId,
         spot_name: input.session.spot,
-        created_at: input.session.createdAt,
+        session_day: input.session.sessionDay,
       },
     ],
     userId: input.activeProfileId,
     spotName: input.session.spot,
     dayKey: input.selectedDateKey,
-    options: {
-      fallbackDayKey: input.selectedDateKey,
-      fallbackResolver: (session) => getSessionDayKey(session, { fallbackDayKey: input.selectedDateKey }),
-    },
   });
 
   const isCancelable = Boolean(
