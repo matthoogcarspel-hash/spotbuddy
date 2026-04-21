@@ -2693,7 +2693,6 @@ export default function App() {
       ? await supabase
           .from('sessions')
           .select('*')
-          .in('spot_name', [...spotNames])
           .gte('created_at', dayBounds.start)
           .lt('created_at', dayBounds.endExclusive)
           .order('created_at', { ascending: true })
@@ -2741,6 +2740,13 @@ export default function App() {
       console.error('Failed to load sessions:', sessionsResponse.error);
     } else {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
+      const canonicalSpotNameByNormalizedSpotName = new Map<string, SpotName>();
+      for (const spotName of spotNames) {
+        const normalizedSpotName = normalizeSpotName(spotName);
+        if (!canonicalSpotNameByNormalizedSpotName.has(normalizedSpotName)) {
+          canonicalSpotNameByNormalizedSpotName.set(normalizedSpotName, spotName);
+        }
+      }
 
       const profilesById = new Map((profilesData ?? []).map((profile) => [profile.id, profile]));
       const profilesByOwnerUid = new Map<string, Array<(typeof profilesData)[number]>>();
@@ -2776,16 +2782,23 @@ export default function App() {
       
 
       for (const row of mergedSessions) {
-        const spot = row.spot_name as SpotName;
-        if (!spotNames.includes(spot)) {
+        const normalizedSpotName = normalizeSpotName(row?.spot_name ?? '');
+        const resolvedSpotName = canonicalSpotNameByNormalizedSpotName.get(normalizedSpotName) ?? null;
+        const droppedRow = !resolvedSpotName;
+        console.log("CANONICAL_SPOT_RESOLUTION", {
+          rawSpotName: row?.spot_name ?? null,
+          normalizedSpotName: normalizedSpotName ?? null,
+          resolvedSpotName: resolvedSpotName ?? null,
+          dropped: droppedRow === true
+        });
+        if (droppedRow) {
           continue;
         }
 
         const normalizedSession = normalizeLoadedSession(row);
-
-        nextSessionsBySpot[spot].push({
+        const mappedSession = {
           id: row.id,
-          spot,
+          spot: resolvedSpotName,
           sessionDay: getSessionDayKey(row),
           start: row.start_time.slice(0, 5),
           end: row.end_time.slice(0, 5),
@@ -2799,7 +2812,16 @@ export default function App() {
           userAvatarUrl: row.avatar_url,
           userOwnerUid: row.owner_uid ?? null,
           resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
+        };
+        console.log("CANONICAL_SESSION_ROW", {
+          id: mappedSession?.id ?? null,
+          spot: mappedSession?.spot ?? null,
+          sessionDay: mappedSession?.sessionDay ?? null,
+          userId: mappedSession?.userId ?? null,
+          start: mappedSession?.start ?? null,
+          end: mappedSession?.end ?? null
         });
+        nextSessionsBySpot[resolvedSpotName].push(mappedSession);
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
@@ -3844,6 +3866,12 @@ export default function App() {
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const hasOwnSessionOnSelectedSpotDay = ownSessionForSpotDay.hasOwnSession;
   const joinedSession = ownSessionForSpotDay.ownSession;
+  useEffect(() => {
+    console.log("CANCEL_TARGET_SYNC", {
+      ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
+      cancelTargetId: joinedSession?.id ?? null
+    });
+  }, [joinedSession?.id, ownSessionForSpotDay]);
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
     joinedSession
@@ -4041,7 +4069,13 @@ export default function App() {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
-      if (!isIsoInRange(item.createdAt, activeDateStart, activeDateEnd)) {
+      console.log("TIMELINE_DAY_FILTER", {
+        sessionId: item?.id ?? null,
+        sessionDay: item?.sessionDay ?? null,
+        activeDayKey,
+        included: (item?.sessionDay ?? '') === activeDayKey
+      });
+      if ((item?.sessionDay ?? '') !== activeDayKey) {
         return false;
       }
 
@@ -4120,6 +4154,15 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [activeDateEnd, activeDateStart, followingUserIds, sessions]);
+  useEffect(() => {
+    console.log("OWN_SESSION_AND_TIMELINE_SYNC", {
+      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+      activeDayKey,
+      timelineSessionIds: timelineSessions.map((s) => s?.item?.id ?? null),
+      ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
+      ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0
+    });
+  }, [activeDayKey, ownSessionForSpotDay, selectedSpot, timelineSessions]);
   
   
   const selectedSpotMomentumLabel = useMemo(
