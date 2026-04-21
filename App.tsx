@@ -10,6 +10,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
+import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { canJoinSlot, getOwnSessionForSpotDay } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
@@ -171,22 +172,6 @@ const getIsoDateFromLocalDateKey = (localDateKey: string) => {
   isoDate.setFullYear(yearPart, monthPart - 1, dayPart);
   isoDate.setHours(12, 0, 0, 0);
   return isoDate.toISOString();
-};
-const getIsoDateRangeForLocalDateKey = (localDateKey: string) => {
-  const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
-  if (!yearPart || !monthPart || !dayPart) {
-    return null;
-  }
-
-  const dayStart = new Date();
-  dayStart.setFullYear(yearPart, monthPart - 1, dayPart);
-  dayStart.setHours(0, 0, 0, 0);
-  const dayEnd = new Date(dayStart);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  return {
-    dayStartIso: dayStart.toISOString(),
-    dayEndIso: dayEnd.toISOString(),
-  };
 };
 const quickCheckInEndMinutes = 21 * 60;
 const getQuickCheckInWindowError = (currentMinutes: number) => {
@@ -1092,11 +1077,6 @@ const sameSpot = (session: SpotSession, selectedSpot: SpotName | null) => {
     return true;
   }
   return normalizeSpotName(session?.spot) === normalizeSpotName(selectedSpotName);
-};
-const isSessionOnActiveDay = (session: SpotSession, activeDay: ActiveDay) => {
-  const sessionStartTime = getSessionStartTime(session);
-  const activeDateKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-  return getLocalDateKey(sessionStartTime) === activeDateKey;
 };
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
@@ -3863,61 +3843,34 @@ export default function App() {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
-    const authUser = session?.user ?? null;
-    const activeParticipationProfile = {
-      id: activeProfile?.id ?? null,
-      display_name: activeProfile?.display_name ?? null,
-    };
-    
-    
-    
-
     const activeProfileId = activeProfile?.id ?? null;
-    
     if (!activeProfileId) {
       setSessionActionError('Could not cancel session');
       return;
     }
+
     const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
-    const targetSessionId = sessionToCancel.id;
-    const targetParticipationId = sessionToCancel.id;
-    const isOwnerSession = Boolean(resolvedSessionActorProfileId && resolvedSessionActorProfileId === activeProfileId);
-    const isJoinedParticipation = Boolean(sessionToCancel.userId === activeProfileId);
-
-    const canCancelSession = Boolean(
-      resolvedSessionActorProfileId === activeProfileId
-      && hasPlannedTimeWindow(sessionToCancel)
-      && !sessionToCancel.checkedInAt
-      && !sessionToCancel.checkedOutAt
-      && sessionToCancel.status !== 'finished'
-      && sessionToCancel.status !== 'Uitchecken',
-    );
-    
-
-    if (!canCancelSession) {
+    const input = {
+      activeProfileId,
+      selectedDateKey: activeDateKey,
+      session: {
+        id: sessionToCancel.id,
+        spot: sessionToCancel.spot,
+        userId: sessionToCancel.userId,
+        status: sessionToCancel.status,
+        checkedInAt: sessionToCancel.checkedInAt,
+        checkedOutAt: sessionToCancel.checkedOutAt,
+        createdAt: sessionToCancel.createdAt,
+      },
+      resolvedSessionActorProfileId,
+    };
+    console.log("SESSION_ACTION_CANCEL_CALL", input);
+    const result = await cancelSessionAction(input);
+    console.log("SESSION_ACTION_CANCEL_RESULT", result);
+    if (!result.ok) {
       setSessionActionError('Could not cancel session');
-      
       return;
     }
-
-    
-    const sessionId = sessionToCancel.id;
-    
-    
-    const { data, error } = await supabase
-      .from('sessions')
-      .delete()
-      .eq('id', sessionId)
-      .eq('user_id', activeProfileId);
-    
-
-    if (error) {
-      setSessionActionError('Could not cancel session');
-      
-      return;
-    }
-
-    
     await fetchSharedData();
     setSessionActionError('');
     setEditingSessionId(null);
@@ -4294,35 +4247,6 @@ export default function App() {
 
     return fallbackMessage;
   };
-  const createPlannedSession = async (payload: {
-    spot_name: string;
-    user_id: string;
-    start_time: string;
-    end_time: string;
-    status: 'Gaat';
-    intent: SessionIntent;
-    checked_in_at: null;
-    checked_out_at: null;
-    created_at?: string;
-  }) => {
-    
-    if (!activeProfile?.id) {
-      return { data: null, error: { message: 'missing_auth_user_id' } } as const;
-    }
-    const writePayload = { ...payload, user_id: activeProfile.id };
-    const planPayloadExample = writePayload;
-    console.log('PLAN_FLOW_SCHEMA_REFERENCE', {
-      table: 'sessions',
-      payloadKeys: Object.keys(planPayloadExample || {}),
-    });
-    
-    return supabase
-      .from('sessions')
-      .insert(writePayload)
-      .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, user_id, intent')
-      .single();
-  };
-
   const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
     if (!selectedSpot || !activeAppUserId) {
       return false;
@@ -5625,130 +5549,28 @@ export default function App() {
   }
 
   if (selectedSpot) {
-    const showAlert = (message: string) => {
-      setSessionActionError(message);
-    };
-
-    async function joinSessionViaSessionsModel({
-      normalizedStart,
-      normalizedEnd,
-      activeProfile,
-      activeDay: joinActiveDay,
-      selectedSpot: joinSelectedSpot,
-    }: {
-      normalizedStart: string;
-      normalizedEnd: string;
-      activeProfile: { id: string | null };
-      activeDay: ActiveDay;
-      selectedSpot: SpotName | null;
-    }) {
-      if (!activeProfile?.id) {
-        console.error('JOIN_ERROR', { reason: 'NO_ACTIVE_PROFILE' });
-        return { ok: false, reason: 'NO_ACTIVE_PROFILE' as const };
-      }
-
-      if (joinActiveDay !== 'today') {
-        console.error('JOIN_ERROR', { reason: 'NON_JOINABLE_DAY' });
-        return { ok: false, reason: 'NON_JOINABLE_DAY' as const };
-      }
-
-      console.log('JOIN_FLOW_START', {
-        activeProfileId: activeProfile.id,
-        normalizedStart,
-        normalizedEnd,
-      });
-
-      if (!joinSelectedSpot) {
-        console.error('JOIN_ERROR', { reason: 'NO_SELECTED_SPOT' });
-        return { ok: false, reason: 'NO_SELECTED_SPOT' as const };
-      }
-
-      const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('user_id', activeProfile.id);
-
-      if (ownSessionsFreshError) {
-        console.error("JOIN_SHARED_QUERY_ERROR", ownSessionsFreshError);
-        return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED' as const };
-      }
-
-      const safeOwnSessionsFresh = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-      const existingOwnSessionFresh = safeOwnSessionsFresh.find((session) => {
-        return sameSpot(session, joinSelectedSpot) && isSessionOnActiveDay(session, joinActiveDay);
-      });
-      if (existingOwnSessionFresh) {
-        console.log("JOIN_SHARED_BLOCKED", {
-          existingSessionId: existingOwnSessionFresh?.id ?? null,
-        });
-        setSessionActionError('You already have a session on this spot today');
-        return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
-      }
-
-      const joinPayload = {
-        spot_name: joinSelectedSpot,
-        user_id: activeProfile.id,
-        start_time: normalizedStart,
-        end_time: normalizedEnd,
-        status: 'Gaat' as const,
-        intent: resolveSessionIntent(intent),
-        checked_in_at: null,
-        checked_out_at: null,
-        created_at: getIsoDateFromLocalDateKey(activeDateKey) ?? undefined,
-      };
-      console.log('JOIN_FLOW_SCHEMA_REFERENCE', {
-        table: 'sessions',
-        payloadKeys: Object.keys(joinPayload || {}),
-      });
-
-      console.log('JOIN_FLOW_UPDATE', {
-        mode: 'insert',
-        payload: joinPayload,
-      });
-      const writeResult = await createPlannedSession(joinPayload);
-      const { data, error } = writeResult;
-      console.log('JOIN_WRITE_RESULT_RESTORED', { data, error });
-
-      if (error) {
-        if (isUniqueConstraintError(error)) {
-          console.error("DUPLICATE_JOIN_DB_ERROR", error);
-          showAlert('You already have a session on this spot today');
-          return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' as const };
-        }
-        console.error('JOIN_WRITE_ERROR_FULL', error);
-        console.error('JOIN_ERROR', error);
-        return { ok: false, reason: 'WRITE_FAILED' as const };
-      }
-
-      await fetchSharedData();
-      console.log('JOIN_REFETCH_DONE', {
-        selectedSpot: joinSelectedSpot ?? null,
-        activeDay: joinActiveDay,
-      });
-      console.log('JOIN_FLOW_DONE', { success: true });
-      return { ok: true as const };
-    }
-
     const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
-      const activeProfile = {
-        id: activeAppUserId ?? null,
-      };
-
-      const joinResult = await joinSessionViaSessionsModel({
-        normalizedStart,
-        normalizedEnd,
-        activeProfile,
+      const input = {
+        activeProfileId: activeAppUserId ?? null,
         activeDay,
         selectedSpot,
-      });
-
+        normalizedStart,
+        normalizedEnd,
+        intent: resolveSessionIntent(intent),
+        dayKey: activeDateKey,
+        targetGroupHasVisibleRows: true,
+        alreadyJoinedGroup: false,
+      };
+      console.log("SESSION_ACTION_JOIN_CALL", input);
+      const joinResult = await joinSessionAction(input);
+      console.log("SESSION_ACTION_JOIN_RESULT", joinResult);
       if (!joinResult.ok) {
         if (joinResult.reason !== 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
           setSessionActionError('Session could not be joined');
         }
         return;
       }
-
+      await fetchSharedData();
       setSessionActionError('');
       setSelectedTimelineSessionId(null);
     };
@@ -5800,122 +5622,43 @@ export default function App() {
         
         return;
       }
-
-      const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
-        .from('sessions')
-        .select('*')
-        .eq('user_id', activeProfileId);
-
-      if (ownSessionsFreshError) {
-        console.error("HARD_SINGLE_SESSION_QUERY_ERROR", ownSessionsFreshError);
-        setFormError('Planning the session failed. Please try again.');
-        return;
-      }
-
-      const safeOwnSessionsFresh = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-      const existingOwnSessionsFreshOnSelectedSpotDay = safeOwnSessionsFresh.filter((session) => {
-        return (
-          (!editingSessionId || session?.id !== editingSessionId)
-          && sameSpot(session, selectedSpot)
-          && isSessionOnActiveDay(session, activeDay)
-        );
-      });
-
-      if (existingOwnSessionsFreshOnSelectedSpotDay.length > 0) {
-        console.log("HARD_SINGLE_SESSION_BLOCKED", {
-          existingSessionIds: existingOwnSessionsFreshOnSelectedSpotDay.map((session) => session?.id ?? null),
-          count: existingOwnSessionsFreshOnSelectedSpotDay.length,
-        });
-        setFormError('You already have a session on this spot today');
-        return;
-      }
-
-      const payload = {
-        spot_name: selectedSpot,
-        user_id: activeProfileId,
-        start_time: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
-        end_time: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
-        status: 'Gaat' as const,
+      const input = {
+        activeProfileId,
+        selectedSpot,
+        activeDay,
+        selectedPlanningDateKey,
+        startTime: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
+        endTime: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
         intent,
-        checked_in_at: null,
-        checked_out_at: null,
-        created_at: getIsoDateFromLocalDateKey(selectedPlanningDateKey) ?? undefined,
+        editingSessionId,
       };
-      
-      
-      
-      const plannedDateRange = getIsoDateRangeForLocalDateKey(selectedPlanningDateKey);
-      const exactDuplicateQuery = supabase
-        .from('sessions')
-        .select('id, user_id, spot_name, start_time, end_time, status, checked_in_at, checked_out_at')
-        .eq('user_id', payload.user_id)
-        .eq('spot_name', payload.spot_name)
-        .eq('start_time', payload.start_time)
-        .eq('end_time', payload.end_time)
-        .eq('status', payload.status)
-        .is('checked_in_at', null)
-        .is('checked_out_at', null)
-        .gte('created_at', plannedDateRange?.dayStartIso ?? '1900-01-01T00:00:00.000Z')
-        .lt('created_at', plannedDateRange?.dayEndIso ?? '9999-12-31T00:00:00.000Z');
+      console.log("SESSION_ACTION_PLAN_CALL", input);
+      const result = await planSessionAction(input);
+      console.log("SESSION_ACTION_PLAN_RESULT", result);
+      if (!result.ok) {
+        if (result.reason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+          setFormError('You already have a session on this spot today');
+          setSaveError({
+            message: 'sessions_unique',
+            details: 'duplicate_planned_session',
+          });
+          return;
+        }
 
-      const exactDuplicateResult = editingSessionId
-        ? await exactDuplicateQuery.neq('id', editingSessionId).maybeSingle()
-        : await exactDuplicateQuery.maybeSingle();
-
-      if (exactDuplicateResult.error) {
-        setFormError('Planning the session failed. Please try again.');
+        const persistenceError = result.error as {
+          code?: string;
+          message?: string;
+          details?: string;
+          hint?: string;
+        } | null | undefined;
+        setFormError(getSessionPersistenceErrorMessage(persistenceError, 'Planning the session failed. Please try again.'));
         setSaveError({
-          message: exactDuplicateResult.error.message,
-          details: exactDuplicateResult.error.details,
-          hint: exactDuplicateResult.error.hint,
-          code: exactDuplicateResult.error.code,
-          response: exactDuplicateResult,
-        });
-        
-        return;
-      }
-
-      if (exactDuplicateResult.data) {
-        setFormError('You already have a session on this spot today');
-        setSaveError({
-          message: 'sessions_unique',
-          details: `duplicate_planned_session_id:${exactDuplicateResult.data.id}`,
-        });
-        
-        return;
-      }
-
-      
-      let result;
-      if (editingSessionId) {
-        result = await supabase
-          .from('sessions')
-          .update({
-            start_time: payload.start_time,
-            end_time: payload.end_time,
-            intent: payload.intent,
-          })
-          .eq('id', editingSessionId)
-          .eq('user_id', payload.user_id)
-          .select('id, spot_name, start_time, end_time, checked_in_at, checked_out_at, status, intent')
-          .single();
-      } else {
-        result = await createPlannedSession(payload);
-      }
-      if (result.error) {
-        setFormError(getSessionPersistenceErrorMessage(result.error, 'Planning the session failed. Please try again.'));
-        setSaveError({
-          message: result.error.message,
-          details: result.error.details,
-          hint: result.error.hint,
-          code: result.error.code,
+          message: persistenceError?.message,
+          details: persistenceError?.details,
+          hint: persistenceError?.hint,
+          code: persistenceError?.code,
           response: result,
         });
-        
-        
-        
-        
-        
         return;
       }
 
