@@ -10,6 +10,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
+import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey } from './src/lib/sessionHelpers';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
@@ -1123,8 +1124,11 @@ type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
-  activeDay: ActiveDay;
-  hasOwnSessionOnSelectedSpotDay: boolean;
+  ownSessionForSpotDay: {
+    ownSession: SpotSession | null;
+    hasOwnSession: boolean;
+    ownSessions: SpotSession[];
+  };
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
@@ -1139,8 +1143,7 @@ function SessionRow({
   group,
   currentProfileId,
   selectedSpot,
-  activeDay,
-  hasOwnSessionOnSelectedSpotDay,
+  ownSessionForSpotDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
@@ -1183,24 +1186,20 @@ function SessionRow({
       && sameSpot(session, selectedSpot)
     );
   });
-  const canJoinGroup =
-    Boolean(activeProfileId) &&
-    safeVisibleRows.length > 0 &&
-    !alreadyJoinedGroup &&
-    !hasOwnSessionOnSelectedSpotDay;
-
-  console.log('GROUP_VISIBLE_ROWS', {
-    startTime: group.startTime,
-    endTime: group.endTime,
-    visibleRows: safeVisibleRows.length,
-  });
-  console.log("JOIN_CTA_SHARED_DECISION", {
-    groupStart: group.startTime,
-    groupEnd: group.endTime,
-    hasOwnSessionOnSelectedSpotDay,
+  const joinEligibility = canJoinSlot({
+    activeProfileId,
+    ownSessionForSpotDay,
+    targetGroupHasVisibleRows: safeVisibleRows.length > 0,
     alreadyJoinedGroup,
-    visibleRows: safeVisibleRows.length,
-    canJoinGroup,
+  });
+  const canJoinGroup = joinEligibility.allowed;
+  console.log("CAN_JOIN_SLOT_RESULT", {
+    activeProfileId: activeProfileId ?? null,
+    alreadyJoinedGroup,
+    targetGroupHasVisibleRows: safeVisibleRows.length > 0,
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+    allowed: joinEligibility.allowed,
+    reason: joinEligibility.reason
   });
 
   return (
@@ -1297,8 +1296,11 @@ type SessionTimelineProps = {
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
-  activeDay: ActiveDay;
-  hasOwnSessionOnSelectedSpotDay: boolean;
+  ownSessionForSpotDay: {
+    ownSession: SpotSession | null;
+    hasOwnSession: boolean;
+    ownSessions: SpotSession[];
+  };
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
@@ -1315,8 +1317,7 @@ function SessionTimeline({
   selectedTimelineSessionId,
   currentProfileId,
   selectedSpot,
-  activeDay,
-  hasOwnSessionOnSelectedSpotDay,
+  ownSessionForSpotDay,
   currentLocalMinutes,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
@@ -1460,8 +1461,7 @@ function SessionTimeline({
                 group={group}
                 currentProfileId={currentProfileId}
                 selectedSpot={selectedSpot}
-                activeDay={activeDay}
-                hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
+                ownSessionForSpotDay={ownSessionForSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
               timelineWindowStartMinutes={timelineWindowStartMinutes}
               timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -3715,25 +3715,39 @@ export default function App() {
     [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
   );
   const safeSessions = Array.isArray(sessions) ? sessions : [];
-  const ownSessionsForSelectedSpotDay = useMemo(() => {
-    return safeSessions.filter((session) => {
-      return (
-        session?.user_id === activeProfile?.id &&
-        sameSpot(session, selectedSpot) &&
-        isSessionOnActiveDay(session, activeDay)
-      );
+  const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+  const ownSessionForSpotDay = useMemo(
+    () =>
+      getOwnSessionForSpotDay({
+        sessions: safeSessions,
+        userId: activeProfile?.id,
+        spotName: getSelectedSpotName(selectedSpot),
+        dayKey: activeDayKey,
+        options: {
+          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
+        },
+      }) as {
+        ownSession: SpotSession | null;
+        hasOwnSession: boolean;
+        ownSessions: SpotSession[];
+      },
+    [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
+  );
+  safeSessions.forEach((session) => {
+    console.log("SESSION_DAY_HELPER_RESULT", {
+      sessionId: session?.id ?? null,
+      sessionDay: getSessionDayKey(session, {
+        fallbackResolver: (sessionItem) => getLocalDateKey(getSessionStartTime(sessionItem as SpotSession)),
+      })
     });
-  }, [safeSessions, activeProfile?.id, selectedSpot, activeDay]);
-
-  const existingOwnSessionOnSelectedSpotDay = ownSessionsForSelectedSpotDay[0] ?? null;
-  const hasOwnSessionOnSelectedSpotDay = ownSessionsForSelectedSpotDay.length > 0;
-  console.log("OWN_SESSION_SHARED_STATE", {
+  });
+  console.log("OWN_SESSION_HELPER_RESULT", {
     activeProfileId: activeProfile?.id ?? null,
     selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
     activeDay,
-    ownSessionCount: ownSessionsForSelectedSpotDay.length,
-    ownSessionIds: ownSessionsForSelectedSpotDay.map((s) => s?.id ?? null),
-    hasOwnSessionOnSelectedSpotDay,
+    ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
+    ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0,
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false
   });
   useEffect(() => {
     
@@ -3842,16 +3856,8 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  console.log("GLOBAL_JOIN_GATE", {
-    activeProfileId: activeProfile?.id ?? null,
-    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-    activeDay,
-    existingCount: ownSessionsForSelectedSpotDay.length,
-    hasOwnSessionOnSelectedSpotDay,
-  });
-  
-  
-  const joinedSession = existingOwnSessionOnSelectedSpotDay;
+  const hasOwnSessionOnSelectedSpotDay = ownSessionForSpotDay.hasOwnSession;
+  const joinedSession = ownSessionForSpotDay.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
     joinedSession
@@ -3868,10 +3874,9 @@ export default function App() {
   const headerHelperText = hasSessionForSelectedSpotToday
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
-  console.log("TOP_CTA_SHARED_DECISION", {
-    hasOwnSessionOnSelectedSpotDay,
-    existingSessionId: existingOwnSessionOnSelectedSpotDay?.id ?? null,
-    mode: hasOwnSessionOnSelectedSpotDay ? "edit-cancel" : "plan",
+  console.log("TOP_CTA_FROM_SHARED_HELPER", {
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+    mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
   });
   useEffect(() => {
     
@@ -6441,8 +6446,7 @@ export default function App() {
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
-            activeDay={activeDay}
-            hasOwnSessionOnSelectedSpotDay={hasOwnSessionOnSelectedSpotDay}
+            ownSessionForSpotDay={ownSessionForSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
