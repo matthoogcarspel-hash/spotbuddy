@@ -1160,9 +1160,10 @@ function SessionRow({
     alreadyJoinedGroup,
   });
   const canJoinGroup = joinEligibility.allowed;
-  console.log("SLICE1_JOIN_GATE", {
+  console.log("STABLE_JOIN_CTA_MODE", {
     groupStart: group.startTime,
     groupEnd: group.endTime,
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
     allowed: joinEligibility.allowed,
     reason: joinEligibility.reason ?? null
   });
@@ -3832,7 +3833,7 @@ export default function App() {
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
-  console.log("SLICE1_TOP_CTA_STATE", {
+  console.log("STABLE_TOP_CTA_MODE", {
     mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
   });
   useEffect(() => {
@@ -5546,6 +5547,13 @@ export default function App() {
 
   if (selectedSpot) {
     const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+      console.log("STABLE_JOIN_PRECHECK", {
+        activeProfileId: activeProfile?.id ?? null,
+        selectedSpot: getSelectedSpotName(selectedSpot),
+        activeDay,
+        hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+        ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
+      });
       const input = {
         activeProfileId: activeAppUserId ?? null,
         activeDay,
@@ -5560,6 +5568,7 @@ export default function App() {
       console.log("SESSION_ACTION_JOIN_CALL", input);
       const joinResult = await joinSessionAction(input);
       console.log("SESSION_ACTION_JOIN_RESULT", joinResult);
+      console.log("STABLE_JOIN_RESULT", joinResult);
       if (!joinResult.ok) {
         if (joinResult.reason !== 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
           setSessionActionError('Session could not be joined');
@@ -5628,9 +5637,17 @@ export default function App() {
         intent,
         editingSessionId,
       };
+      console.log("STABLE_PLAN_PRECHECK", {
+        activeProfileId: activeProfile?.id ?? null,
+        selectedSpot: getSelectedSpotName(selectedSpot),
+        activeDay,
+        hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+        ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
+      });
       console.log("SESSION_ACTION_PLAN_CALL", input);
       const result = await planSessionAction(input);
       console.log("SESSION_ACTION_PLAN_RESULT", result);
+      console.log("STABLE_PLAN_RESULT", result);
       if (!result.ok) {
         if (result.reason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
           setFormError('You already have a session on this spot today');

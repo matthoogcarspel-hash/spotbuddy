@@ -24,6 +24,7 @@ type ServiceSuccess<T = undefined> = T extends undefined
 
 const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
+const alreadyHasSessionReason = 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
 
 const getIsoDateFromLocalDateKey = (localDateKey: string) => {
   const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
@@ -92,7 +93,7 @@ export async function planSession(input: {
 
   const conflictSessions = ownSessionForSpotDay.ownSessions.filter((session) => session?.id !== input.editingSessionId);
   if (conflictSessions.length > 0) {
-    return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' };
+    return { ok: false, reason: alreadyHasSessionReason };
   }
 
   const payload = {
@@ -129,7 +130,7 @@ export async function planSession(input: {
   }
 
   if (exactDuplicateResult.data && normalizeSpotName(exactDuplicateResult.data.spot_name) === payload.spot_name) {
-    return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' };
+    return { ok: false, reason: alreadyHasSessionReason };
   }
 
   let result;
@@ -154,6 +155,9 @@ export async function planSession(input: {
   }
 
   if (result.error) {
+    if (isUniqueConstraintError(result.error)) {
+      return { ok: false, reason: alreadyHasSessionReason };
+    }
     return { ok: false, reason: 'WRITE_FAILED', error: result.error };
   }
 
@@ -214,6 +218,9 @@ export async function joinSession(input: {
   });
 
   if (!joinEligibility.allowed) {
+    if (joinEligibility.reason === 'ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+      return { ok: false, reason: alreadyHasSessionReason };
+    }
     return { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' };
   }
 
@@ -233,7 +240,7 @@ export async function joinSession(input: {
 
   if (writeResult.error) {
     if (isUniqueConstraintError(writeResult.error)) {
-      return { ok: false, reason: 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY' };
+      return { ok: false, reason: alreadyHasSessionReason };
     }
     return { ok: false, reason: 'WRITE_FAILED', error: writeResult.error };
   }
