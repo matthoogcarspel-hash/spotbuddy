@@ -11,7 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
-import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -1064,6 +1064,10 @@ type SessionJoinRequest = {
 
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
+const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
+  getSessionDayKey(session, {
+    fallbackResolver: (candidate) => getLocalDateKey(getSessionStartTime(candidate as SpotSession)),
+  }) === dayKey;
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -1142,15 +1146,6 @@ function SessionRow({
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
   const safeSessions = safeGroupSessions.map((sessionEntry) => sessionEntry.item).filter(Boolean);
   const alreadyJoinedGroup = safeSessions.some((session) => {
-    const selectedSpotName = (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null;
-    console.log("KZVS_EXISTING_SESSION_COMPARE", {
-      sessionId: session?.id ?? null,
-      sessionSpotName: session?.spot ?? null,
-      selectedSpotName,
-      sameSpotResult: sameSpot(session, selectedSpot),
-      sessionDay: session?.sessionDay ?? null,
-      activeDay
-    });
     return (
       session?.user_id === activeProfileId
       && normalizeTime(session?.start_time) === group.startTime
@@ -3437,7 +3432,7 @@ export default function App() {
     const allCandidateSessions = Object.values(sessionsBySpot)
       .flat()
       .filter((sessionItem) => sessionItem.userId === currentUserId)
-      .filter((sessionItem) => isSessionOnActiveDay(sessionItem));
+      .filter((sessionItem) => isSessionOnDayKey(sessionItem, activeDayKey));
     const userSessions = allCandidateSessions
       .filter((sessionItem) => getSessionState(sessionItem) === 'planned');
     
@@ -3476,7 +3471,7 @@ export default function App() {
   const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
-      next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isSessionOnActiveDay(item));
+      next[spot] = (Array.isArray(sessionsBySpot[spot]) ? sessionsBySpot[spot] : []).filter((item) => isSessionOnDayKey(item, activeDayKey));
     }
     
     return next;
@@ -3690,19 +3685,6 @@ export default function App() {
   );
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-  const getLocalDay = (session: SpotSession) => getLocalDateKey(getSessionStartTime(session));
-  const isSessionOnActiveDay = (session: SpotSession) => (session.sessionDay ?? '') === activeDayKey;
-  useEffect(() => {
-    safeSessions.forEach((session) => {
-      console.log('FRONTEND_SESSION_DAY_DEBUG', {
-        sessionId: session.id,
-        sessionDay: session.sessionDay ?? null,
-        computedLocalDay: getLocalDay(session),
-        activeDay: activeDayKey,
-        includedInUI: isSessionOnActiveDay(session),
-      });
-    });
-  }, [activeDayKey, safeSessions]);
   const ownSessionForSpotDay = useMemo(
     () =>
       getOwnSessionForSpotDay({
@@ -3710,6 +3692,9 @@ export default function App() {
         userId: activeProfile?.id,
         spotName: getSelectedSpotName(selectedSpot),
         dayKey: activeDayKey,
+        options: {
+          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
+        },
       }) as {
         ownSession: SpotSession | null;
         hasOwnSession: boolean;
@@ -3717,11 +3702,6 @@ export default function App() {
       },
     [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
   );
-  console.log("KZVS_SELECTED_SPOT_DEBUG", {
-    selectedSpot,
-    selectedSpotName: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-    selectedSpotRaw: JSON.stringify(selectedSpot ?? null)
-  });
   console.log("SLICE1_OWN_SESSION_SOURCE", {
     activeProfileId: activeProfile?.id ?? null,
     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
