@@ -1,11 +1,10 @@
-import { getLocalDateKey } from './sessionDay';
-
 type SessionLike = {
   id?: string | null;
   userId?: string | null;
   user_id?: string | null;
   spot?: string | null;
   spot_name?: string | null;
+  sessionDay?: string | null;
   session_day?: string | null;
   createdAt?: string | null;
   created_at?: string | null;
@@ -23,14 +22,6 @@ export const normalizeSpotName = (value: string | null | undefined) =>
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
-const coerceDate = (value: string | null | undefined) => {
-  if (!value) {
-    return null;
-  }
-  const parsed = new Date(value);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-};
-
 const getSessionUserId = (session: SessionLike | null | undefined) => session?.user_id ?? session?.userId ?? null;
 export const getSessionSpot = (session: SessionLike | null | undefined) => session?.spot_name ?? session?.spot ?? null;
 export const getSelectedSpotName = (spot: { name?: string | null } | string | null | undefined) =>
@@ -47,7 +38,9 @@ export const sameSpot = (
 };
 
 export const getSessionDayKey = (session: SessionLike | null | undefined, options: SessionDayKeyOptions = {}) => {
-  const sessionDay = typeof session?.session_day === 'string' ? session.session_day.trim() : '';
+  const sessionDay = typeof session?.session_day === 'string'
+    ? session.session_day.trim()
+    : (typeof session?.sessionDay === 'string' ? session.sessionDay.trim() : '');
   if (sessionDay) {
     return sessionDay;
   }
@@ -61,16 +54,6 @@ export const getSessionDayKey = (session: SessionLike | null | undefined, option
 
   if (options.fallbackDayKey) {
     return options.fallbackDayKey;
-  }
-
-  const startDate = coerceDate(session?.start_time ?? session?.start ?? null);
-  if (startDate) {
-    return getLocalDateKey(startDate);
-  }
-
-  const createdDate = coerceDate(session?.created_at ?? session?.createdAt ?? null);
-  if (createdDate) {
-    return getLocalDateKey(createdDate);
   }
 
   return null;
