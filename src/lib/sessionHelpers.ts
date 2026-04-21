@@ -17,13 +17,8 @@ export const REAL_SESSION_SCHEMA_FIELDS = {
   spotField: 'spot_name',
   startField: 'start_time',
   endField: 'end_time',
-  derivedDayStrategy: 'created_at_utc_date',
+  dayField: 'session_day',
 } as const;
-
-type SessionDayKeyOptions = {
-  fallbackDayKey?: string | null;
-  fallbackResolver?: ((session: SessionLike | null | undefined) => string | null) | null;
-};
 
 export const normalizeSpotName = (value: string | null | undefined) =>
   (value ?? '')
@@ -72,40 +67,13 @@ export const sameSpot = (
   return normalizeSpotName(getSessionSpot(session)) === normalizeSpotName(selectedSpotName);
 };
 
-export const getSessionDayKey = (session: SessionLike | null | undefined, options: SessionDayKeyOptions = {}) => {
+export const getSessionDayKey = (session: SessionLike | null | undefined) => {
   const rawSessionDay = typeof session?.session_day === 'string'
     ? session.session_day.trim()
     : (typeof session?.sessionDay === 'string' ? session.sessionDay.trim() : '');
   const sessionDay = normalizeSessionDay(rawSessionDay);
   if (sessionDay) {
     return sessionDay;
-  }
-
-  if (typeof options.fallbackResolver === 'function') {
-    const resolved = options.fallbackResolver(session);
-    const normalizedResolved = normalizeSessionDay(resolved);
-    if (normalizedResolved) {
-      return normalizedResolved;
-    }
-  }
-
-  const normalizedFallbackDayKey = normalizeSessionDay(options.fallbackDayKey);
-  if (normalizedFallbackDayKey) {
-    return normalizedFallbackDayKey;
-  }
-
-  return null;
-};
-
-export const getDerivedSessionDayFromRealSchema = (session: SessionLike | null | undefined) => {
-  const createdAtDay = normalizeSessionDay(session?.created_at ?? session?.createdAt ?? null);
-  if (createdAtDay) {
-    return createdAtDay;
-  }
-
-  const startTimeDay = normalizeSessionDay(session?.start_time ?? session?.start ?? null);
-  if (startTimeDay) {
-    return startTimeDay;
   }
 
   return null;
@@ -116,7 +84,6 @@ type OwnSessionArgs = {
   userId: string | null | undefined;
   spotName: string | null | undefined;
   dayKey: string | null | undefined;
-  options?: SessionDayKeyOptions;
 };
 
 export const getOwnSessionForSpotDay = ({
@@ -124,7 +91,6 @@ export const getOwnSessionForSpotDay = ({
   userId,
   spotName,
   dayKey,
-  options,
 }: OwnSessionArgs) => {
   const normalizedSpot = normalizeSpotName(spotName);
   const ownSessions = (Array.isArray(sessions) ? sessions : []).filter((session) => {
@@ -134,7 +100,7 @@ export const getOwnSessionForSpotDay = ({
     if (normalizedSpot && !sameSpot(session, spotName)) {
       return false;
     }
-    return getSessionDayKey(session, options) === dayKey;
+    return getSessionDayKey(session) === dayKey;
   });
 
   return {

@@ -11,7 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
-import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -1065,9 +1065,7 @@ type SessionJoinRequest = {
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
-  getSessionDayKey(session, {
-    fallbackResolver: (candidate) => getLocalDateKey(getSessionStartTime(candidate as SpotSession)),
-  }) === dayKey;
+  (session.sessionDay ?? '') === dayKey;
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -1974,7 +1972,11 @@ export default function App() {
     
   }, [favoriteSpots]);
   useEffect(() => {
-    
+    if (!activeAppUserId || spotNames.length === 0) {
+      return;
+    }
+
+    void fetchSharedData();
   }, [activeDay]);
 
   useEffect(() => {
@@ -2685,10 +2687,12 @@ export default function App() {
     
     
 
+    const selectedDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
     const sessionsResponse = await supabase
       .from('sessions')
       .select('*')
       .in('spot_name', [...spotNames])
+      .eq('session_day', selectedDayKey)
       .order('created_at', { ascending: true });
     const sessionsData = sessionsResponse.data ?? [];
 
@@ -2795,7 +2799,17 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      
+      console.log('SESSION_DAY_QUERY', {
+        activeDay: selectedDayKey,
+        sessionsReturned: loadedSessions.map((sessionItem) => ({
+          id: sessionItem.id,
+          session_day: sessionItem.sessionDay,
+        })),
+      });
+      console.log('OWN_SESSION_MATCH', {
+        activeDay: selectedDayKey,
+        matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
+      });
 
       setSessionsBySpot(nextSessionsBySpot);
     }
@@ -3443,9 +3457,6 @@ export default function App() {
         userId: activeProfile?.id,
         spotName: getSelectedSpotName(selectedSpot),
         dayKey: activeDayKey,
-        options: {
-          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
-        },
       }) as {
         ownSession: SpotSession | null;
         hasOwnSession: boolean;
@@ -3786,7 +3797,7 @@ export default function App() {
           && !sessionItem.checkedOutAt
           && hasPlannedTimeWindow(sessionItem)
           && getSessionState(sessionItem) === 'planned'
-          && isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd),
+          && (sessionItem.sessionDay ?? '') === activeDayKey,
       ),
   );
   const viewedSpot = selectedSpot;
@@ -3869,6 +3880,7 @@ export default function App() {
       session: {
         id: sessionToCancel.id,
         spot: sessionToCancel.spot,
+        sessionDay: sessionToCancel.sessionDay,
         userId: sessionToCancel.userId,
         status: sessionToCancel.status,
         checkedInAt: sessionToCancel.checkedInAt,
@@ -4210,11 +4222,11 @@ export default function App() {
   const upcomingSessions = useMemo(
     () =>
       sessions
-        .filter((sessionItem) => isIsoInRange(sessionItem.createdAt, activeDateStart, activeDateEnd))
+        .filter((sessionItem) => (sessionItem.sessionDay ?? '') === activeDayKey)
         .filter((sessionItem) => getSessionState(sessionItem) === 'planned')
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
         .slice(0, 3),
-    [activeDateEnd, activeDateStart, sessions],
+    [activeDayKey, sessions],
   );
   const mode: 'live' | 'upcoming' | 'empty' = checkedInUsers.length > 0
     ? 'live'
