@@ -1,3 +1,5 @@
+import { getLocalDateKey } from './sessionDay';
+
 type SessionLike = {
   id?: string | null;
   userId?: string | null;
@@ -17,10 +19,6 @@ type SessionDayKeyOptions = {
 };
 
 const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
-const padTimePart = (value: number) => String(value).padStart(2, '0');
-const toLocalDayKey = (dateValue: Date) =>
-  `${dateValue.getFullYear()}-${padTimePart(dateValue.getMonth() + 1)}-${padTimePart(dateValue.getDate())}`;
-
 const coerceDate = (value: string | null | undefined) => {
   if (!value) {
     return null;
@@ -51,12 +49,12 @@ export const getSessionDayKey = (session: SessionLike | null | undefined, option
 
   const startDate = coerceDate(session?.start_time ?? session?.start ?? null);
   if (startDate) {
-    return toLocalDayKey(startDate);
+    return getLocalDateKey(startDate);
   }
 
   const createdDate = coerceDate(session?.created_at ?? session?.createdAt ?? null);
   if (createdDate) {
-    return toLocalDayKey(createdDate);
+    return getLocalDateKey(createdDate);
   }
 
   return null;

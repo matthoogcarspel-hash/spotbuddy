@@ -11,6 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey } from './src/lib/sessionHelpers';
+import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
@@ -159,13 +160,7 @@ const notificationModeOptions: { label: string; value: SpotNotificationMode }[] 
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max);
 const formatLocalHourMinute = (dateValue: Date) => `${formatTimePart(dateValue.getHours())}:${formatTimePart(dateValue.getMinutes())}`;
 const getNowLocalHourMinute = () => formatLocalHourMinute(new Date());
-const getLocalDateKey = (dateValue: Date) => `${dateValue.getFullYear()}-${formatTimePart(dateValue.getMonth() + 1)}-${formatTimePart(dateValue.getDate())}`;
-const getCurrentLocalDateKey = () => getLocalDateKey(new Date());
-const getTomorrowLocalDateKey = () => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return getLocalDateKey(tomorrow);
-};
+const getCurrentLocalDateKey = () => getTodayLocalDateKey();
 const getIsoDateFromLocalDateKey = (localDateKey: string) => {
   const [yearPart, monthPart, dayPart] = localDateKey.split('-').map((value) => Number.parseInt(value ?? '', 10));
   if (!yearPart || !monthPart || !dayPart) {
