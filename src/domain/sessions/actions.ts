@@ -206,6 +206,9 @@ export async function joinSession(input: {
   activeProfileId: string | null;
   activeDay: ActiveDay;
   selectedSpot: string | null;
+  sessionId: string;
+  sessionDay: string | null;
+  sessionStatus: string | null;
   normalizedStart: string;
   normalizedEnd: string;
   intent: SessionIntent;
@@ -218,8 +221,26 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NO_ACTIVE_PROFILE' });
   }
 
-  if (input.activeDay !== 'today') {
+  const isSameDayAsActiveDay = input.sessionDay === input.dayKey;
+  console.log("JOIN_DAY_CHECK", {
+    sessionId: input.sessionId,
+    sessionDay: input.sessionDay,
+    activeDayKey: input.dayKey,
+    matches: isSameDayAsActiveDay,
+  });
+  if (!isSameDayAsActiveDay) {
+    console.log("JOIN_PRECHECK_RESULT", {
+      allowed: false,
+      reason: 'NON_JOINABLE_DAY',
+    });
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NON_JOINABLE_DAY' });
+  }
+  if (input.sessionStatus === 'finished') {
+    console.log("JOIN_PRECHECK_RESULT", {
+      allowed: false,
+      reason: 'SESSION_FINISHED',
+    });
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'SESSION_FINISHED' });
   }
 
   if (!input.selectedSpot) {
@@ -246,12 +267,23 @@ export async function joinSession(input: {
   }
 
   const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
+  const hasOwnSession = existingOwnSessionsForSpotDay.length > 0;
+  console.log("JOIN_ELIGIBILITY_CONTEXT", {
+    hasOwnSession,
+    sessionDay: input.sessionDay,
+    activeDayKey: input.dayKey,
+    isVisibleOnTimeline: true,
+  });
 
   const joinEligibility = canJoinSlot({
     activeProfileId: input.activeProfileId,
-    ownSessionForSpotDay: { hasOwnSession: existingOwnSessionsForSpotDay.length > 0 },
+    ownSessionForSpotDay: { hasOwnSession },
     targetGroupHasVisibleRows: input.targetGroupHasVisibleRows,
     alreadyJoinedGroup: input.alreadyJoinedGroup,
+  });
+  console.log("JOIN_PRECHECK_RESULT", {
+    allowed: joinEligibility.allowed,
+    reason: joinEligibility.reason ?? null,
   });
 
   if (!joinEligibility.allowed) {
