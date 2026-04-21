@@ -22,6 +22,33 @@ export const normalizeSpotName = (value: string | null | undefined) =>
     .trim()
     .toLowerCase()
     .replace(/\s+/g, ' ');
+const sessionDayPattern = /^\d{4}-\d{2}-\d{2}$/;
+export const normalizeSessionDay = (value: string | null | undefined) => {
+  const trimmed = (value ?? '').trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (sessionDayPattern.test(trimmed)) {
+    return trimmed;
+  }
+
+  const parsed = new Date(trimmed);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return parsed.toISOString().slice(0, 10);
+};
+export const normalizeSessionIdentity = (input: {
+  user_id: string | null | undefined;
+  spot_name: string | null | undefined;
+  session_day: string | null | undefined;
+}) => ({
+  user_id: (input.user_id ?? '').trim() || null,
+  spot_name: normalizeSpotName(input.spot_name),
+  session_day: normalizeSessionDay(input.session_day),
+});
 const getSessionUserId = (session: SessionLike | null | undefined) => session?.user_id ?? session?.userId ?? null;
 export const getSessionSpot = (session: SessionLike | null | undefined) => session?.spot_name ?? session?.spot ?? null;
 export const getSelectedSpotName = (spot: { name?: string | null } | string | null | undefined) =>
@@ -38,22 +65,25 @@ export const sameSpot = (
 };
 
 export const getSessionDayKey = (session: SessionLike | null | undefined, options: SessionDayKeyOptions = {}) => {
-  const sessionDay = typeof session?.session_day === 'string'
+  const rawSessionDay = typeof session?.session_day === 'string'
     ? session.session_day.trim()
     : (typeof session?.sessionDay === 'string' ? session.sessionDay.trim() : '');
+  const sessionDay = normalizeSessionDay(rawSessionDay);
   if (sessionDay) {
     return sessionDay;
   }
 
   if (typeof options.fallbackResolver === 'function') {
     const resolved = options.fallbackResolver(session);
-    if (resolved) {
-      return resolved;
+    const normalizedResolved = normalizeSessionDay(resolved);
+    if (normalizedResolved) {
+      return normalizedResolved;
     }
   }
 
-  if (options.fallbackDayKey) {
-    return options.fallbackDayKey;
+  const normalizedFallbackDayKey = normalizeSessionDay(options.fallbackDayKey);
+  if (normalizedFallbackDayKey) {
+    return normalizedFallbackDayKey;
   }
 
   return null;
