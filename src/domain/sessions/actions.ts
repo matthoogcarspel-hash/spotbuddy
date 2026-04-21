@@ -1,4 +1,12 @@
-import { canJoinSlot, getOwnSessionForSpotDay, getSessionDayKey, normalizeSessionDay, normalizeSessionIdentity } from '../../lib/sessionHelpers';
+import {
+  canJoinSlot,
+  getDerivedSessionDayFromRealSchema,
+  getOwnSessionForSpotDay,
+  getSessionDayKey,
+  normalizeSessionDay,
+  normalizeSessionIdentity,
+  REAL_SESSION_SCHEMA_FIELDS,
+} from '../../lib/sessionHelpers';
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -9,9 +17,9 @@ type SessionRecord = {
   id?: string | null;
   user_id?: string | null;
   spot_name?: string | null;
-  session_day?: string | null;
   created_at?: string | null;
   start_time?: string | null;
+  end_time?: string | null;
   checked_in_at?: string | null;
   checked_out_at?: string | null;
   status?: string | null;
@@ -25,6 +33,65 @@ type ServiceSuccess<T = undefined> = T extends undefined
 const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
   error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
 const alreadyHasSessionReason = 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
+
+const withLoggedResult = <T extends ServiceSuccess<{ id: string }> | ServiceSuccess | ServiceFailure>(
+  label: 'SCHEMA_ALIGNMENT_PLAN_RESULT' | 'SCHEMA_ALIGNMENT_JOIN_RESULT',
+  result: T,
+) => {
+  console.log(label, result);
+  return result;
+};
+
+const getRealSchemaIdentity = (input: {
+  user_id: string | null | undefined;
+  spot_name: string | null | undefined;
+  day_key: string | null | undefined;
+}) => ({
+  ...normalizeSessionIdentity({
+    user_id: input.user_id,
+    spot_name: input.spot_name,
+    session_day: input.day_key,
+  }),
+  day_key: normalizeSessionDay(input.day_key),
+});
+
+const readOwnSessionsForSpotDay = async (input: {
+  userId: string;
+  spotName: string;
+  activeDay: string;
+  selectedSpot: string | null;
+}) => {
+  const derivedDayStrategy = REAL_SESSION_SCHEMA_FIELDS.derivedDayStrategy;
+  console.log('REAL_SESSION_SCHEMA_FIELDS', {
+    userField: REAL_SESSION_SCHEMA_FIELDS.userField,
+    spotField: REAL_SESSION_SCHEMA_FIELDS.spotField,
+    startField: REAL_SESSION_SCHEMA_FIELDS.startField,
+    endField: REAL_SESSION_SCHEMA_FIELDS.endField,
+    derivedDayStrategy,
+  });
+  console.log('SCHEMA_ALIGNMENT_READ_QUERY', {
+    selectedSpot: input.selectedSpot,
+    activeDay: input.activeDay,
+    usingDayField: false,
+    derivedDayStrategy,
+  });
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select('id, user_id, spot_name, created_at, start_time, end_time')
+    .eq('user_id', input.userId)
+    .eq('spot_name', input.spotName);
+
+  if (error) {
+    return { sessions: [], error };
+  }
+
+  const ownSessions = (Array.isArray(data) ? data : []).filter((session) => (
+    getDerivedSessionDayFromRealSchema(session) === input.activeDay
+  ));
+
+  return { sessions: ownSessions, error: null };
+};
 
 const getSessionCreatedAtFromSessionDay = (sessionDay: string | null | undefined) => {
   const normalizedSessionDay = normalizeSessionDay(sessionDay);
@@ -45,34 +112,34 @@ export async function planSession(input: {
   intent: SessionIntent;
   editingSessionId?: string | null;
 }): Promise<ServiceSuccess<{ id: string }> | ServiceFailure> {
+  console.log('SCHEMA_ALIGNMENT_PLAN_INPUT', input);
   if (!input.activeProfileId) {
-    return { ok: false, reason: 'MISSING_ACTIVE_PROFILE' };
+    return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'MISSING_ACTIVE_PROFILE' });
   }
 
-  const sessionIdentity = normalizeSessionIdentity({
+  const sessionIdentity = getRealSchemaIdentity({
     user_id: input.activeProfileId,
     spot_name: input.selectedSpot,
-    session_day: input.selectedPlanningDateKey,
+    day_key: input.selectedPlanningDateKey,
   });
-  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.session_day) {
-    return { ok: false, reason: 'INVALID_SESSION_IDENTITY' };
+  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.day_key) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'INVALID_SESSION_IDENTITY' });
   }
 
-  console.log('READ_SESSION_QUERY', sessionIdentity);
-  const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
-    .from('sessions')
-    .select('id, user_id, spot_name, session_day')
-    .eq('user_id', sessionIdentity.user_id)
-    .eq('spot_name', sessionIdentity.spot_name)
-    .eq('session_day', sessionIdentity.session_day);
+  const { sessions: ownSessionsFresh, error: ownSessionsFreshError } = await readOwnSessionsForSpotDay({
+    userId: sessionIdentity.user_id,
+    spotName: sessionIdentity.spot_name,
+    activeDay: sessionIdentity.day_key,
+    selectedSpot: input.selectedSpot,
+  });
 
   if (ownSessionsFreshError) {
-    return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError };
+    return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError });
   }
 
   const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : []).filter((session) => session?.id !== input.editingSessionId);
   if (conflictSessions.length > 0) {
-    return { ok: false, reason: alreadyHasSessionReason };
+    return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
   }
 
   const payload = {
@@ -84,12 +151,12 @@ export async function planSession(input: {
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.session_day) ?? undefined,
+    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.day_key) ?? undefined,
   };
   console.log('WRITE_SESSION_INPUT', {
     user_id: payload.user_id,
     spot_name: payload.spot_name,
-    session_day: sessionIdentity.session_day,
+    active_day: sessionIdentity.day_key,
   });
 
   let result;
@@ -115,12 +182,12 @@ export async function planSession(input: {
 
   if (result.error) {
     if (isUniqueConstraintError(result.error)) {
-      return { ok: false, reason: alreadyHasSessionReason };
+      return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
     }
-    return { ok: false, reason: 'WRITE_FAILED', error: result.error };
+    return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: result.error });
   }
 
-  return { ok: true, data: { id: result.data.id }, sessionId: result.data.id };
+  return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: true, data: { id: result.data.id }, sessionId: result.data.id });
 }
 
 export async function joinSession(input: {
@@ -134,36 +201,36 @@ export async function joinSession(input: {
   targetGroupHasVisibleRows: boolean;
   alreadyJoinedGroup: boolean;
 }): Promise<ServiceSuccess | ServiceFailure> {
+  console.log('SCHEMA_ALIGNMENT_JOIN_INPUT', input);
   if (!input.activeProfileId) {
-    return { ok: false, reason: 'NO_ACTIVE_PROFILE' };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NO_ACTIVE_PROFILE' });
   }
 
   if (input.activeDay !== 'today') {
-    return { ok: false, reason: 'NON_JOINABLE_DAY' };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NON_JOINABLE_DAY' });
   }
 
   if (!input.selectedSpot) {
-    return { ok: false, reason: 'NO_SELECTED_SPOT' };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NO_SELECTED_SPOT' });
   }
-  const sessionIdentity = normalizeSessionIdentity({
+  const sessionIdentity = getRealSchemaIdentity({
     user_id: input.activeProfileId,
     spot_name: input.selectedSpot,
-    session_day: input.dayKey,
+    day_key: input.dayKey,
   });
-  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.session_day) {
-    return { ok: false, reason: 'INVALID_SESSION_IDENTITY' };
+  if (!sessionIdentity.user_id || !sessionIdentity.spot_name || !sessionIdentity.day_key) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'INVALID_SESSION_IDENTITY' });
   }
 
-  console.log('READ_SESSION_QUERY', sessionIdentity);
-  const { data: ownSessionsFresh, error: ownSessionsFreshError } = await supabase
-    .from('sessions')
-    .select('id, user_id, spot_name, session_day')
-    .eq('user_id', sessionIdentity.user_id)
-    .eq('spot_name', sessionIdentity.spot_name)
-    .eq('session_day', sessionIdentity.session_day);
+  const { sessions: ownSessionsFresh, error: ownSessionsFreshError } = await readOwnSessionsForSpotDay({
+    userId: sessionIdentity.user_id,
+    spotName: sessionIdentity.spot_name,
+    activeDay: sessionIdentity.day_key,
+    selectedSpot: input.selectedSpot,
+  });
 
   if (ownSessionsFreshError) {
-    return { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError });
   }
 
   const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
@@ -177,9 +244,9 @@ export async function joinSession(input: {
 
   if (!joinEligibility.allowed) {
     if (joinEligibility.reason === 'ALREADY_HAS_SESSION_ON_SPOT_DAY') {
-      return { ok: false, reason: alreadyHasSessionReason };
+      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: alreadyHasSessionReason });
     }
-    return { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' });
   }
 
   const joinPayload = {
@@ -191,24 +258,24 @@ export async function joinSession(input: {
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
-    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.session_day) ?? undefined,
+    created_at: getSessionCreatedAtFromSessionDay(sessionIdentity.day_key) ?? undefined,
   };
   console.log('WRITE_SESSION_INPUT', {
     user_id: joinPayload.user_id,
     spot_name: joinPayload.spot_name,
-    session_day: sessionIdentity.session_day,
+    active_day: sessionIdentity.day_key,
   });
 
   const writeResult = await supabase.from('sessions').insert(joinPayload);
 
   if (writeResult.error) {
     if (isUniqueConstraintError(writeResult.error)) {
-      return { ok: false, reason: alreadyHasSessionReason };
+      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: alreadyHasSessionReason });
     }
-    return { ok: false, reason: 'WRITE_FAILED', error: writeResult.error };
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 
-  return { ok: true };
+  return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
 }
 
 export async function cancelSession(input: {
