@@ -1058,6 +1058,9 @@ type SessionGroup = {
 };
 
 type SessionJoinRequest = {
+  sessionId: string;
+  sessionDay: string | null;
+  sessionStatus: string | null;
   normalizedStart: string;
   normalizedEnd: string;
 };
@@ -1217,6 +1220,9 @@ function SessionRow({
                     groupEnd: group.endTime,
                   });
                   onJoin({
+                    sessionId: representative.item.id,
+                    sessionDay: representative.item.sessionDay,
+                    sessionStatus: representative.item.status ?? null,
                     normalizedStart: group.startTime,
                     normalizedEnd: group.endTime,
                   });
@@ -5614,7 +5620,7 @@ export default function App() {
   }
 
   if (selectedSpot) {
-    const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+    const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("JOIN_HANDLER_START");
       console.log("STABLE_JOIN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
@@ -5630,6 +5636,9 @@ export default function App() {
         selectedSpot,
         normalizedStart,
         normalizedEnd,
+        sessionId,
+        sessionDay,
+        sessionStatus,
         intent: resolveSessionIntent(intent),
         dayKey: activeDateKey,
         targetGroupHasVisibleRows: true,
