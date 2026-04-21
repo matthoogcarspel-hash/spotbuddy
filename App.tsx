@@ -11,7 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
-import { canJoinSlot, getOwnSessionForSpotDay } from './src/lib/sessionHelpers';
+import { canJoinSlot, getOwnSessionForSpotDay, getSelectedSpotName, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -621,7 +621,6 @@ const createSpotRecord = <T,>(spotNames: SpotName[], makeValue: () => T): Record
     result[spot] = makeValue();
     return result;
   }, {} as Record<SpotName, T>);
-const normalizeSpotName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 const normalizeDisplayName = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 const resolveSessionActorProfileId = (
   sessionItem: Pick<SpotSession, 'userId' | 'userName' | 'userOwnerUid' | 'resolvedActorProfileId'>,
@@ -1065,19 +1064,6 @@ type SessionJoinRequest = {
 
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
-const getSelectedSpotName = (spot: SpotName | null) => {
-  if (!spot) {
-    return null;
-  }
-  return (spot as { name?: string } | null)?.name ?? String(spot);
-};
-const sameSpot = (session: SpotSession, selectedSpot: SpotName | null) => {
-  const selectedSpotName = getSelectedSpotName(selectedSpot);
-  if (!selectedSpotName) {
-    return true;
-  }
-  return normalizeSpotName(session?.spot) === normalizeSpotName(selectedSpotName);
-};
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -1098,6 +1084,7 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
 type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
+  activeDay: 'today' | 'tomorrow';
   selectedSpot: SpotName | null;
   ownSessionForSpotDay: {
     ownSession: SpotSession | null;
@@ -1117,6 +1104,7 @@ type SessionRowProps = {
 function SessionRow({
   group,
   currentProfileId,
+  activeDay,
   selectedSpot,
   ownSessionForSpotDay,
   timelineWindowStartMinutes,
@@ -1154,6 +1142,16 @@ function SessionRow({
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
   const safeSessions = safeGroupSessions.map((sessionEntry) => sessionEntry.item).filter(Boolean);
   const alreadyJoinedGroup = safeSessions.some((session) => {
+    const selectedSpotName = (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null;
+    const sessionWithExtras = session as SpotSession & { spot_name?: string | null; session_day?: string | null };
+    console.log("KZVS_EXISTING_SESSION_COMPARE", {
+      sessionId: session?.id ?? null,
+      sessionSpotName: sessionWithExtras?.spot_name ?? session?.spot ?? null,
+      selectedSpotName,
+      sameSpotResult: sameSpot(session, selectedSpot),
+      sessionDay: sessionWithExtras?.session_day ?? null,
+      activeDay
+    });
     return (
       session?.user_id === activeProfileId
       && normalizeTime(session?.start_time) === group.startTime
@@ -1280,6 +1278,7 @@ type SessionTimelineProps = {
   timelineFilter: TimelineFilter;
   followingUserIds: string[];
   showNowMarker: boolean;
+  activeDay: 'today' | 'tomorrow';
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (request: SessionJoinRequest) => void;
   onClearSelection: () => void;
@@ -1297,6 +1296,7 @@ function SessionTimeline({
   timelineFilter,
   followingUserIds,
   showNowMarker,
+  activeDay,
   onSelectSession,
   onJoinSession,
   onClearSelection,
@@ -1433,6 +1433,7 @@ function SessionTimeline({
                 key={group.key}
                 group={group}
                 currentProfileId={currentProfileId}
+                activeDay={activeDay}
                 selectedSpot={selectedSpot}
                 ownSessionForSpotDay={ownSessionForSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
@@ -3706,9 +3707,14 @@ export default function App() {
       },
     [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
   );
+  console.log("KZVS_SELECTED_SPOT_DEBUG", {
+    selectedSpot,
+    selectedSpotName: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+    selectedSpotRaw: JSON.stringify(selectedSpot ?? null)
+  });
   console.log("SLICE1_OWN_SESSION_SOURCE", {
     activeProfileId: activeProfile?.id ?? null,
-    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
     activeDay,
     ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
     ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0,
@@ -6164,6 +6170,7 @@ export default function App() {
             timelineFilter={timelineFilter}
             followingUserIds={followingUserIds}
             showNowMarker={activeDay === 'today'}
+            activeDay={activeDay}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
             onClearSelection={() => setSelectedTimelineSessionId(null)}
             onJoinSession={(joinRequest) => {
