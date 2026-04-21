@@ -205,11 +205,6 @@ export async function joinSession(input: {
     },
   });
   const existingOwnSessionsForSpotDay = ownSessionForSpotDay.ownSessions;
-  console.log("KZVS_DUPLICATE_CHECK_RESULT", {
-    existingMatchCount: existingOwnSessionsForSpotDay.length,
-    matchedSessionIds: existingOwnSessionsForSpotDay.map((s) => s?.id ?? null),
-    selectedSpotName: input.selectedSpot ?? null
-  });
 
   const joinEligibility = canJoinSlot({
     activeProfileId: input.activeProfileId,
