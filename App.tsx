@@ -1197,6 +1197,12 @@ function SessionRow({
               onPress={(event) => {
                 event.stopPropagation();
                 if (representative) {
+                  console.log("JOIN_BUTTON_CLICK", {
+                    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+                    activeDay,
+                    groupStart: group.startTime,
+                    groupEnd: group.endTime
+                  });
                   console.log('GROUP_JOIN_CLICK_RESTORED', {
                     activeProfileId: activeProfileId ?? null,
                     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
@@ -5547,6 +5553,7 @@ export default function App() {
 
   if (selectedSpot) {
     const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+      console.log("JOIN_HANDLER_START");
       console.log("STABLE_JOIN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
@@ -5554,8 +5561,9 @@ export default function App() {
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
       });
+      const activeProfileId = activeProfile?.id ?? activeAppUserId ?? null;
       const input = {
-        activeProfileId: activeAppUserId ?? null,
+        activeProfileId,
         activeDay,
         selectedSpot,
         normalizedStart,
@@ -5565,14 +5573,20 @@ export default function App() {
         targetGroupHasVisibleRows: true,
         alreadyJoinedGroup: false,
       };
-      console.log("SESSION_ACTION_JOIN_CALL", input);
-      const joinResult = await joinSessionAction(input);
-      console.log("SESSION_ACTION_JOIN_RESULT", joinResult);
-      console.log("STABLE_JOIN_RESULT", joinResult);
-      if (!joinResult.ok) {
-        if (joinResult.reason !== 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
-          setSessionActionError('Session could not be joined');
-        }
+      console.log("JOIN_SERVICE_CALL_INPUT", input);
+      const result = await joinSessionAction(input);
+      console.log("JOIN_SERVICE_CALL_RESULT", result);
+      console.log("JOIN_UI_RESULT_APPLY", {
+        ok: result?.ok ?? false,
+        reason: result?.reason ?? null
+      });
+      if (!result.ok) {
+        const joinErrorMessageByReason: Record<string, string> = {
+          USER_ALREADY_HAS_SESSION_ON_SPOT_DAY: 'You already have a session on this spot today',
+          JOIN_NOT_ALLOWED: 'Join is not allowed for this session',
+          UNKNOWN_ERROR: 'Session could not be joined. Please try again.',
+        };
+        setSessionActionError(joinErrorMessageByReason[result.reason] ?? 'Session could not be joined. Please try again.');
         return;
       }
       await fetchSharedData();
@@ -5580,50 +5594,57 @@ export default function App() {
       setSelectedTimelineSessionId(null);
     };
     const handleSave = async () => {
+      console.log("PLAN_HANDLER_START");
       
       setSaveError(null);
       
-      
-
-      if (startHour === null) {
-        setFormError('Choose a start time first.');
-        return;
-      }
-
-      if (endHour === null) {
-        setFormError('Choose an end time first.');
-        return;
-      }
-
-      const startTotalMinutes = startHour * 60 + startMinute;
-      const endTotalMinutes = endHour * 60 + endMinute;
-      if (startTotalMinutes < timelineStartMinutes) {
-        setFormError('You can only plan from 08:00');
-        return;
-      }
-
-      if (endTotalMinutes > planningEndMinutes) {
-        setFormError('You cannot plan later than 22:00');
-        return;
-      }
-
-      if (endTotalMinutes <= startTotalMinutes) {
-        setFormError('End time must be later than start time');
-        return;
-      }
-
+      const startTotalMinutes = startHour === null ? null : (startHour * 60) + startMinute;
+      const endTotalMinutes = endHour === null ? null : (endHour * 60) + endMinute;
       const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
-      if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
-        
-        setFormError('Start time cannot be in the past.');
+      const validationReason = (() => {
+        if (startHour === null || endHour === null || startTotalMinutes === null || endTotalMinutes === null) {
+          return 'INVALID_TIME_RANGE';
+        }
+        if (startTotalMinutes < timelineStartMinutes || endTotalMinutes > planningEndMinutes || endTotalMinutes <= startTotalMinutes) {
+          return 'INVALID_TIME_RANGE';
+        }
+        if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
+          return 'INVALID_TIME_FOR_TODAY';
+        }
+        if (ownSessionForSpotDay?.hasOwnSession && !editingSessionId) {
+          return 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
+        }
+        return null;
+      })();
+      const isValid = validationReason === null;
+      console.log("PLAN_HANDLER_VALIDATION_RESULT", {
+        valid: isValid,
+        reason: validationReason ?? null
+      });
+      if (!isValid) {
+        if (validationReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+          setFormError('You already have a session on this spot today');
+        } else if (validationReason === 'INVALID_TIME_FOR_TODAY') {
+          setFormError('Start time cannot be in the past.');
+        } else {
+          setFormError('Please choose a valid time range.');
+        }
+        console.log("PLAN_UI_RESULT_APPLY", {
+          ok: false,
+          reason: validationReason
+        });
         return;
       }
-
+      
       const activeProfileId = activeProfile?.id ?? null;
       
       if (!activeProfileId) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
+        console.log("PLAN_UI_RESULT_APPLY", {
+          ok: false,
+          reason: 'UNKNOWN_ERROR'
+        });
         
         return;
       }
@@ -5644,11 +5665,15 @@ export default function App() {
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
       });
-      console.log("SESSION_ACTION_PLAN_CALL", input);
+      console.log("PLAN_SERVICE_CALL_INPUT", input);
       const result = await planSessionAction(input);
-      console.log("SESSION_ACTION_PLAN_RESULT", result);
-      console.log("STABLE_PLAN_RESULT", result);
+      console.log("PLAN_SERVICE_CALL_RESULT", result);
+      console.log("PLAN_UI_RESULT_APPLY", {
+        ok: result?.ok ?? false,
+        reason: result?.reason ?? null
+      });
       if (!result.ok) {
+        const mappedReason = result.reason === 'WRITE_FAILED' ? 'UNKNOWN_ERROR' : result.reason;
         if (result.reason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
           setFormError('You already have a session on this spot today');
           setSaveError({
@@ -5670,7 +5695,7 @@ export default function App() {
           details: persistenceError?.details,
           hint: persistenceError?.hint,
           code: persistenceError?.code,
-          response: result,
+          response: { ...result, reason: mappedReason },
         });
         return;
       }
@@ -6070,7 +6095,21 @@ export default function App() {
               ) : null}
 
               <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Pressable onPress={handleSave} style={{ ...primaryButtonStyle, flex: 1 }}>
+                <Pressable
+                  onPress={() => {
+                    console.log("PLAN_BUTTON_CLICK", {
+                      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+                      activeDay,
+                      startHour,
+                      startMinute,
+                      endHour,
+                      endMinute,
+                      intent
+                    });
+                    void handleSave();
+                  }}
+                  style={{ ...primaryButtonStyle, flex: 1 }}
+                >
                   <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{editingSessionId ? 'Update' : 'Save'}</Text>
                 </Pressable>
                 <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, flex: 1, backgroundColor: theme.bgElevated }}>
