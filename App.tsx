@@ -5549,7 +5549,7 @@ export default function App() {
     const joinSession = async ({ normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("STABLE_JOIN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: getSelectedSpotName(selectedSpot),
+        selectedSpot: (selectedSpot as { name?: string } | string | null)?.name ?? selectedSpot ?? null,
         activeDay,
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
@@ -5639,7 +5639,7 @@ export default function App() {
       };
       console.log("STABLE_PLAN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: getSelectedSpotName(selectedSpot),
+        selectedSpot: (selectedSpot as { name?: string } | string | null)?.name ?? selectedSpot ?? null,
         activeDay,
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
