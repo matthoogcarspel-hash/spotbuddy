@@ -3414,6 +3414,28 @@ export default function App() {
     return chosenSession;
   }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
+  const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+  const sessions = Array.isArray(selectedSpot ? sessionsBySpot[selectedSpot] : [])
+    ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
+    : [];
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const ownSessionForSpotDay = useMemo(
+    () =>
+      getOwnSessionForSpotDay({
+        sessions: safeSessions,
+        userId: activeProfile?.id,
+        spotName: getSelectedSpotName(selectedSpot),
+        dayKey: activeDayKey,
+        options: {
+          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
+        },
+      }) as {
+        ownSession: SpotSession | null;
+        hasOwnSession: boolean;
+        ownSessions: SpotSession[];
+      },
+    [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
+  );
   useEffect(() => {
     
   }, [activeDay]);
@@ -3460,9 +3482,6 @@ export default function App() {
     const resolvedIntent = resolveSessionIntent(plannedSession.intent);
     return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
-  const sessions = Array.isArray(selectedSpot ? sessionsBySpot[selectedSpot] : [])
-    ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
-    : [];
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
   const areAnySpotNotificationsEnabled =
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
@@ -3682,25 +3701,6 @@ export default function App() {
           return hourMaxMinutes >= planningNowReference.earliestStartMinutes && hourMinMinutes <= planningNowReference.latestPlanningStartMinutes;
         }),
     [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
-  );
-  const safeSessions = Array.isArray(sessions) ? sessions : [];
-  const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-  const ownSessionForSpotDay = useMemo(
-    () =>
-      getOwnSessionForSpotDay({
-        sessions: safeSessions,
-        userId: activeProfile?.id,
-        spotName: getSelectedSpotName(selectedSpot),
-        dayKey: activeDayKey,
-        options: {
-          fallbackResolver: (session) => getLocalDateKey(getSessionStartTime(session as SpotSession)),
-        },
-      }) as {
-        ownSession: SpotSession | null;
-        hasOwnSession: boolean;
-        ownSessions: SpotSession[];
-      },
-    [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
   );
   console.log("SLICE1_OWN_SESSION_SOURCE", {
     activeProfileId: activeProfile?.id ?? null,
