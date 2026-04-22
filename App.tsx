@@ -1089,6 +1089,26 @@ type SessionJoinRequest = {
   normalizedEnd: string;
 };
 
+type OwnSessionForSpotDayState = {
+  ownSession: SpotSession | null;
+  hasOwnSession: boolean;
+  ownSessions: SpotSession[];
+};
+
+type SpotDetailState = {
+  sessionsForSpot: SpotSession[];
+  ownSession: SpotSession | null;
+  hasOwnSession: boolean;
+  groupedSessions: TimelineGroupedSession[];
+  topCtaState: {
+    mode: 'plan' | 'edit';
+    hasOwnSession: boolean;
+  };
+  joinStateBySession: Record<string, { allowed: boolean; reason: string | null }>;
+  cancelTarget: SpotSession | null;
+  ownSessionForSpotDay: OwnSessionForSpotDayState;
+};
+
 const buildJoinActionInput = ({
   activeProfile,
   selectedSpot,
@@ -1308,17 +1328,77 @@ const groupTimelineSessions = ({
   return groupedSessions;
 };
 
+const buildSpotDetailState = ({
+  sessions,
+  selectedSpot,
+  activeDayKey,
+  activeProfile,
+  timelineSessions,
+  timelineFilter,
+  followingUserIds,
+}: {
+  sessions: SpotSession[];
+  selectedSpot: SpotName | null;
+  activeDayKey: string;
+  activeProfile: Profile | null;
+  timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
+  timelineFilter: TimelineFilter;
+  followingUserIds: string[];
+}): SpotDetailState => {
+  const sessionsForSpot = Array.isArray(sessions) ? sessions : [];
+  const ownSessionForSpotDay = getOwnSessionForSpotDay({
+    sessions: sessionsForSpot,
+    userId: activeProfile?.id,
+    spotName: getSelectedSpotName(selectedSpot),
+    dayKey: activeDayKey,
+  }) as OwnSessionForSpotDayState;
+  const topCtaState = getTopCtaState({ ownSessionForSpotDay });
+  const groupedSessions = groupTimelineSessions({
+    sessions: Array.isArray(timelineSessions) ? timelineSessions : [],
+    activeDayKey,
+    selectedSpot,
+    activeProfileId: activeProfile?.id ?? null,
+    buddiesMode: timelineFilter,
+    followingUserIds: Array.isArray(followingUserIds) ? followingUserIds : [],
+  });
+  const joinStateBySession = (Array.isArray(timelineSessions) ? timelineSessions : []).reduce((result, entry) => {
+    if (!entry?.item?.id) {
+      return result;
+    }
+    const joinState = getJoinState({
+      session: entry.item,
+      ownSessionForSpotDay,
+      activeDayKey,
+    });
+    result[entry.item.id] = {
+      allowed: joinState.allowed,
+      reason: joinState.reason ?? null,
+    };
+    return result;
+  }, {} as Record<string, { allowed: boolean; reason: string | null }>);
+  const ownSession = ownSessionForSpotDay.ownSession;
+  const hasOwnSession = ownSessionForSpotDay.hasOwnSession;
+
+  return {
+    sessionsForSpot,
+    ownSession,
+    hasOwnSession,
+    groupedSessions,
+    topCtaState,
+    joinStateBySession,
+    cancelTarget: ownSession,
+    ownSessionForSpotDay,
+  };
+};
+
 type SessionRowProps = {
   group: TimelineGroupedSession;
   currentProfileId: string | null | undefined;
   activeDay: 'today' | 'tomorrow';
   activeDayKey: string;
   selectedSpot: SpotName | null;
-  ownSessionForSpotDay: {
-    ownSession: SpotSession | null;
-    hasOwnSession: boolean;
-    ownSessions: SpotSession[];
-  };
+  ownSessionForSpotDay: OwnSessionForSpotDayState;
+  joinStateBySession: Record<string, { allowed: boolean; reason: string | null }>;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   isSelected: boolean;
@@ -1334,6 +1414,7 @@ function SessionRow({
   activeDayKey,
   selectedSpot,
   ownSessionForSpotDay,
+  joinStateBySession,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   isSelected,
@@ -1355,11 +1436,13 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const joinState = getJoinState({
-    session,
-    ownSessionForSpotDay,
-    activeDayKey,
-  });
+  const joinState = session?.id
+    ? joinStateBySession[session.id] ?? getJoinState({
+      session,
+      ownSessionForSpotDay,
+      activeDayKey,
+    })
+    : { allowed: false, reason: null };
   const canJoinGroup = joinState.allowed;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
@@ -1491,20 +1574,16 @@ function SessionRow({
 }
 
 type SessionTimelineProps = {
-  timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
+  groupedSessions: TimelineGroupedSession[];
+  joinStateBySession: Record<string, { allowed: boolean; reason: string | null }>;
   selectedTimelineSessionId: string | null;
   currentProfileId: string | null | undefined;
   selectedSpot: SpotName | null;
-  ownSessionForSpotDay: {
-    ownSession: SpotSession | null;
-    hasOwnSession: boolean;
-    ownSessions: SpotSession[];
-  };
+  ownSessionForSpotDay: OwnSessionForSpotDayState;
   currentLocalMinutes: number;
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
   timelineFilter: TimelineFilter;
-  followingUserIds: string[];
   showNowMarker: boolean;
   activeDay: 'today' | 'tomorrow';
   onSelectSession: (sessionId: string) => void;
@@ -1513,7 +1592,8 @@ type SessionTimelineProps = {
 };
 
 function SessionTimeline({
-  timelineSessions,
+  groupedSessions,
+  joinStateBySession,
   selectedTimelineSessionId,
   currentProfileId,
   selectedSpot,
@@ -1522,7 +1602,6 @@ function SessionTimeline({
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
   timelineFilter,
-  followingUserIds,
   showNowMarker,
   activeDay,
   onSelectSession,
@@ -1546,19 +1625,7 @@ function SessionTimeline({
     }),
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
-  const groupedSessions = useMemo(
-    () =>
-      groupTimelineSessions({
-        sessions: Array.isArray(timelineSessions) ? timelineSessions : [],
-        activeDayKey,
-        selectedSpot,
-        activeProfileId: currentProfileId,
-        buddiesMode: timelineFilter,
-        followingUserIds,
-      }),
-    [activeDayKey, currentProfileId, followingUserIds, selectedSpot, timelineFilter, timelineSessions],
-  );
-  const visibleGroups = groupedSessions;
+  const visibleGroups = Array.isArray(groupedSessions) ? groupedSessions : [];
   console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
     usingCentralGroupingAdapter: true
   });
@@ -1629,6 +1696,7 @@ function SessionTimeline({
                 activeDayKey={activeDayKey}
                 selectedSpot={selectedSpot}
                 ownSessionForSpotDay={ownSessionForSpotDay}
+                joinStateBySession={joinStateBySession}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
                 timelineWindowStartMinutes={timelineWindowStartMinutes}
                 timelineWindowEndMinutes={timelineWindowEndMinutes}
@@ -3681,19 +3749,100 @@ export default function App() {
     ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
     : [];
   const safeSessions = Array.isArray(sessions) ? sessions : [];
-  const ownSessionForSpotDay = useMemo(
+  const timelineSessions = useMemo(() => {
+    const safeTimelineSessions = Array.isArray(sessions) ? sessions : [];
+    const dedupedSessions = Array.from(new Map(safeTimelineSessions.map((item) => [item.id, item])).values());
+    const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
+      if (!isSessionOnDayKey(item, activeDayKey)) {
+        return false;
+      }
+
+      return getSessionState(item) !== 'finished';
+    });
+
+    const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
+
+    const resolvedLiveSessionIdsByUser = new Map<string, string>();
+    for (const item of visibleSessions) {
+      const isActiveCheckedInSession = Boolean(item.checkedInAt)
+        && !item.checkedOutAt
+        && (item.status === 'Is er al' || item.status === 'live')
+        && isLiveSession(item)
+        && !isSessionExpired(item);
+      if (!isActiveCheckedInSession) {
+        continue;
+      }
+      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+      if (!existingSessionId) {
+        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+        continue;
+      }
+      const existingSession = visibleSessions.find((sessionItem) => sessionItem.id === existingSessionId);
+      if (!existingSession || getSessionRecencyMs(item) > getSessionRecencyMs(existingSession)) {
+        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+      }
+    }
+
+    return visibleSessions
+      .filter((item) => {
+        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+        if (!resolvedSessionId) {
+          return true;
+        }
+        const isActiveCheckedInSession = Boolean(item.checkedInAt)
+          && !item.checkedOutAt
+          && (item.status === 'Is er al' || item.status === 'live')
+          && isLiveSession(item)
+          && !isSessionExpired(item);
+        if (!isActiveCheckedInSession) {
+          return true;
+        }
+        return item.id === resolvedSessionId;
+      })
+      .map((item) => {
+        const state = getTimelineState(item);
+        const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
+        const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
+        const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
+        const fallbackMinutes = getLocalMinutesFromIso(item.createdAt) ?? timelineStartMinutes;
+        const sortMinutes = checkedInMinutes ?? startMinutes ?? checkedOutMinutes ?? fallbackMinutes;
+
+        return {
+          item,
+          state,
+          isBuddy: followingUserIds.includes(item.userId),
+          sortMinutes,
+        };
+      })
+      .sort((a, b) => {
+        if (a.isBuddy !== b.isBuddy) {
+          return a.isBuddy ? -1 : 1;
+        }
+
+        const byStatus = getTimelineStatusOrder(a.state) - getTimelineStatusOrder(b.state);
+        if (byStatus !== 0) {
+          return byStatus;
+        }
+
+        if (a.sortMinutes !== b.sortMinutes) {
+          return a.sortMinutes - b.sortMinutes;
+        }
+
+        return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
+      });
+  }, [activeDateEnd, activeDateStart, followingUserIds, sessions, activeDayKey]);
+  const spotState = useMemo(
     () =>
-      getOwnSessionForSpotDay({
+      buildSpotDetailState({
         sessions: safeSessions,
-        userId: activeProfile?.id,
-        spotName: getSelectedSpotName(selectedSpot),
-        dayKey: activeDayKey,
-      }) as {
-        ownSession: SpotSession | null;
-        hasOwnSession: boolean;
-        ownSessions: SpotSession[];
-      },
-    [safeSessions, activeProfile?.id, selectedSpot, activeDayKey],
+        selectedSpot,
+        activeDayKey,
+        activeProfile,
+        timelineSessions,
+        timelineFilter,
+        followingUserIds,
+      }),
+    [safeSessions, selectedSpot, activeDayKey, activeProfile, timelineSessions, timelineFilter, followingUserIds],
   );
   useEffect(() => {
     
@@ -4068,9 +4217,9 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
-  const topCta = getTopCtaState({ ownSessionForSpotDay });
-  const hasOwnSessionOnSelectedSpotDay = ownSessionForSpotDay.hasOwnSession;
-  const joinedSession = ownSessionForSpotDay.ownSession;
+  const topCta = spotState.topCtaState;
+  const hasOwnSessionOnSelectedSpotDay = spotState.hasOwnSession;
+  const joinedSession = spotState.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
     joinedSession
@@ -4098,15 +4247,15 @@ export default function App() {
     renders: true
   });
   console.log("READ_MODEL_CANCEL_TARGET", {
-    ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
-    cancelTargetId: joinedSession?.id ?? null
+    ownSessionId: spotState.ownSession?.id ?? null,
+    cancelTargetId: spotState.cancelTarget?.id ?? null
   });
   useEffect(() => {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
   const handleCancelPlannedSession = async () => {
     const input = buildCancelActionInput({
-      ownSessionForSpotDay,
+      ownSessionForSpotDay: spotState.ownSessionForSpotDay,
       activeProfile,
       activeDateKey,
       availableProfiles,
@@ -4274,89 +4423,13 @@ export default function App() {
     
   }, [activeDay, filteredMessages]);
 
-  const timelineSessions = useMemo(() => {
-    const safeSessions = Array.isArray(sessions) ? sessions : [];
-    const dedupedSessions = Array.from(new Map(safeSessions.map((item) => [item.id, item])).values());
-    const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
-      if (!isSessionOnDayKey(item, activeDayKey)) {
-        return false;
-      }
-
-      return getSessionState(item) !== 'finished';
+  useEffect(() => {
+    console.log("SPOT_STATE_BUILT", {
+      hasOwnSession: spotState.hasOwnSession,
+      totalGroups: spotState.groupedSessions?.length ?? 0,
+      ownSessionId: spotState.ownSession?.id ?? null
     });
-    
-    
-    const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
-
-    const resolvedLiveSessionIdsByUser = new Map<string, string>();
-    for (const item of visibleSessions) {
-      const isActiveCheckedInSession = Boolean(item.checkedInAt)
-        && !item.checkedOutAt
-        && (item.status === 'Is er al' || item.status === 'live')
-        && isLiveSession(item)
-        && !isSessionExpired(item);
-      if (!isActiveCheckedInSession) {
-        continue;
-      }
-      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
-      if (!existingSessionId) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
-        continue;
-      }
-      const existingSession = visibleSessions.find((sessionItem) => sessionItem.id === existingSessionId);
-      if (!existingSession || getSessionRecencyMs(item) > getSessionRecencyMs(existingSession)) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
-      }
-    }
-    
-    return visibleSessions
-      .filter((item) => {
-        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
-        if (!resolvedSessionId) {
-          return true;
-        }
-        const isActiveCheckedInSession = Boolean(item.checkedInAt)
-          && !item.checkedOutAt
-          && (item.status === 'Is er al' || item.status === 'live')
-          && isLiveSession(item)
-          && !isSessionExpired(item);
-        if (!isActiveCheckedInSession) {
-          return true;
-        }
-        return item.id === resolvedSessionId;
-      })
-      .map((item) => {
-        const state = getTimelineState(item);
-        const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
-        const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
-        const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
-        const fallbackMinutes = getLocalMinutesFromIso(item.createdAt) ?? timelineStartMinutes;
-        const sortMinutes = checkedInMinutes ?? startMinutes ?? checkedOutMinutes ?? fallbackMinutes;
-
-        return {
-          item,
-          state,
-          isBuddy: followingUserIds.includes(item.userId),
-          sortMinutes,
-        };
-      })
-      .sort((a, b) => {
-        if (a.isBuddy !== b.isBuddy) {
-          return a.isBuddy ? -1 : 1;
-        }
-
-        const byStatus = getTimelineStatusOrder(a.state) - getTimelineStatusOrder(b.state);
-        if (byStatus !== 0) {
-          return byStatus;
-        }
-
-        if (a.sortMinutes !== b.sortMinutes) {
-          return a.sortMinutes - b.sortMinutes;
-        }
-
-        return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
-      });
-  }, [activeDateEnd, activeDateStart, followingUserIds, sessions]);
+  }, [spotState]);
   const selectedSpotForReadModelLogs = typeof selectedSpot === 'string'
     ? selectedSpot
     : selectedSpot?.name ?? null;
@@ -4371,10 +4444,10 @@ export default function App() {
     console.log("READ_MODEL_OWN_SESSION_SOURCE", {
       selectedSpot: selectedSpotForReadModelLogs,
       activeDayKey,
-      ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
-      ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0
+      ownSessionId: spotState.ownSession?.id ?? null,
+      ownSessionCount: spotState.ownSessionForSpotDay?.ownSessions?.length ?? 0
     });
-  }, [activeDayKey, ownSessionForSpotDay, selectedSpotForReadModelLogs]);
+  }, [activeDayKey, selectedSpotForReadModelLogs, spotState.ownSession, spotState.ownSessionForSpotDay]);
   
   
   const selectedSpotMomentumLabel = useMemo(
@@ -5828,15 +5901,16 @@ export default function App() {
   if (selectedSpot) {
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("JOIN_HANDLER_START");
-      const joinState = getJoinState({
-        session: {
-          id: sessionId,
-          sessionDay,
-          status: sessionStatus,
-        },
-        ownSessionForSpotDay,
-        activeDayKey: activeDateKey,
-      });
+      const joinState = spotState.joinStateBySession[sessionId]
+        ?? getJoinState({
+          session: {
+            id: sessionId,
+            sessionDay,
+            status: sessionStatus,
+          },
+          ownSessionForSpotDay: spotState.ownSessionForSpotDay,
+          activeDayKey: activeDateKey,
+        });
       console.log("JOIN_HANDLER_PRECHECK", {
         sessionId: sessionId ?? null,
         allowed: joinState?.allowed ?? null,
@@ -5853,8 +5927,8 @@ export default function App() {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
         activeDay,
-        hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
-        ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
+        hasOwnSession: spotState.hasOwnSession ?? false,
+        ownSessionId: spotState.ownSession?.id ?? null
       });
       console.log("JOIN_HANDLER_INPUT", {
         userId: activeProfile?.id ?? activeAppUserId ?? null,
@@ -5923,7 +5997,7 @@ export default function App() {
         if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
           return 'INVALID_TIME_FOR_TODAY';
         }
-        if (ownSessionForSpotDay?.hasOwnSession && !editingSessionId) {
+        if (spotState.hasOwnSession && !editingSessionId) {
           return 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
         }
         return null;
@@ -5975,8 +6049,8 @@ export default function App() {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
         activeDay,
-        hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
-        ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
+        hasOwnSession: spotState.hasOwnSession ?? false,
+        ownSessionId: spotState.ownSession?.id ?? null
       });
       console.log("PLAN_SERVICE_CALL_INPUT", input);
       const result = await planSessionAction(input);
@@ -6516,16 +6590,16 @@ export default function App() {
             </View>
           </View>
           <SessionTimeline
-            timelineSessions={timelineSessions}
+            groupedSessions={spotState.groupedSessions}
+            joinStateBySession={spotState.joinStateBySession}
             selectedTimelineSessionId={selectedTimelineSessionId}
             currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
-            ownSessionForSpotDay={ownSessionForSpotDay}
+            ownSessionForSpotDay={spotState.ownSessionForSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
             timelineWindowStartMinutes={timelineWindow.startMinutes}
             timelineWindowEndMinutes={timelineWindow.endMinutes}
             timelineFilter={timelineFilter}
-            followingUserIds={followingUserIds}
             showNowMarker={activeDay === 'today'}
             activeDay={activeDay}
             onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
