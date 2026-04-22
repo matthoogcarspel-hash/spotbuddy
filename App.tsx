@@ -11,6 +11,7 @@ import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Tex
 import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
+import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
 import { canJoinSlot, getDayBoundsForDayKey, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
@@ -3900,10 +3901,15 @@ export default function App() {
   const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
     const activeProfileId = activeProfile?.id ?? null;
     if (!activeProfileId) {
-      setSessionActionError('Could not cancel session');
+      setSessionActionError(getCancelErrorMessage());
       return;
     }
 
+    logSessionUiActionStart({
+      type: 'cancelSession',
+      selectedSpot,
+      activeDay,
+    });
     const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
     const input = {
       activeProfileId,
@@ -3923,8 +3929,9 @@ export default function App() {
     console.log("SESSION_ACTION_CANCEL_CALL", input);
     const result = await cancelSessionAction(input);
     console.log("SESSION_ACTION_CANCEL_RESULT", result);
+    logSessionUiActionResult('cancelSession', result);
     if (!result.ok) {
-      setSessionActionError('Could not cancel session');
+      setSessionActionError(getCancelErrorMessage());
       return;
     }
     await fetchSharedData();
@@ -5645,19 +5652,17 @@ export default function App() {
         alreadyJoinedGroup: false,
       };
       console.log("JOIN_SERVICE_CALL_INPUT", input);
+      logSessionUiActionStart({
+        type: 'joinSession',
+        selectedSpot,
+        activeDay,
+      });
       const result = await joinSessionAction(input);
       console.log("JOIN_SERVICE_CALL_RESULT", result);
-      console.log("JOIN_UI_RESULT_APPLY", {
-        ok: result?.ok ?? false,
-        reason: result?.reason ?? null
-      });
+      logSessionUiActionResult('joinSession', result);
       if (!result.ok) {
-        const joinErrorMessageByReason: Record<string, string> = {
-          USER_ALREADY_HAS_SESSION_ON_SPOT_DAY: 'You already have a session on this spot today',
-          JOIN_NOT_ALLOWED: 'Join is not allowed for this session',
-          UNKNOWN_ERROR: 'Session could not be joined. Please try again.',
-        };
-        setSessionActionError(joinErrorMessageByReason[result.reason] ?? 'Session could not be joined. Please try again.');
+        const joinReason = 'reason' in result ? result.reason : null;
+        setSessionActionError(getJoinErrorMessageByReason(joinReason));
         return;
       }
       await fetchSharedData();
@@ -5666,7 +5671,12 @@ export default function App() {
     };
     const handleSave = async () => {
       console.log("PLAN_HANDLER_START");
-      
+      logSessionUiActionStart({
+        type: 'planSession',
+        selectedSpot,
+        activeDay,
+      });
+
       setSaveError(null);
       
       const startTotalMinutes = startHour === null ? null : (startHour * 60) + startMinute;
@@ -5700,9 +5710,9 @@ export default function App() {
         } else {
           setFormError('Please choose a valid time range.');
         }
-        console.log("PLAN_UI_RESULT_APPLY", {
+        logSessionUiActionResult('planSession', {
           ok: false,
-          reason: validationReason
+          reason: validationReason,
         });
         return;
       }
@@ -5712,9 +5722,9 @@ export default function App() {
       if (!activeProfileId) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
-        console.log("PLAN_UI_RESULT_APPLY", {
+        logSessionUiActionResult('planSession', {
           ok: false,
-          reason: 'UNKNOWN_ERROR'
+          reason: 'UNKNOWN_ERROR',
         });
         
         return;
@@ -5739,13 +5749,11 @@ export default function App() {
       console.log("PLAN_SERVICE_CALL_INPUT", input);
       const result = await planSessionAction(input);
       console.log("PLAN_SERVICE_CALL_RESULT", result);
-      console.log("PLAN_UI_RESULT_APPLY", {
-        ok: result?.ok ?? false,
-        reason: result?.reason ?? null
-      });
+      logSessionUiActionResult('planSession', result);
       if (!result.ok) {
-        const mappedReason = result.reason === 'WRITE_FAILED' ? 'UNKNOWN_ERROR' : result.reason;
-        if (result.reason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+        const resultReason = 'reason' in result ? result.reason : null;
+        const mappedReason = resultReason === 'WRITE_FAILED' ? 'UNKNOWN_ERROR' : resultReason;
+        if (resultReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
           setFormError('You already have a session on this spot today');
           setSaveError({
             message: 'sessions_unique',
@@ -5754,7 +5762,7 @@ export default function App() {
           return;
         }
 
-        const persistenceError = result.error as {
+        const persistenceError = ('error' in result ? result.error : null) as {
           code?: string;
           message?: string;
           details?: string;
