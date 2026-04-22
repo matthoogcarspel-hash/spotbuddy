@@ -1066,6 +1066,35 @@ type SessionJoinRequest = {
   normalizedEnd: string;
 };
 
+const buildJoinActionInput = ({
+  activeProfile,
+  selectedSpot,
+  activeDayKey,
+  activeDay,
+  intent,
+  session,
+}: {
+  activeProfile: Profile | null;
+  selectedSpot: SpotName | null;
+  activeDayKey: string;
+  activeDay: ActiveDay;
+  intent: SessionIntent;
+  session: SessionJoinRequest;
+}) => ({
+  activeProfileId: activeProfile?.id ?? null,
+  activeDay,
+  selectedSpot,
+  normalizedStart: session.normalizedStart,
+  normalizedEnd: session.normalizedEnd,
+  sessionId: session.sessionId,
+  sessionDay: session.sessionDay,
+  sessionStatus: session.sessionStatus,
+  intent: resolveSessionIntent(intent),
+  dayKey: activeDayKey,
+  targetGroupHasVisibleRows: true,
+  alreadyJoinedGroup: false,
+});
+
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
@@ -5672,28 +5701,28 @@ export default function App() {
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
       });
-      const userId = activeProfile?.id ?? activeAppUserId ?? null;
       console.log("JOIN_HANDLER_INPUT", {
-        userId,
+        userId: activeProfile?.id ?? activeAppUserId ?? null,
         spotName: getSelectedSpotName(selectedSpot),
         sessionDay,
         startTime: normalizedStart,
         endTime: normalizedEnd
       });
-      const input = {
-        activeProfileId: userId,
-        activeDay,
+      const input = buildJoinActionInput({
+        activeProfile,
         selectedSpot,
-        normalizedStart,
-        normalizedEnd,
-        sessionId,
-        sessionDay,
-        sessionStatus,
-        intent: resolveSessionIntent(intent),
-        dayKey: activeDateKey,
-        targetGroupHasVisibleRows: true,
-        alreadyJoinedGroup: false,
-      };
+        activeDayKey: activeDateKey,
+        activeDay,
+        intent,
+        session: {
+          sessionId,
+          sessionDay,
+          sessionStatus,
+          normalizedStart,
+          normalizedEnd,
+        },
+      });
+      console.log("JOIN_INPUT_BUILT", input);
       console.log("JOIN_SERVICE_CALL_INPUT", input);
       logSessionUiActionStart({
         type: 'joinSession',
