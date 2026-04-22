@@ -4778,7 +4778,7 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
-    let writeMode: 'update' | 'insert' = 'update';
+    const writeMode: 'upsert' = 'upsert';
     const matchKeys = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
@@ -4797,35 +4797,11 @@ export default function App() {
       matchKeys,
     });
 
-    const updatePayload = {
-      session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
-      checkin_notification_mode: nextPreferences.checkin_notification_mode,
-      chat_notification_mode: nextPreferences.chat_notification_mode,
-    };
-
-    const { data: updatedRows, error: updateError } = await supabase
+    const { error } = await supabase
       .from(tableName)
-      .update(updatePayload)
-      .eq('user_id', matchKeys.user_id)
-      .eq('spot_name', matchKeys.spot_name)
-      .select('user_id');
-
-    const didUpdateExistingRow = Array.isArray(updatedRows) && updatedRows.length > 0;
-    if (!didUpdateExistingRow && !updateError) {
-      writeMode = 'insert';
-      console.log("NOTIF_SAVE_PAYLOAD_TRACE", {
-        tableName,
-        writeMode,
-        payload,
-        matchKeys,
+      .upsert(payload, {
+        onConflict: 'user_id,spot_name',
       });
-    }
-
-    const { error } = didUpdateExistingRow || updateError
-      ? { error: updateError }
-      : await supabase
-        .from(tableName)
-        .insert(payload);
 
     if (error) {
       console.log("NOTIF_SAVE_ERROR_TRACE", {
@@ -6330,11 +6306,6 @@ export default function App() {
       </View>
     ) : null;
 
-    console.log("NOTIFICATIONS_RENDER", {
-      visible: true,
-      spot: selectedSpot?.name ?? null
-    });
-
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
@@ -6347,9 +6318,6 @@ export default function App() {
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
             <Pressable
               onPress={() => {
-                console.log("NOTIFICATIONS_CLICK", {
-                  clicked: true
-                });
                 setIsNotificationPanelExpanded((prev) => !prev);
               }}
               style={{
