@@ -4229,6 +4229,8 @@ export default function App() {
   );
   
   const topCtaMode = topCta.mode;
+  const mode = spotState?.topCtaState?.mode ?? null;
+  console.log("MODE_SAFE", { mode });
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
@@ -4548,7 +4550,7 @@ export default function App() {
         .slice(0, 3),
     [activeDayKey, sessions],
   );
-  const mode: 'live' | 'upcoming' | 'empty' = checkedInUsers.length > 0
+  const nowAtSpotMode: 'live' | 'upcoming' | 'empty' = checkedInUsers.length > 0
     ? 'live'
     : upcomingSessions.length > 0
       ? 'upcoming'
@@ -6538,7 +6540,7 @@ export default function App() {
         {shouldShowNowAtSpotPanel ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
-            {mode === 'live' ? (
+            {nowAtSpotMode === 'live' ? (
               <>
                 <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 10 }}>{liveKiterCountLabel}</Text>
                 <View>
@@ -6550,7 +6552,7 @@ export default function App() {
                   ))}
                 </View>
               </>
-            ) : mode === 'upcoming' ? (
+            ) : nowAtSpotMode === 'upcoming' ? (
               <>
                 <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 10 }}>
                   {activeDay === 'today' ? 'Coming up today' : 'Coming up tomorrow'}
