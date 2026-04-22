@@ -4775,82 +4775,60 @@ export default function App() {
 
     return fallbackMessage;
   };
-  const saveSpotNotificationPreferences = async (nextPreferences: SpotNotificationPreferences, preferenceKey: 'sessionPlanning' | 'checkin' | 'chat') => {
+  const saveSpotNotificationPreferences = async (
+    nextPreferences: SpotNotificationPreferences,
+    preferenceType: 'sessionPlanning' | 'checkin' | 'chat',
+    nextValue: SpotNotificationMode,
+  ) => {
     if (!selectedSpot || !activeAppUserId) {
       return false;
     }
 
-    setSavingNotificationPreferenceKey(preferenceKey);
+    setSavingNotificationPreferenceKey(preferenceType);
     setNotificationPreferencesError('');
 
-    const payload = {
+    const tableName = 'spot_notification_preferences';
+    const writeMode = 'upsert';
+    const matchKeys = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
+    };
+    const payload = {
+      ...matchKeys,
       session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
       checkin_notification_mode: nextPreferences.checkin_notification_mode,
       chat_notification_mode: nextPreferences.chat_notification_mode,
     };
 
-    console.log("NOTIFICATION_PREF_SAVE_INPUT", {
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    console.log("NOTIF_SAVE_PAYLOAD_TRACE", {
+      tableName,
+      writeMode,
       payload,
+      matchKeys,
     });
 
-    const updatePayload = {
-      session_planning_notification_mode: payload.session_planning_notification_mode,
-      checkin_notification_mode: payload.checkin_notification_mode,
-      chat_notification_mode: payload.chat_notification_mode,
-    };
+    const { error } = await supabase
+      .from(tableName)
+      .upsert(payload, { onConflict: 'user_id,spot_name' });
 
-    const { data: updatedRows, error: updateError } = await supabase
-      .from('spot_notification_preferences')
-      .update(updatePayload)
-      .eq('user_id', payload.user_id)
-      .eq('spot_name', payload.spot_name)
-      .select('user_id');
-
-    if (updateError) {
-      console.log("NOTIFICATION_PREF_SAVE_RESULT", {
-        ok: !updateError,
-        error: updateError?.message ?? null,
-        details: updateError?.details ?? null,
-        hint: updateError?.hint ?? null,
+    if (error) {
+      console.log("NOTIF_SAVE_ERROR_TRACE", {
+        message: error?.message ?? null,
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
+        code: error?.code ?? null,
+        fullError: error ?? null,
       });
-      console.error('Failed to save notification preference:', updateError);
+      console.error('Failed to save notification preference:', error);
       setNotificationPreferencesError('Saving notification preferences failed.');
       setSavingNotificationPreferenceKey(null);
       return false;
     }
 
-    if (!updatedRows || updatedRows.length === 0) {
-      const { error: insertError } = await supabase
-        .from('spot_notification_preferences')
-        .insert(payload);
-
-      if (insertError) {
-        console.log("NOTIFICATION_PREF_SAVE_RESULT", {
-          ok: !insertError,
-          error: insertError?.message ?? null,
-          details: insertError?.details ?? null,
-          hint: insertError?.hint ?? null,
-        });
-        console.error('Failed to save notification preference:', insertError);
-        setNotificationPreferencesError('Saving notification preferences failed.');
-        setSavingNotificationPreferenceKey(null);
-        return false;
-      }
-    }
-
-    console.log("NOTIFICATION_PREF_SAVE_RESULT", {
-      ok: true,
-      error: null,
-      details: null,
-      hint: null,
-    });
-
-    console.log("NOTIFICATION_PREF_SAVE_APPLIED", {
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-      saved: true,
+    console.log("NOTIF_SAVE_SUCCESS_TRACE", {
+      ok: !error,
+      savedPreferenceType: preferenceType,
+      savedValue: nextValue,
     });
 
     setSavingNotificationPreferenceKey(null);
@@ -6413,10 +6391,17 @@ export default function App() {
                           key={`${notificationType.key}-${option.value}`}
                           disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
                           onPress={() => {
+                            const preferenceType = notificationType.key;
+                            const nextValue = option.value;
+                            console.log("NOTIF_SAVE_CLICK_TRACE", {
+                              selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+                              preferenceType,
+                              nextValue,
+                            });
                             const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = { ...previousPreferences, [notificationType.preferenceField]: option.value };
+                            const nextPreferences = { ...previousPreferences, [notificationType.preferenceField]: nextValue };
                             setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
+                            void saveSpotNotificationPreferences(nextPreferences, preferenceType, nextValue).then((didSave) => {
                               if (!didSave) {
                                 setSpotNotificationPreferences(previousPreferences);
                               }
