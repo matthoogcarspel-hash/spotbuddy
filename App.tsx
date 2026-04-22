@@ -4780,38 +4780,80 @@ export default function App() {
       return false;
     }
 
-    
     setSavingNotificationPreferenceKey(preferenceKey);
     setNotificationPreferencesError('');
-    const savePayload = {
+
+    const payload = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
       session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
       checkin_notification_mode: nextPreferences.checkin_notification_mode,
       chat_notification_mode: nextPreferences.chat_notification_mode,
     };
-    
 
-    const saveResult = await supabase
+    console.log("NOTIFICATION_PREF_SAVE_INPUT", {
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+      payload,
+    });
+
+    const updatePayload = {
+      session_planning_notification_mode: payload.session_planning_notification_mode,
+      checkin_notification_mode: payload.checkin_notification_mode,
+      chat_notification_mode: payload.chat_notification_mode,
+    };
+
+    const { data: updatedRows, error: updateError } = await supabase
       .from('spot_notification_preferences')
-      .upsert(
-        savePayload,
-        {
-          onConflict: 'user_id,spot_name',
-        },
-      );
-    const { error } = saveResult;
-    
+      .update(updatePayload)
+      .eq('user_id', payload.user_id)
+      .eq('spot_name', payload.spot_name)
+      .select('user_id');
 
-    setSavingNotificationPreferenceKey(null);
-
-    if (error) {
-      console.error('Failed to save notification preference:', error);
+    if (updateError) {
+      console.log("NOTIFICATION_PREF_SAVE_RESULT", {
+        ok: !updateError,
+        error: updateError?.message ?? null,
+        details: updateError?.details ?? null,
+        hint: updateError?.hint ?? null,
+      });
+      console.error('Failed to save notification preference:', updateError);
       setNotificationPreferencesError('Saving notification preferences failed.');
+      setSavingNotificationPreferenceKey(null);
       return false;
     }
 
-    
+    if (!updatedRows || updatedRows.length === 0) {
+      const { error: insertError } = await supabase
+        .from('spot_notification_preferences')
+        .insert(payload);
+
+      if (insertError) {
+        console.log("NOTIFICATION_PREF_SAVE_RESULT", {
+          ok: !insertError,
+          error: insertError?.message ?? null,
+          details: insertError?.details ?? null,
+          hint: insertError?.hint ?? null,
+        });
+        console.error('Failed to save notification preference:', insertError);
+        setNotificationPreferencesError('Saving notification preferences failed.');
+        setSavingNotificationPreferenceKey(null);
+        return false;
+      }
+    }
+
+    console.log("NOTIFICATION_PREF_SAVE_RESULT", {
+      ok: true,
+      error: null,
+      details: null,
+      hint: null,
+    });
+
+    console.log("NOTIFICATION_PREF_SAVE_APPLIED", {
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+      saved: true,
+    });
+
+    setSavingNotificationPreferenceKey(null);
     return true;
   };
 
