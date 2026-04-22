@@ -1076,6 +1076,11 @@ type SessionGroup = {
   sessions: SessionGroupEntry[];
 };
 
+type TimelineGroupedSession = SessionGroup & {
+  visibleSessions: SessionGroupEntry[];
+  representative: SessionGroupEntry | null;
+};
+
 type SessionJoinRequest = {
   sessionId: string;
   sessionDay: string | null;
@@ -1204,8 +1209,107 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   };
 };
 
+const getSortedVisibleGroupSessions = (entries: SessionGroupEntry[]) => {
+  const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
+  return [...entries].sort((a, b) => {
+    if (stateRank[a.state] !== stateRank[b.state]) {
+      return stateRank[a.state] - stateRank[b.state];
+    }
+    return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
+  });
+};
+
+const groupTimelineSessions = ({
+  sessions,
+  activeDayKey,
+  selectedSpot,
+  activeProfileId,
+  buddiesMode,
+  followingUserIds,
+}: {
+  sessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
+  activeDayKey: string;
+  selectedSpot: SpotName | null;
+  activeProfileId: string | null | undefined;
+  buddiesMode: TimelineFilter;
+  followingUserIds: string[];
+}) => {
+  console.log("TIMELINE_GROUP_ADAPTER_INPUT", {
+    totalSessions: sessions?.length ?? 0,
+    activeDayKey,
+    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null
+  });
+
+  const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
+  const groups = new Map<string, SessionGroup>();
+
+  for (const timelineSession of safeSessions) {
+    const {
+      startMinutes: roundedStartMinutes,
+      endMinutes: roundedEndMinutes,
+      startTime,
+      endTime,
+    } = getRoundedSessionWindow(timelineSession.item);
+    const groupKey = `${startTime}-${endTime}`;
+    const entry: SessionGroupEntry = {
+      item: timelineSession.item,
+      state: timelineSession.state,
+      isBuddy: timelineSession.isBuddy,
+      roundedStartMinutes,
+      roundedEndMinutes,
+    };
+
+    const existing = groups.get(groupKey);
+    if (!existing) {
+      groups.set(groupKey, {
+        key: groupKey,
+        startTime,
+        endTime,
+        startMinutes: roundedStartMinutes,
+        endMinutes: roundedEndMinutes,
+        sessions: [entry],
+      });
+    } else {
+      existing.sessions.push(entry);
+    }
+  }
+
+  const orderedGroups = Array.from(groups.values()).sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+  console.log('SESSION_VISIBILITY_RESTORED', {
+    rawSessionsCount: safeSessions.length,
+    groupedCount: orderedGroups.length,
+  });
+
+  const groupedSessions: TimelineGroupedSession[] = orderedGroups
+    .map((group) => {
+      const visibleSessions = getSortedVisibleGroupSessions(
+        (Array.isArray(group.sessions) ? group.sessions : []).filter(({ item }) => {
+          const normalizedActiveProfileId = activeProfileId ?? null;
+          if (item.userId === normalizedActiveProfileId) {
+            return true;
+          }
+          return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
+        }),
+      );
+      return {
+        ...group,
+        visibleSessions,
+        representative: visibleSessions[0] ?? (Array.isArray(group.sessions) ? group.sessions[0] : null) ?? null,
+      };
+    })
+    .filter((group) => group.visibleSessions.length > 0);
+
+  console.log("TIMELINE_GROUP_ADAPTER_OUTPUT", {
+    totalGroups: groupedSessions?.length ?? 0,
+    firstGroup: groupedSessions?.[0] ?? null
+  });
+
+  return groupedSessions;
+};
+
 type SessionRowProps = {
-  group: SessionGroup;
+  group: TimelineGroupedSession;
   currentProfileId: string | null | undefined;
   activeDay: 'today' | 'tomorrow';
   activeDayKey: string;
@@ -1217,8 +1321,6 @@ type SessionRowProps = {
   };
   timelineWindowStartMinutes: number;
   timelineWindowEndMinutes: number;
-  timelineFilter: TimelineFilter;
-  followingUserIds: string[];
   isSelected: boolean;
   nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
@@ -1234,8 +1336,6 @@ function SessionRow({
   ownSessionForSpotDay,
   timelineWindowStartMinutes,
   timelineWindowEndMinutes,
-  timelineFilter,
-  followingUserIds,
   isSelected,
   nearOverlapWithPrevious,
   onSelect,
@@ -1248,27 +1348,12 @@ function SessionRow({
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
 
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
-  const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
-  const safeVisibleRows = safeGroupSessions.filter(({ item }) => {
-    const activeProfileId = currentProfileId ?? null;
-    if (item.userId === activeProfileId) {
-      return true;
-    }
-    return timelineFilter === 'everyone' || safeFollowingUserIds.includes(item.userId);
-  });
+  const sortedVisibleSessions = Array.isArray(group.visibleSessions) ? group.visibleSessions : [];
   const getRiderRowName = (sessionItem: SpotSession) => {
     const rawName = typeof sessionItem.userName === 'string' ? sessionItem.userName.trim() : '';
     return rawName.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim();
   };
-  const stateRank = { live: 0, planned: 1, planned_no_check_in: 2, completed: 3 } as const;
-  const sortedVisibleSessions = [...safeVisibleRows].sort((a, b) => {
-    if (stateRank[a.state] !== stateRank[b.state]) {
-      return stateRank[a.state] - stateRank[b.state];
-    }
-    return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
-  });
-
-  const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
+  const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
   const joinState = getJoinState({
     session,
@@ -1461,59 +1546,22 @@ function SessionTimeline({
     }),
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
-  const safeSessions = useMemo(() => (Array.isArray(timelineSessions) ? timelineSessions : []), [timelineSessions]);
-  const groupedSessions = useMemo<SessionGroup[]>(() => {
-    const groups = new Map<string, SessionGroup>();
-
-    for (const timelineSession of safeSessions) {
-      const {
-        startMinutes: roundedStartMinutes,
-        endMinutes: roundedEndMinutes,
-        startTime,
-        endTime,
-      } = getRoundedSessionWindow(timelineSession.item);
-      const groupKey = `${startTime}-${endTime}`;
-      const entry: SessionGroupEntry = {
-        item: timelineSession.item,
-        state: timelineSession.state,
-        isBuddy: timelineSession.isBuddy,
-        roundedStartMinutes,
-        roundedEndMinutes,
-      };
-
-      const existing = groups.get(groupKey);
-      if (!existing) {
-        groups.set(groupKey, {
-          key: groupKey,
-          startTime,
-          endTime,
-          startMinutes: roundedStartMinutes,
-          endMinutes: roundedEndMinutes,
-          sessions: [entry],
-        });
-      } else {
-        existing.sessions.push(entry);
-      }
-    }
-
-    const orderedGroups = Array.from(groups.values()).sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
-    console.log('SESSION_VISIBILITY_RESTORED', {
-      rawSessionsCount: safeSessions.length,
-      groupedCount: orderedGroups.length,
-    });
-    return orderedGroups;
-  }, [safeSessions]);
-  const visibleGroups = useMemo(
+  const groupedSessions = useMemo(
     () =>
-      (Array.isArray(groupedSessions) ? groupedSessions : []).filter((group) =>
-        (Array.isArray(group.sessions) ? group.sessions : []).some(({ item }) => {
-          if (item.userId === currentProfileId) {
-            return true;
-          }
-          return timelineFilter === 'everyone' || followingUserIds.includes(item.userId);
-        })),
-    [currentProfileId, followingUserIds, groupedSessions, timelineFilter],
+      groupTimelineSessions({
+        sessions: Array.isArray(timelineSessions) ? timelineSessions : [],
+        activeDayKey,
+        selectedSpot,
+        activeProfileId: currentProfileId,
+        buddiesMode: timelineFilter,
+        followingUserIds,
+      }),
+    [activeDayKey, currentProfileId, followingUserIds, selectedSpot, timelineFilter, timelineSessions],
   );
+  const visibleGroups = groupedSessions;
+  console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
+    usingCentralGroupingAdapter: true
+  });
 
   useEffect(() => {
     
@@ -1582,11 +1630,9 @@ function SessionTimeline({
                 selectedSpot={selectedSpot}
                 ownSessionForSpotDay={ownSessionForSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
-              timelineWindowStartMinutes={timelineWindowStartMinutes}
-              timelineWindowEndMinutes={timelineWindowEndMinutes}
-              timelineFilter={timelineFilter}
-              followingUserIds={followingUserIds}
-              isSelected={selectedTimelineSessionId === group.key}
+                timelineWindowStartMinutes={timelineWindowStartMinutes}
+                timelineWindowEndMinutes={timelineWindowEndMinutes}
+                isSelected={selectedTimelineSessionId === group.key}
                 onSelect={onSelectSession}
                 onJoin={onJoinSession}
               />
