@@ -1,7 +1,7 @@
 import {
-  canJoinSlot,
   buildCreatedAtForDayKey,
   getDayBoundsForDayKey,
+  getJoinState,
   getOwnSessionForSpotDay,
   normalizeSessionIdentity,
   REAL_SESSION_SCHEMA_FIELDS,
@@ -275,11 +275,14 @@ export async function joinSession(input: {
     isVisibleOnTimeline: true,
   });
 
-  const joinEligibility = canJoinSlot({
-    activeProfileId: input.activeProfileId,
+  const joinEligibility = getJoinState({
+    session: {
+      id: input.sessionId,
+      sessionDay: input.sessionDay,
+      status: input.sessionStatus,
+    },
     ownSessionForSpotDay: { hasOwnSession },
-    targetGroupHasVisibleRows: input.targetGroupHasVisibleRows,
-    alreadyJoinedGroup: input.alreadyJoinedGroup,
+    activeDayKey: input.dayKey,
   });
   console.log("JOIN_PRECHECK_RESULT", {
     allowed: joinEligibility.allowed,
@@ -287,7 +290,7 @@ export async function joinSession(input: {
   });
 
   if (!joinEligibility.allowed) {
-    if (joinEligibility.reason === 'ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+    if (joinEligibility.reason === 'ALREADY_HAS_SESSION') {
       return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: alreadyHasSessionReason });
     }
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' });

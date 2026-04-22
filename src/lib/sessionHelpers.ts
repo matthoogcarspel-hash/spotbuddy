@@ -10,6 +10,7 @@ type SessionLike = {
   created_at?: string | null;
   start?: string | null;
   start_time?: string | null;
+  status?: string | null;
 };
 
 export const REAL_SESSION_SCHEMA_FIELDS = {
