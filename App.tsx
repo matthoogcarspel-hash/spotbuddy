@@ -6579,15 +6579,17 @@ export default function App() {
             <View style={{ marginTop: 12 }}>
               {orderedMessages.map((message) => (
                 (() => {
-                  const timestampSource = message?.created_at ?? message?.createdAt ?? null;
-                  const renderedTimeValue = formatToHourMinute(timestampSource);
+                  const timestampSource = message?.createdAt ?? message?.created_at ?? null;
+                  const renderedTimeValue = timestampSource ? formatToHourMinute(timestampSource) : '';
                   const renderedTime = renderedTimeValue === '--:--' ? '' : renderedTimeValue;
-                  console.log("CHAT_TIMESTAMP_SOURCE", {
+                  console.log("CHAT_TIMESTAMP_TRACE_DB_TO_UI", {
                     id: message?.id ?? null,
-                    created_at: message?.created_at ?? null,
-                    createdAt: message?.createdAt ?? null
+                    dbCreatedAt: message?.created_at ?? null,
+                    uiCreatedAt: message?.createdAt ?? null,
+                    chosenSource: message?.createdAt ?? message?.created_at ?? null
                   });
-                  console.log("CHAT_TIMESTAMP_RENDERED", {
+
+                  console.log("CHAT_TIMESTAMP_RENDER", {
                     id: message?.id ?? null,
                     renderedTime: renderedTime ?? null
                   });
