@@ -4431,16 +4431,38 @@ export default function App() {
       }),
     [activeDateEnd, activeDateStart, activeDay, messages],
   );
-  const newestFirstMessages = useMemo(
-    () =>
-      filteredMessages
+  const orderedMessages = useMemo(
+    () => {
+      const messagesWithIndex = filteredMessages.map((message, index) => ({ message, index }));
+      return messagesWithIndex
         .sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bTime - aTime;
-      }),
+          const aTime = a.message.createdAt ? new Date(a.message.createdAt).getTime() : 0;
+          const bTime = b.message.createdAt ? new Date(b.message.createdAt).getTime() : 0;
+          if (aTime !== bTime) {
+            return bTime - aTime;
+          }
+          return b.index - a.index;
+        })
+        .map(({ message }) => message);
+    },
     [filteredMessages],
   );
+  useEffect(() => {
+    console.log("CHAT_ORDER_INPUT", {
+      totalMessages: messages?.length ?? 0
+    });
+  }, [messages]);
+  useEffect(() => {
+    console.log("CHAT_ORDER_OUTPUT", {
+      orderedMessageIds: orderedMessages.map((m) => m?.id ?? null)
+    });
+  }, [orderedMessages]);
+  useEffect(() => {
+    console.log("CHAT_ORDER_TOP_MESSAGE", {
+      id: orderedMessages?.[0]?.id ?? null,
+      createdAt: orderedMessages?.[0]?.created_at ?? orderedMessages?.[0]?.createdAt ?? null
+    });
+  }, [orderedMessages]);
   useEffect(() => {
     
   }, [activeDay, filteredMessages]);
@@ -6551,9 +6573,9 @@ export default function App() {
             <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send</Text>
           </Pressable>
 
-          {newestFirstMessages.length > 0 ? (
+          {orderedMessages.length > 0 ? (
             <View style={{ marginTop: 12 }}>
-              {newestFirstMessages.map((message) => (
+              {orderedMessages.map((message) => (
                 <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
                   <Avatar uri={message.avatar_url} size={24} />
                   <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
