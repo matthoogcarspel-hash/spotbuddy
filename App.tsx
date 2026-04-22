@@ -3527,10 +3527,6 @@ export default function App() {
         return next;
       });
 
-      console.log("CHAT_STATE_AFTER_LOAD", {
-        selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-        count: messages?.length ?? 0
-      });
     };
 
     void loadMessagesForSelectedSpot();
@@ -3599,12 +3595,6 @@ export default function App() {
   useEffect(() => {
     setIsNotificationPanelExpanded(false);
   }, [selectedSpot]);
-
-  useEffect(() => {
-    console.log('NOTIFICATIONS_STATE', {
-      isOpen: isNotificationPanelExpanded,
-    });
-  }, [isNotificationPanelExpanded]);
 
   useEffect(() => {
     setCurrentLocalMinutes(getCurrentLocalMinutes());
@@ -4788,7 +4778,7 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
-    const writeMode = 'upsert';
+    let writeMode: 'update' | 'insert' = 'update';
     const matchKeys = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
@@ -4807,9 +4797,35 @@ export default function App() {
       matchKeys,
     });
 
-    const { error } = await supabase
+    const updatePayload = {
+      session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
+      checkin_notification_mode: nextPreferences.checkin_notification_mode,
+      chat_notification_mode: nextPreferences.chat_notification_mode,
+    };
+
+    const { data: updatedRows, error: updateError } = await supabase
       .from(tableName)
-      .upsert(payload, { onConflict: 'user_id,spot_name' });
+      .update(updatePayload)
+      .eq('user_id', matchKeys.user_id)
+      .eq('spot_name', matchKeys.spot_name)
+      .select('user_id');
+
+    const didUpdateExistingRow = Array.isArray(updatedRows) && updatedRows.length > 0;
+    if (!didUpdateExistingRow && !updateError) {
+      writeMode = 'insert';
+      console.log("NOTIF_SAVE_PAYLOAD_TRACE", {
+        tableName,
+        writeMode,
+        payload,
+        matchKeys,
+      });
+    }
+
+    const { error } = didUpdateExistingRow || updateError
+      ? { error: updateError }
+      : await supabase
+        .from(tableName)
+        .insert(payload);
 
     if (error) {
       console.log("NOTIF_SAVE_ERROR_TRACE", {
