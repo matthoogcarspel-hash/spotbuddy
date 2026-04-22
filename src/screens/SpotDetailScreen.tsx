@@ -67,6 +67,15 @@ export default function SpotDetailScreen({
   const [endMinute, setEndMinute] = useState(0);
   const [formError, setFormError] = useState('');
   const [messageInput, setMessageInput] = useState('');
+  const latestSession = sessions.length > 0 ? sessions[sessions.length - 1] : null;
+  const summaryStatusLabel = latestSession ? latestSession.status : 'Geen sessie';
+  const summarySupportingLine = latestSession ? `${latestSession.userName} · ${latestSession.start}–${latestSession.end}` : 'Nog geen sessie gepland';
+  const spotState: any = null;
+
+  console.log('SPOT_SUMMARY_MICRO_CLEANUP_ACTIVE', {
+    spotName: (selectedSpot as any)?.name ?? selectedSpot ?? null,
+    status: spotState?.topCtaState?.mode ?? null,
+  });
 
   const timelineConfig = useMemo(() => {
     const visibleSessions = (Array.isArray(sessions) ? sessions : [])
@@ -208,8 +217,16 @@ export default function SpotDetailScreen({
         <Text style={{ color: '#9db0c7', fontSize: 15 }}>← Back</Text>
       </Pressable>
 
-      <View style={{ backgroundColor: '#121821', borderRadius: 12, padding: 16, marginBottom: 12 }}>
-        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '700' }}>{selectedSpot}</Text>
+      <View style={{ backgroundColor: '#121821', borderRadius: 12, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 12, marginBottom: 12 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '700', flex: 1, marginRight: 10 }} numberOfLines={1}>
+            {selectedSpot}
+          </Text>
+          <View style={{ backgroundColor: '#0b0f14', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <Text style={{ color: '#9db0c7', fontSize: 12, fontWeight: '700' }}>{summaryStatusLabel}</Text>
+          </View>
+        </View>
+        <Text style={{ color: '#7f94ac', fontSize: 13, marginTop: 5 }}>{summarySupportingLine}</Text>
 
         <Pressable
           onPress={() => {
@@ -217,7 +234,7 @@ export default function SpotDetailScreen({
             setActivePicker(null);
             setFormError('');
           }}
-          style={{ marginTop: 14, backgroundColor: '#2c6cdf', borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12, alignItems: 'center' }}
+          style={{ marginTop: 10, backgroundColor: '#2c6cdf', borderRadius: 11, paddingVertical: 9, paddingHorizontal: 12, alignItems: 'center' }}
         >
           <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700' }}>Plan session</Text>
         </Pressable>
