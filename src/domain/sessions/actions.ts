@@ -3,6 +3,7 @@ import {
   getDayBoundsForDayKey,
   getJoinState,
   getOwnSessionForSpotDay,
+  isSessionBlockingOwnSession,
   normalizeSessionIdentity,
   REAL_SESSION_SCHEMA_FIELDS,
 } from '../../lib/sessionHelpers';
@@ -99,7 +100,7 @@ const readOwnSessionsForSpotDay = async (input: {
 
   const { data: rows, error } = await supabase
     .from('sessions')
-    .select('id, user_id, spot_name, created_at, start_time, end_time')
+    .select('id, user_id, spot_name, created_at, start_time, end_time, status, checked_out_at')
     .eq('user_id', input.userId)
     .eq('spot_name', input.spotName)
     .gte('created_at', dayBounds.start)
@@ -153,7 +154,9 @@ export async function planSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'OWN_SESSIONS_QUERY_FAILED', error: ownSessionsFreshError });
   }
 
-  const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : []).filter((session) => session?.id !== input.editingSessionId);
+  const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [])
+    .filter((session) => session?.id !== input.editingSessionId)
+    .filter((session) => isSessionBlockingOwnSession(session));
   if (conflictSessions.length > 0) {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
   }
@@ -267,7 +270,8 @@ export async function joinSession(input: {
   }
 
   const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-  const hasOwnSession = existingOwnSessionsForSpotDay.length > 0;
+  const blockingOwnSessionsForSpotDay = existingOwnSessionsForSpotDay.filter((session) => isSessionBlockingOwnSession(session));
+  const hasOwnSession = blockingOwnSessionsForSpotDay.length > 0;
   console.log("JOIN_ELIGIBILITY_CONTEXT", {
     hasOwnSession,
     sessionDay: input.sessionDay,

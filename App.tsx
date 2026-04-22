@@ -12,7 +12,7 @@ import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
-import { getDayBoundsForDayKey, getJoinState, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getTopCtaState, normalizeSpotName } from './src/lib/sessionHelpers';
+import { getDayBoundsForDayKey, getJoinState, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getSessionState as getCanonicalSessionState, getTopCtaState, isSessionBlockingOwnSession, normalizeSpotName } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -1096,6 +1096,9 @@ type OwnSessionForSpotDayState = {
   ownSession: SpotSession | null;
   hasOwnSession: boolean;
   ownSessions: SpotSession[];
+  blockingOwnSession?: SpotSession | null;
+  hasBlockingOwnSession?: boolean;
+  blockingOwnSessions?: SpotSession[];
 };
 
 type SpotDetailState = {
@@ -1355,7 +1358,37 @@ const buildSpotDetailState = ({
     spotName: getSelectedSpotName(selectedSpot),
     dayKey: activeDayKey,
   }) as OwnSessionForSpotDayState;
-  const topCtaState = getTopCtaState({ ownSessionForSpotDay });
+  const blockingOwnSessions = (ownSessionForSpotDay?.ownSessions ?? []).filter((session) => isSessionBlockingOwnSession(session));
+  const blockingOwnSession = blockingOwnSessions[0] ?? null;
+  const hasBlockingOwnSession = blockingOwnSessions.length > 0;
+  console.log("OWN_SESSION_BLOCKING_EVALUATION", {
+    selectedSpot: (selectedSpot as { name?: string | null } | string | null)?.name ?? selectedSpot ?? null,
+    activeDayKey,
+    ownSessionIds: ownSessionForSpotDay?.ownSessions?.map((s) => s?.id ?? null) ?? [],
+    blockingSessionIds: blockingOwnSessions?.map((s) => s?.id ?? null) ?? []
+  });
+  console.log("OWN_SESSION_STATE_TRACE", {
+    sessions: (ownSessionForSpotDay?.ownSessions ?? []).map((session) => ({
+      id: session?.id ?? null,
+      start: session?.start ?? null,
+      end: session?.end ?? null,
+      status: session?.status ?? null,
+      state: getCanonicalSessionState(session)
+    }))
+  });
+  console.log("PLAN_BLOCKING_RESULT", {
+    hasBlockingOwnSession,
+    blockingSessionId: blockingOwnSession?.id ?? null
+  });
+  const ownSessionStateForBlocking: OwnSessionForSpotDayState = {
+    ...ownSessionForSpotDay,
+    ownSession: blockingOwnSession,
+    hasOwnSession: hasBlockingOwnSession,
+    blockingOwnSession,
+    hasBlockingOwnSession,
+    blockingOwnSessions,
+  };
+  const topCtaState = getTopCtaState({ ownSessionForSpotDay: ownSessionStateForBlocking });
   const groupedSessions = groupTimelineSessions({
     sessions: Array.isArray(timelineSessions) ? timelineSessions : [],
     activeDayKey,
@@ -1370,7 +1403,7 @@ const buildSpotDetailState = ({
     }
     const joinState = getJoinState({
       session: entry.item,
-      ownSessionForSpotDay,
+      ownSessionForSpotDay: ownSessionStateForBlocking,
       activeDayKey,
     });
     result[entry.item.id] = {
@@ -1379,8 +1412,8 @@ const buildSpotDetailState = ({
     };
     return result;
   }, {} as Record<string, { allowed: boolean; reason: string | null }>);
-  const ownSession = ownSessionForSpotDay.ownSession;
-  const hasOwnSession = ownSessionForSpotDay.hasOwnSession;
+  const ownSession = blockingOwnSession;
+  const hasOwnSession = hasBlockingOwnSession;
 
   return {
     sessionsForSpot,
@@ -1390,7 +1423,7 @@ const buildSpotDetailState = ({
     topCtaState,
     joinStateBySession,
     cancelTarget: ownSession,
-    ownSessionForSpotDay,
+    ownSessionForSpotDay: ownSessionStateForBlocking,
   };
 };
 

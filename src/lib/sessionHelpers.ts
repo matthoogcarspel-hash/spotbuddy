@@ -10,7 +10,11 @@ type SessionLike = {
   created_at?: string | null;
   start?: string | null;
   start_time?: string | null;
+  end?: string | null;
+  end_time?: string | null;
   status?: string | null;
+  checkedOutAt?: string | null;
+  checked_out_at?: string | null;
 };
 
 export const REAL_SESSION_SCHEMA_FIELDS = {
@@ -119,6 +123,52 @@ export const getSessionDayKey = (session: SessionLike | null | undefined) => {
   return normalizeSessionDay(rawCreatedAt);
 };
 
+const parseSessionDateTimeForDay = (dayKey: string | null | undefined, value: string | null | undefined) => {
+  const normalizedDay = normalizeSessionDay(dayKey);
+  const normalizedValue = (value ?? '').trim();
+  if (!normalizedDay || !normalizedValue) {
+    return null;
+  }
+
+  const parsedDirect = new Date(normalizedValue);
+  if (!Number.isNaN(parsedDirect.getTime())) {
+    return parsedDirect;
+  }
+
+  const parsedLocalWithDay = new Date(`${normalizedDay}T${normalizedValue}:00`);
+  if (!Number.isNaN(parsedLocalWithDay.getTime())) {
+    return parsedLocalWithDay;
+  }
+
+  return null;
+};
+
+export const getSessionState = (session: SessionLike | null | undefined, now = new Date()) => {
+  if (!session) {
+    return 'finished' as const;
+  }
+
+  const status = typeof session.status === 'string' ? session.status.trim().toLowerCase() : '';
+  const checkedOutAt = session.checked_out_at ?? session.checkedOutAt ?? null;
+  if (checkedOutAt || status === 'finished' || status === 'uitchecken') {
+    return 'finished' as const;
+  }
+
+  const dayKey = getSessionDayKey(session);
+  const start = parseSessionDateTimeForDay(dayKey, session.start_time ?? session.start ?? null);
+  const end = parseSessionDateTimeForDay(dayKey, session.end_time ?? session.end ?? null);
+  if (end && end <= now) {
+    return 'finished' as const;
+  }
+  if (start && end && start <= now && now <= end) {
+    return 'active' as const;
+  }
+  return 'planned' as const;
+};
+
+export const isSessionBlockingOwnSession = (session: SessionLike | null | undefined, now = new Date()) =>
+  getSessionState(session, now) !== 'finished';
+
 type OwnSessionArgs = {
   sessions: SessionLike[];
   userId: string | null | undefined;
@@ -152,7 +202,7 @@ export const getOwnSessionForSpotDay = ({
 
 type CanJoinSlotArgs = {
   session: SessionLike | null | undefined;
-  ownSessionForSpotDay: { hasOwnSession?: boolean } | null | undefined;
+  ownSessionForSpotDay: { hasOwnSession?: boolean; hasBlockingOwnSession?: boolean } | null | undefined;
   activeDayKey: string | null | undefined;
 };
 
@@ -161,7 +211,8 @@ export const getJoinState = ({
   ownSessionForSpotDay,
   activeDayKey,
 }: CanJoinSlotArgs) => {
-  if (ownSessionForSpotDay?.hasOwnSession) {
+  const hasBlockingOwnSession = Boolean(ownSessionForSpotDay?.hasBlockingOwnSession ?? ownSessionForSpotDay?.hasOwnSession);
+  if (hasBlockingOwnSession) {
     return { allowed: false, reason: 'ALREADY_HAS_SESSION' as const };
   }
   if (getSessionDayKey(session) !== normalizeSessionDay(activeDayKey)) {
@@ -179,12 +230,13 @@ export const getJoinState = ({
 type TopCtaStateArgs = {
   ownSessionForSpotDay: {
     hasOwnSession?: boolean;
+    hasBlockingOwnSession?: boolean;
     ownSession?: { id?: string | null } | null;
   } | null | undefined;
 };
 
 export const getTopCtaState = ({ ownSessionForSpotDay }: TopCtaStateArgs) => {
-  const hasOwnSession = Boolean(ownSessionForSpotDay?.hasOwnSession);
+  const hasOwnSession = Boolean(ownSessionForSpotDay?.hasBlockingOwnSession ?? ownSessionForSpotDay?.hasOwnSession);
   const sessionId = ownSessionForSpotDay?.ownSession?.id ?? undefined;
 
   return {
