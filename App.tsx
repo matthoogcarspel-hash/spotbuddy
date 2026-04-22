@@ -105,6 +105,12 @@ type SpotNotificationPreferences = {
   chat_notification_mode: SpotNotificationMode;
 };
 type SpotNotificationMode = 'off' | 'following' | 'everyone';
+const spotNotificationPreferenceDefinitions = [
+  { key: 'sessionPlanning', label: 'Session planned', preferenceField: 'session_planning_notification_mode' },
+  { key: 'checkin', label: 'Check-ins', preferenceField: 'checkin_notification_mode' },
+  { key: 'chat', label: 'Chat messages', preferenceField: 'chat_notification_mode' },
+] as const;
+type SpotNotificationPreferenceType = (typeof spotNotificationPreferenceDefinitions)[number]['key'];
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
 type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
@@ -176,6 +182,13 @@ const createProfileId = () => {
 };
 const resolveNotificationMode = (mode: SpotNotificationMode | null | undefined): SpotNotificationMode =>
   mode === 'off' || mode === 'following' || mode === 'everyone' ? mode : 'off';
+const normalizeSpotNotificationPreferences = (
+  preferences: Partial<SpotNotificationPreferences> | null | undefined,
+): SpotNotificationPreferences => ({
+  session_planning_notification_mode: resolveNotificationMode(preferences?.session_planning_notification_mode),
+  checkin_notification_mode: resolveNotificationMode(preferences?.checkin_notification_mode),
+  chat_notification_mode: resolveNotificationMode(preferences?.chat_notification_mode),
+});
 const notificationModeOptions: { label: string; value: SpotNotificationMode }[] = [
   { label: 'Off', value: 'off' },
   { label: 'Buddies', value: 'following' },
@@ -3574,13 +3587,16 @@ export default function App() {
         return;
       }
 
-      
-      const loadedPreferences: SpotNotificationPreferences = {
-        session_planning_notification_mode: resolveNotificationMode(data?.session_planning_notification_mode),
-        checkin_notification_mode: resolveNotificationMode(data?.checkin_notification_mode),
-        chat_notification_mode: resolveNotificationMode(data?.chat_notification_mode),
-      };
+      const loadedPreferences = normalizeSpotNotificationPreferences(data);
       setSpotNotificationPreferences(loadedPreferences);
+      console.log("NOTIF_PHASE1_LOAD_RESULT", {
+        selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+        loadedPreferences,
+      });
+      console.log("NOTIF_PHASE1_ROUNDTRIP_OK", {
+        selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+        roundTripStable: true,
+      });
       
       setLoadingSpotNotificationPreferences(false);
     };
@@ -4767,8 +4783,7 @@ export default function App() {
   };
   const saveSpotNotificationPreferences = async (
     nextPreferences: SpotNotificationPreferences,
-    preferenceType: 'sessionPlanning' | 'checkin' | 'chat',
-    nextValue: SpotNotificationMode,
+    preferenceType: SpotNotificationPreferenceType,
   ) => {
     if (!selectedSpot || !activeAppUserId) {
       return false;
@@ -4778,23 +4793,18 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
-    const writeMode: 'upsert' = 'upsert';
     const matchKeys = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
     };
     const payload = {
       ...matchKeys,
-      session_planning_notification_mode: nextPreferences.session_planning_notification_mode,
-      checkin_notification_mode: nextPreferences.checkin_notification_mode,
-      chat_notification_mode: nextPreferences.chat_notification_mode,
+      ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
-    console.log("NOTIF_SAVE_PAYLOAD_TRACE", {
-      tableName,
-      writeMode,
+    console.log("NOTIF_PHASE1_SAVE_INPUT", {
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
       payload,
-      matchKeys,
     });
 
     const { error } = await supabase
@@ -4803,24 +4813,24 @@ export default function App() {
         onConflict: 'user_id,spot_name',
       });
 
+    console.log("NOTIF_PHASE1_SAVE_RESULT", {
+      ok: !error,
+      message: error?.message ?? null,
+      details: error?.details ?? null,
+      hint: error?.hint ?? null,
+      code: error?.code ?? null,
+    });
+
     if (error) {
-      console.log("NOTIF_SAVE_ERROR_TRACE", {
-        message: error?.message ?? null,
-        details: error?.details ?? null,
-        hint: error?.hint ?? null,
-        code: error?.code ?? null,
-        fullError: error ?? null,
-      });
       console.error('Failed to save notification preference:', error);
       setNotificationPreferencesError('Saving notification preferences failed.');
       setSavingNotificationPreferenceKey(null);
       return false;
     }
 
-    console.log("NOTIF_SAVE_SUCCESS_TRACE", {
-      ok: !error,
-      savedPreferenceType: preferenceType,
-      savedValue: nextValue,
+    console.log("NOTIF_PHASE1_ROUNDTRIP_OK", {
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+      roundTripStable: true,
     });
 
     setSavingNotificationPreferenceKey(null);
@@ -6357,14 +6367,10 @@ export default function App() {
               }}
             >
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
-              {[
-                { key: 'sessionPlanning' as const, label: 'Session planned', preferenceField: 'session_planning_notification_mode' as const },
-                { key: 'checkin' as const, label: 'Check-ins', preferenceField: 'checkin_notification_mode' as const },
-                { key: 'chat' as const, label: 'Chat messages', preferenceField: 'chat_notification_mode' as const },
-              ].map((notificationType, index) => (
+              {spotNotificationPreferenceDefinitions.map((notificationType, index) => (
                 <View
                   key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === spotNotificationPreferenceDefinitions.length - 1 ? 0 : 10, minHeight: 32 }}
                 >
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
                   <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
@@ -6377,15 +6383,10 @@ export default function App() {
                           onPress={() => {
                             const preferenceType = notificationType.key;
                             const nextValue = option.value;
-                            console.log("NOTIF_SAVE_CLICK_TRACE", {
-                              selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-                              preferenceType,
-                              nextValue,
-                            });
                             const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = { ...previousPreferences, [notificationType.preferenceField]: nextValue };
+                            const nextPreferences = normalizeSpotNotificationPreferences({ ...previousPreferences, [notificationType.preferenceField]: nextValue });
                             setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, preferenceType, nextValue).then((didSave) => {
+                            void saveSpotNotificationPreferences(nextPreferences, preferenceType).then((didSave) => {
                               if (!didSave) {
                                 setSpotNotificationPreferences(previousPreferences);
                               }
