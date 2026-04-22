@@ -46,6 +46,24 @@ type SpotSession = {
   userOwnerUid?: string | null;
   resolvedActorProfileId?: string | null;
 };
+type SessionAdapterRow = {
+  id: string;
+  status: string;
+  intent?: string | null;
+  user_id?: string | null;
+  profile_id?: string | null;
+  created_by?: string | null;
+  spot_name?: string | null;
+  start_time?: string | null;
+  end_time?: string | null;
+  created_at?: string | null;
+  checked_in_at?: string | null;
+  checked_out_at?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  owner_uid?: string | null;
+  resolved_actor_profile_id?: string | null;
+};
 type ChatMessage = {
   id: string;
   text: string;
@@ -2704,6 +2722,50 @@ export default function App() {
       checkedOutAt: autoClosedAt,
     };
   };
+  const toSpotSession = (row: SessionAdapterRow, canonicalSpotName: SpotName): SpotSession => {
+    console.log("SESSION_ADAPTER_ROW_IN", {
+      id: row?.id ?? null,
+      user_id: row?.user_id ?? null,
+      spot_name: row?.spot_name ?? null,
+      start_time: row?.start_time ?? null,
+      end_time: row?.end_time ?? null,
+      created_at: row?.created_at ?? null
+    });
+    const normalizedSession = normalizeLoadedSession({
+      id: row.id,
+      status: row.status,
+      created_at: row.created_at ?? null,
+      checked_in_at: row.checked_in_at ?? null,
+      checked_out_at: row.checked_out_at ?? null,
+    });
+    const session = {
+      id: row.id,
+      spot: canonicalSpotName,
+      sessionDay: getSessionDayKey(row),
+      start: (row.start_time ?? '').slice(0, 5),
+      end: (row.end_time ?? '').slice(0, 5),
+      status: normalizedSession.status,
+      intent: resolveSessionIntent(row.intent),
+      createdAt: row.created_at ?? null,
+      checkedInAt: normalizedSession.checkedInAt,
+      checkedOutAt: normalizedSession.checkedOutAt,
+      userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by ?? '',
+      userName: row.display_name?.trim() || 'Unknown rider',
+      userAvatarUrl: row.avatar_url ?? null,
+      userOwnerUid: row.owner_uid ?? null,
+      resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
+    };
+    console.log("SESSION_ADAPTER_ROW_OUT", {
+      id: session?.id ?? null,
+      userId: session?.userId ?? null,
+      spot: session?.spot ?? null,
+      start: session?.start ?? null,
+      end: session?.end ?? null,
+      createdAt: session?.createdAt ?? null,
+      sessionDay: session?.sessionDay ?? null
+    });
+    return session;
+  };
 
   const fetchSpotDefinitions = async () => {
     if (SUPABASE_URL && SUPABASE_ANON_KEY) {
@@ -2913,24 +2975,7 @@ export default function App() {
           continue;
         }
 
-        const normalizedSession = normalizeLoadedSession(row);
-        const mappedSession = {
-          id: row.id,
-          spot: resolvedSpotName,
-          sessionDay: getSessionDayKey(row),
-          start: row.start_time.slice(0, 5),
-          end: row.end_time.slice(0, 5),
-          status: normalizedSession.status,
-          intent: resolveSessionIntent(row.intent),
-          createdAt: row.created_at,
-          checkedInAt: normalizedSession.checkedInAt,
-          checkedOutAt: normalizedSession.checkedOutAt,
-          userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by,
-          userName: row.display_name,
-          userAvatarUrl: row.avatar_url,
-          userOwnerUid: row.owner_uid ?? null,
-          resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
-        };
+        const mappedSession = toSpotSession(row, resolvedSpotName);
         console.log("CANONICAL_SESSION_ROW", {
           id: mappedSession?.id ?? null,
           spot: mappedSession?.spot ?? null,
@@ -2941,6 +2986,9 @@ export default function App() {
         });
         nextSessionsBySpot[resolvedSpotName].push(mappedSession);
       }
+      console.log("SESSION_ADAPTER_BOUNDARY_ACTIVE", {
+        totalCanonicalSessions: Object.values(nextSessionsBySpot ?? {}).flat().length
+      });
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
       console.log('OWN_SESSION_MATCH', {
