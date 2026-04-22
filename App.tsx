@@ -6285,9 +6285,9 @@ export default function App() {
       </View>
     ) : null;
 
-    console.log("NOTIFICATIONS_MOVED_TO_SUMMARY", {
-      spotName: selectedSpot?.name ?? selectedSpot ?? null,
-      inSummary: true
+    console.log("NOTIFICATIONS_CONTROL_RENDER", {
+      inSummary: true,
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null
     });
 
     return (
@@ -6301,7 +6301,21 @@ export default function App() {
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
             <Pressable
-              onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
+              onPress={() => {
+                console.log("NOTIFICATIONS_CONTROL_CLICK", {
+                  selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+                  clicked: true
+                });
+                setIsNotificationPanelExpanded((prev) => {
+                  const next = !prev;
+                  if (next) {
+                    console.log("NOTIFICATIONS_CONTROL_RESULT", {
+                      opened: true
+                    });
+                  }
+                  return next;
+                });
+              }}
               style={{
                 borderRadius: 999,
                 borderWidth: 1,
@@ -6324,6 +6338,63 @@ export default function App() {
           {selectedSpotMomentumLabel ? (
             <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
+            </View>
+          ) : null}
+          {isNotificationPanelExpanded ? (
+            <View
+              style={{
+                marginTop: 10,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
+              {[
+                { key: 'sessionPlanning' as const, label: 'Session planned', preferenceField: 'session_planning_notification_mode' as const },
+                { key: 'checkin' as const, label: 'Check-ins', preferenceField: 'checkin_notification_mode' as const },
+                { key: 'chat' as const, label: 'Chat messages', preferenceField: 'chat_notification_mode' as const },
+              ].map((notificationType, index) => (
+                <View
+                  key={notificationType.key}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
+                    {notificationModeOptions.map((option) => {
+                      const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
+                      return (
+                        <Pressable
+                          key={`${notificationType.key}-${option.value}`}
+                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                          onPress={() => {
+                            const previousPreferences = spotNotificationPreferences;
+                            const nextPreferences = { ...previousPreferences, [notificationType.preferenceField]: option.value };
+                            setSpotNotificationPreferences(nextPreferences);
+                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
+                              if (!didSave) {
+                                setSpotNotificationPreferences(previousPreferences);
+                              }
+                            });
+                          }}
+                          style={{
+                            paddingVertical: 5,
+                            paddingHorizontal: 9,
+                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
+                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
             </View>
           ) : null}
         </View>
