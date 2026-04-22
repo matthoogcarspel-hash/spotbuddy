@@ -150,29 +150,27 @@ export const getOwnSessionForSpotDay = ({
 };
 
 type CanJoinSlotArgs = {
-  activeProfileId: string | null | undefined;
+  session: SessionLike | null | undefined;
   ownSessionForSpotDay: { hasOwnSession?: boolean } | null | undefined;
-  targetGroupHasVisibleRows: boolean;
-  alreadyJoinedGroup: boolean;
+  activeDayKey: string | null | undefined;
 };
 
-export const canJoinSlot = ({
-  activeProfileId,
+export const getJoinState = ({
+  session,
   ownSessionForSpotDay,
-  targetGroupHasVisibleRows,
-  alreadyJoinedGroup,
+  activeDayKey,
 }: CanJoinSlotArgs) => {
-  if (!activeProfileId) {
-    return { allowed: false, reason: 'NO_ACTIVE_PROFILE' };
-  }
-  if (!targetGroupHasVisibleRows) {
-    return { allowed: false, reason: 'NO_VISIBLE_ROWS' };
-  }
-  if (alreadyJoinedGroup) {
-    return { allowed: false, reason: 'ALREADY_JOINED_GROUP' };
-  }
   if (ownSessionForSpotDay?.hasOwnSession) {
-    return { allowed: false, reason: 'ALREADY_HAS_SESSION_ON_SPOT_DAY' };
+    return { allowed: false, reason: 'ALREADY_HAS_SESSION' as const };
+  }
+  if (getSessionDayKey(session) !== normalizeSessionDay(activeDayKey)) {
+    return { allowed: false, reason: 'NON_JOINABLE_DAY' as const };
+  }
+  const sessionStatus = typeof (session as { status?: unknown } | null | undefined)?.status === 'string'
+    ? ((session as { status: string }).status ?? '').trim().toLowerCase()
+    : '';
+  if (sessionStatus === 'finished' || sessionStatus === 'uitchecken') {
+    return { allowed: false, reason: 'SESSION_FINISHED' as const };
   }
   return { allowed: true, reason: null };
 };

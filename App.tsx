@@ -12,7 +12,7 @@ import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
-import { canJoinSlot, getDayBoundsForDayKey, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getTopCtaState, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
+import { getDayBoundsForDayKey, getJoinState, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getTopCtaState, normalizeSpotName } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -1067,7 +1067,6 @@ type SessionJoinRequest = {
 };
 
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
-const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
@@ -1091,6 +1090,7 @@ type SessionRowProps = {
   group: SessionGroup;
   currentProfileId: string | null | undefined;
   activeDay: 'today' | 'tomorrow';
+  activeDayKey: string;
   selectedSpot: SpotName | null;
   ownSessionForSpotDay: {
     ownSession: SpotSession | null;
@@ -1111,6 +1111,7 @@ function SessionRow({
   group,
   currentProfileId,
   activeDay,
+  activeDayKey,
   selectedSpot,
   ownSessionForSpotDay,
   timelineWindowStartMinutes,
@@ -1128,10 +1129,10 @@ function SessionRow({
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
 
-  const activeProfileId = currentProfileId ?? null;
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
   const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
   const safeVisibleRows = safeGroupSessions.filter(({ item }) => {
+    const activeProfileId = currentProfileId ?? null;
     if (item.userId === activeProfileId) {
       return true;
     }
@@ -1150,28 +1151,23 @@ function SessionRow({
   });
 
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
-  const safeSessions = safeGroupSessions.map((sessionEntry) => sessionEntry.item).filter(Boolean);
-  const alreadyJoinedGroup = safeSessions.some((session) => {
-    return (
-      session?.user_id === activeProfileId
-      && normalizeTime(session?.start_time) === group.startTime
-      && normalizeTime(session?.end_time) === group.endTime
-      && sameSpot(session, selectedSpot)
-    );
-  });
-  const joinEligibility = canJoinSlot({
-    activeProfileId,
+  const joinState = getJoinState({
+    session: representative?.item ?? null,
     ownSessionForSpotDay,
-    targetGroupHasVisibleRows: safeVisibleRows.length > 0,
-    alreadyJoinedGroup,
+    activeDayKey,
   });
-  const canJoinGroup = joinEligibility.allowed;
+  const canJoinGroup = joinState.allowed;
+  console.log("JOIN_STATE_EVALUATED", {
+    sessionId: representative?.item?.id ?? null,
+    allowed: joinState.allowed,
+    reason: joinState.reason
+  });
   console.log("STABLE_JOIN_CTA_MODE", {
     groupStart: group.startTime,
     groupEnd: group.endTime,
     hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
-    allowed: joinEligibility.allowed,
-    reason: joinEligibility.reason ?? null
+    allowed: joinState.allowed,
+    reason: joinState.reason ?? null
   });
   console.log("GROUP_HEADER_RENDER", {
     groupStart: group.startTime,
@@ -1317,6 +1313,7 @@ function SessionTimeline({
   onJoinSession,
   onClearSelection,
 }: SessionTimelineProps) {
+  const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const isCurrentTimeMarkerVisible = showNowMarker && currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
   const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
@@ -1450,6 +1447,7 @@ function SessionTimeline({
                 group={group}
                 currentProfileId={currentProfileId}
                 activeDay={activeDay}
+                activeDayKey={activeDayKey}
                 selectedSpot={selectedSpot}
                 ownSessionForSpotDay={ownSessionForSpotDay}
                 nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
