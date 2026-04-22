@@ -72,6 +72,8 @@ type ChatMessage = {
   avatar_url: string | null;
   created_at?: string | null;
   createdAt: string | null;
+  timestamp?: string | null;
+  time?: string | null;
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
 type SpotCoordinates = {
@@ -3002,6 +3004,13 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
+    const rows = messagesData;
+    console.log("CHAT_FETCH_ROW_TRACE", rows?.slice(0, 5).map((row) => ({
+      id: row?.id ?? null,
+      created_at: row?.created_at ?? null,
+      inserted_at: (row as { inserted_at?: string | null })?.inserted_at ?? null,
+      updated_at: (row as { updated_at?: string | null })?.updated_at ?? null
+    })));
     const messagesError = messagesResponse.error;
     if (!selectedSpot) {
       
@@ -4449,6 +4458,15 @@ export default function App() {
     },
     [filteredMessages],
   );
+  useEffect(() => {
+    console.log("CHAT_STATE_TRACE", (messages ?? []).slice(0, 5).map((message) => ({
+      id: message?.id ?? null,
+      created_at: message?.created_at ?? null,
+      createdAt: message?.createdAt ?? null,
+      timestamp: message?.timestamp ?? null,
+      time: message?.time ?? null
+    })));
+  }, [messages]);
   useEffect(() => {
     console.log("CHAT_ORDER_INPUT", {
       totalMessages: messages?.length ?? 0
@@ -6541,12 +6559,11 @@ export default function App() {
                 }
 
                 
-                const activeMessageDateIso = getIsoDateFromLocalDateKey(activeDateKey) ?? new Date().toISOString();
                 const payload = {
                   user_id: activeAppUserId,
                   text: messageText,
                   spot_name: selectedSpot,
-                  created_at: activeMessageDateIso,
+                  created_at: new Date().toISOString(),
                 };
                 
                 if (!activeAppUserId) {
@@ -6579,18 +6596,26 @@ export default function App() {
             <View style={{ marginTop: 12 }}>
               {orderedMessages.map((message) => (
                 (() => {
-                  const messageTimestamp = message?.createdAt ?? message?.created_at ?? null;
-                  const renderedTime = messageTimestamp ? formatToHourMinute(messageTimestamp) : '';
-                  console.log("CHAT_MESSAGE_RENDER_TRACE", {
+                  const chosenTimestampValue =
+                    message?.createdAt ??
+                    message?.created_at ??
+                    message?.timestamp ??
+                    null;
+                  const renderedTime = chosenTimestampValue
+                    ? formatToHourMinute(chosenTimestampValue)
+                    : "";
+                  console.log("CHAT_RENDER_TRACE", {
                     id: message?.id ?? null,
                     created_at: message?.created_at ?? null,
                     createdAt: message?.createdAt ?? null,
-                    chosenTimestamp: message?.createdAt ?? message?.created_at ?? null
+                    timestamp: message?.timestamp ?? null,
+                    time: message?.time ?? null
                   });
 
-                  console.log("CHAT_MESSAGE_RENDERED_TIME", {
+                  console.log("CHAT_RENDER_TIME_SOURCE", {
                     id: message?.id ?? null,
-                    renderedTime
+                    chosenValue: chosenTimestampValue ?? null,
+                    renderedTime: renderedTime ?? null
                   });
 
                   return (
