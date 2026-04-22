@@ -3432,7 +3432,79 @@ export default function App() {
       return;
     }
 
-    
+    console.log("CHAT_LOAD_TRIGGER", {
+      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+      triggered: true
+    });
+
+    let isCancelled = false;
+
+    const loadMessagesForSelectedSpot = async () => {
+      const { data, error } = await supabase
+        .from('messages')
+        .select('id, user_id, text, spot_name, created_at')
+        .eq('spot_name', selectedSpot)
+        .order('created_at', { ascending: true });
+
+      if (error) {
+        console.error('Failed to load messages:', error);
+        return;
+      }
+
+      const rows = data ?? [];
+      console.log("CHAT_FETCH_RESULT", {
+        selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+        count: rows?.length ?? 0
+      });
+
+      const messageUserIds = [...new Set(rows.map((message) => message.user_id).filter(Boolean))];
+      const { data: messageProfilesData, error: messageProfilesError } = messageUserIds.length
+        ? await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_url')
+            .in('id', messageUserIds)
+        : { data: [], error: null };
+
+      if (messageProfilesError) {
+        console.error('Failed to load message profiles:', messageProfilesError);
+        return;
+      }
+
+      if (isCancelled) {
+        return;
+      }
+
+      const profilesById = new Map((messageProfilesData ?? []).map((profile) => [profile.id, profile]));
+      const messages = rows.map((message) => {
+        const profile = message.user_id ? profilesById.get(message.user_id) : null;
+        return {
+          id: message.id,
+          text: message.text,
+          userId: message.user_id,
+          display_name: profile?.display_name?.trim() || 'Unknown rider',
+          avatar_url: profile?.avatar_url ?? null,
+          created_at: message.created_at,
+          createdAt: message.created_at,
+        };
+      });
+
+      setMessagesBySpot((previous) => {
+        const next = { ...previous };
+        next[selectedSpot] = messages;
+        return next;
+      });
+
+      console.log("CHAT_STATE_AFTER_LOAD", {
+        selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+        count: messages?.length ?? 0
+      });
+    };
+
+    void loadMessagesForSelectedSpot();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [selectedSpot]);
 
   useEffect(() => {
