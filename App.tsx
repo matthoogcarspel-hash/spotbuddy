@@ -12,7 +12,7 @@ import { uploadAvatar } from './src/lib/avatar';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
-import { canJoinSlot, getDayBoundsForDayKey, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
+import { canJoinSlot, getDayBoundsForDayKey, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getTopCtaState, normalizeSpotName, sameSpot } from './src/lib/sessionHelpers';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -3863,6 +3863,7 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
+  const topCta = getTopCtaState({ ownSessionForSpotDay });
   const hasOwnSessionOnSelectedSpotDay = ownSessionForSpotDay.hasOwnSession;
   const joinedSession = ownSessionForSpotDay.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
@@ -3873,13 +3874,17 @@ export default function App() {
     && !joinedSession.checkedOutAt,
   );
   
-  const topCtaMode = hasOwnSessionOnSelectedSpotDay ? 'edit-cancel' : 'plan';
+  const topCtaMode = topCta.mode;
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
+  console.log("TOP_CTA_STATE_DETERMINED", {
+    mode: topCta.mode,
+    hasOwnSession: topCta.hasOwnSession
+  });
   console.log("READ_MODEL_TOP_CTA_SOURCE", {
-    mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
+    mode: topCta.mode
   });
   console.log("SPOT_DETAIL_CLEANUP_SLICE_REVERTED", {
     restored: true
@@ -5970,7 +5975,7 @@ export default function App() {
               <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
             </Pressable>
           ) : null}
-          {topCtaMode === 'edit-cancel' ? (
+          {topCtaMode === 'edit' ? (
             <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable
                 disabled={!joinedSession || !canEditJoinedSession}
