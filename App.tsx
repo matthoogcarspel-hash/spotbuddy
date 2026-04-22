@@ -1866,8 +1866,9 @@ export default function App() {
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
   const [activeDay, setActiveDay] = useState<ActiveDay>('today');
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
-  const authenticatedUserId = session?.user.id ?? null;
-  const authenticatedUserEmail = normalizeEmail(session?.user.email ?? '');
+  const authUser = session?.user ?? null;
+  const authenticatedUserId = authUser?.id ?? null;
+  const authenticatedUserEmail = normalizeEmail(authUser?.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
   const normalizeSearch = (value: unknown) => {
     return String(value || '')
@@ -4793,6 +4794,7 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
+    const writeMode = 'upsert';
     const matchKeys = {
       user_id: activeAppUserId,
       spot_name: selectedSpot,
@@ -4802,9 +4804,19 @@ export default function App() {
       ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
-    console.log("NOTIF_PHASE1_SAVE_INPUT", {
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-      payload,
+    console.log("NOTIF_ACCOUNT_CONTEXT", {
+      authUserId: authUser?.id ?? null,
+      activeAppUserId: activeAppUserId ?? null,
+      activeProfileId: activeProfile?.id ?? null,
+      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
+      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null
+    });
+
+    console.log("NOTIF_SAVE_IDENTITY", {
+      userIdInPayload: payload?.user_id ?? null,
+      spotNameInPayload: payload?.spot_name ?? null,
+      writeMode,
+      matchKeys
     });
 
     const { error } = await supabase
@@ -4813,12 +4825,13 @@ export default function App() {
         onConflict: 'user_id,spot_name',
       });
 
-    console.log("NOTIF_PHASE1_SAVE_RESULT", {
+    console.log("NOTIF_SAVE_ACCOUNT_RESULT", {
+      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
       ok: !error,
       message: error?.message ?? null,
       details: error?.details ?? null,
       hint: error?.hint ?? null,
-      code: error?.code ?? null,
+      code: error?.code ?? null
     });
 
     if (error) {
