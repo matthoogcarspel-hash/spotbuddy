@@ -3878,6 +3878,25 @@ export default function App() {
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
+  const compactSpotSummary = mode === 'live'
+    ? liveKiterCountLabel
+    : mode === 'upcoming'
+      ? `${upcomingSessions.length} planned ${activeDay === 'today' ? 'today' : 'tomorrow'}`
+      : activeDay === 'today'
+        ? 'No one active right now'
+        : 'No plans for tomorrow yet';
+  console.log("SPOT_DETAIL_LAYOUT_ORDER", {
+    sections: [
+      "spot-summary",
+      "my-action",
+      "timeline",
+      "secondary-controls"
+    ]
+  });
+  console.log("SPOT_DETAIL_ACTION_STATE", {
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+    topMode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
+  });
   console.log("READ_MODEL_TOP_CTA_SOURCE", {
     mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
   });
@@ -5810,146 +5829,20 @@ export default function App() {
         {autoCheckoutBanner}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <View style={{ flex: 1, paddingRight: 12 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
-              {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
-              {selectedSpotMomentumLabel ? (
-                <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
-                </View>
-              ) : null}
-              {!isAlreadyAdded && (
-                <Pressable
-                  disabled={!canAddSelectedSpotToMySpots}
-                  onPress={() => {
-                    if (!selectedSpot) {
-                      return;
-                    }
-                    handleSpotSaveAction(selectedSpot, 'add');
-                  }}
-                  style={{
-                    marginTop: 10,
-                    alignSelf: 'flex-start',
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: theme.border,
-                    backgroundColor: theme.bgElevated,
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    opacity: canAddSelectedSpotToMySpots ? 1 : 0.45,
-                  }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
-                    Add to my spots
-                  </Text>
-                </Pressable>
-              )}
-            </View>
-            <Pressable
-              onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
-              style={{
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
-            </Pressable>
-          </View>
-
-          {isNotificationPanelExpanded ? (
-            <View
-              style={{
-                alignSelf: 'flex-end',
-                marginTop: 10,
-                width: 332,
-                maxWidth: '100%',
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-                zIndex: 20,
-                elevation: 8,
-                shadowColor: '#000000',
-                shadowOpacity: 0.35,
-                shadowRadius: 12,
-                shadowOffset: { width: 0, height: 6 },
-              }}
-            >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
-
-              {[
-                {
-                  key: 'sessionPlanning' as const,
-                  label: 'Session planned',
-                  preferenceField: 'session_planning_notification_mode' as const,
-                },
-                {
-                  key: 'checkin' as const,
-                  label: 'Check-ins',
-                  preferenceField: 'checkin_notification_mode' as const,
-                },
-                {
-                  key: 'chat' as const,
-                  label: 'Chat messages',
-                  preferenceField: 'chat_notification_mode' as const,
-                },
-              ].map((notificationType, index) => (
-                <View
-                  key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
-                    {notificationModeOptions.map((option) => {
-                      const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
-                      return (
-                        <Pressable
-                          key={`${notificationType.key}-${option.value}`}
-                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                          onPress={() => {
-                            const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = {
-                              ...previousPreferences,
-                              [notificationType.preferenceField]: option.value,
-                            };
-                            setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
-                              if (!didSave) {
-                                setSpotNotificationPreferences(previousPreferences);
-                              }
-                            });
-                          }}
-                          style={{
-                            paddingVertical: 5,
-                            paddingHorizontal: 9,
-                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
-                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
-                          }}
-                        >
-                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-
-              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT STATUS</Text>
+          <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 4 }}>{compactSpotSummary}</Text>
+          {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
+          {selectedSpotMomentumLabel ? (
+            <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+              <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
             </View>
           ) : null}
+          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 8 }}>{headerHelperText}</Text>
+        </View>
 
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 8 }}>My action</Text>
           {topCtaMode === 'plan' ? (
             <Pressable
               onPress={() => {
@@ -5965,7 +5858,7 @@ export default function App() {
             </Pressable>
           ) : null}
           {topCtaMode === 'edit-cancel' ? (
-            <View style={{ marginTop: 8, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ marginTop: 2, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable
                 disabled={!joinedSession || !canEditJoinedSession}
                 onPress={() => {
@@ -6004,9 +5897,6 @@ export default function App() {
               </Pressable>
             </View>
           ) : null}
-          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 8 }}>{headerHelperText}</Text>
-          {showForm ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>Form open</Text> : null}
-          {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
 
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
             {checkInCtaVisible ? (
@@ -6032,11 +5922,12 @@ export default function App() {
                 }}
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
+              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
               </Pressable>
             ) : null}
           </View>
 
+          {showForm ? <Text style={{ color: theme.textMuted, marginTop: 6, fontSize: 12 }}>Form open</Text> : null}
           {hasPlannedSession ? <Text style={{ color: theme.textSoft, marginTop: 6 }}>You already have an active session</Text> : null}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
@@ -6308,6 +6199,131 @@ export default function App() {
         </View>
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 }}>SECONDARY CONTROLS</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {!isAlreadyAdded ? (
+              <Pressable
+                disabled={!canAddSelectedSpotToMySpots}
+                onPress={() => {
+                  if (!selectedSpot) {
+                    return;
+                  }
+                  handleSpotSaveAction(selectedSpot, 'add');
+                }}
+                style={{
+                  alignSelf: 'flex-start',
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  backgroundColor: theme.bgElevated,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  opacity: canAddSelectedSpotToMySpots ? 1 : 0.45,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
+                  Add to my spots
+                </Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
+              style={{
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
+              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
+            </Pressable>
+          </View>
+          {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
+          {isNotificationPanelExpanded ? (
+            <View
+              style={{
+                marginTop: 10,
+                width: 332,
+                maxWidth: '100%',
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
+
+              {[
+                {
+                  key: 'sessionPlanning' as const,
+                  label: 'Session planned',
+                  preferenceField: 'session_planning_notification_mode' as const,
+                },
+                {
+                  key: 'checkin' as const,
+                  label: 'Check-ins',
+                  preferenceField: 'checkin_notification_mode' as const,
+                },
+                {
+                  key: 'chat' as const,
+                  label: 'Chat messages',
+                  preferenceField: 'chat_notification_mode' as const,
+                },
+              ].map((notificationType, index) => (
+                <View
+                  key={notificationType.key}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
+                    {notificationModeOptions.map((option) => {
+                      const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
+                      return (
+                        <Pressable
+                          key={`${notificationType.key}-${option.value}`}
+                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                          onPress={() => {
+                            const previousPreferences = spotNotificationPreferences;
+                            const nextPreferences = {
+                              ...previousPreferences,
+                              [notificationType.preferenceField]: option.value,
+                            };
+                            setSpotNotificationPreferences(nextPreferences);
+                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
+                              if (!didSave) {
+                                setSpotNotificationPreferences(previousPreferences);
+                              }
+                            });
+                          }}
+                          style={{
+                            paddingVertical: 5,
+                            paddingHorizontal: 9,
+                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
+                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+
+              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
 
           <TextInput
@@ -6378,7 +6394,6 @@ export default function App() {
             <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>No messages yet</Text>
           )}
         </View>
-
 
       </ScrollView>
     );
