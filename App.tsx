@@ -3542,7 +3542,6 @@ export default function App() {
 
   useEffect(() => {
     let isCancelled = false;
-    setIsNotificationPanelExpanded(false);
 
     const loadSpotNotificationPreferences = async () => {
       if (!selectedSpot || !activeAppUserId) {
@@ -3596,6 +3595,16 @@ export default function App() {
       isCancelled = true;
     };
   }, [selectedSpot, activeAppUserId]);
+
+  useEffect(() => {
+    setIsNotificationPanelExpanded(false);
+  }, [selectedSpot]);
+
+  useEffect(() => {
+    console.log('NOTIFICATIONS_STATE', {
+      isOpen: isNotificationPanelExpanded,
+    });
+  }, [isNotificationPanelExpanded]);
 
   useEffect(() => {
     setCurrentLocalMinutes(getCurrentLocalMinutes());
@@ -6285,9 +6294,9 @@ export default function App() {
       </View>
     ) : null;
 
-    console.log("NOTIFICATIONS_CONTROL_RENDER", {
-      inSummary: true,
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null
+    console.log("NOTIFICATIONS_RENDER", {
+      visible: true,
+      spot: selectedSpot?.name ?? null
     });
 
     return (
@@ -6302,19 +6311,10 @@ export default function App() {
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
             <Pressable
               onPress={() => {
-                console.log("NOTIFICATIONS_CONTROL_CLICK", {
-                  selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+                console.log("NOTIFICATIONS_CLICK", {
                   clicked: true
                 });
-                setIsNotificationPanelExpanded((prev) => {
-                  const next = !prev;
-                  if (next) {
-                    console.log("NOTIFICATIONS_CONTROL_RESULT", {
-                      opened: true
-                    });
-                  }
-                  return next;
-                });
+                setIsNotificationPanelExpanded((prev) => !prev);
               }}
               style={{
                 borderRadius: 999,
