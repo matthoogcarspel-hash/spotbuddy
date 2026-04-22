@@ -1069,7 +1069,7 @@ type SessionJoinRequest = {
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const normalizeTime = (value: string | null | undefined) => (typeof value === 'string' ? value.trim() : '');
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
-  (session.sessionDay ?? '') === dayKey;
+  getSessionDayKey(session) === dayKey;
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -3756,14 +3756,6 @@ export default function App() {
         }),
     [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
   );
-  console.log("SLICE1_OWN_SESSION_SOURCE", {
-    activeProfileId: activeProfile?.id ?? null,
-    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-    activeDay,
-    ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
-    ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0,
-    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false
-  });
   useEffect(() => {
     
   }, [planningNowReference]);
@@ -3873,12 +3865,6 @@ export default function App() {
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const hasOwnSessionOnSelectedSpotDay = ownSessionForSpotDay.hasOwnSession;
   const joinedSession = ownSessionForSpotDay.ownSession;
-  useEffect(() => {
-    console.log("CANCEL_TARGET_SYNC", {
-      ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
-      cancelTargetId: joinedSession?.id ?? null
-    });
-  }, [joinedSession?.id, ownSessionForSpotDay]);
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
     joinedSession
@@ -3892,8 +3878,12 @@ export default function App() {
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
-  console.log("STABLE_TOP_CTA_MODE", {
+  console.log("READ_MODEL_TOP_CTA_SOURCE", {
     mode: ownSessionForSpotDay?.hasOwnSession ? "edit-cancel" : "plan"
+  });
+  console.log("READ_MODEL_CANCEL_TARGET", {
+    ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
+    cancelTargetId: joinedSession?.id ?? null
   });
   useEffect(() => {
     
@@ -4082,13 +4072,7 @@ export default function App() {
     const safeSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
-      console.log("TIMELINE_DAY_FILTER", {
-        sessionId: item?.id ?? null,
-        sessionDay: item?.sessionDay ?? null,
-        activeDayKey,
-        included: (item?.sessionDay ?? '') === activeDayKey
-      });
-      if ((item?.sessionDay ?? '') !== activeDayKey) {
+      if (!isSessionOnDayKey(item, activeDayKey)) {
         return false;
       }
 
@@ -4167,15 +4151,24 @@ export default function App() {
         return a.item.userName.localeCompare(b.item.userName, 'nl-NL');
       });
   }, [activeDateEnd, activeDateStart, followingUserIds, sessions]);
+  const selectedSpotForReadModelLogs = typeof selectedSpot === 'string'
+    ? selectedSpot
+    : selectedSpot?.name ?? null;
   useEffect(() => {
-    console.log("OWN_SESSION_AND_TIMELINE_SYNC", {
-      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
+    console.log("READ_MODEL_TIMELINE_SOURCE", {
+      selectedSpot: selectedSpotForReadModelLogs,
       activeDayKey,
-      timelineSessionIds: timelineSessions.map((s) => s?.item?.id ?? null),
+      timelineSessionIds: timelineSessions.map((s) => s?.item?.id ?? null)
+    });
+  }, [activeDayKey, selectedSpotForReadModelLogs, timelineSessions]);
+  useEffect(() => {
+    console.log("READ_MODEL_OWN_SESSION_SOURCE", {
+      selectedSpot: selectedSpotForReadModelLogs,
+      activeDayKey,
       ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null,
       ownSessionCount: ownSessionForSpotDay?.ownSessions?.length ?? 0
     });
-  }, [activeDayKey, ownSessionForSpotDay, selectedSpot, timelineSessions]);
+  }, [activeDayKey, ownSessionForSpotDay, selectedSpotForReadModelLogs]);
   
   
   const selectedSpotMomentumLabel = useMemo(

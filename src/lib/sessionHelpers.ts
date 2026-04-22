@@ -2,6 +2,8 @@ type SessionLike = {
   id?: string | null;
   userId?: string | null;
   user_id?: string | null;
+  sessionDay?: string | null;
+  session_day?: string | null;
   spot?: string | null;
   spot_name?: string | null;
   createdAt?: string | null;
@@ -101,6 +103,14 @@ export const sameSpot = (
 };
 
 export const getSessionDayKey = (session: SessionLike | null | undefined) => {
+  const rawSessionDay = typeof session?.session_day === 'string'
+    ? session.session_day.trim()
+    : (typeof session?.sessionDay === 'string' ? session.sessionDay.trim() : '');
+  const normalizedSessionDay = normalizeSessionDay(rawSessionDay);
+  if (normalizedSessionDay) {
+    return normalizedSessionDay;
+  }
+
   const rawCreatedAt = typeof session?.created_at === 'string'
     ? session.created_at.trim()
     : (typeof session?.createdAt === 'string' ? session.createdAt.trim() : '');
