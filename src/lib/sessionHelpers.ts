@@ -176,3 +176,21 @@ export const canJoinSlot = ({
   }
   return { allowed: true, reason: null };
 };
+
+type TopCtaStateArgs = {
+  ownSessionForSpotDay: {
+    hasOwnSession?: boolean;
+    ownSession?: { id?: string | null } | null;
+  } | null | undefined;
+};
+
+export const getTopCtaState = ({ ownSessionForSpotDay }: TopCtaStateArgs) => {
+  const hasOwnSession = Boolean(ownSessionForSpotDay?.hasOwnSession);
+  const sessionId = ownSessionForSpotDay?.ownSession?.id ?? undefined;
+
+  return {
+    mode: hasOwnSession ? 'edit' as const : 'plan' as const,
+    hasOwnSession,
+    sessionId,
+  };
+};
