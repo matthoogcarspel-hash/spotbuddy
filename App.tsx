@@ -1345,7 +1345,7 @@ const buildSpotDetailState = ({
   timelineFilter: TimelineFilter;
   followingUserIds: string[];
 }): SpotDetailState => {
-  const sessionsForSpot = Array.isArray(sessions) ? sessions : [];
+  const sessionsForSpot = (Array.isArray(timelineSessions) ? timelineSessions : []).map((entry) => entry.item);
   const ownSessionForSpotDay = getOwnSessionForSpotDay({
     sessions: sessionsForSpot,
     userId: activeProfile?.id,
@@ -4235,11 +4235,33 @@ export default function App() {
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
-  const summaryNowLaterContext = mode === 'live'
+  console.log("SPOT_NOW_SUMMARY_INPUT", {
+    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    activeDayKey,
+    totalSessionsForSpot: spotState?.sessionsForSpot?.length ?? 0
+  });
+  console.log("SPOT_NOW_SUMMARY_LIVE_STATE", {
+    liveSessionIds: (spotState?.sessionsForSpot ?? [])
+      .filter((session) => {
+        return getSessionState(session) === "active";
+      })
+      .map((session) => session?.id ?? null),
+    liveCount: (spotState?.sessionsForSpot ?? []).filter((session) => {
+      return getSessionState(session) === "active";
+    }).length
+  });
+  const liveCount = (spotState?.sessionsForSpot ?? []).filter((session) => {
+    return getSessionState(session) === "active";
+  }).length;
+  const nowSummaryLabel = liveCount > 0
     ? 'Now: riders are checked in.'
     : mode === 'upcoming'
       ? 'Later: sessions are planned.'
       : 'Now: no active sessions yet.';
+  console.log("SPOT_NOW_SUMMARY_RESULT", {
+    label: nowSummaryLabel ?? null,
+    liveCount
+  });
   console.log("SPOT_DETAIL_UI_LAYOUT", {
     order: ["summary", "my-action", "timeline"]
   });
@@ -6151,7 +6173,7 @@ export default function App() {
           </View>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
           {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
-          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>{summaryNowLaterContext}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>{nowSummaryLabel}</Text>
           {selectedSpotMomentumLabel ? (
             <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
