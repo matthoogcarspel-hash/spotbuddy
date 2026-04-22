@@ -1151,12 +1151,25 @@ function SessionRow({
   });
 
   const representative = sortedVisibleSessions[0] ?? safeGroupSessions[0];
+  const session = representative?.item ?? null;
   const joinState = getJoinState({
-    session: representative?.item ?? null,
+    session,
     ownSessionForSpotDay,
     activeDayKey,
   });
   const canJoinGroup = joinState.allowed;
+  console.log("JOIN_REGRESSION_COMPARE", {
+    sessionId: session?.id ?? null,
+    sessionDay: session?.sessionDay ?? null,
+    activeDayKey,
+    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
+    joinStateAllowed: joinState?.allowed ?? null,
+    joinStateReason: joinState?.reason ?? null
+  });
+  console.log("JOIN_BUTTON_RENDER_DECISION", {
+    sessionId: session?.id ?? null,
+    rendered: !!joinState?.allowed
+  });
   console.log("JOIN_STATE_EVALUATED", {
     sessionId: representative?.item?.id ?? null,
     allowed: joinState.allowed,
@@ -5631,6 +5644,27 @@ export default function App() {
   if (selectedSpot) {
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("JOIN_HANDLER_START");
+      const joinState = getJoinState({
+        session: {
+          id: sessionId,
+          sessionDay,
+          status: sessionStatus,
+        },
+        ownSessionForSpotDay,
+        activeDayKey: activeDateKey,
+      });
+      console.log("JOIN_HANDLER_PRECHECK", {
+        sessionId: sessionId ?? null,
+        allowed: joinState?.allowed ?? null,
+        reason: joinState?.reason ?? null
+      });
+      if (!joinState.allowed) {
+        const joinReason = joinState.reason === 'ALREADY_HAS_SESSION'
+          ? 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY'
+          : joinState.reason;
+        setSessionActionError(getJoinErrorMessageByReason(joinReason));
+        return;
+      }
       console.log("STABLE_JOIN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
@@ -5661,6 +5695,10 @@ export default function App() {
       });
       const result = await joinSessionAction(input);
       console.log("JOIN_SERVICE_CALL_RESULT", result);
+      console.log("JOIN_HANDLER_RESULT_AFTER_CLICK", {
+        ok: result?.ok ?? false,
+        reason: result?.reason ?? null
+      });
       logSessionUiActionResult('joinSession', result);
       if (!result.ok) {
         const joinReason = 'reason' in result ? result.reason : null;
