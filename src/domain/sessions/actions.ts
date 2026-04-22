@@ -31,7 +31,10 @@ type ServiceSuccess<T = undefined> = T extends undefined
   : { ok: true; data: T; sessionId?: string };
 
 const isUniqueConstraintError = (error: { code?: string; message?: string } | null | undefined) =>
-  error?.code === '23505' || error?.message?.includes('sessions_one_open_per_user_idx') || false;
+  error?.code === '23505'
+  || error?.message?.includes('sessions_one_open_per_user_idx')
+  || error?.message?.includes('sessions_unique')
+  || false;
 const alreadyHasSessionReason = 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
 
 const withLoggedResult = <T extends ServiceSuccess<{ id: string }> | ServiceSuccess | ServiceFailure>(
@@ -157,6 +160,15 @@ export async function planSession(input: {
   const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [])
     .filter((session) => session?.id !== input.editingSessionId)
     .filter((session) => isSessionBlockingOwnSession(session));
+  console.log("SESSION_DUPLICATE_DB_CHECK", {
+    userId: sessionIdentity.user_id,
+    spot: sessionIdentity.spot_name,
+    dayKey: sessionIdentity.day_key,
+    existingSessions: ownSessionsFresh,
+  });
+  console.log("SESSION_DUPLICATE_FILTERED", {
+    blockingSessions: conflictSessions,
+  });
   if (conflictSessions.length > 0) {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
   }
