@@ -1095,6 +1095,44 @@ const buildJoinActionInput = ({
   alreadyJoinedGroup: false,
 });
 
+const buildCancelActionInput = ({
+  ownSessionForSpotDay,
+  activeProfile,
+  activeDateKey,
+  availableProfiles,
+}: {
+  ownSessionForSpotDay: {
+    ownSession: SpotSession | null;
+    hasOwnSession: boolean;
+    ownSessions: SpotSession[];
+  };
+  activeProfile: Profile | null;
+  activeDateKey: string;
+  availableProfiles: Profile[];
+}) => {
+  const sessionToCancel = ownSessionForSpotDay.ownSession;
+  const activeProfileId = activeProfile?.id ?? null;
+  if (!sessionToCancel || !activeProfileId) {
+    return null;
+  }
+  const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
+  return {
+    activeProfileId,
+    selectedDateKey: activeDateKey,
+    session: {
+      id: sessionToCancel.id,
+      spot: sessionToCancel.spot,
+      sessionDay: sessionToCancel.sessionDay,
+      userId: sessionToCancel.userId,
+      status: sessionToCancel.status,
+      checkedInAt: sessionToCancel.checkedInAt,
+      checkedOutAt: sessionToCancel.checkedOutAt,
+      createdAt: sessionToCancel.createdAt,
+    },
+    resolvedSessionActorProfileId,
+  };
+};
+
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
@@ -3939,9 +3977,14 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
-  const handleCancelPlannedSession = async (sessionToCancel: SpotSession) => {
-    const activeProfileId = activeProfile?.id ?? null;
-    if (!activeProfileId) {
+  const handleCancelPlannedSession = async () => {
+    const input = buildCancelActionInput({
+      ownSessionForSpotDay,
+      activeProfile,
+      activeDateKey,
+      availableProfiles,
+    });
+    if (!input) {
       setSessionActionError(getCancelErrorMessage());
       return;
     }
@@ -3951,22 +3994,7 @@ export default function App() {
       selectedSpot,
       activeDay,
     });
-    const resolvedSessionActorProfileId = resolveSessionActorProfileId(sessionToCancel, availableProfiles);
-    const input = {
-      activeProfileId,
-      selectedDateKey: activeDateKey,
-      session: {
-        id: sessionToCancel.id,
-        spot: sessionToCancel.spot,
-        sessionDay: sessionToCancel.sessionDay,
-        userId: sessionToCancel.userId,
-        status: sessionToCancel.status,
-        checkedInAt: sessionToCancel.checkedInAt,
-        checkedOutAt: sessionToCancel.checkedOutAt,
-        createdAt: sessionToCancel.createdAt,
-      },
-      resolvedSessionActorProfileId,
-    };
+    console.log("CANCEL_INPUT_BUILT", input);
     console.log("SESSION_ACTION_CANCEL_CALL", input);
     const result = await cancelSessionAction(input);
     console.log("SESSION_ACTION_CANCEL_RESULT", result);
@@ -3978,7 +4006,7 @@ export default function App() {
     await fetchSharedData();
     setSessionActionError('');
     setEditingSessionId(null);
-    if (editingSessionId === sessionToCancel.id) {
+    if (editingSessionId === input.session.id) {
       resetForm();
     }
   };
@@ -6079,7 +6107,7 @@ export default function App() {
                   if (!joinedSession || !canCancelJoinedSession) {
                     return;
                   }
-                  void handleCancelPlannedSession(joinedSession);
+                  void handleCancelPlannedSession();
                 }}
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
               >
