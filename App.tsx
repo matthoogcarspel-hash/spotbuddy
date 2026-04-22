@@ -6112,6 +6112,12 @@ export default function App() {
         <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
       </View>
     ) : null;
+
+    console.log("NOTIFICATIONS_MOVED_TO_SUMMARY", {
+      spotName: selectedSpot?.name ?? selectedSpot ?? null,
+      inSummary: true
+    });
+
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
@@ -6120,7 +6126,26 @@ export default function App() {
         {autoCheckoutBanner}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
+            <Pressable
+              onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
+              style={{
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
+              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
+            </Pressable>
+          </View>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
           {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
           <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>{summaryNowLaterContext}</Text>
@@ -6433,23 +6458,7 @@ export default function App() {
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Add to my spots</Text>
               </Pressable>
             ) : <View />}
-            <Pressable
-              onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
-              style={{
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
-            </Pressable>
+            <View />
           </View>
           {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
           <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
