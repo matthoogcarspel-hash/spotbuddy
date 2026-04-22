@@ -70,6 +70,7 @@ type ChatMessage = {
   userId: string;
   display_name: string;
   avatar_url: string | null;
+  created_at?: string | null;
   createdAt: string | null;
 };
 type PickerKey = 'startHour' | 'startMinute' | 'endHour' | 'endMinute' | null;
@@ -3173,6 +3174,7 @@ export default function App() {
           userId: row.user_id,
           display_name: row.display_name,
           avatar_url: row.avatar_url,
+          created_at: row.created_at,
           createdAt: row.created_at,
         });
       }
@@ -6576,15 +6578,32 @@ export default function App() {
           {orderedMessages.length > 0 ? (
             <View style={{ marginTop: 12 }}>
               {orderedMessages.map((message) => (
-                <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                  <Avatar uri={message.avatar_url} size={24} />
-                  <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                      {message.display_name} · {formatToHourMinute(message.createdAt)}
-                    </Text>
-                    <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
-                  </View>
-                </View>
+                (() => {
+                  const timestampSource = message?.created_at ?? message?.createdAt ?? null;
+                  const renderedTimeValue = formatToHourMinute(timestampSource);
+                  const renderedTime = renderedTimeValue === '--:--' ? '' : renderedTimeValue;
+                  console.log("CHAT_TIMESTAMP_SOURCE", {
+                    id: message?.id ?? null,
+                    created_at: message?.created_at ?? null,
+                    createdAt: message?.createdAt ?? null
+                  });
+                  console.log("CHAT_TIMESTAMP_RENDERED", {
+                    id: message?.id ?? null,
+                    renderedTime: renderedTime ?? null
+                  });
+
+                  return (
+                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <Avatar uri={message.avatar_url} size={24} />
+                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
+                          {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
+                        </Text>
+                        <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })()
               ))}
             </View>
           ) : (
