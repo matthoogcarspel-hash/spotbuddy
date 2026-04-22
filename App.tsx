@@ -1224,7 +1224,7 @@ function SessionRow({
                     groupEnd: group.endTime
                   });
                   console.log('GROUP_JOIN_CLICK_RESTORED', {
-                    activeProfileId: activeProfileId ?? null,
+                    activeProfileId: currentProfileId ?? null,
                     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
                     groupStart: group.startTime,
                     groupEnd: group.endTime,
@@ -5672,9 +5672,16 @@ export default function App() {
         hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
         ownSessionId: ownSessionForSpotDay?.ownSession?.id ?? null
       });
-      const activeProfileId = activeProfile?.id ?? activeAppUserId ?? null;
+      const userId = activeProfile?.id ?? activeAppUserId ?? null;
+      console.log("JOIN_HANDLER_INPUT", {
+        userId,
+        spotName: getSelectedSpotName(selectedSpot),
+        sessionDay,
+        startTime: normalizedStart,
+        endTime: normalizedEnd
+      });
       const input = {
-        activeProfileId,
+        activeProfileId: userId,
         activeDay,
         selectedSpot,
         normalizedStart,
