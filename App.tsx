@@ -1133,6 +1133,39 @@ const buildCancelActionInput = ({
   };
 };
 
+const buildPlanActionInput = ({
+  selectedSpot,
+  activeDayKey,
+  startHour,
+  startMinute,
+  endHour,
+  endMinute,
+  intent,
+  editingSessionId,
+  activeProfile,
+  activeDay,
+}: {
+  selectedSpot: SpotName | null;
+  activeDayKey: string;
+  startHour: number;
+  startMinute: number;
+  endHour: number;
+  endMinute: number;
+  intent: SessionIntent;
+  editingSessionId: string | null;
+  activeProfile: Profile | null;
+  activeDay: ActiveDay;
+}) => ({
+  activeProfileId: activeProfile?.id ?? null,
+  selectedSpot,
+  activeDay,
+  selectedPlanningDateKey: activeDayKey,
+  startTime: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
+  endTime: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
+  intent,
+  editingSessionId,
+});
+
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
@@ -5821,9 +5854,7 @@ export default function App() {
         return;
       }
       
-      const activeProfileId = activeProfile?.id ?? null;
-      
-      if (!activeProfileId) {
+      if (!activeProfile?.id) {
         setFormError('Planning the session failed. Please try again.');
         setSaveError({ message: 'missing_auth_or_profile' });
         logSessionUiActionResult('planSession', {
@@ -5833,16 +5864,19 @@ export default function App() {
         
         return;
       }
-      const input = {
-        activeProfileId,
+      const input = buildPlanActionInput({
         selectedSpot,
-        activeDay,
-        selectedPlanningDateKey,
-        startTime: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
-        endTime: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
+        activeDayKey: selectedPlanningDateKey,
+        startHour,
+        startMinute,
+        endHour,
+        endMinute,
         intent,
         editingSessionId,
-      };
+        activeProfile,
+        activeDay,
+      });
+      console.log("PLAN_INPUT_BUILT", input);
       console.log("STABLE_PLAN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
