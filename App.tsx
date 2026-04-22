@@ -4241,7 +4241,10 @@ export default function App() {
       ? 'Later: sessions are planned.'
       : 'Now: no active sessions yet.';
   console.log("SPOT_DETAIL_UI_LAYOUT", {
-    order: ["summary", "my-action", "timeline", "secondary"]
+    order: ["summary", "my-action", "timeline"]
+  });
+  console.log("SECONDARY_CONTROLS_REMOVED", {
+    removed: true
   });
   console.log("SPOT_DETAIL_UI_ACTION_BLOCK", {
     hasOwnSession: spotState?.hasOwnSession ?? false,
@@ -6429,119 +6432,6 @@ export default function App() {
               <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>
                 Status: {getTimelineLabel(selectedTimelineSession.state, false)}
               </Text>
-            </View>
-          ) : null}
-        </View>
-
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 }}>SECONDARY CONTROLS</Text>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-            {!isAlreadyAdded ? (
-              <Pressable
-                disabled={!canAddSelectedSpotToMySpots}
-                onPress={() => {
-                  if (!selectedSpot) {
-                    return;
-                  }
-                  handleSpotSaveAction(selectedSpot, 'add');
-                }}
-                style={{
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  borderColor: theme.border,
-                  backgroundColor: theme.bgElevated,
-                  paddingHorizontal: 12,
-                  paddingVertical: 6,
-                  opacity: canAddSelectedSpotToMySpots ? 1 : 0.45,
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Add to my spots</Text>
-              </Pressable>
-            ) : <View />}
-            <View />
-          </View>
-          {homeSpotsLimitMessage && !isSelectedSpotSaved ? <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text> : null}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 }}>
-            {checkInCtaVisible ? (
-              <Pressable
-                disabled={!canCheckIn}
-                onPress={() => {
-                  void handleUpdateSessionStatus('Is er al');
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#15803d', opacity: canCheckIn ? 1 : 0.45 }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check in</Text>
-              </Pressable>
-            ) : null}
-            {shouldShowSpotCheckOut ? (
-              <Pressable
-                disabled={!canCheckOut}
-                onPress={() => {
-                  void handleUpdateSessionStatus('Uitchecken');
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#7c2d12', opacity: canCheckOut ? 1 : 0.45 }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Check out</Text>
-              </Pressable>
-            ) : null}
-          </View>
-          {hasPlannedSession ? <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 6 }}>You already have an active session</Text> : null}
-
-          {isNotificationPanelExpanded ? (
-            <View
-              style={{
-                marginTop: 10,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-              }}
-            >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
-              {[
-                { key: 'sessionPlanning' as const, label: 'Session planned', preferenceField: 'session_planning_notification_mode' as const },
-                { key: 'checkin' as const, label: 'Check-ins', preferenceField: 'checkin_notification_mode' as const },
-                { key: 'chat' as const, label: 'Chat messages', preferenceField: 'chat_notification_mode' as const },
-              ].map((notificationType, index) => (
-                <View
-                  key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === 2 ? 0 : 10, minHeight: 32 }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
-                    {notificationModeOptions.map((option) => {
-                      const isSelected = spotNotificationPreferences[notificationType.preferenceField] === option.value;
-                      return (
-                        <Pressable
-                          key={`${notificationType.key}-${option.value}`}
-                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                          onPress={() => {
-                            const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = { ...previousPreferences, [notificationType.preferenceField]: option.value };
-                            setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, notificationType.key).then((didSave) => {
-                              if (!didSave) {
-                                setSpotNotificationPreferences(previousPreferences);
-                              }
-                            });
-                          }}
-                          style={{
-                            paddingVertical: 5,
-                            paddingHorizontal: 9,
-                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
-                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
-                          }}
-                        >
-                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
             </View>
           ) : null}
         </View>
