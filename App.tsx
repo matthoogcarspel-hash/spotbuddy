@@ -3590,13 +3590,9 @@ export default function App() {
 
       const loadedPreferences = normalizeSpotNotificationPreferences(data);
       setSpotNotificationPreferences(loadedPreferences);
-      console.log("NOTIF_PHASE1_LOAD_RESULT", {
-        selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-        loadedPreferences,
-      });
-      console.log("NOTIF_PHASE1_ROUNDTRIP_OK", {
-        selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-        roundTripStable: true,
+      console.log("NOTIF_ACCOUNT_DIAG_READBACK", {
+        activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
+        loadedPreferences
       });
       
       setLoadingSpotNotificationPreferences(false);
@@ -4804,7 +4800,7 @@ export default function App() {
       ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
-    console.log("NOTIF_ACCOUNT_CONTEXT", {
+    console.log("NOTIF_ACCOUNT_DIAG_CONTEXT", {
       authUserId: authUser?.id ?? null,
       activeAppUserId: activeAppUserId ?? null,
       activeProfileId: activeProfile?.id ?? null,
@@ -4812,26 +4808,35 @@ export default function App() {
       selectedSpot: selectedSpot?.name ?? selectedSpot ?? null
     });
 
-    console.log("NOTIF_SAVE_IDENTITY", {
-      userIdInPayload: payload?.user_id ?? null,
-      spotNameInPayload: payload?.spot_name ?? null,
+    const onConflictKeys = "user_id,spot_name";
+    console.log("NOTIF_ACCOUNT_DIAG_SAVE", {
+      payload,
       writeMode,
+      onConflictKeys,
       matchKeys
     });
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from(tableName)
       .upsert(payload, {
-        onConflict: 'user_id,spot_name',
-      });
+        onConflict: onConflictKeys,
+      })
+      .select(`
+        user_id,
+        spot_name,
+        session_planning_notification_mode,
+        checkin_notification_mode,
+        chat_notification_mode
+      `);
 
-    console.log("NOTIF_SAVE_ACCOUNT_RESULT", {
+    console.log("NOTIF_ACCOUNT_DIAG_RESULT", {
       activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
       ok: !error,
       message: error?.message ?? null,
       details: error?.details ?? null,
       hint: error?.hint ?? null,
-      code: error?.code ?? null
+      code: error?.code ?? null,
+      data: data ?? null
     });
 
     if (error) {
@@ -4840,6 +4845,23 @@ export default function App() {
       setSavingNotificationPreferenceKey(null);
       return false;
     }
+
+    const { data: readbackData } = await supabase
+      .from(tableName)
+      .select(`
+        session_planning_notification_mode,
+        checkin_notification_mode,
+        chat_notification_mode
+      `)
+      .eq('user_id', activeAppUserId)
+      .eq('spot_name', selectedSpot)
+      .maybeSingle();
+
+    const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
+    console.log("NOTIF_ACCOUNT_DIAG_READBACK", {
+      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
+      loadedPreferences
+    });
 
     console.log("NOTIF_PHASE1_ROUNDTRIP_OK", {
       selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
