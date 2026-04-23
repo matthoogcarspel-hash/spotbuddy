@@ -333,6 +333,43 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 
+  console.log("JOIN_EVENT_TRIGGERED", {
+    sessionId: input.sessionId,
+    joinedUserId: sessionIdentity.user_id,
+  });
+
+  const { data: session } = await supabase
+    .from('sessions')
+    .select('user_id')
+    .eq('id', input.sessionId)
+    .maybeSingle();
+  const sessionOwnerId = session?.user_id;
+
+  if (!sessionOwnerId || sessionOwnerId === sessionIdentity.user_id) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
+  }
+
+  const { data: pref } = await supabase
+    .from('spot_notification_preferences')
+    .select('session_joined_notification_mode')
+    .eq('user_id', sessionOwnerId)
+    .eq('spot_name', sessionIdentity.spot_name)
+    .maybeSingle();
+
+  const mode = pref?.session_joined_notification_mode ?? 'off';
+
+  console.log("JOIN_NOTIFICATION_CHECK", {
+    sessionOwnerId,
+    mode,
+  });
+
+  if (mode !== 'off') {
+    console.log("SEND_NOTIFICATION_TO_OWNER", {
+      sessionOwnerId,
+      sessionId: input.sessionId,
+    });
+  }
+
   return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
 }
 
