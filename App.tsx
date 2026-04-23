@@ -4800,16 +4800,15 @@ export default function App() {
       ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
-    console.log("NOTIF_ACCOUNT_DIAG_CONTEXT", {
+    console.log("NOTIF_403_AUTH_CONTEXT", {
       authUserId: authUser?.id ?? null,
       activeAppUserId: activeAppUserId ?? null,
       activeProfileId: activeProfile?.id ?? null,
-      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
       selectedSpot: selectedSpot?.name ?? selectedSpot ?? null
     });
 
     const onConflictKeys = "user_id,spot_name";
-    console.log("NOTIF_ACCOUNT_DIAG_SAVE", {
+    console.log("NOTIF_403_SAVE_REQUEST", {
       payload,
       writeMode,
       onConflictKeys,
@@ -4829,17 +4828,14 @@ export default function App() {
         chat_notification_mode
       `);
 
-    console.log("NOTIF_ACCOUNT_DIAG_RESULT", {
-      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
-      ok: !error,
-      message: error?.message ?? null,
-      details: error?.details ?? null,
-      hint: error?.hint ?? null,
-      code: error?.code ?? null,
-      data: data ?? null
-    });
-
     if (error) {
+      console.log("NOTIF_403_SAVE_RESPONSE", {
+        status: error?.status ?? 403,
+        message: error?.message ?? null,
+        details: error?.details ?? null,
+        hint: error?.hint ?? null,
+        code: error?.code ?? null
+      });
       console.error('Failed to save notification preference:', error);
       setNotificationPreferencesError('Saving notification preferences failed.');
       setSavingNotificationPreferenceKey(null);
