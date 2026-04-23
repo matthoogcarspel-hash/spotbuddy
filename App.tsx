@@ -3555,7 +3555,8 @@ export default function App() {
 
     const loadSpotNotificationPreferences = async () => {
       const persistedUserId = activeProfile?.id ?? null;
-      if (!selectedSpot || !persistedUserId) {
+      const spotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
+      if (!spotName || !persistedUserId) {
         setSpotNotificationPreferences(defaultSpotNotificationPreferences);
         setNotificationPreferencesError('');
         setLoadingSpotNotificationPreferences(false);
@@ -3575,7 +3576,7 @@ export default function App() {
           session_joined_notification_mode
         `)
         .eq('user_id', persistedUserId)
-        .eq('spot_name', selectedSpot)
+        .eq('spot_name', spotName)
         .maybeSingle();
 
       if (isCancelled) {
@@ -3591,21 +3592,17 @@ export default function App() {
       }
 
       const preferenceRow = data;
-      console.log("NOTIF_LOAD_RESULT", {
+      console.log("SESSION_JOINED_PREF_LOAD_RESULT", {
         userId: persistedUserId,
-        spotName: selectedSpot,
+        spotName,
         row: preferenceRow ?? null
       });
       const loadedPreferences = normalizeSpotNotificationPreferences(data);
-      const { session_joined_notification_mode } = loadedPreferences;
-      console.log("NOTIF_NORMALIZED", {
-        session_joined_notification_mode
+      const normalizedMode = loadedPreferences.session_joined_notification_mode;
+      console.log("SESSION_JOINED_PREF_NORMALIZED", {
+        normalizedMode
       });
       setSpotNotificationPreferences(loadedPreferences);
-      console.log("NOTIF_PHASE1_LOAD_RESULT", {
-        selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-        loadedPreferences,
-      });
       
       setLoadingSpotNotificationPreferences(false);
     };
@@ -4803,7 +4800,6 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
-    const writeMode = 'upsert';
     const persistedUserId = activeProfile?.id ?? null;
     if (!persistedUserId) {
       setSavingNotificationPreferenceKey(null);
@@ -4811,32 +4807,22 @@ export default function App() {
       return false;
     }
 
+    const spotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
     const payload = {
       user_id: persistedUserId,
-      spot_name: selectedSpot,
+      spot_name: spotName,
       ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
-    console.log("NOTIF_PHASE1_IDENTITY", {
-      authUserId: authUser?.id ?? null,
-      activeAppUserId: activeAppUserId ?? null,
-      activeProfileId: activeProfile?.id ?? null,
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-      persistedUserId: persistedUserId ?? null
-    });
-
     const onConflictKeys = "user_id,spot_name";
-    const value = payload.session_joined_notification_mode;
-    console.log("NOTIF_SAVE_PAYLOAD", {
+    const nextValue = payload.session_joined_notification_mode;
+    console.log("SESSION_JOINED_PREF_SAVE_INPUT", {
       userId: persistedUserId,
-      spotName: selectedSpot,
-      session_joined_notification_mode: value
+      spotName,
+      nextValue
     });
-    console.log("NOTIF_PHASE1_SAVE_INPUT", {
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    console.log("SESSION_JOINED_PREF_SAVE_PAYLOAD", {
       payload,
-      writeMode,
-      onConflictKeys
     });
 
     const { data, error } = await supabase
@@ -4853,12 +4839,9 @@ export default function App() {
         session_joined_notification_mode
       `);
 
-    console.log("NOTIF_PHASE1_SAVE_RESULT", {
+    console.log("SESSION_JOINED_PREF_SAVE_RESULT", {
       ok: !error,
-      message: error?.message ?? null,
-      details: error?.details ?? null,
-      hint: error?.hint ?? null,
-      code: error?.code ?? null
+      error: error ?? null
     });
 
     if (error) {
@@ -4877,18 +4860,13 @@ export default function App() {
         session_joined_notification_mode
       `)
       .eq('user_id', persistedUserId)
-      .eq('spot_name', selectedSpot)
+      .eq('spot_name', spotName)
       .maybeSingle();
 
     const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
     console.log("NOTIF_ACCOUNT_DIAG_READBACK", {
       activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
       loadedPreferences
-    });
-
-    console.log("NOTIF_PHASE1_ROUNDTRIP_OK", {
-      selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
-      roundTripStable: true,
     });
 
     setSavingNotificationPreferenceKey(null);
