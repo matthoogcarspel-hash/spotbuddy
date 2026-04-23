@@ -103,12 +103,14 @@ type SpotNotificationPreferences = {
   session_planning_notification_mode: SpotNotificationMode;
   checkin_notification_mode: SpotNotificationMode;
   chat_notification_mode: SpotNotificationMode;
+  session_joined_notification_mode: SpotNotificationMode;
 };
 type SpotNotificationMode = 'off' | 'following' | 'everyone';
 const spotNotificationPreferencesModel = [
   { key: 'sessionPlanning', label: 'Session planned', dbField: 'session_planning_notification_mode' },
   { key: 'checkin', label: 'Check-ins', dbField: 'checkin_notification_mode' },
   { key: 'chat', label: 'Chat messages', dbField: 'chat_notification_mode' },
+  { key: 'sessionJoined', label: 'Someone joined my session', dbField: 'session_joined_notification_mode' },
 ] as const;
 type SpotNotificationPreferenceType = (typeof spotNotificationPreferencesModel)[number]['key'];
 type SpotOrderMode = 'distance' | 'manual';
@@ -1834,7 +1836,7 @@ export default function App() {
   const [messageInput, setMessageInput] = useState('');
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
-  const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<'sessionPlanning' | 'checkin' | 'chat' | null>(null);
+  const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [isNotificationPanelExpanded, setIsNotificationPanelExpanded] = useState(false);
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
@@ -3569,7 +3571,8 @@ export default function App() {
         .select(`
           session_planning_notification_mode,
           checkin_notification_mode,
-          chat_notification_mode
+          chat_notification_mode,
+          session_joined_notification_mode
         `)
         .eq('user_id', persistedUserId)
         .eq('spot_name', selectedSpot)
@@ -4021,7 +4024,8 @@ export default function App() {
   const areAnySpotNotificationsEnabled =
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
     || spotNotificationPreferences.checkin_notification_mode !== 'off'
-    || spotNotificationPreferences.chat_notification_mode !== 'off';
+    || spotNotificationPreferences.chat_notification_mode !== 'off'
+    || spotNotificationPreferences.session_joined_notification_mode !== 'off';
   const daySessionsBySpot = useMemo(() => {
     const next = createSpotRecord<SpotSession[]>(spotNames, () => []);
     for (const spot of spotNames) {
@@ -4829,7 +4833,8 @@ export default function App() {
         spot_name,
         session_planning_notification_mode,
         checkin_notification_mode,
-        chat_notification_mode
+        chat_notification_mode,
+        session_joined_notification_mode
       `);
 
     console.log("NOTIF_PHASE1_SAVE_RESULT", {
@@ -4852,7 +4857,8 @@ export default function App() {
       .select(`
         session_planning_notification_mode,
         checkin_notification_mode,
-        chat_notification_mode
+        chat_notification_mode,
+        session_joined_notification_mode
       `)
       .eq('user_id', persistedUserId)
       .eq('spot_name', selectedSpot)
