@@ -356,7 +356,17 @@ export async function joinSession(input: {
     .eq('spot_name', sessionIdentity.spot_name)
     .maybeSingle();
 
+  const preferenceRow = pref;
+  console.log("NOTIF_LOAD_RESULT", {
+    userId: sessionOwnerId,
+    spotName: sessionIdentity.spot_name,
+    row: preferenceRow ?? null
+  });
   const mode = pref?.session_joined_notification_mode ?? 'off';
+  const session_joined_notification_mode = mode;
+  console.log("NOTIF_NORMALIZED", {
+    session_joined_notification_mode
+  });
 
   console.log("JOIN_NOTIFICATION_CHECK", {
     sessionOwnerId,

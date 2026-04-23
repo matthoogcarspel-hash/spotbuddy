@@ -3590,7 +3590,17 @@ export default function App() {
         return;
       }
 
+      const preferenceRow = data;
+      console.log("NOTIF_LOAD_RESULT", {
+        userId: persistedUserId,
+        spotName: selectedSpot,
+        row: preferenceRow ?? null
+      });
       const loadedPreferences = normalizeSpotNotificationPreferences(data);
+      const { session_joined_notification_mode } = loadedPreferences;
+      console.log("NOTIF_NORMALIZED", {
+        session_joined_notification_mode
+      });
       setSpotNotificationPreferences(loadedPreferences);
       console.log("NOTIF_PHASE1_LOAD_RESULT", {
         selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
@@ -4816,6 +4826,12 @@ export default function App() {
     });
 
     const onConflictKeys = "user_id,spot_name";
+    const value = payload.session_joined_notification_mode;
+    console.log("NOTIF_SAVE_PAYLOAD", {
+      userId: persistedUserId,
+      spotName: selectedSpot,
+      session_joined_notification_mode: value
+    });
     console.log("NOTIF_PHASE1_SAVE_INPUT", {
       selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
       payload,
