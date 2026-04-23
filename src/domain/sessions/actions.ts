@@ -364,13 +364,41 @@ export async function joinSession(input: {
   });
 
   const shouldSend = mode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
+  const resolvedMode = mode;
+  const joinedUserId = sessionIdentity.user_id;
+  const spotName = sessionIdentity.spot_name;
 
   console.log("JOIN_NOTIFICATION_DECISION", {
     shouldSend,
     sessionOwnerId,
-    joinedUserId: sessionIdentity.user_id,
-    mode,
+    joinedUserId,
+    mode: resolvedMode,
   });
+
+  if (true) {
+    const simulatedCurrentUserId = sessionOwnerId;
+
+    const shouldSimulateSend =
+      simulatedCurrentUserId === sessionOwnerId &&
+      shouldSend;
+
+    console.log("JOIN_NOTIFICATION_SIMULATION", {
+      simulatedCurrentUserId,
+      sessionOwnerId,
+      joinedUserId,
+      shouldSimulateSend,
+      mode: resolvedMode ?? null,
+    });
+
+    if (shouldSimulateSend) {
+      console.log("SIMULATED_SEND_NOTIFICATION_TO_OWNER", {
+        sessionId: input.sessionId,
+        joinedUserId,
+        spotName,
+        mode: resolvedMode ?? null,
+      });
+    }
+  }
 
   if (shouldSend) {
     console.log("SEND_NOTIFICATION_TO_OWNER", {
