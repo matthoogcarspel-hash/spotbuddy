@@ -411,6 +411,25 @@ export async function joinSession(input: {
   }
 
   if (shouldSend) {
+    console.log("NOTIFICATION_RPC_INPUT", {
+      recipientProfileId: sessionOwnerId,
+      actorProfileId: joinedUserId,
+      sessionId: input.sessionId,
+      spotName
+    });
+
+    const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
+      recipient_profile_id: sessionOwnerId,
+      actor_profile_id: joinedUserId,
+      session_id: input.sessionId,
+      spot_name: spotName,
+    });
+
+    console.log("NOTIFICATION_RPC_RESULT", {
+      ok: !notificationRpcError,
+      error: notificationRpcError ?? null
+    });
+
     console.log("SEND_NOTIFICATION_TO_OWNER", {
       sessionOwnerId,
       sessionId: input.sessionId,
