@@ -123,18 +123,28 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     }
 
     const createdAt = new Date().toISOString();
+    console.log('PROFILE_CREATE_INPUT', {
+      userId,
+    });
+
     const profilePayload = {
       id: userId,
+      owner_uid: userId,
       display_name: trimmedName,
       avatar_url: avatarUrl,
       created_at: createdAt,
     };
+    console.log('PROFILE_CREATE_PAYLOAD', profilePayload);
 
     const { data: savedProfile, error: upsertError } = await supabase
       .from('profiles')
       .upsert(profilePayload, { onConflict: 'id' })
       .select('id, display_name, avatar_url, created_at')
       .single();
+    console.log('PROFILE_CREATE_RESULT', {
+      success: !upsertError,
+      error: upsertError,
+    });
 
     setIsLoading(false);
 
