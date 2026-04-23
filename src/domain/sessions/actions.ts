@@ -363,11 +363,22 @@ export async function joinSession(input: {
     mode,
   });
 
-  if (mode !== 'off') {
+  const shouldSend = mode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
+
+  console.log("JOIN_NOTIFICATION_DECISION", {
+    shouldSend,
+    sessionOwnerId,
+    joinedUserId: sessionIdentity.user_id,
+    mode,
+  });
+
+  if (shouldSend) {
     console.log("SEND_NOTIFICATION_TO_OWNER", {
       sessionOwnerId,
       sessionId: input.sessionId,
     });
+
+    alert("Someone joined your session");
   }
 
   return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
