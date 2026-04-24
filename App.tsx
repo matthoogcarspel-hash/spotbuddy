@@ -2241,6 +2241,7 @@ export default function App() {
 
   useEffect(() => {
     console.log('PUSH_INIT');
+    const FALLBACK_EAS_PROJECT_ID = "<PASTE_ACTUAL_EAS_PROJECT_ID_HERE>";
 
     const register = async () => {
       try {
@@ -2249,7 +2250,8 @@ export default function App() {
 
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ??
-          Constants?.easConfig?.projectId;
+          Constants?.easConfig?.projectId ??
+          FALLBACK_EAS_PROJECT_ID;
 
         console.log('PUSH_PROJECT_ID', projectId);
 
