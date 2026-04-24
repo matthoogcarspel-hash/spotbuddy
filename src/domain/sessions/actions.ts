@@ -385,8 +385,11 @@ export async function joinSession(input: {
     .maybeSingle();
 
   const rawMode = pref?.session_joined_notification_mode;
-  const mode = rawMode === 'off' || rawMode === 'following' || rawMode === 'everyone'
-    ? rawMode
+  const normalizedRawMode = typeof rawMode === 'string'
+    ? rawMode.trim().toLowerCase()
+    : null;
+  const mode = normalizedRawMode === 'off' || normalizedRawMode === 'following' || normalizedRawMode === 'everyone'
+    ? normalizedRawMode
     : 'off';
   console.log("JOIN_NOTIFICATION_PREF_QUERY_RESULT", {
     ok: !prefError,
@@ -405,6 +408,35 @@ export async function joinSession(input: {
   const resolvedMode = mode;
   const joinedUserId = sessionIdentity.user_id;
   const spotName = sessionIdentity.spot_name;
+
+  console.log("JOIN_NOTIFICATION_GATE_TRACE", {
+    sessionOwnerId,
+    resolvedPreferenceUserId,
+    joinedUserId,
+    spotName,
+    mode: resolvedMode,
+    shouldSend,
+    hasSessionOwnerId: Boolean(sessionOwnerId),
+    ownerIsJoiner: sessionOwnerId === joinedUserId
+  });
+
+  if (!shouldSend) {
+    const notificationSkipReason = !sessionOwnerId
+      ? 'MISSING_SESSION_OWNER_ID'
+      : sessionOwnerId === joinedUserId
+        ? 'OWNER_IS_JOINER'
+        : resolvedMode === 'off'
+          ? 'MODE_OFF'
+          : 'UNKNOWN';
+    console.log("JOIN_NOTIFICATION_SKIP_REASON", {
+      reason: notificationSkipReason,
+      sessionOwnerId,
+      resolvedPreferenceUserId,
+      joinedUserId,
+      spotName,
+      mode: resolvedMode,
+    });
+  }
 
   console.log("JOIN_NOTIFICATION_DECISION", {
     shouldSend,
