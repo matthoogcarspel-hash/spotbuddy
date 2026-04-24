@@ -6151,13 +6151,6 @@ export default function App() {
         allowed: joinState?.allowed ?? null,
         reason: joinState?.reason ?? null
       });
-      if (!joinState.allowed) {
-        const joinReason = joinState.reason === 'ALREADY_HAS_SESSION'
-          ? 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY'
-          : joinState.reason;
-        setSessionActionError(getJoinErrorMessageByReason(joinReason));
-        return;
-      }
       console.log("STABLE_JOIN_PRECHECK", {
         activeProfileId: activeProfile?.id ?? null,
         selectedSpot: getSelectedSpotName(selectedSpot),
