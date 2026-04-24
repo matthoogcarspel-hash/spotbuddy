@@ -13,6 +13,7 @@ import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
 import { getDayBoundsForDayKey, getJoinState, getOwnSessionForSpotDay, getSelectedSpotName, getSessionDayKey, getSessionState as getCanonicalSessionState, getTopCtaState, isSessionBlockingOwnSession, normalizeSpotName } from './src/lib/sessionHelpers';
+import { buildSpotNotificationPreferenceKey } from './src/lib/spotNotificationPreferences';
 import { getLocalDateKey, getTodayLocalDateKey, getTomorrowLocalDateKey } from './src/lib/sessionDay';
 import { getSpotStatus } from './src/lib/spotStatus';
 import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/supabase';
@@ -3554,8 +3555,10 @@ export default function App() {
     let isCancelled = false;
 
     const loadSpotNotificationPreferences = async () => {
-      const persistedUserId = activeProfile?.id ?? null;
-      const normalizedSpotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
+      const { userId: persistedUserId, spotName: normalizedSpotName } = buildSpotNotificationPreferenceKey({
+        userId: activeProfile?.id ?? null,
+        spotName: getSelectedSpotName(selectedSpot),
+      });
       console.log("SESSION_JOINED_PREF_LOAD_INPUT", {
         userId: persistedUserId ?? null,
         selectedSpot: selectedSpot ?? null,
@@ -4802,8 +4805,10 @@ export default function App() {
     setNotificationPreferencesError('');
 
     const tableName = 'spot_notification_preferences';
-    const persistedUserId = activeProfile?.id ?? null;
-    const normalizedSpotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
+    const { userId: persistedUserId, spotName: normalizedSpotName } = buildSpotNotificationPreferenceKey({
+      userId: activeProfile?.id ?? null,
+      spotName: getSelectedSpotName(selectedSpot),
+    });
     if (!persistedUserId) {
       setSavingNotificationPreferenceKey(null);
       setNotificationPreferencesError('Saving notification preferences failed.');
