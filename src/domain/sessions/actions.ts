@@ -382,10 +382,8 @@ export async function joinSession(input: {
     ownerProfileByOwnerUid?.id ?? null,
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
-  let prefError: unknown = null;
   let resolvedPreferenceUserId = preferenceLookupUserIds[0] ?? null;
-  let rpcResolvedMode: string | null = null;
-  let prefRow: null = null;
+  let rpcResult: string | null = null;
   for (const lookupUserId of preferenceLookupUserIds) {
     console.log("PREF_KEY_LOOKUP", {
       table: tableName,
@@ -406,34 +404,21 @@ export async function joinSession(input: {
       mode_value: typeof data === 'string' ? data : null,
     });
     if (error) {
-      prefError = error;
-      resolvedPreferenceUserId = lookupUserId;
-      break;
+      continue;
     }
     const normalizedRpcMode = normalizeSpotNotificationMode(typeof data === 'string' ? data : null);
-    console.log("PREF_DB_ROW_LOOKUP_RESULT", {
-      ok: true,
-      error: null,
-      lookupUserId,
-      spotName: querySpotName,
-      row: prefRow,
-      resolvedMode: normalizedRpcMode,
-    });
     if (normalizedRpcMode !== null) {
-      rpcResolvedMode = normalizedRpcMode;
+      rpcResult = normalizedRpcMode;
       resolvedPreferenceUserId = lookupUserId;
       break;
     }
   }
 
-  const resolvedMode = rpcResolvedMode ?? 'off';
+  const resolvedMode = rpcResult ?? 'off';
   console.log("PREF_DB_ROW_LOOKUP_RESULT", {
-    ok: !prefError,
-    error: prefError ?? null,
-    row: prefRow,
-    resolvedMode,
-    lookupUserIdsTried: preferenceLookupUserIds,
-    resolvedPreferenceUserId,
+    ok: true,
+    resolvedMode: rpcResult ?? "off",
+    source: "rpc_only",
   });
 
   console.log("JOIN_NOTIFICATION_CHECK", {
@@ -442,7 +427,7 @@ export async function joinSession(input: {
     mode: resolvedMode,
   });
 
-  const shouldSend = resolvedMode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
+  const shouldSend = resolvedMode === 'everyone' && sessionOwnerId !== sessionIdentity.user_id;
   const spotName = querySpotName;
 
   console.log("JOIN_NOTIFICATION_GATE_TRACE", {
