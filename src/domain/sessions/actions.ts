@@ -338,14 +338,22 @@ export async function joinSession(input: {
     joinedUserId: sessionIdentity.user_id,
   });
 
-  const { data: session } = await supabase
+  const { data: sourceSession } = await supabase
     .from('sessions')
-    .select('user_id')
+    .select('user_id, spot_name')
     .eq('id', input.sessionId)
     .maybeSingle();
-  const sessionOwnerId = session?.user_id;
+  const sessionOwnerId = sourceSession?.user_id ?? null;
+  const sourceSessionSpotName = sourceSession?.spot_name ?? null;
+  const joinedUserId = sessionIdentity.user_id;
 
-  if (!sessionOwnerId || sessionOwnerId === sessionIdentity.user_id) {
+  console.log("JOIN_NOTIFICATION_SOURCE_SESSION", {
+    sessionId: input.sessionId,
+    sourceSessionUserId: sessionOwnerId,
+    sourceSessionSpotName,
+  });
+
+  if (!sessionOwnerId || sessionOwnerId === joinedUserId) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
   }
 
@@ -366,12 +374,17 @@ export async function joinSession(input: {
     ?? ownerProfileByOwnerUid?.id
     ?? sessionOwnerId;
   const tableName = 'spot_notification_preferences';
-  const querySpotName = sessionIdentity.spot_name;
+  const querySpotName = normalizeSessionIdentity({
+    user_id: sessionOwnerId,
+    spot_name: sourceSessionSpotName,
+    day_key: input.dayKey,
+  }).spot_name;
 
   console.log("JOIN_NOTIFICATION_PREF_QUERY_INPUT", {
     table: tableName,
     lookupUserId: resolvedPreferenceUserId,
     sessionOwnerId,
+    joinedUserId,
     spotName: querySpotName,
     ownerProfileById: ownerProfileById ?? null,
     ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
@@ -406,8 +419,7 @@ export async function joinSession(input: {
 
   const shouldSend = mode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
   const resolvedMode = mode;
-  const joinedUserId = sessionIdentity.user_id;
-  const spotName = sessionIdentity.spot_name;
+  const spotName = querySpotName;
 
   console.log("JOIN_NOTIFICATION_GATE_TRACE", {
     sessionOwnerId,
