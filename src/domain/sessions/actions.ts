@@ -7,6 +7,7 @@ import {
   normalizeSessionIdentity,
   REAL_SESSION_SCHEMA_FIELDS,
 } from '../../lib/sessionHelpers';
+import { buildSpotNotificationPreferenceKey, normalizeSpotNotificationMode } from '../../lib/spotNotificationPreferences';
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -370,45 +371,56 @@ export async function joinSession(input: {
         .eq('owner_uid', sessionOwnerId)
         .maybeSingle();
 
-  const resolvedPreferenceUserId = ownerProfileById?.id
-    ?? ownerProfileByOwnerUid?.id
-    ?? sessionOwnerId;
   const tableName = 'spot_notification_preferences';
-  const querySpotName = normalizeSessionIdentity({
-    user_id: sessionOwnerId,
-    spot_name: sourceSessionSpotName,
-    day_key: input.dayKey,
-  }).spot_name;
-
-  console.log("JOIN_NOTIFICATION_PREF_QUERY_INPUT", {
-    table: tableName,
-    lookupUserId: resolvedPreferenceUserId,
-    sessionOwnerId,
-    joinedUserId,
-    spotName: querySpotName,
-    ownerProfileById: ownerProfileById ?? null,
-    ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
+  const { spotName: querySpotName } = buildSpotNotificationPreferenceKey({
+    userId: sessionOwnerId,
+    spotName: sourceSessionSpotName,
   });
+  const preferenceLookupUserIds = Array.from(new Set([
+    sessionOwnerId,
+    ownerProfileById?.id ?? null,
+    ownerProfileByOwnerUid?.id ?? null,
+  ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
-  const { data: pref, error: prefError } = await supabase
-    .from(tableName)
-    .select('user_id, spot_name, session_joined_notification_mode')
-    .eq('user_id', resolvedPreferenceUserId)
-    .eq('spot_name', querySpotName)
-    .maybeSingle();
+  let pref: { user_id?: string | null; spot_name?: string | null; session_joined_notification_mode?: string | null } | null = null;
+  let prefError: unknown = null;
+  let resolvedPreferenceUserId = preferenceLookupUserIds[0] ?? null;
+  for (const lookupUserId of preferenceLookupUserIds) {
+    console.log("JOIN_NOTIFICATION_PREF_QUERY_INPUT", {
+      table: tableName,
+      lookupUserId,
+      sessionOwnerId,
+      joinedUserId,
+      spotName: querySpotName,
+      ownerProfileById: ownerProfileById ?? null,
+      ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
+    });
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('user_id, spot_name, session_joined_notification_mode')
+      .eq('user_id', lookupUserId)
+      .eq('spot_name', querySpotName)
+      .maybeSingle();
+    if (error) {
+      prefError = error;
+      resolvedPreferenceUserId = lookupUserId;
+      break;
+    }
+    if (data) {
+      pref = data;
+      resolvedPreferenceUserId = lookupUserId;
+      break;
+    }
+  }
 
-  const rawMode = pref?.session_joined_notification_mode;
-  const normalizedRawMode = typeof rawMode === 'string'
-    ? rawMode.trim().toLowerCase()
-    : null;
-  const mode = normalizedRawMode === 'off' || normalizedRawMode === 'following' || normalizedRawMode === 'everyone'
-    ? normalizedRawMode
-    : 'off';
+  const mode = normalizeSpotNotificationMode(pref?.session_joined_notification_mode);
   console.log("JOIN_NOTIFICATION_PREF_QUERY_RESULT", {
     ok: !prefError,
     error: prefError ?? null,
     row: pref ?? null,
     resolvedMode: mode,
+    lookupUserIdsTried: preferenceLookupUserIds,
+    resolvedPreferenceUserId,
   });
 
   console.log("JOIN_NOTIFICATION_CHECK", {
