@@ -4858,9 +4858,11 @@ export default function App() {
       return false;
     }
 
-    const { data: readbackData } = await supabase
+    const { data: readbackData, error: readbackError } = await supabase
       .from(tableName)
       .select(`
+        user_id,
+        spot_name,
         session_planning_notification_mode,
         checkin_notification_mode,
         chat_notification_mode,
@@ -4871,9 +4873,11 @@ export default function App() {
       .maybeSingle();
 
     const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
-    console.log("NOTIF_ACCOUNT_DIAG_READBACK", {
-      activeProfileName: activeProfile?.display_name ?? activeProfile?.name ?? null,
-      loadedPreferences
+    console.log("SESSION_JOINED_PREF_SAVE_READBACK", {
+      ok: !readbackError,
+      error: readbackError ?? null,
+      row: readbackData ?? null,
+      normalized: loadedPreferences,
     });
 
     setSavingNotificationPreferenceKey(null);
