@@ -1806,6 +1806,7 @@ export default function App() {
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [isNotificationPanelExpanded, setIsNotificationPanelExpanded] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
   const [homeQuickCheckOutInFlight, setHomeQuickCheckOutInFlight] = useState(false);
@@ -1942,6 +1943,13 @@ export default function App() {
   const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
+  useEffect(() => {
+    if (!isWebPlatform || !activeAppUserId) return;
+    (async () => {
+      const { data } = await supabase.from('notifications').select('id').eq('recipient_profile_id', activeAppUserId).eq('read', false);
+      setUnreadCount(data?.length ?? 0);
+    })();
+  }, [activeAppUserId, isWebPlatform]);
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
@@ -6370,7 +6378,7 @@ export default function App() {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Notifications</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Notifications${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
               <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
