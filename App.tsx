@@ -3555,8 +3555,13 @@ export default function App() {
 
     const loadSpotNotificationPreferences = async () => {
       const persistedUserId = activeProfile?.id ?? null;
-      const spotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
-      if (!spotName || !persistedUserId) {
+      const normalizedSpotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
+      console.log("SESSION_JOINED_PREF_LOAD_INPUT", {
+        userId: persistedUserId ?? null,
+        selectedSpot: selectedSpot ?? null,
+        normalizedSpotName: normalizedSpotName ?? null
+      });
+      if (!normalizedSpotName || !persistedUserId) {
         setSpotNotificationPreferences(defaultSpotNotificationPreferences);
         setNotificationPreferencesError('');
         setLoadingSpotNotificationPreferences(false);
@@ -3576,7 +3581,7 @@ export default function App() {
           session_joined_notification_mode
         `)
         .eq('user_id', persistedUserId)
-        .eq('spot_name', spotName)
+        .eq('spot_name', normalizedSpotName)
         .maybeSingle();
 
       if (isCancelled) {
@@ -3592,17 +3597,14 @@ export default function App() {
       }
 
       const preferenceRow = data;
-      console.log("SESSION_JOINED_PREF_LOAD_RESULT", {
-        userId: persistedUserId,
-        spotName,
+      console.log("SESSION_JOINED_PREF_LOAD_RAW", {
         row: preferenceRow ?? null
       });
-      const loadedPreferences = normalizeSpotNotificationPreferences(data);
-      const normalizedMode = loadedPreferences.session_joined_notification_mode;
-      console.log("SESSION_JOINED_PREF_NORMALIZED", {
-        normalizedMode
+      const normalizedPreferences = normalizeSpotNotificationPreferences(data);
+      console.log("SESSION_JOINED_PREF_LOAD_NORMALIZED", {
+        session_joined_notification_mode: normalizedPreferences.session_joined_notification_mode
       });
-      setSpotNotificationPreferences(loadedPreferences);
+      setSpotNotificationPreferences(normalizedPreferences);
       
       setLoadingSpotNotificationPreferences(false);
     };
@@ -4801,24 +4803,29 @@ export default function App() {
 
     const tableName = 'spot_notification_preferences';
     const persistedUserId = activeProfile?.id ?? null;
+    const normalizedSpotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
     if (!persistedUserId) {
       setSavingNotificationPreferenceKey(null);
       setNotificationPreferencesError('Saving notification preferences failed.');
       return false;
     }
-
-    const spotName = normalizeSpotName(getSelectedSpotName(selectedSpot));
+    if (!normalizedSpotName) {
+      setSavingNotificationPreferenceKey(null);
+      setNotificationPreferencesError('Saving notification preferences failed.');
+      return false;
+    }
     const payload = {
       user_id: persistedUserId,
-      spot_name: spotName,
+      spot_name: normalizedSpotName,
       ...normalizeSpotNotificationPreferences(nextPreferences),
     };
 
     const onConflictKeys = "user_id,spot_name";
     const nextValue = payload.session_joined_notification_mode;
     console.log("SESSION_JOINED_PREF_SAVE_INPUT", {
-      userId: persistedUserId,
-      spotName,
+      userId: persistedUserId ?? null,
+      selectedSpot: selectedSpot ?? null,
+      normalizedSpotName: normalizedSpotName ?? null,
       nextValue
     });
     console.log("SESSION_JOINED_PREF_SAVE_PAYLOAD", {
@@ -4860,7 +4867,7 @@ export default function App() {
         session_joined_notification_mode
       `)
       .eq('user_id', persistedUserId)
-      .eq('spot_name', spotName)
+      .eq('spot_name', normalizedSpotName)
       .maybeSingle();
 
     const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
