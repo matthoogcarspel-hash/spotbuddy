@@ -1944,7 +1944,7 @@ export default function App() {
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
   useEffect(() => {
-    if (!isWebPlatform || !activeAppUserId) return;
+    if (!activeAppUserId) return;
     (async () => {
       const { count, error } = await supabase
         .from('notifications')
@@ -1957,7 +1957,7 @@ export default function App() {
       }
       setUnreadCount(count ?? 0);
     })();
-  }, [activeAppUserId, isWebPlatform]);
+  }, [activeAppUserId]);
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
@@ -6976,6 +6976,11 @@ export default function App() {
               )}
             </View>
           </View>
+          {unreadCount > 0 ? (
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 6, textAlign: 'center' }}>
+              {`Notifications (${unreadCount})`}
+            </Text>
+          ) : null}
         </View>
       </View>
 
