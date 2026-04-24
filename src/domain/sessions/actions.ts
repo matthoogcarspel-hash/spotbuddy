@@ -382,9 +382,10 @@ export async function joinSession(input: {
     ownerProfileByOwnerUid?.id ?? null,
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
-  let pref: { user_id?: string | null; spot_name?: string | null; session_joined_notification_mode?: string | null } | null = null;
   let prefError: unknown = null;
   let resolvedPreferenceUserId = preferenceLookupUserIds[0] ?? null;
+  let rpcResolvedMode: string | null = null;
+  let prefRow: null = null;
   for (const lookupUserId of preferenceLookupUserIds) {
     console.log("PREF_KEY_LOOKUP", {
       table: tableName,
@@ -409,33 +410,28 @@ export async function joinSession(input: {
       resolvedPreferenceUserId = lookupUserId;
       break;
     }
-    const normalizedRow = data
-      ? {
-          user_id: lookupUserId,
-          spot_name: querySpotName,
-          session_joined_notification_mode: typeof data === 'string' ? data : null,
-        }
-      : null;
+    const normalizedRpcMode = normalizeSpotNotificationMode(typeof data === 'string' ? data : null);
     console.log("PREF_DB_ROW_LOOKUP_RESULT", {
       ok: true,
       error: null,
       lookupUserId,
       spotName: querySpotName,
-      row: normalizedRow,
+      row: prefRow,
+      resolvedMode: normalizedRpcMode,
     });
-    if (normalizedRow) {
-      pref = normalizedRow;
+    if (normalizedRpcMode !== null) {
+      rpcResolvedMode = normalizedRpcMode;
       resolvedPreferenceUserId = lookupUserId;
       break;
     }
   }
 
-  const mode = normalizeSpotNotificationMode(pref?.session_joined_notification_mode);
+  const resolvedMode = rpcResolvedMode ?? 'off';
   console.log("PREF_DB_ROW_LOOKUP_RESULT", {
     ok: !prefError,
     error: prefError ?? null,
-    row: pref ?? null,
-    resolvedMode: mode,
+    row: prefRow,
+    resolvedMode,
     lookupUserIdsTried: preferenceLookupUserIds,
     resolvedPreferenceUserId,
   });
@@ -443,11 +439,10 @@ export async function joinSession(input: {
   console.log("JOIN_NOTIFICATION_CHECK", {
     sessionOwnerId,
     resolvedPreferenceUserId,
-    mode,
+    mode: resolvedMode,
   });
 
-  const shouldSend = mode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
-  const resolvedMode = mode;
+  const shouldSend = resolvedMode !== 'off' && sessionOwnerId !== sessionIdentity.user_id;
   const spotName = querySpotName;
 
   console.log("JOIN_NOTIFICATION_GATE_TRACE", {
