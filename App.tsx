@@ -921,14 +921,18 @@ const registerForPushNotifications = async (userId: string) => {
 
   
 
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+  const projectId =
+    Constants?.expoConfig?.extra?.eas?.projectId
+    ?? Constants?.easConfig?.projectId;
+
   if (!projectId) {
-    console.error('Push registration skipped: missing EAS projectId.');
+    console.warn('Missing EAS projectId');
     return;
   }
 
   const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
   const expoPushToken = tokenResult.data;
+  console.log('PUSH_TOKEN', expoPushToken);
 
   const { error } = await supabase.from('push_tokens').upsert(
     {

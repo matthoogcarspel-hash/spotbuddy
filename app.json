@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "name": "spotbuddy",
+    "slug": "spotbuddy",
+    "version": "1.0.0",
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "<YOUR_EAS_PROJECT_ID>"
+      }
+    }
+  }
+}
