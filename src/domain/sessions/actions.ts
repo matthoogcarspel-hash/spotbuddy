@@ -338,7 +338,6 @@ export async function joinSession(input: {
     sessionId: input.sessionId,
     joinedUserId: sessionIdentity.user_id,
   });
-  console.log("JOIN_NOTIFICATION_STEP_REACHED");
 
   const { data: sourceSession } = await supabase
     .from('sessions')
@@ -378,11 +377,6 @@ export async function joinSession(input: {
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
   let rpcResult: string | null = null;
-  console.log("JOIN_NOTIFICATION_DEBUG_INPUT", {
-    sessionOwnerId,
-    joinedUserId,
-    normalizedSpotName: querySpotName
-  });
   for (const lookupUserId of preferenceLookupUserIds) {
     const { data, error } = await supabase.rpc('get_spot_session_joined_notification_preference', {
       lookup_user_id: lookupUserId,
@@ -397,10 +391,8 @@ export async function joinSession(input: {
       break;
     }
   }
-  console.log("JOIN_NOTIFICATION_RPC_RAW_RESULT", rpcResult);
-
   const resolvedMode = rpcResult ?? "off";
-  const shouldSend = true;
+  const shouldSend = resolvedMode === "everyone";
   const spotName = querySpotName;
 
   console.log("JOIN_NOTIFICATION_DECISION", {
@@ -411,7 +403,6 @@ export async function joinSession(input: {
   });
 
   if (shouldSend) {
-    console.log("FORCED_NOTIFICATION_SEND");
     console.log("NOTIFICATION_RPC_INPUT", {
       recipientProfileId: sessionOwnerId,
       actorProfileId: joinedUserId,
@@ -425,7 +416,6 @@ export async function joinSession(input: {
       session_id: input.sessionId,
       spot_name: spotName,
     });
-    console.log("FORCED_NOTIFICATION_RESULT", notificationRpcError);
 
     console.log("NOTIFICATION_RPC_RESULT", {
       ok: !notificationRpcError,
