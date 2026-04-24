@@ -102,7 +102,7 @@ const readOwnSessionsForSpotDay = async (input: {
     return { sessions: [], error: invalidDayError };
   }
 
-  const { data: rows, error } = await supabase
+  const { data: sessionRecords, error } = await supabase
     .from('sessions')
     .select('id, user_id, spot_name, created_at, start_time, end_time, status, checked_out_at')
     .eq('user_id', input.userId)
@@ -112,7 +112,7 @@ const readOwnSessionsForSpotDay = async (input: {
 
   console.log("OWN_SESSIONS_QUERY_RESULT", {
     ok: !error,
-    count: rows?.length ?? 0,
+    count: sessionRecords?.length ?? 0,
     error: error?.message ?? null,
   });
 
@@ -120,7 +120,7 @@ const readOwnSessionsForSpotDay = async (input: {
     return { sessions: [], error };
   }
 
-  return { sessions: Array.isArray(rows) ? rows : [], error: null };
+  return { sessions: Array.isArray(sessionRecords) ? sessionRecords : [], error: null };
 };
 
 export async function planSession(input: {
@@ -348,11 +348,6 @@ export async function joinSession(input: {
   const sourceSessionSpotName = sourceSession?.spot_name ?? null;
   const joinedUserId = sessionIdentity.user_id;
 
-  console.log("JOIN_NOTIFICATION_SOURCE_SESSION", {
-    sessionId: input.sessionId,
-    sourceSessionUserId: sessionOwnerId,
-    sourceSessionSpotName,
-  });
 
   if (!sessionOwnerId || sessionOwnerId === joinedUserId) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
@@ -371,7 +366,6 @@ export async function joinSession(input: {
         .eq('owner_uid', sessionOwnerId)
         .maybeSingle();
 
-  const tableName = 'spot_notification_preferences';
   const { spotName: querySpotName } = buildSpotNotificationPreferenceKey({
     userId: sessionOwnerId,
     spotName: sourceSessionSpotName,
@@ -382,26 +376,11 @@ export async function joinSession(input: {
     ownerProfileByOwnerUid?.id ?? null,
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
-  let resolvedPreferenceUserId = preferenceLookupUserIds[0] ?? null;
   let rpcResult: string | null = null;
   for (const lookupUserId of preferenceLookupUserIds) {
-    console.log("PREF_KEY_LOOKUP", {
-      table: tableName,
-      lookupUserId,
-      sessionOwnerId,
-      joinedUserId,
-      spotName: querySpotName,
-      ownerProfileById: ownerProfileById ?? null,
-      ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
-    });
     const { data, error } = await supabase.rpc('get_spot_session_joined_notification_preference', {
       lookup_user_id: lookupUserId,
       lookup_spot_name: querySpotName,
-    });
-    console.log("PREF_RPC_RESULT", {
-      lookupUserId,
-      spotName: querySpotName,
-      mode_value: typeof data === 'string' ? data : null,
     });
     if (error) {
       continue;
@@ -409,55 +388,13 @@ export async function joinSession(input: {
     const normalizedRpcMode = normalizeSpotNotificationMode(typeof data === 'string' ? data : null);
     if (normalizedRpcMode !== null) {
       rpcResult = normalizedRpcMode;
-      resolvedPreferenceUserId = lookupUserId;
       break;
     }
   }
 
   const resolvedMode = rpcResult ?? 'off';
-  console.log("PREF_DB_ROW_LOOKUP_RESULT", {
-    ok: true,
-    resolvedMode: rpcResult ?? "off",
-    source: "rpc_only",
-  });
-
-  console.log("JOIN_NOTIFICATION_CHECK", {
-    sessionOwnerId,
-    resolvedPreferenceUserId,
-    mode: resolvedMode,
-  });
-
   const shouldSend = resolvedMode === 'everyone' && sessionOwnerId !== sessionIdentity.user_id;
   const spotName = querySpotName;
-
-  console.log("JOIN_NOTIFICATION_GATE_TRACE", {
-    sessionOwnerId,
-    resolvedPreferenceUserId,
-    joinedUserId,
-    spotName,
-    mode: resolvedMode,
-    shouldSend,
-    hasSessionOwnerId: Boolean(sessionOwnerId),
-    ownerIsJoiner: sessionOwnerId === joinedUserId
-  });
-
-  if (!shouldSend) {
-    const notificationSkipReason = !sessionOwnerId
-      ? 'MISSING_SESSION_OWNER_ID'
-      : sessionOwnerId === joinedUserId
-        ? 'OWNER_IS_JOINER'
-        : resolvedMode === 'off'
-          ? 'MODE_OFF'
-          : 'UNKNOWN';
-    console.log("JOIN_NOTIFICATION_SKIP_REASON", {
-      reason: notificationSkipReason,
-      sessionOwnerId,
-      resolvedPreferenceUserId,
-      joinedUserId,
-      spotName,
-      mode: resolvedMode,
-    });
-  }
 
   console.log("JOIN_NOTIFICATION_DECISION", {
     shouldSend,
@@ -465,31 +402,6 @@ export async function joinSession(input: {
     joinedUserId,
     mode: resolvedMode,
   });
-
-  if (true) {
-    const simulatedCurrentUserId = sessionOwnerId;
-
-    const shouldSimulateSend =
-      simulatedCurrentUserId === sessionOwnerId &&
-      shouldSend;
-
-    console.log("JOIN_NOTIFICATION_SIMULATION", {
-      simulatedCurrentUserId,
-      sessionOwnerId,
-      joinedUserId,
-      shouldSimulateSend,
-      mode: resolvedMode ?? null,
-    });
-
-    if (shouldSimulateSend) {
-      console.log("SIMULATED_SEND_NOTIFICATION_TO_OWNER", {
-        sessionId: input.sessionId,
-        joinedUserId,
-        spotName,
-        mode: resolvedMode ?? null,
-      });
-    }
-  }
 
   if (shouldSend) {
     console.log("NOTIFICATION_RPC_INPUT", {
@@ -511,12 +423,6 @@ export async function joinSession(input: {
       error: notificationRpcError ?? null
     });
 
-    console.log("SEND_NOTIFICATION_TO_OWNER", {
-      sessionOwnerId,
-      sessionId: input.sessionId,
-    });
-
-    alert("Someone joined your session");
   }
 
   return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
