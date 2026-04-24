@@ -2240,15 +2240,12 @@ export default function App() {
   }, [favoriteSpots]);
 
   useEffect(() => {
+    console.log('PUSH_INIT');
+
     const register = async () => {
       try {
         const { status } = await Notifications.requestPermissionsAsync();
         console.log('PUSH_PERMISSION_STATUS', status);
-
-        if (status !== 'granted') {
-          console.log('PUSH_PERMISSION_DENIED');
-          return;
-        }
 
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ??
