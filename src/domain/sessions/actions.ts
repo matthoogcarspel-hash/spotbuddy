@@ -233,6 +233,10 @@ export async function joinSession(input: {
   alreadyJoinedGroup: boolean;
 }): Promise<ServiceSuccess | ServiceFailure> {
   console.log('SCHEMA_ALIGNMENT_JOIN_INPUT', input);
+  console.log('WEB_NOTIFICATION_FLOW_START', {
+    sessionId: input.sessionId,
+    selectedSpot: input.selectedSpot,
+  });
   if (!input.activeProfileId) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NO_ACTIVE_PROFILE' });
   }
@@ -377,10 +381,16 @@ export async function joinSession(input: {
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
   let rpcResult: string | null = null;
+  const preferenceFetchAttempts: { lookupUserId: string; result: string | null; error: string | null }[] = [];
   for (const lookupUserId of preferenceLookupUserIds) {
     const { data, error } = await supabase.rpc('get_spot_session_joined_notification_preference', {
       lookup_user_id: lookupUserId,
       lookup_spot_name: querySpotName,
+    });
+    preferenceFetchAttempts.push({
+      lookupUserId,
+      result: typeof data === 'string' ? data : null,
+      error: error?.message ?? null,
     });
     if (error) {
       continue;
@@ -394,6 +404,13 @@ export async function joinSession(input: {
   const resolvedMode = rpcResult ?? "off";
   const shouldSend = resolvedMode === "everyone";
   const spotName = querySpotName;
+  console.log('WEB_NOTIFICATION_FETCH_RESULT', {
+    sessionId: input.sessionId,
+    ownerId: sessionOwnerId,
+    attempts: preferenceFetchAttempts,
+    resolvedMode,
+    shouldSend,
+  });
 
   console.log("JOIN_NOTIFICATION_DECISION", {
     resolvedMode,
@@ -416,6 +433,19 @@ export async function joinSession(input: {
       session_id: input.sessionId,
       spot_name: spotName,
     });
+    console.log('WEB_NOTIFICATION_CREATED', {
+      sessionId: input.sessionId,
+      recipientProfileId: sessionOwnerId,
+      actorProfileId: joinedUserId,
+      ok: !notificationRpcError,
+      error: notificationRpcError?.message ?? null,
+    });
+    if (!notificationRpcError) {
+      console.log('WEB_NOTIFICATION_RENDERED', {
+        sessionId: input.sessionId,
+        recipientProfileId: sessionOwnerId,
+      });
+    }
 
     console.log("NOTIFICATION_RPC_RESULT", {
       ok: !notificationRpcError,
