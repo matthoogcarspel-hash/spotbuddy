@@ -349,27 +349,55 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
   }
 
-  const { data: pref } = await supabase
-    .from('spot_notification_preferences')
-    .select('session_joined_notification_mode')
-    .eq('user_id', sessionOwnerId)
-    .eq('spot_name', sessionIdentity.spot_name)
+  const { data: ownerProfileById } = await supabase
+    .from('profiles')
+    .select('id, owner_uid')
+    .eq('id', sessionOwnerId)
+    .maybeSingle();
+  const { data: ownerProfileByOwnerUid } = ownerProfileById
+    ? { data: null }
+    : await supabase
+        .from('profiles')
+        .select('id, owner_uid')
+        .eq('owner_uid', sessionOwnerId)
+        .maybeSingle();
+
+  const resolvedPreferenceUserId = ownerProfileById?.id
+    ?? ownerProfileByOwnerUid?.id
+    ?? sessionOwnerId;
+  const tableName = 'spot_notification_preferences';
+  const querySpotName = sessionIdentity.spot_name;
+
+  console.log("JOIN_NOTIFICATION_PREF_QUERY_INPUT", {
+    table: tableName,
+    lookupUserId: resolvedPreferenceUserId,
+    sessionOwnerId,
+    spotName: querySpotName,
+    ownerProfileById: ownerProfileById ?? null,
+    ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
+  });
+
+  const { data: pref, error: prefError } = await supabase
+    .from(tableName)
+    .select('user_id, spot_name, session_joined_notification_mode')
+    .eq('user_id', resolvedPreferenceUserId)
+    .eq('spot_name', querySpotName)
     .maybeSingle();
 
-  const preferenceRow = pref;
-  console.log("NOTIF_LOAD_RESULT", {
-    userId: sessionOwnerId,
-    spotName: sessionIdentity.spot_name,
-    row: preferenceRow ?? null
-  });
-  const mode = pref?.session_joined_notification_mode ?? 'off';
-  const session_joined_notification_mode = mode;
-  console.log("NOTIF_NORMALIZED", {
-    session_joined_notification_mode
+  const rawMode = pref?.session_joined_notification_mode;
+  const mode = rawMode === 'off' || rawMode === 'following' || rawMode === 'everyone'
+    ? rawMode
+    : 'off';
+  console.log("JOIN_NOTIFICATION_PREF_QUERY_RESULT", {
+    ok: !prefError,
+    error: prefError ?? null,
+    row: pref ?? null,
+    resolvedMode: mode,
   });
 
   console.log("JOIN_NOTIFICATION_CHECK", {
     sessionOwnerId,
+    resolvedPreferenceUserId,
     mode,
   });
 
