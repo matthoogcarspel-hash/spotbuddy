@@ -913,44 +913,6 @@ const formatDistance = (distanceMeters: number) => {
 
   return `${(distanceMeters / 1000).toFixed(1)} km`;
 };
-const registerForPushNotifications = async (userId: string) => {
-  const { status } = await Notifications.requestPermissionsAsync();
-  if (status !== 'granted') {
-    return;
-  }
-
-  
-
-  const projectId =
-    Constants?.expoConfig?.extra?.eas?.projectId
-    ?? Constants?.easConfig?.projectId;
-
-  if (!projectId) {
-    console.warn('Missing EAS projectId');
-    return;
-  }
-
-  const tokenResult = await Notifications.getExpoPushTokenAsync({ projectId });
-  const expoPushToken = tokenResult.data;
-  console.log('PUSH_TOKEN', expoPushToken);
-
-  const { error } = await supabase.from('push_tokens').upsert(
-    {
-      user_id: userId,
-      expo_push_token: expoPushToken,
-      platform: Platform.OS,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: 'user_id,platform' }
-  );
-
-  if (error) {
-    console.error('Push token save failed:', error);
-    return;
-  }
-
-  
-};
 const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: SpotDefinition[]): NearestSpotResult | null => {
   
   let nearestSpot: SpotName | null = null;
@@ -2276,6 +2238,37 @@ export default function App() {
   useEffect(() => {
     
   }, [favoriteSpots]);
+
+  useEffect(() => {
+    const register = async () => {
+      try {
+        const { status } = await Notifications.requestPermissionsAsync();
+        console.log('PUSH_PERMISSION_STATUS', status);
+
+        if (status !== 'granted') {
+          console.log('PUSH_PERMISSION_DENIED');
+          return;
+        }
+
+        const projectId =
+          Constants?.expoConfig?.extra?.eas?.projectId ??
+          Constants?.easConfig?.projectId;
+
+        console.log('PUSH_PROJECT_ID', projectId);
+
+        const token = await Notifications.getExpoPushTokenAsync({
+          projectId,
+        });
+
+        console.log('PUSH_TOKEN', token.data);
+      } catch (e) {
+        console.log('PUSH_ERROR', e);
+      }
+    };
+
+    register();
+  }, []);
+
   useEffect(() => {
     if (!activeAppUserId || spotNames.length === 0) {
       return;
@@ -3398,15 +3391,6 @@ export default function App() {
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
 
-  useEffect(() => {
-    if (!activeAppUserId) {
-      return;
-    }
-
-    void registerForPushNotifications(activeAppUserId).catch((error: unknown) => {
-      console.error('Push registration failed:', error);
-    });
-  }, [activeAppUserId]);
 
   useEffect(() => {
     if (!activeAppUserId || spotNames.length === 0) {
