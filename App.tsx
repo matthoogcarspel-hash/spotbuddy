@@ -1946,8 +1946,16 @@ export default function App() {
   useEffect(() => {
     if (!isWebPlatform || !activeAppUserId) return;
     (async () => {
-      const { data } = await supabase.from('notifications').select('id').eq('recipient_profile_id', activeAppUserId).eq('read', false);
-      setUnreadCount(data?.length ?? 0);
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', activeAppUserId)
+        .eq('read', false);
+      if (error) {
+        console.error('Failed to load unread notifications count:', error);
+        return;
+      }
+      setUnreadCount(count ?? 0);
     })();
   }, [activeAppUserId, isWebPlatform]);
   useEffect(() => {
