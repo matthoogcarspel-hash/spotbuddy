@@ -399,6 +399,11 @@ export async function joinSession(input: {
       lookup_user_id: lookupUserId,
       lookup_spot_name: querySpotName,
     });
+    console.log("PREF_RPC_RESULT", {
+      lookupUserId,
+      spotName: querySpotName,
+      mode_value: typeof data === 'string' ? data : null,
+    });
     if (error) {
       prefError = error;
       resolvedPreferenceUserId = lookupUserId;
