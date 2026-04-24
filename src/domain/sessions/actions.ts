@@ -392,15 +392,20 @@ export async function joinSession(input: {
     }
   }
 
-  const resolvedMode = rpcResult ?? 'off';
-  const shouldSend = resolvedMode === 'everyone' && sessionOwnerId !== sessionIdentity.user_id;
+  const resolvedMode = rpcResult ?? "off";
+  let shouldSend = false;
+  if (resolvedMode === "everyone") {
+    shouldSend = true;
+  } else {
+    shouldSend = false;
+  }
   const spotName = querySpotName;
 
   console.log("JOIN_NOTIFICATION_DECISION", {
+    resolvedMode,
     shouldSend,
     sessionOwnerId,
     joinedUserId,
-    mode: resolvedMode,
   });
 
   if (shouldSend) {
