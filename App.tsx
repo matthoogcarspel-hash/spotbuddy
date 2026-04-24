@@ -4827,14 +4827,11 @@ export default function App() {
 
     const onConflictKeys = "user_id,spot_name";
     const nextValue = payload.session_joined_notification_mode;
-    console.log("SESSION_JOINED_PREF_SAVE_INPUT", {
+    console.log("PREF_KEY_SAVE", {
       userId: persistedUserId ?? null,
       selectedSpot: selectedSpot ?? null,
       normalizedSpotName: normalizedSpotName ?? null,
       nextValue
-    });
-    console.log("SESSION_JOINED_PREF_SAVE_PAYLOAD", {
-      payload,
     });
 
     const { data, error } = await supabase
@@ -4850,11 +4847,6 @@ export default function App() {
         chat_notification_mode,
         session_joined_notification_mode
       `);
-
-    console.log("SESSION_JOINED_PREF_SAVE_RESULT", {
-      ok: !error,
-      error: error ?? null
-    });
 
     if (error) {
       console.error('Failed to save notification preference:', error);
@@ -4878,7 +4870,11 @@ export default function App() {
       .maybeSingle();
 
     const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
-    console.log("SESSION_JOINED_PREF_SAVE_READBACK", {
+    console.log("PREF_KEY_READBACK", {
+      userId: persistedUserId ?? null,
+      spotName: normalizedSpotName ?? null,
+    });
+    console.log("PREF_DB_ROW_SAVE_READBACK", {
       ok: !readbackError,
       error: readbackError ?? null,
       row: readbackData ?? null,

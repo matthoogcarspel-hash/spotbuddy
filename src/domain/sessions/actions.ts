@@ -386,7 +386,7 @@ export async function joinSession(input: {
   let prefError: unknown = null;
   let resolvedPreferenceUserId = preferenceLookupUserIds[0] ?? null;
   for (const lookupUserId of preferenceLookupUserIds) {
-    console.log("JOIN_NOTIFICATION_PREF_QUERY_INPUT", {
+    console.log("PREF_KEY_LOOKUP", {
       table: tableName,
       lookupUserId,
       sessionOwnerId,
@@ -395,26 +395,38 @@ export async function joinSession(input: {
       ownerProfileById: ownerProfileById ?? null,
       ownerProfileByOwnerUid: ownerProfileByOwnerUid ?? null,
     });
-    const { data, error } = await supabase
-      .from(tableName)
-      .select('user_id, spot_name, session_joined_notification_mode')
-      .eq('user_id', lookupUserId)
-      .eq('spot_name', querySpotName)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc('get_spot_session_joined_notification_preference', {
+      lookup_user_id: lookupUserId,
+      lookup_spot_name: querySpotName,
+    });
     if (error) {
       prefError = error;
       resolvedPreferenceUserId = lookupUserId;
       break;
     }
-    if (data) {
-      pref = data;
+    const normalizedRow = data
+      ? {
+          user_id: lookupUserId,
+          spot_name: querySpotName,
+          session_joined_notification_mode: typeof data === 'string' ? data : null,
+        }
+      : null;
+    console.log("PREF_DB_ROW_LOOKUP_RESULT", {
+      ok: true,
+      error: null,
+      lookupUserId,
+      spotName: querySpotName,
+      row: normalizedRow,
+    });
+    if (normalizedRow) {
+      pref = normalizedRow;
       resolvedPreferenceUserId = lookupUserId;
       break;
     }
   }
 
   const mode = normalizeSpotNotificationMode(pref?.session_joined_notification_mode);
-  console.log("JOIN_NOTIFICATION_PREF_QUERY_RESULT", {
+  console.log("PREF_DB_ROW_LOOKUP_RESULT", {
     ok: !prefError,
     error: prefError ?? null,
     row: pref ?? null,
