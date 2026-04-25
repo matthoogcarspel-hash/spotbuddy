@@ -1952,29 +1952,45 @@ export default function App() {
   const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
-  useEffect(() => {
+  const refreshUnreadNotificationsState = async () => {
     if (!activeAppUserId) {
       setNotificationRows([]);
       setUnreadCount(0);
       return;
     }
-    (async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id,type,data,created_at,read')
-        .eq('user_id', activeAppUserId)
-        .order('created_at', { ascending: false })
-        .limit(20);
-      if (error) {
-        console.error('Failed to load notifications inbox rows:', error);
-        setNotificationRows([]);
-        setUnreadCount(0);
-        return;
-      }
-      const rows = (data ?? []) as NotificationRow[];
-      setNotificationRows(rows);
-      setUnreadCount(rows.filter((row) => row.read === false).length);
-    })();
+
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id,type,data,created_at,read')
+      .eq('user_id', activeAppUserId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) {
+      console.error('Failed to load notifications inbox rows:', error);
+      setNotificationRows([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    setNotificationRows((data ?? []) as NotificationRow[]);
+
+    const { count, error: unreadCountError } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', activeAppUserId)
+      .eq('read', false);
+
+    if (unreadCountError) {
+      console.error('Failed to load unread notifications count:', unreadCountError);
+      setUnreadCount(0);
+      return;
+    }
+
+    setUnreadCount(count ?? 0);
+  };
+  useEffect(() => {
+    void refreshUnreadNotificationsState();
   }, [activeAppUserId]);
   const markAllNotificationsAsRead = async () => {
     if (!activeAppUserId) return;
@@ -1990,11 +2006,7 @@ export default function App() {
       return;
     }
 
-    // optimistic UI update
-    setNotificationRows((rows) =>
-      rows.map((row) => ({ ...row, read: true }))
-    );
-    setUnreadCount(0);
+    await refreshUnreadNotificationsState();
   };
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
