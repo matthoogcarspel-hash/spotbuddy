@@ -6977,9 +6977,66 @@ export default function App() {
             </View>
           </View>
           {unreadCount > 0 ? (
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 6, textAlign: 'center' }}>
-              {`Notifications (${unreadCount})`}
-            </Text>
+            <Pressable onPress={() => setIsNotificationPanelExpanded(true)} style={{ marginTop: 6 }}>
+              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
+                {`Notifications (${unreadCount})`}
+              </Text>
+            </Pressable>
+          ) : null}
+          {isNotificationPanelExpanded ? (
+            <View
+              style={{
+                marginTop: 10,
+                borderRadius: 14,
+                borderWidth: 1,
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
+              {spotNotificationPreferencesModel.map((notificationType, index) => (
+                <View
+                  key={notificationType.key}
+                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === spotNotificationPreferencesModel.length - 1 ? 0 : 10, minHeight: 32 }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
+                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
+                    {notificationModeOptions.map((option) => {
+                      const isSelected = spotNotificationPreferences[notificationType.dbField] === option.value;
+                      return (
+                        <Pressable
+                          key={`${notificationType.key}-${option.value}`}
+                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
+                          onPress={() => {
+                            const preferenceType = notificationType.key;
+                            const nextValue = option.value;
+                            const previousPreferences = spotNotificationPreferences;
+                            const nextPreferences = normalizeSpotNotificationPreferences({ ...previousPreferences, [notificationType.dbField]: nextValue });
+                            setSpotNotificationPreferences(nextPreferences);
+                            void saveSpotNotificationPreferences(nextPreferences, preferenceType).then((didSave) => {
+                              if (!didSave) {
+                                setSpotNotificationPreferences(previousPreferences);
+                              }
+                            });
+                          }}
+                          style={{
+                            paddingVertical: 5,
+                            paddingHorizontal: 9,
+                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
+                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
+                          }}
+                        >
+                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+            </View>
           ) : null}
         </View>
       </View>
