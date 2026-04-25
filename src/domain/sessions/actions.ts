@@ -380,7 +380,7 @@ export async function joinSession(input: {
     ownerProfileByOwnerUid?.id ?? null,
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
-  let rpcResult: string | null = null;
+  let resolvedMode: string | null = null;
   const preferenceFetchAttempts: { lookupUserId: string; result: string | null; error: string | null }[] = [];
   for (const lookupUserId of preferenceLookupUserIds) {
     const { data, error } = await supabase.rpc('get_spot_session_joined_notification_preference', {
@@ -392,17 +392,17 @@ export async function joinSession(input: {
       result: typeof data === 'string' ? data : null,
       error: error?.message ?? null,
     });
-    if (error) {
+    if (error || data === null) {
       continue;
     }
-    const normalizedRpcMode = normalizeSpotNotificationMode(typeof data === 'string' ? data : null);
-    if (normalizedRpcMode !== null) {
-      rpcResult = normalizedRpcMode;
-      break;
-    }
+
+    resolvedMode = normalizeSpotNotificationMode(data);
+    break;
   }
-  const resolvedMode = rpcResult ?? "off";
-  const shouldSend = resolvedMode === "everyone";
+  if (resolvedMode === null) {
+    resolvedMode = 'everyone';
+  }
+  const shouldSend = resolvedMode === 'everyone';
   const spotName = querySpotName;
   console.log('WEB_NOTIFICATION_FETCH_RESULT', {
     sessionId: input.sessionId,
