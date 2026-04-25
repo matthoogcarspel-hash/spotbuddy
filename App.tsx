@@ -100,6 +100,14 @@ type SpotMomentumBuckets = {
   today: SpotMomentumLabel | null;
   tomorrow: SpotMomentumLabel | null;
 };
+type NotificationRow = {
+  id: string;
+  title: string | null;
+  message: string | null;
+  body: string | null;
+  created_at: string | null;
+  read: boolean | null;
+};
 type SpotNotificationPreferences = {
   session_planning_notification_mode: SpotNotificationMode;
   checkin_notification_mode: SpotNotificationMode;
@@ -1806,6 +1814,8 @@ export default function App() {
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
   const [notificationPreferencesError, setNotificationPreferencesError] = useState('');
   const [isNotificationPanelExpanded, setIsNotificationPanelExpanded] = useState(false);
+  const [isNotificationInboxExpanded, setIsNotificationInboxExpanded] = useState(false);
+  const [notificationRows, setNotificationRows] = useState<NotificationRow[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [currentLocalMinutes, setCurrentLocalMinutes] = useState(() => getCurrentLocalMinutes());
   const [currentLocalDateKey, setCurrentLocalDateKey] = useState(() => getCurrentLocalDateKey());
@@ -1944,18 +1954,27 @@ export default function App() {
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
   useEffect(() => {
-    if (!activeAppUserId) return;
+    if (!activeAppUserId) {
+      setNotificationRows([]);
+      setUnreadCount(0);
+      return;
+    }
     (async () => {
-      const { count, error } = await supabase
+      const { data, error } = await supabase
         .from('notifications')
-        .select('id', { count: 'exact', head: true })
+        .select('id,title,message,body,created_at,read')
         .eq('user_id', activeAppUserId)
-        .eq('read', false);
+        .order('created_at', { ascending: false })
+        .limit(20);
       if (error) {
-        console.error('Failed to load unread notifications count:', error);
+        console.error('Failed to load notifications inbox rows:', error);
+        setNotificationRows([]);
+        setUnreadCount(0);
         return;
       }
-      setUnreadCount(count ?? 0);
+      const rows = (data ?? []) as NotificationRow[];
+      setNotificationRows(rows);
+      setUnreadCount(rows.filter((row) => row.read === false).length);
     })();
   }, [activeAppUserId]);
   useEffect(() => {
@@ -6976,14 +6995,12 @@ export default function App() {
               )}
             </View>
           </View>
-          {unreadCount > 0 ? (
-            <Pressable onPress={() => setIsNotificationPanelExpanded(true)} style={{ marginTop: 6 }}>
-              <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
-                {`Notifications (${unreadCount})`}
-              </Text>
-            </Pressable>
-          ) : null}
-          {isNotificationPanelExpanded ? (
+          <Pressable onPress={() => setIsNotificationInboxExpanded((prev) => !prev)} style={{ marginTop: 6 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
+              {`Notifications (${unreadCount})`}
+            </Text>
+          </Pressable>
+          {isNotificationInboxExpanded ? (
             <View
               style={{
                 marginTop: 10,
@@ -6995,47 +7012,34 @@ export default function App() {
                 paddingVertical: 12,
               }}
             >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
-              {spotNotificationPreferencesModel.map((notificationType, index) => (
-                <View
-                  key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === spotNotificationPreferencesModel.length - 1 ? 0 : 10, minHeight: 32 }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
-                    {notificationModeOptions.map((option) => {
-                      const isSelected = spotNotificationPreferences[notificationType.dbField] === option.value;
-                      return (
-                        <Pressable
-                          key={`${notificationType.key}-${option.value}`}
-                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                          onPress={() => {
-                            const preferenceType = notificationType.key;
-                            const nextValue = option.value;
-                            const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = normalizeSpotNotificationPreferences({ ...previousPreferences, [notificationType.dbField]: nextValue });
-                            setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, preferenceType).then((didSave) => {
-                              if (!didSave) {
-                                setSpotNotificationPreferences(previousPreferences);
-                              }
-                            });
-                          }}
-                          style={{
-                            paddingVertical: 5,
-                            paddingHorizontal: 9,
-                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
-                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
-                          }}
-                        >
-                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
-                        </Pressable>
-                      );
-                    })}
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Recent notifications</Text>
+              {notificationRows.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
+              ) : (
+                notificationRows.map((notificationRow, index) => (
+                  <View
+                    key={notificationRow.id}
+                    style={{
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      borderTopColor: theme.border,
+                      paddingTop: index === 0 ? 0 : 10,
+                      marginTop: index === 0 ? 0 : 10,
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '700' : '600' }}>
+                      {notificationRow.title || notificationRow.message || 'Notification'}
+                    </Text>
+                    {notificationRow.body ? (
+                      <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 3 }}>{notificationRow.body}</Text>
+                    ) : null}
+                    {notificationRow.created_at ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
+                        {new Date(notificationRow.created_at).toLocaleString()}
+                      </Text>
+                    ) : null}
                   </View>
-                </View>
-              ))}
-              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+                ))
+              )}
             </View>
           ) : null}
         </View>
