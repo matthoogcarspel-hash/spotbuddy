@@ -1953,6 +1953,7 @@ export default function App() {
   const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
+  console.log('activeAppUserId', activeAppUserId);
   useEffect(() => {
     if (!activeAppUserId) {
       setNotificationRows([]);
@@ -1962,16 +1963,15 @@ export default function App() {
     (async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id,title,message,body,created_at,read')
-        .eq('user_id', activeAppUserId)
-        .order('created_at', { ascending: false })
-        .limit(20);
+        .select('*')
+        .limit(5);
       if (error) {
         console.error('Failed to load notifications inbox rows:', error);
         setNotificationRows([]);
         setUnreadCount(0);
         return;
       }
+      console.log('notifications raw data', data);
       const rows = (data ?? []) as NotificationRow[];
       setNotificationRows(rows);
       setUnreadCount(rows.filter((row) => row.read === false).length);
