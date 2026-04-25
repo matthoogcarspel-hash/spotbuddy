@@ -1976,6 +1976,26 @@ export default function App() {
       setUnreadCount(rows.filter((row) => row.read === false).length);
     })();
   }, [activeAppUserId]);
+  const markAllNotificationsAsRead = async () => {
+    if (!activeAppUserId) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', activeAppUserId)
+      .eq('read', false);
+
+    if (error) {
+      console.error('Failed to mark notifications as read', error);
+      return;
+    }
+
+    // optimistic UI update
+    setNotificationRows((rows) =>
+      rows.map((row) => ({ ...row, read: true }))
+    );
+    setUnreadCount(0);
+  };
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
@@ -7011,7 +7031,15 @@ export default function App() {
               )}
             </View>
           </View>
-          <Pressable onPress={() => setIsNotificationInboxExpanded((prev) => !prev)} style={{ marginTop: 6 }}>
+          <Pressable onPress={() => {
+            setIsNotificationInboxExpanded((prev) => {
+              const nextExpanded = !prev;
+              if (nextExpanded) {
+                void markAllNotificationsAsRead();
+              }
+              return nextExpanded;
+            });
+          }} style={{ marginTop: 6 }}>
             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
               {`Notifications (${unreadCount})`}
             </Text>
