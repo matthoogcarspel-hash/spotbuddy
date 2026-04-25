@@ -374,7 +374,11 @@ export async function joinSession(input: {
     userId: sessionOwnerId,
     spotName: sourceSessionSpotName,
   });
+  const ownerPreferenceUserId = ownerProfileById?.id
+    ?? ownerProfileByOwnerUid?.id
+    ?? sessionOwnerId;
   const preferenceLookupUserIds = Array.from(new Set([
+    ownerPreferenceUserId,
     sessionOwnerId,
     ownerProfileById?.id ?? null,
     ownerProfileByOwnerUid?.id ?? null,
@@ -396,13 +400,20 @@ export async function joinSession(input: {
       continue;
     }
 
-    resolvedMode = normalizeSpotNotificationMode(data);
+    const normalizedMode = normalizeSpotNotificationMode(data);
+    if (normalizedMode === 'off' && lookupUserId !== ownerPreferenceUserId) {
+      continue;
+    }
+    if (typeof data === 'string' && data.trim().toLowerCase() !== normalizedMode) {
+      continue;
+    }
+    resolvedMode = normalizedMode;
     break;
   }
   if (resolvedMode === null) {
     resolvedMode = 'everyone';
   }
-  const shouldSend = resolvedMode === 'everyone';
+  const shouldSend = resolvedMode !== 'off';
   const spotName = querySpotName;
   console.log('WEB_NOTIFICATION_FETCH_RESULT', {
     sessionId: input.sessionId,
