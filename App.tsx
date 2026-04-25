@@ -100,9 +100,14 @@ type SpotMomentumBuckets = {
   today: SpotMomentumLabel | null;
   tomorrow: SpotMomentumLabel | null;
 };
+type NotificationActorProfile = {
+  display_name: string | null;
+};
 type NotificationRow = {
   id: string;
   type: string | null;
+  actor_user_id?: string | null;
+  actor_profile?: NotificationActorProfile | null;
   data: Record<string, unknown> | null;
   created_at: string | null;
   read: boolean | null;
@@ -1961,7 +1966,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from('notifications')
-      .select('id,type,data,created_at,read')
+      .select('id,type,actor_user_id,data,created_at,read,actor_profile:profiles!notifications_actor_user_id_fkey(display_name)')
       .eq('user_id', activeAppUserId)
       .order('created_at', { ascending: false })
       .limit(20);
@@ -2012,10 +2017,18 @@ export default function App() {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
   const getNotificationInboxSummary = (notificationRow: NotificationRow) => {
-    if (notificationRow.type === 'session_joined') {
-      return 'Someone joined your session';
-    }
     const data = notificationRow.data;
+    if (notificationRow.type === 'session_joined') {
+      const actorNameFromData = data && typeof data === 'object'
+        ? [data.actorName, data.actorDisplayName, data.actor_name, data.display_name]
+          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
+        : null;
+      const actorNameFromProfile = typeof notificationRow.actor_profile?.display_name === 'string' && notificationRow.actor_profile.display_name.trim()
+        ? notificationRow.actor_profile.display_name.trim()
+        : null;
+      const actorName = actorNameFromData?.trim() || actorNameFromProfile;
+      return actorName ? `${actorName} joined your session` : 'Someone joined your session';
+    }
     if (data && typeof data === 'object') {
       const message = data.message;
       if (typeof message === 'string' && message.trim()) {
