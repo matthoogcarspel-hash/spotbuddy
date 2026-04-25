@@ -102,9 +102,8 @@ type SpotMomentumBuckets = {
 };
 type NotificationRow = {
   id: string;
-  title: string | null;
-  message: string | null;
-  body: string | null;
+  type: string | null;
+  data: Record<string, unknown> | null;
   created_at: string | null;
   read: boolean | null;
 };
@@ -1962,7 +1961,7 @@ export default function App() {
     (async () => {
       const { data, error } = await supabase
         .from('notifications')
-        .select('id,title,message,body,created_at,read')
+        .select('id,type,data,created_at,read')
         .eq('user_id', activeAppUserId)
         .order('created_at', { ascending: false })
         .limit(20);
@@ -1980,6 +1979,23 @@ export default function App() {
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
+  const getNotificationInboxSummary = (notificationRow: NotificationRow) => {
+    if (notificationRow.type === 'session_joined') {
+      return 'Someone joined your session';
+    }
+    const data = notificationRow.data;
+    if (data && typeof data === 'object') {
+      const message = data.message;
+      if (typeof message === 'string' && message.trim()) {
+        return message.trim();
+      }
+      const spotName = data.spotName;
+      if (typeof spotName === 'string' && spotName.trim() && notificationRow.type) {
+        return `${notificationRow.type}: ${spotName.trim()}`;
+      }
+    }
+    return notificationRow.type || 'Notification';
+  };
   const visibleProfiles = switchableAccounts;
   const availableProfiles = useMemo<Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>>(() => {
     const profileMap = new Map<string, Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>();
@@ -7027,11 +7043,8 @@ export default function App() {
                     }}
                   >
                     <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '700' : '600' }}>
-                      {notificationRow.title || notificationRow.message || 'Notification'}
+                      {getNotificationInboxSummary(notificationRow)}
                     </Text>
-                    {notificationRow.body ? (
-                      <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 3 }}>{notificationRow.body}</Text>
-                    ) : null}
                     {notificationRow.created_at ? (
                       <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
                         {new Date(notificationRow.created_at).toLocaleString()}
