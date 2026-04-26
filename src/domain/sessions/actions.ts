@@ -232,6 +232,7 @@ export async function joinSession(input: {
   targetGroupHasVisibleRows: boolean;
   alreadyJoinedGroup: boolean;
 }): Promise<ServiceSuccess | ServiceFailure> {
+  const shouldLogJoinDebug = typeof __DEV__ !== 'undefined' && __DEV__;
   console.log('SCHEMA_ALIGNMENT_JOIN_INPUT', input);
   console.log('WEB_NOTIFICATION_FLOW_START', {
     sessionId: input.sessionId,
@@ -357,31 +358,41 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
   }
 
-  const { data: ownerProfileById } = await supabase
-    .from('profiles')
-    .select('id, owner_uid')
-    .eq('id', sessionOwnerId)
-    .maybeSingle();
-  const { data: ownerProfileByOwnerUid } = ownerProfileById
-    ? { data: null }
-    : await supabase
-        .from('profiles')
-        .select('id, owner_uid')
-        .eq('owner_uid', sessionOwnerId)
-        .maybeSingle();
+  const resolveProfileId = async (value: string | null): Promise<string | null> => {
+    if (!value) return null;
+
+    const { data: profileById } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', value)
+      .maybeSingle();
+
+    if (profileById?.id) {
+      return profileById.id;
+    }
+
+    const { data: profileByOwnerUid } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('owner_uid', value)
+      .maybeSingle();
+
+    return profileByOwnerUid?.id ?? null;
+  };
+
+  const resolvedRecipientProfileId = await resolveProfileId(sessionOwnerId);
+  const actorProfileId = await resolveProfileId(joinedUserId);
 
   const { spotName: querySpotName } = buildSpotNotificationPreferenceKey({
     userId: sessionOwnerId,
     spotName: sourceSessionSpotName,
   });
-  const ownerPreferenceUserId = ownerProfileById?.id
-    ?? ownerProfileByOwnerUid?.id
+  const ownerPreferenceUserId = resolvedRecipientProfileId
     ?? sessionOwnerId;
   const preferenceLookupUserIds = Array.from(new Set([
     ownerPreferenceUserId,
     sessionOwnerId,
-    ownerProfileById?.id ?? null,
-    ownerProfileByOwnerUid?.id ?? null,
+    resolvedRecipientProfileId,
   ].map((value) => (value ?? '').trim()).filter(Boolean)));
 
   let resolvedMode: string | null = null;
@@ -430,31 +441,58 @@ export async function joinSession(input: {
     joinedUserId,
   });
 
-  if (shouldSend) {
+  if (shouldLogJoinDebug) {
+    console.log('JOIN_NOTIFICATION_DEBUG', {
+      sessionOwnerId,
+      resolvedRecipientProfileId,
+      joinedUserId,
+      actorProfileId,
+      resolvedMode,
+      shouldSend,
+      rpcCalled: false,
+      rpcError: null,
+      rpcData: null,
+    });
+  }
+
+  if (shouldSend && resolvedRecipientProfileId && actorProfileId) {
     console.log("NOTIFICATION_RPC_INPUT", {
-      recipientProfileId: sessionOwnerId,
-      actorProfileId: joinedUserId,
+      recipientProfileId: resolvedRecipientProfileId,
+      actorProfileId,
       sessionId: input.sessionId,
       spotName
     });
 
-    const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
-      recipient_profile_id: sessionOwnerId,
-      actor_profile_id: joinedUserId,
+    const { data: rpcData, error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
+      recipient_profile_id: resolvedRecipientProfileId,
+      actor_profile_id: actorProfileId,
       session_id: input.sessionId,
       spot_name: spotName,
     });
+    if (shouldLogJoinDebug) {
+      console.log('JOIN_NOTIFICATION_DEBUG', {
+        sessionOwnerId,
+        resolvedRecipientProfileId,
+        joinedUserId,
+        actorProfileId,
+        resolvedMode,
+        shouldSend,
+        rpcCalled: true,
+        rpcError: notificationRpcError?.message ?? null,
+        rpcData: rpcData ?? null,
+      });
+    }
     console.log('WEB_NOTIFICATION_CREATED', {
       sessionId: input.sessionId,
-      recipientProfileId: sessionOwnerId,
-      actorProfileId: joinedUserId,
+      recipientProfileId: resolvedRecipientProfileId,
+      actorProfileId,
       ok: !notificationRpcError,
       error: notificationRpcError?.message ?? null,
     });
     if (!notificationRpcError) {
       console.log('WEB_NOTIFICATION_RENDERED', {
         sessionId: input.sessionId,
-        recipientProfileId: sessionOwnerId,
+        recipientProfileId: resolvedRecipientProfileId,
       });
     }
 
@@ -463,6 +501,20 @@ export async function joinSession(input: {
       error: notificationRpcError ?? null
     });
 
+  }
+
+  if (shouldLogJoinDebug && (!shouldSend || !resolvedRecipientProfileId || !actorProfileId)) {
+    console.log('JOIN_NOTIFICATION_DEBUG', {
+      sessionOwnerId,
+      resolvedRecipientProfileId,
+      joinedUserId,
+      actorProfileId,
+      resolvedMode,
+      shouldSend,
+      rpcCalled: false,
+      rpcError: (!resolvedRecipientProfileId || !actorProfileId) ? 'MISSING_PROFILE_ID' : null,
+      rpcData: null,
+    });
   }
 
   return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
