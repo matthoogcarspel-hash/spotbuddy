@@ -414,7 +414,6 @@ export async function joinSession(input: {
     resolvedMode = 'everyone';
   }
   const shouldSend = resolvedMode !== 'off';
-  const spotName = querySpotName;
   console.log('WEB_NOTIFICATION_FETCH_RESULT', {
     sessionId: input.sessionId,
     ownerId: sessionOwnerId,
@@ -431,18 +430,18 @@ export async function joinSession(input: {
   });
 
   if (shouldSend) {
+    const actorProfileId = joinedUserId;
+    const resolvedRecipientProfileId = sessionOwnerId;
     console.log("NOTIFICATION_RPC_INPUT", {
-      recipientProfileId: sessionOwnerId,
-      actorProfileId: joinedUserId,
-      sessionId: input.sessionId,
-      spotName
+      p_session_id: input.sessionId,
+      p_actor_user_id: actorProfileId,
+      p_recipient_profile_id: resolvedRecipientProfileId,
     });
 
     const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
-      recipient_profile_id: sessionOwnerId,
-      actor_profile_id: joinedUserId,
-      session_id: input.sessionId,
-      spot_name: spotName,
+      p_session_id: input.sessionId,
+      p_actor_user_id: actorProfileId,
+      p_recipient_profile_id: resolvedRecipientProfileId,
     });
     console.log('WEB_NOTIFICATION_CREATED', {
       sessionId: input.sessionId,
