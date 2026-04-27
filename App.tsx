@@ -6323,9 +6323,6 @@ export default function App() {
         if (nowReference.isToday && startTotalMinutes < nowReference.earliestStartMinutes) {
           return 'INVALID_TIME_FOR_TODAY';
         }
-        if (spotState.hasOwnSession && !editingSessionId) {
-          return 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY';
-        }
         return null;
       })();
       const isValid = validationReason === null;
@@ -6335,7 +6332,6 @@ export default function App() {
       });
       if (!isValid) {
         if (validationReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
-          setFormError('You already have a session on this spot today');
         } else if (validationReason === 'INVALID_TIME_FOR_TODAY') {
           setFormError('Start time cannot be in the past.');
         } else {
@@ -6385,15 +6381,6 @@ export default function App() {
       if (!result.ok) {
         const resultReason = 'reason' in result ? result.reason : null;
         const mappedReason = resultReason === 'WRITE_FAILED' ? 'UNKNOWN_ERROR' : resultReason;
-        if (resultReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
-          setFormError('You already have a session on this spot today');
-          setSaveError({
-            message: 'sessions_unique',
-            details: 'duplicate_planned_session',
-          });
-          return;
-        }
-
         const persistenceError = ('error' in result ? result.error : null) as {
           code?: string;
           message?: string;
@@ -6543,7 +6530,6 @@ export default function App() {
             <Pressable
               onPress={() => {
                 if (hasOwnSessionOnSelectedSpotDay) {
-                setSessionActionError('You already have a session on this spot today');
                 return;
               }
                 openEmptyPlanningForm();
@@ -6590,6 +6576,15 @@ export default function App() {
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
               >
                 <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  setSessionActionError('');
+                  openEmptyPlanningForm();
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
               </Pressable>
             </View>
           ) : null}
