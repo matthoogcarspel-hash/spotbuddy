@@ -6331,8 +6331,7 @@ export default function App() {
         reason: validationReason ?? null
       });
       if (!isValid) {
-        if (validationReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
-        } else if (validationReason === 'INVALID_TIME_FOR_TODAY') {
+        if (validationReason === 'INVALID_TIME_FOR_TODAY') {
           setFormError('Start time cannot be in the past.');
         } else {
           setFormError('Please choose a valid time range.');
