@@ -5091,7 +5091,6 @@ export default function App() {
         intent: 'definitely',
         checked_in_at: nowIso,
         checked_out_at: null,
-  session_day: getLocalSessionDayKey(),
       } as const;
       
       if (source === 'home_quick') {
@@ -5127,7 +5126,7 @@ export default function App() {
       intent: 'definitely' as const,
       checked_in_at: nowIso,
       checked_out_at: null,
-  session_day: getLocalSessionDayKey(),
+  session_day: new Date().toISOString().slice(0,10),
     };
     
     
