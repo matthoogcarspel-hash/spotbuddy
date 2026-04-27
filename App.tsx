@@ -1201,6 +1201,7 @@ const buildPlanActionInput = ({
   selectedSpot,
   activeDay,
   selectedPlanningDateKey: activeDayKey,
+    session_day: activeDayKey,
   startTime: `${formatTimePart(startHour)}:${formatTimePart(startMinute)}`,
   endTime: `${formatTimePart(endHour)}:${formatTimePart(endMinute)}`,
   intent,
