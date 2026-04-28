@@ -1786,6 +1786,7 @@ export default function App() {
   const [endMinute, setEndMinute] = useState(0);
   const [intent, setIntent] = useState<SessionIntent>('likely');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
+  const [showManageSessions, setShowManageSessions] = useState(false);
   const [formError, setFormError] = useState('');
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
@@ -6544,18 +6545,9 @@ export default function App() {
               <Pressable
                 disabled={!joinedSession || !canEditJoinedSession}
                 onPress={() => {
-                  if (!joinedSession || !canEditJoinedSession) {
-                    return;
-                  }
-                  setEditingSessionId(joinedSession.id);
-                  const parsedStart = parseHourMinuteParts(joinedSession.start);
-                  const parsedEnd = parseHourMinuteParts(joinedSession.end);
-                  setStartHour(parsedStart.hour);
-                  setStartMinute(parsedStart.minute);
-                  setEndHour(parsedEnd.hour);
-                  setEndMinute(parsedEnd.minute);
-                  setIntent(resolveSessionIntent(joinedSession.intent));
-                  setShowForm(true);
+                  setShowManageSessions(true);
+                  setShowForm(false);
+                  setEditingSessionId(null);
                   setActivePicker(null);
                   setSessionActionError('');
                   setFormError('');
@@ -6581,6 +6573,7 @@ export default function App() {
               ) : null}
               <Pressable
                 onPress={() => {
+                  setShowManageSessions(false);
                   setSessionActionError('');
                   openEmptyPlanningForm();
                 }}
@@ -6588,6 +6581,50 @@ export default function App() {
               >
                 <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
               </Pressable>
+            </View>
+          ) : null}
+          {showManageSessions ? (
+            <View style={{ marginTop: 12, gap: 8 }}>
+              {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).map((sessionItem) => (
+                <View key={sessionItem.id} style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 10, gap: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
+                    {sessionItem.start} - {sessionItem.end}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={() => {
+                        setEditingSessionId(sessionItem.id);
+                        const parsedStart = parseHourMinuteParts(sessionItem.start);
+                        const parsedEnd = parseHourMinuteParts(sessionItem.end);
+                        setStartHour(parsedStart.hour);
+                        setStartMinute(parsedStart.minute);
+                        setEndHour(parsedEnd.hour);
+                        setEndMinute(parsedEnd.minute);
+                        setIntent(resolveSessionIntent(sessionItem.intent));
+                        setShowForm(true);
+                        setShowManageSessions(false);
+                        setActivePicker(null);
+                        setSessionActionError('');
+                        setFormError('');
+                        setSaveError(null);
+                      }}
+                      style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
+                    >
+                      <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => {
+                        setEditingSessionId(sessionItem.id);
+                        void handleCancelPlannedSession();
+                        setShowManageSessions(false);
+                      }}
+                      style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
+                    >
+                      <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
             </View>
           ) : null}
           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 6 }}>{headerHelperText}</Text>
