@@ -1568,7 +1568,10 @@ function SessionRow({
         </View>
       </View>
 
-      <View style={{ marginTop: 1 }}>
+      <View style={{ marginTop: 6, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(129,192,255,0.25)', backgroundColor: 'rgba(42,140,255,0.08)' }}>
+        <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>
+          Group session · {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
+        </Text>
         {sortedVisibleSessions.map(({ item, state }, index) => {
           const rider = item as SpotSession & { profile_name?: string; display_name?: string };
           const riderRowName = getRiderRowName(item);
