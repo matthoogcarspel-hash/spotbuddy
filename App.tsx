@@ -4005,6 +4005,23 @@ export default function App() {
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
+    console.log('TIMELINE_DEBUG_AFTER_FILTER', {
+      activeDayKey,
+      sessionsCount: safeTimelineSessions.length,
+      dedupedCount: dedupedSessions.length,
+      filteredCount: filteredSessions.length,
+      visibleCount: visibleSessions.length,
+      visible: visibleSessions.map((item) => ({
+        id: item.id,
+        userId: item.userId,
+        userName: item.userName,
+        spot: item.spot,
+        sessionDay: item.sessionDay,
+        start: item.start,
+        end: item.end,
+        status: item.status,
+      })),
+    });
 
     const resolvedLiveSessionIdsByUser = new Map<string, string>();
     for (const item of visibleSessions) {
