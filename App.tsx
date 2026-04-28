@@ -6565,18 +6565,20 @@ export default function App() {
               >
                 <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Manage sessions</Text>
               </Pressable>
-              <Pressable
-                disabled={!joinedSession || !canCancelJoinedSession}
-                onPress={() => {
-                  if (!joinedSession || !canCancelJoinedSession) {
-                    return;
-                  }
-                  void handleCancelPlannedSession();
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
-              >
-                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>{ownSessionCount === 1 && 'Cancel session'}</Text>
-              </Pressable>
+              {ownSessionCount === 1 ? (
+                <Pressable
+                  disabled={!joinedSession || !canCancelJoinedSession}
+                  onPress={() => {
+                    if (!joinedSession || !canCancelJoinedSession) {
+                      return;
+                    }
+                    void handleCancelPlannedSession();
+                  }}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
+                >
+                  <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+                </Pressable>
+              ) : null}
               <Pressable
                 onPress={() => {
                   setSessionActionError('');
