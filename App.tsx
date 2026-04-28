@@ -3997,7 +3997,7 @@ export default function App() {
     const safeTimelineSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeTimelineSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
-      if (!isSessionOnDayKey(item, activeDayKey)) {
+      if (item.sessionDay !== activeDayKey) {
         return false;
       }
 
