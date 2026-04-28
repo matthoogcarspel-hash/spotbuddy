@@ -6574,26 +6574,29 @@ export default function App() {
                   <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
                 </Pressable>
               ) : null}
-              <Pressable
-                onPress={() => {
-                  setShowManageSessions(false);
-                  setSessionActionError('');
-                  openEmptyPlanningForm();
-                }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
-              >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
-              </Pressable>
+              {showManageSessions ? (
+                <Pressable
+                  onPress={() => setShowManageSessions(false)}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Close</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => {
+                    setShowManageSessions(false);
+                    setSessionActionError('');
+                    openEmptyPlanningForm();
+                  }}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
+                </Pressable>
+              )}
             </View>
           ) : null}
           {showManageSessions ? (
             <View style={{ marginTop: 12, gap: 8 }}>
-              <Pressable
-                onPress={() => setShowManageSessions(false)}
-                style={{ alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 6 }}
-              >
-                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Close</Text>
-              </Pressable>
               <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                 Manage sessions open
               </Text>
