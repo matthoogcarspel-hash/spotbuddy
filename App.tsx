@@ -3140,6 +3140,21 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
+    console.log('SESSIONS_FETCH_AFTER_JOIN_DEBUG', {
+      activeDay,
+      selectedDayKey,
+      count: sessionsData.length,
+      rows: sessionsData.map((row) => ({
+        id: row.id,
+        user_id: row.user_id,
+        spot_name: row.spot_name,
+        session_day: row.session_day,
+        created_at: row.created_at,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        status: row.status,
+      })),
+    });
 
     const messagesResponse = selectedSpot
       ? await supabase
