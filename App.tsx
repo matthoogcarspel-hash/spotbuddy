@@ -6584,7 +6584,10 @@ export default function App() {
           ) : null}
           {showManageSessions ? (
             <View style={{ marginTop: 12, gap: 8 }}>
-              {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).map((sessionItem) => (
+              {((spotState.ownSessionsForSpotDay?.ownSessions ?? []).length > 0
+                ? (spotState.ownSessionsForSpotDay?.ownSessions ?? [])
+                : sessionsForSpot.filter((sessionItem) => sessionItem.isOwnSession)
+              ).map((sessionItem) => (
                 <View key={sessionItem.id} style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 10, gap: 8 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                     {sessionItem.start} - {sessionItem.end}
