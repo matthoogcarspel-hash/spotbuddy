@@ -356,6 +356,10 @@ export async function joinSession(input: {
   const writeResult = await supabase.from('sessions').insert(joinPayload);
 
   if (writeResult.error) {
+    if (writeResult.error.code == '23505') {
+      // already joined → treat as success
+      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: true });
+    }
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 
