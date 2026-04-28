@@ -4446,6 +4446,7 @@ export default function App() {
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const topCta = spotState.topCtaState;
   const hasOwnSessionOnSelectedSpotDay = spotState.hasOwnSession;
+  const ownSessionCount = spotState.ownSessionsForSpotDay?.ownSessions?.length ?? 0;
   const joinedSession = spotState.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
@@ -6562,7 +6563,7 @@ export default function App() {
                 }}
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a', opacity: joinedSession && canEditJoinedSession ? 1 : 0.45 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit session</Text>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Manage sessions</Text>
               </Pressable>
               <Pressable
                 disabled={!joinedSession || !canCancelJoinedSession}
@@ -6574,7 +6575,7 @@ export default function App() {
                 }}
                 style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
               >
-                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+                <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>{ownSessionCount === 1 && 'Cancel session'}</Text>
               </Pressable>
               <Pressable
                 onPress={() => {
