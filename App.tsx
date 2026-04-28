@@ -6622,7 +6622,7 @@ export default function App() {
                       .filter(Boolean)
                       .slice(0, 3);
 
-                    if (overlaps.length === 0) return null;
+                    if (overlaps.length === 0) return <Text style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Overlap: none</Text>;
 
                     console.log('BUDDY_OVERLAP_RESULT', { sessionId: sessionItem.id, overlaps });
 
