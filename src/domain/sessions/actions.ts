@@ -203,7 +203,7 @@ export async function planSession(input: {
   const payload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
-    created_at: buildCreatedAtForDayKey(sessionIdentity.day_key),
+    created_at: new Date().toISOString(),
     session_day: sessionIdentity.day_key,
     start_time: input.startTime,
     end_time: input.endTime,
@@ -343,9 +343,10 @@ export async function joinSession(input: {
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
-    created_at: buildCreatedAtForDayKey(sessionIdentity.day_key),
-    start_time: `${input.sessionDay}T${input.normalizedStart}:00`,
-    end_time: `${input.sessionDay}T${input.normalizedEnd}:00`,
+    created_at: new Date().toISOString(),
+    session_day: sessionIdentity.day_key,
+    start_time: input.normalizedStart,
+    end_time: input.normalizedEnd,
     status: 'Gaat' as const,
     intent: input.intent,
     checked_in_at: null,
