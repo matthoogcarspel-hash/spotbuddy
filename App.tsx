@@ -4504,6 +4504,10 @@ export default function App() {
   useEffect(() => {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
+  useEffect(() => {
+    setShowManageSessions(false);
+  }, [selectedSpot, activeDayKey]);
+
   const handleCancelPlannedSession = async () => {
     const input = buildCancelActionInput({
       ownSessionForSpotDay: spotState.ownSessionForSpotDay,
@@ -6584,6 +6588,12 @@ export default function App() {
           ) : null}
           {showManageSessions ? (
             <View style={{ marginTop: 12, gap: 8 }}>
+              <Pressable
+                onPress={() => setShowManageSessions(false)}
+                style={{ alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 6 }}
+              >
+                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Close</Text>
+              </Pressable>
               <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                 Manage sessions open
               </Text>
