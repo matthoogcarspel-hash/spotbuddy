@@ -314,8 +314,7 @@ export async function joinSession(input: {
   }
 
   const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
-  const blockingOwnSessionsForSpotDay = existingOwnSessionsForSpotDay.filter((session) => isSessionBlockingOwnSession(session));
-  const hasOwnSession = blockingOwnSessionsForSpotDay.length > 0;
+  const hasOwnSession = existingOwnSessionsForSpotDay.some((session) => session.id === input.sessionId);
   console.log("JOIN_ELIGIBILITY_CONTEXT", {
     hasOwnSession,
     sessionDay: input.sessionDay,
