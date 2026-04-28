@@ -3003,7 +3003,7 @@ export default function App() {
     const session = {
       id: row.id,
       spot: canonicalSpotName,
-      sessionDay: getSessionDayKey(row),
+      sessionDay: row.session_day ?? getSessionDayKey(row),
       start: (row.start_time ?? '').slice(0, 5),
       end: (row.end_time ?? '').slice(0, 5),
       status: normalizedSession.status,
