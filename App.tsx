@@ -6594,6 +6594,44 @@ export default function App() {
                 <View key={sessionItem.id} style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 10, gap: 8 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                     {sessionItem.start} - {sessionItem.end}
+                  {(() => {
+                    const toMinutes = (value?: string | null) => {
+                      if (!value) return null;
+                      const [h, m] = value.split(':').map(Number);
+                      if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+                      return h * 60 + m;
+                    };
+
+                    const myStart = toMinutes(sessionItem.start);
+                    const myEnd = toMinutes(sessionItem.end);
+                    if (myStart === null || myEnd === null || myEnd <= myStart) return null;
+
+                    const overlaps = (spotState.sessionsForSpot ?? [])
+                      .filter((otherSession) => otherSession.id !== sessionItem.id)
+                      .map((otherSession) => {
+                        const otherStart = toMinutes(otherSession.start);
+                        const otherEnd = toMinutes(otherSession.end);
+                        if (otherStart === null || otherEnd === null || otherEnd <= otherStart) return null;
+
+                        const overlapMinutes = Math.max(0, Math.min(myEnd, otherEnd) - Math.max(myStart, otherStart));
+                        if (overlapMinutes <= 0) return null;
+
+                        const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
+                        return `${otherSession.userName ?? otherSession.name ?? 'Someone'} ${overlapPercent}%`;
+                      })
+                      .filter(Boolean)
+                      .slice(0, 3);
+
+                    if (overlaps.length === 0) return null;
+
+                    console.log('BUDDY_OVERLAP_RESULT', { sessionId: sessionItem.id, overlaps });
+
+                    return (
+                      <Text style={{ color: '#f59e0b', fontSize: 12, marginTop: 4 }}>
+                        Overlap: {overlaps.join(', ')}
+                      </Text>
+                    );
+                  })()}
                   </Text>
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <Pressable
