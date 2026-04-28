@@ -6308,6 +6308,10 @@ export default function App() {
       await fetchSharedData();
       setSessionActionError('');
       setSelectedTimelineSessionId(null);
+      setTimeout(() => {
+        setSelectedTimelineSessionId(sessionId);
+        void fetchSharedData();
+      }, 250);
     };
     const handleSave = async () => {
       console.log("PLAN_HANDLER_START");
