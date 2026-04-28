@@ -6584,6 +6584,12 @@ export default function App() {
           ) : null}
           {showManageSessions ? (
             <View style={{ marginTop: 12, gap: 8 }}>
+              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
+                Manage sessions open
+              </Text>
+              <Text style={{ color: theme.textSoft, fontSize: 12 }}>
+                Count: {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).length}
+              </Text>
               {((spotState.ownSessionsForSpotDay?.ownSessions ?? []).length > 0
                 ? (spotState.ownSessionsForSpotDay?.ownSessions ?? [])
                 : (spotState.sessionsForSpot ?? []).filter((sessionItem) => sessionItem.isOwnSession)
