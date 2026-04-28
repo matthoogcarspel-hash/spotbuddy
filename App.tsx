@@ -4017,7 +4017,7 @@ export default function App() {
         return false;
       }
 
-      return state !== 'finished';
+      return true;
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
