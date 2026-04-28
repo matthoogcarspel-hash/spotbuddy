@@ -170,7 +170,33 @@ export async function planSession(input: {
   console.log("SESSION_DUPLICATE_FILTERED", {
     blockingSessions: conflictSessions,
   });
-  if (conflictSessions.length > 0) {
+
+  const toMinutes = (value?: string | null) => {
+    if (!value) return null;
+    const [hourRaw, minuteRaw] = value.split(':');
+    const hour = Number(hourRaw);
+    const minute = Number(minuteRaw);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return null;
+    return hour * 60 + minute;
+  };
+
+  const newStart = toMinutes(input.startTime);
+  const newEnd = toMinutes(input.endTime);
+  const hasOverlap = newStart !== null && newEnd !== null && conflictSessions.some((session) => {
+    const existingStart = toMinutes(session.start_time);
+    const existingEnd = toMinutes(session.end_time);
+    if (existingStart === null || existingEnd === null) return false;
+    return newStart < existingEnd && newEnd > existingStart;
+  });
+
+  console.log("SESSION_OVERLAP_CHECK", {
+    newStart,
+    newEnd,
+    hasOverlap,
+    conflictSessions,
+  });
+
+  if (hasOverlap) {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
   }
 
