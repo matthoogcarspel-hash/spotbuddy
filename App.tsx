@@ -3011,7 +3011,7 @@ export default function App() {
       createdAt: row.created_at ?? null,
       checkedInAt: normalizedSession.checkedInAt,
       checkedOutAt: normalizedSession.checkedOutAt,
-      userId: row.resolved_actor_profile_id ?? row.user_id ?? row.profile_id ?? row.created_by ?? '',
+      userId: row.user_id ?? row.resolved_actor_profile_id ?? row.profile_id ?? row.created_by ?? '',
       userName: row.display_name?.trim() || 'Unknown rider',
       userAvatarUrl: row.avatar_url ?? null,
       userOwnerUid: row.owner_uid ?? null,
