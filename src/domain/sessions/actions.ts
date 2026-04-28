@@ -336,10 +336,7 @@ export async function joinSession(input: {
     reason: joinEligibility.reason ?? null,
   });
 
-  if (!joinEligibility.allowed) {
-    if (joinEligibility.reason === 'ALREADY_HAS_SESSION') {
-      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: alreadyHasSessionReason });
-    }
+  if (!joinEligibility.allowed && joinEligibility.reason !== 'ALREADY_HAS_SESSION') {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' });
   }
 
