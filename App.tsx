@@ -3135,8 +3135,7 @@ export default function App() {
       ? await supabase
           .from('sessions')
           .select('*')
-          .gte('created_at', dayBounds.start)
-          .lt('created_at', dayBounds.endExclusive)
+          .eq('session_day', selectedDayKey)
           .order('created_at', { ascending: true })
       : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
