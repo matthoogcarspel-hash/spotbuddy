@@ -3997,11 +3997,27 @@ export default function App() {
     const safeTimelineSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeTimelineSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
-      if (item.sessionDay !== activeDayKey) {
+      const sameDay = item.sessionDay === activeDayKey;
+      const state = getSessionState(item);
+      console.log('TIMELINE_FILTER_REASON', {
+        id: item.id,
+        userId: item.userId,
+        userName: item.userName,
+        sessionDay: item.sessionDay,
+        activeDayKey,
+        start: item.start,
+        end: item.end,
+        status: item.status,
+        sameDay,
+        state,
+        kept: sameDay && state !== 'finished',
+      });
+
+      if (!sameDay) {
         return false;
       }
 
-      return getSessionState(item) !== 'finished';
+      return state !== 'finished';
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
