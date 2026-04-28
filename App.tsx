@@ -6574,25 +6574,24 @@ export default function App() {
                   <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
                 </Pressable>
               ) : null}
+              <Pressable
+                onPress={() => {
+                  setShowManageSessions(false);
+                  setSessionActionError('');
+                  openEmptyPlanningForm();
+                }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
+              </Pressable>
               {showManageSessions ? (
                 <Pressable
                   onPress={() => setShowManageSessions(false)}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#475569' }}
                 >
                   <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Close</Text>
                 </Pressable>
-              ) : (
-                <Pressable
-                  onPress={() => {
-                    setShowManageSessions(false);
-                    setSessionActionError('');
-                    openEmptyPlanningForm();
-                  }}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
-                </Pressable>
-              )}
+              ) : null}
             </View>
           ) : null}
           {showManageSessions ? (
