@@ -356,9 +356,6 @@ export async function joinSession(input: {
   const writeResult = await supabase.from('sessions').insert(joinPayload);
 
   if (writeResult.error) {
-    if (isUniqueConstraintError(writeResult.error)) {
-      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: alreadyHasSessionReason });
-    }
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 
