@@ -6617,7 +6617,9 @@ export default function App() {
                         if (overlapMinutes <= 0) return null;
 
                         const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
-                        return `${otherSession.userName ?? otherSession.name ?? 'Someone'} ${overlapPercent}%`;
+                        const name = otherSession.userName ?? otherSession.name ?? 'Someone';
+const vibes = overlapPercent >= 70 ? '🤙🏼🤙🏼🤙🏼' : overlapPercent >= 40 ? '🤙🏼🤙🏼' : '🤙🏼';
+return `${vibes} ${name}`;
                       })
                       .filter(Boolean)
                       .slice(0, 3);
@@ -6628,7 +6630,7 @@ export default function App() {
 
                     return (
                       <Text style={{ color: '#f59e0b', fontSize: 12, marginTop: 4 }}>
-                        Overlap: {overlaps.join(', ')}
+                        {overlaps.join('  ·  ')}
                       </Text>
                     );
                   })()}
