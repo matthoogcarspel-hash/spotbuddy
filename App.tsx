@@ -6543,7 +6543,6 @@ export default function App() {
           {topCtaMode === 'edit' ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <Pressable
-                disabled={!joinedSession || !canEditJoinedSession}
                 onPress={() => {
                   setShowManageSessions(true);
                   setShowForm(false);
@@ -6553,7 +6552,7 @@ export default function App() {
                   setFormError('');
                   setSaveError(null);
                 }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a', opacity: joinedSession && canEditJoinedSession ? 1 : 0.45 }}
+                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a', opacity: 1 }}
               >
                 <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Manage sessions</Text>
               </Pressable>
