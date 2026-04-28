@@ -1305,10 +1305,10 @@ const groupTimelineSessions = ({
       const visibleSessions = getSortedVisibleGroupSessions(
         (Array.isArray(group.sessions) ? group.sessions : []).filter(({ item }) => {
           const normalizedActiveProfileId = activeProfileId ?? null;
-          if (item.userId === normalizedActiveProfileId) {
+          if (item.user_id === normalizedActiveProfileId) {
             return true;
           }
-          return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
+          return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.user_id);
         }),
       );
       return {
@@ -4002,20 +4002,20 @@ export default function App() {
       if (!isActiveCheckedInSession) {
         continue;
       }
-      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.user_id);
       if (!existingSessionId) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+        resolvedLiveSessionIdsByUser.set(item.user_id, item.id);
         continue;
       }
       const existingSession = visibleSessions.find((sessionItem) => sessionItem.id === existingSessionId);
       if (!existingSession || getSessionRecencyMs(item) > getSessionRecencyMs(existingSession)) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
+        resolvedLiveSessionIdsByUser.set(item.user_id, item.id);
       }
     }
 
     return visibleSessions
       .filter((item) => {
-        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
+        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.user_id);
         if (!resolvedSessionId) {
           return true;
         }
@@ -4040,7 +4040,7 @@ export default function App() {
         return {
           item,
           state,
-          isBuddy: followingUserIds.includes(item.userId),
+          isBuddy: followingUserIds.includes(item.user_id),
           sortMinutes,
         };
       })
