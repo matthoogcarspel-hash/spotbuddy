@@ -4039,43 +4039,7 @@ export default function App() {
       })),
     });
 
-    const resolvedLiveSessionIdsByUser = new Map<string, string>();
-    for (const item of visibleSessions) {
-      const isActiveCheckedInSession = Boolean(item.checkedInAt)
-        && !item.checkedOutAt
-        && (item.status === 'Is er al' || item.status === 'live')
-        && isLiveSession(item)
-        && !isSessionExpired(item);
-      if (!isActiveCheckedInSession) {
-        continue;
-      }
-      const existingSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
-      if (!existingSessionId) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
-        continue;
-      }
-      const existingSession = visibleSessions.find((sessionItem) => sessionItem.id === existingSessionId);
-      if (!existingSession || getSessionRecencyMs(item) > getSessionRecencyMs(existingSession)) {
-        resolvedLiveSessionIdsByUser.set(item.userId, item.id);
-      }
-    }
-
     return visibleSessions
-      .filter((item) => {
-        const resolvedSessionId = resolvedLiveSessionIdsByUser.get(item.userId);
-        if (!resolvedSessionId) {
-          return true;
-        }
-        const isActiveCheckedInSession = Boolean(item.checkedInAt)
-          && !item.checkedOutAt
-          && (item.status === 'Is er al' || item.status === 'live')
-          && isLiveSession(item)
-          && !isSessionExpired(item);
-        if (!isActiveCheckedInSession) {
-          return true;
-        }
-        return item.id === resolvedSessionId;
-      })
       .map((item) => {
         const state = getTimelineState(item);
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
