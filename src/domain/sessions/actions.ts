@@ -203,7 +203,7 @@ export async function planSession(input: {
   const payload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
-    created_at: new Date().toISOString(),
+    created_at: buildCreatedAtForDayKey(sessionIdentity.day_key),
     session_day: sessionIdentity.day_key,
     start_time: input.startTime,
     end_time: input.endTime,
