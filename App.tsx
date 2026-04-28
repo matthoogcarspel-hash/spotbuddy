@@ -6590,10 +6590,7 @@ export default function App() {
               <Text style={{ color: theme.textSoft, fontSize: 12 }}>
                 Count: {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).length}
               </Text>
-              {((spotState.ownSessionsForSpotDay?.ownSessions ?? []).length > 0
-                ? (spotState.ownSessionsForSpotDay?.ownSessions ?? [])
-                : (spotState.sessionsForSpot ?? []).filter((sessionItem) => sessionItem.isOwnSession)
-              ).map((sessionItem) => (
+              {(spotState.sessionsForSpot ?? []).map((sessionItem) => (
                 <View key={sessionItem.id} style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 10, gap: 8 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                     {sessionItem.start} - {sessionItem.end}
