@@ -6618,8 +6618,9 @@ export default function App() {
 
                         const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
                         const name = otherSession.userName ?? otherSession.name ?? 'Someone';
-const vibes = overlapPercent >= 70 ? '🤙🏼🤙🏼🤙🏼' : overlapPercent >= 40 ? '🤙🏼🤙🏼' : '🤙🏼';
-return `${vibes} ${name}`;
+if (overlapPercent < 25) return null;
+const barColor = overlapPercent >= 75 ? '#22c55e' : overlapPercent >= 50 ? '#eab308' : '#f97316';
+return { name, overlapPercent, barColor };
                       })
                       .filter(Boolean)
                       .slice(0, 3);
@@ -6629,9 +6630,19 @@ return `${vibes} ${name}`;
                     console.log('BUDDY_OVERLAP_RESULT', { sessionId: sessionItem.id, overlaps });
 
                     return (
-                      <Text style={{ color: '#f59e0b', fontSize: 12, marginTop: 4 }}>
-                        {overlaps.join('  ·  ')}
-                      </Text>
+                      <View style={{ marginTop: 6, gap: 5 }}>
+                        {overlaps.map((overlapItem, index) => (
+                          <View key={`${sessionItem.id}-overlap-${index}`}>
+                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <Text style={{ color: theme.textSoft, fontSize: 12 }}>Overlap with {overlapItem.name}</Text>
+                              <Text style={{ color: theme.textSoft, fontSize: 12 }}>{overlapItem.overlapPercent}%</Text>
+                            </View>
+                            <View style={{ height: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
+                              <View style={{ width: `${overlapItem.overlapPercent}%`, height: '100%', backgroundColor: overlapItem.barColor, borderRadius: 999 }} />
+                            </View>
+                          </View>
+                        ))}
+                      </View>
                     );
                   })()}
                   </Text>
