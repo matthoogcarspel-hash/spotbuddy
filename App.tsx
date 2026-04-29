@@ -7232,13 +7232,13 @@ return { name, overlapPercent, barColor };
                 getSessionState,
               });
               const activityParts = [
-                nearestStatus.activeCount > 0 ? `${nearestStatus.activeCount} now` : null,
+                nearestStatus.activeCount > 0 ? `● ${nearestStatus.activeCount} now` : null,
                 nearestStatus.plannedCount > 0 ? `${nearestStatus.plannedCount} later` : null,
               ].filter(Boolean);
               return (
-                <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start' }}>
+                <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
                   <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                    Nearest spot · <Text style={{ color: theme.text, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+                    Nearest spot · <Text style={{ color: theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
                     {activityParts.length > 0 ? (
                       <Text style={{ color: theme.primary, fontWeight: '800' }}> · {activityParts.join(' · ')}</Text>
                     ) : null}
