@@ -4508,10 +4508,10 @@ export default function App() {
     return getSessionState(session) === "active";
   }).length;
   const nowSummaryLabel = liveCount > 0
-    ? 'Now: riders are checked in.'
+    ? `${liveCount} rider${liveCount === 1 ? '' : 's'} live now.`
     : mode === 'upcoming'
       ? 'Later: sessions are planned.'
-      : 'Now: no active sessions yet.';
+      : 'No live riders yet.';
   console.log("SPOT_NOW_SUMMARY_RESULT", {
     label: nowSummaryLabel ?? null,
     liveCount
