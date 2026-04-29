@@ -340,6 +340,52 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' });
   }
 
+  const { data: ownSessionsForDay, error: ownSessionsForDayError } = await supabase
+    .from('sessions')
+    .select('id, user_id, spot_name, session_day, start_time, end_time, status, checked_out_at')
+    .eq('user_id', sessionIdentity.user_id)
+    .eq('session_day', sessionIdentity.day_key);
+
+  if (ownSessionsForDayError) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'OWN_DAY_SESSIONS_QUERY_FAILED', error: ownSessionsForDayError });
+  }
+
+  const toMinutes = (value: string | null | undefined) => {
+    if (!value) return null;
+    const time = value.includes('T') ? value.slice(11, 16) : value.slice(0, 5);
+    const [hours, minutes] = time.split(':').map(Number);
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null;
+    return hours * 60 + minutes;
+  };
+
+  const joinStartMinutes = toMinutes(input.normalizedStart);
+  const joinEndMinutes = toMinutes(input.normalizedEnd);
+
+  const overlappingOwnSessionIds = (ownSessionsForDay ?? [])
+    .filter((session) => {
+      if (!session?.id || session.id === input.sessionId) return false;
+      if (session.checked_out_at || ['finished', 'uitchecken'].includes(String(session.status ?? '').toLowerCase())) return false;
+
+      const start = toMinutes(session.start_time);
+      const end = toMinutes(session.end_time);
+      if (joinStartMinutes === null || joinEndMinutes === null || start === null || end === null) return false;
+
+      return Math.max(start, joinStartMinutes) < Math.min(end, joinEndMinutes);
+    })
+    .map((session) => session.id);
+
+  if (overlappingOwnSessionIds.length > 0) {
+    const deleteResult = await supabase
+      .from('sessions')
+      .delete()
+      .eq('user_id', sessionIdentity.user_id)
+      .in('id', overlappingOwnSessionIds);
+
+    if (deleteResult.error) {
+      return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'DELETE_OVERLAPPING_OWN_SESSIONS_FAILED', error: deleteResult.error });
+    }
+  }
+
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
