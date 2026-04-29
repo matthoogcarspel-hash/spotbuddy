@@ -4472,7 +4472,7 @@ export default function App() {
     && !joinedSession.checkedOutAt,
   );
   
-  const topCtaMode = hasOwnSessionOnSelectedSpotDay ? 'edit' as const : 'plan' as const;
+  const topCtaMode = ownSessionCount > 0 ? 'edit' as const : 'plan' as const;
   const mode = spotState?.topCtaState?.mode ?? null;
   console.log("MODE_SAFE", { mode });
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
