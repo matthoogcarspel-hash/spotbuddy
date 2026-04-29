@@ -7099,7 +7099,7 @@ return { name, overlapPercent, barColor };
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
-      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: theme.border, borderRadius: 20, backgroundColor: theme.card, paddingHorizontal: 14, paddingVertical: 20, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: '#223047', borderRadius: 20, backgroundColor: '#010B1F', paddingHorizontal: 22, paddingVertical: 24, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
           <Image
             source={require('./assets/logo.png')}
@@ -7107,17 +7107,17 @@ return { name, overlapPercent, barColor };
             resizeMode="contain"
           />
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={{ color: theme.text, fontSize: 30, fontWeight: '800' }}>See who’s going. Ride together.</Text>
+            <Text style={{ color: '#FFFFFF', fontSize: 30, fontWeight: '800' }}>See who’s going. Ride together.</Text>
           </View>
         </View>
         <View style={{ marginLeft: 10, width: 260 }}>
           <Pressable
             key={headerProfile?.userId ?? 'header-profile-empty'}
             onPress={() => setShowProfile(true)}
-            style={{ backgroundColor: theme.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}
+            style={{ backgroundColor: '#061F45', borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#223047' }}
           >
             <Avatar uri={headerProfile?.avatarUrl ?? null} size={24} />
-            <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>
+            <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>
               {headerProfile?.displayName ?? 'Profile'}
             </Text>
           </Pressable>
