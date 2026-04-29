@@ -176,6 +176,8 @@ const theme = {
   primaryPressed: '#008DC7',
   live: '#28D17C',
   warm: '#FFC83D',
+  navy: '#010B1F',
+  ocean: '#031633',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNotificationPreferencesModel.reduce((accumulator, preference) => {
@@ -958,7 +960,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
     return (
       <View
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.cardStrong, borderWidth: 1, borderColor: theme.border }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
       />
     );
   }
@@ -966,7 +968,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   return (
     <Image
       source={{ uri }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.cardStrong, borderWidth: 1, borderColor: theme.border }}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
     />
   );
 }
@@ -5497,7 +5499,7 @@ export default function App() {
               }}
               placeholder="Search spots"
               placeholderTextColor={theme.textMuted}
-              style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
+              style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
             />
             <View style={{ marginTop: 8 }}>
               <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {searchResults.length}</Text>
@@ -6125,7 +6127,7 @@ export default function App() {
                     placeholder="Profile name / username"
                     placeholderTextColor={theme.textMuted}
                     autoCapitalize="none"
-                    style={{ backgroundColor: theme.cardStrong, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                    style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
                   />
                   <Pressable
                     onPress={async () => {
@@ -6148,7 +6150,7 @@ export default function App() {
                         setAdminCreateAvatarInputUri(result.assets[0].uri);
                       }
                     }}
-                    style={{ backgroundColor: theme.cardStrong, borderRadius: 8, padding: 10, marginBottom: 8 }}
+                    style={{ backgroundColor: theme.card, borderRadius: 8, padding: 10, marginBottom: 8 }}
                   >
                     <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
                       {adminCreateAvatarInputUri ? 'Change avatar (optional)' : 'Pick avatar (optional)'}
@@ -6172,7 +6174,7 @@ export default function App() {
                     onPress={() => {
                       void handleAdminCreateProfile();
                     }}
-                    style={{ backgroundColor: theme.cardStrong, borderRadius: 8, padding: 10, opacity: isAdminCreatingProfile ? 0.6 : 1 }}
+                    style={{ backgroundColor: theme.card, borderRadius: 8, padding: 10, opacity: isAdminCreatingProfile ? 0.6 : 1 }}
                   >
                     <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
                       {isAdminCreatingProfile ? 'Creating...' : 'Create profile'}
@@ -6214,7 +6216,7 @@ export default function App() {
                           borderRadius: 8,
                           borderWidth: 1,
                           borderColor: theme.border,
-                          backgroundColor: isActive ? theme.primaryPressed : theme.cardStrong,
+                          backgroundColor: isActive ? '#D8F5FF' : theme.cardStrong,
                           paddingHorizontal: 10,
                           paddingVertical: 8,
                           marginBottom: 6,
@@ -7066,7 +7068,7 @@ return { name, overlapPercent, barColor };
                   return (
                     <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
                       <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.cardStrong, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
                         <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
                           {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
                         </Text>
@@ -7112,7 +7114,7 @@ return { name, overlapPercent, barColor };
           <Pressable
             key={headerProfile?.userId ?? 'header-profile-empty'}
             onPress={() => setShowProfile(true)}
-            style={{ backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}
+            style={{ backgroundColor: theme.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: theme.border }}
           >
             <Avatar uri={headerProfile?.avatarUrl ?? null} size={24} />
             <Text style={{ color: theme.text, fontWeight: '600', marginLeft: 8 }}>
@@ -7127,7 +7129,7 @@ return { name, overlapPercent, barColor };
               style={{
                 marginTop: 8,
                 marginBottom: 8,
-                backgroundColor: theme.cardStrong,
+                backgroundColor: theme.card,
                 borderWidth: 1,
                 borderColor: theme.border,
                 borderRadius: 12,
