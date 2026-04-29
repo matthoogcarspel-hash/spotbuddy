@@ -4460,7 +4460,7 @@ export default function App() {
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const topCta = spotState.topCtaState;
-  const hasOwnSessionOnSelectedSpotDay = spotState.hasOwnSession;
+  const hasOwnSessionOnSelectedSpotDay = spotState.hasBlockingOwnSession;
   const ownSessionCount = spotState.ownSessionsForSpotDay?.ownSessions?.length ?? 0;
   const joinedSession = spotState.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
