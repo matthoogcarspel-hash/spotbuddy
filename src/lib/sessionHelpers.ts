@@ -211,10 +211,6 @@ export const getJoinState = ({
   ownSessionForSpotDay,
   activeDayKey,
 }: CanJoinSlotArgs) => {
-  const hasBlockingOwnSession = Boolean(ownSessionForSpotDay?.hasBlockingOwnSession ?? ownSessionForSpotDay?.hasOwnSession);
-  if (hasBlockingOwnSession) {
-    return { allowed: false, reason: 'ALREADY_HAS_SESSION' as const };
-  }
   if (getSessionDayKey(session) !== normalizeSessionDay(activeDayKey)) {
     return { allowed: false, reason: 'NON_JOINABLE_DAY' as const };
   }
