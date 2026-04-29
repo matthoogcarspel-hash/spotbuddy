@@ -20,6 +20,7 @@ import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/su
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
+import { theme as appTheme } from './src/theme/theme';
 
 const fallbackSpots = spots;
 type SpotName = string;
