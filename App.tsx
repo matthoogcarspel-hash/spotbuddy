@@ -1475,7 +1475,7 @@ function SessionRow({
     : { allowed: false, reason: null };
   const groupHasOwnSession = safeGroupSessions.some((entry) => entry.item?.userId === currentProfileId);
 
-const canJoinGroup = joinState.allowed && !groupHasOwnSession;
+const canJoinGroup = joinState.allowed;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
