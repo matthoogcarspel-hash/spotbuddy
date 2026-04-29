@@ -6770,7 +6770,7 @@ return { name, overlapPercent, barColor };
                   {minuteOptions
                     .filter((minute) => {
                       if (startHour === null) {
-                        return true;
+                        return false;
                       }
                       const selectedStartMinutes = (startHour * 60) + minute;
                       if (planningNowReference.isToday && selectedStartMinutes < planningNowReference.earliestStartMinutes) {
