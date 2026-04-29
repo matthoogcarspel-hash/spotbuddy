@@ -1466,16 +1466,16 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const joinState = session?.id
-    ? joinStateBySession[session.id] ?? getJoinState({
-      session,
+  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? null;
+  const joinTarget = joinTargetEntry?.item ?? null;
+  const joinState = joinTarget?.id
+    ? joinStateBySession[joinTarget.id] ?? getJoinState({
+      session: joinTarget,
       ownSessionForSpotDay,
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  const groupHasOwnSession = safeGroupSessions.some((entry) => entry.item?.userId === currentProfileId);
-
-const canJoinGroup = joinState.allowed;
+  const canJoinGroup = Boolean(joinTarget) && joinState.allowed;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
@@ -1534,7 +1534,7 @@ const canJoinGroup = joinState.allowed;
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
-                if (representative) {
+                if (joinTarget) {
                   console.log("JOIN_BUTTON_CLICK", {
                     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
                     activeDay,
@@ -1548,9 +1548,9 @@ const canJoinGroup = joinState.allowed;
                     groupEnd: group.endTime,
                   });
                   onJoin({
-                    sessionId: representative.item.id,
-                    sessionDay: representative.item.sessionDay,
-                    sessionStatus: representative.item.status ?? null,
+                    sessionId: joinTarget.id,
+                    sessionDay: joinTarget.sessionDay,
+                    sessionStatus: joinTarget.status ?? null,
                     normalizedStart: group.startTime,
                     normalizedEnd: group.endTime,
                   });
