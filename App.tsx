@@ -164,14 +164,14 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Definitely', value: 'definitely' },
 ];
 const theme = {
-  bg: '#0B0F14',
-  bgElevated: '#121821',
-  card: '#121821',
-  cardStrong: '#18212D',
-  border: '#243141',
+  bg: '#07111F',
+  bgElevated: '#121B29',
+  card: '#162133',
+  cardStrong: '#1E2B3F',
+  border: '#2F4058',
   text: '#FFFFFF',
-  textSoft: '#A8B3C2',
-  textMuted: '#6B7785',
+  textSoft: '#D6E2F0',
+  textMuted: '#A8B3C2',
   primary: '#2FD4FF',
   primaryPressed: '#1AB6E0',
   live: '#3BE37A',
@@ -7251,6 +7251,9 @@ return { name, overlapPercent, barColor };
           const plannedCount = status.plannedCount;
           const activeCount = status.activeCount;
           const isLiveSpot = activeCount > 0;
+          const liveRiders = daySpotSessions
+            .filter((sessionItem) => getSessionState(sessionItem) === 'active')
+            .slice(0, 4);
 
           return (
             <Pressable
@@ -7261,17 +7264,26 @@ return { name, overlapPercent, barColor };
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{spot.name}</Text>
-                  <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 13 }}>
+                  {statusLabel ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
+                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' }}>
+                        {statusLabel}
+                      </Text>
+                    </View>
+                  ) : null}
+                  <Text style={{ color: theme.textSoft, marginTop: 6, fontSize: 13 }}>
                     {spot.distanceMeters === null ? 'Distance unknown' : formatDistance(spot.distanceMeters)}
                   </Text>
                 </View>
 
-                {statusLabel ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.cardStrong, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
-                    <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 6 }} />
-                    <Text style={{ color: theme.text, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' }}>
-                      {statusLabel}
-                    </Text>
+                {liveRiders.length > 0 ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 2 }}>
+                    {liveRiders.map((sessionItem, index) => (
+                      <View key={`home-live-avatar-${spot.name}-${sessionItem.id}`} style={{ marginLeft: index === 0 ? 0 : -10 }}>
+                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={34} />
+                      </View>
+                    ))}
                   </View>
                 ) : null}
               </View>
