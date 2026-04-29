@@ -236,7 +236,7 @@ type TopCtaStateArgs = {
 };
 
 export const getTopCtaState = ({ ownSessionForSpotDay }: TopCtaStateArgs) => {
-  const hasOwnSession = Boolean(ownSessionForSpotDay?.hasBlockingOwnSession ?? ownSessionForSpotDay?.hasOwnSession);
+  const hasOwnSession = Boolean(ownSessionForSpotDay?.hasBlockingOwnSession);
   const sessionId = ownSessionForSpotDay?.ownSession?.id ?? undefined;
 
   return {
