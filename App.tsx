@@ -1306,7 +1306,7 @@ const groupTimelineSessions = ({
         (Array.isArray(group.sessions) ? group.sessions : []).filter(({ item }) => {
           const normalizedActiveProfileId = activeProfileId ?? null;
           if (item.userId === normalizedActiveProfileId) {
-            return true;
+            return state !== 'finished';
           }
           return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
         }),
