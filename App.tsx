@@ -7425,9 +7425,9 @@ return { name, overlapPercent, barColor };
                   <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Planned</Text>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{plannedCount}</Text>
                 </View>
-                <View style={{ flex: 1, backgroundColor: '#10271f', borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#6ee7b7', fontSize: 12, fontWeight: '600' }}>Active</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{activeCount}</Text>
+                <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#D8E2EC', paddingVertical: 8, paddingHorizontal: 10 }}>
+                  <Text style={{ color: '#16A66A', fontSize: 12, fontWeight: '700' }}>Active</Text>
+                  <Text style={{ color: '#031633', fontSize: 20, fontWeight: '700', marginTop: 2 }}>{activeCount}</Text>
                 </View>
               </View>
             </Pressable>
