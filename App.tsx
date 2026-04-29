@@ -164,20 +164,18 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Definitely', value: 'definitely' },
 ];
 const theme = {
-  bg: '#EEF4FA',
-  bgElevated: '#FFFFFF',
-  card: '#FFFFFF',
-  cardStrong: '#F7FAFC',
-  border: '#D8E2EC',
-  text: '#031633',
-  textSoft: '#42526B',
-  textMuted: '#6E7C91',
-  primary: '#10AEE8',
-  primaryPressed: '#008DC7',
-  live: '#28D17C',
-  warm: '#FFC83D',
-  navy: '#010B1F',
-  ocean: '#031633',
+  bg: '#0B0F14',
+  bgElevated: '#121821',
+  card: '#121821',
+  cardStrong: '#18212D',
+  border: '#243141',
+  text: '#FFFFFF',
+  textSoft: '#A8B3C2',
+  textMuted: '#6B7785',
+  primary: '#2FD4FF',
+  primaryPressed: '#1AB6E0',
+  live: '#3BE37A',
+  warm: '#F2C94C',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNotificationPreferencesModel.reduce((accumulator, preference) => {
@@ -960,7 +958,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   if (!uri) {
     return (
       <View
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card,  borderColor: theme.border }}
       />
     );
   }
@@ -968,7 +966,7 @@ function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
   return (
     <Image
       source={{ uri }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border }}
+      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card,  borderColor: theme.border }}
     />
   );
 }
@@ -1001,7 +999,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
         event.stopPropagation();
         onPress();
       }}
-      style={{ flex: 1, height: 22, borderRadius: 999, backgroundColor: theme.bgElevated, borderWidth: 1, borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
+      style={{ flex: 1, height: 22, borderRadius: 999, backgroundColor: theme.bgElevated,  borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
     >
       <View
         style={{
@@ -1043,7 +1041,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
             bottom: 5,
             borderRadius: 999,
             backgroundColor: joinPlacement.placement === 'inside' ? '#2a8cff' : '#1a66c9',
-            borderWidth: 1,
+            
             borderColor: '#81c0ff',
             justifyContent: 'center',
             alignItems: 'center',
@@ -1560,7 +1558,7 @@ const canJoinGroup = joinState.allowed && !groupHasOwnSession;
               }}
               style={{
                 backgroundColor: '#1a66c9',
-                borderWidth: 1,
+                
                 borderColor: '#81c0ff',
                 borderRadius: 999,
                 paddingHorizontal: 10,
@@ -1573,7 +1571,7 @@ const canJoinGroup = joinState.allowed && !groupHasOwnSession;
         </View>
       </View>
 
-      <View style={{ marginTop: 6, padding: 8, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(129,192,255,0.25)', backgroundColor: 'rgba(42,140,255,0.08)' }}>
+      <View style={{ marginTop: 6, padding: 8, borderRadius: 14,  borderColor: 'rgba(129,192,255,0.25)', backgroundColor: 'rgba(42,140,255,0.08)' }}>
         <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>
           Group session · {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
         </Text>
@@ -5467,12 +5465,12 @@ export default function App() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-          <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
-                style={{ backgroundColor: theme.bgElevated, borderRadius: 8, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ backgroundColor: theme.bgElevated, borderRadius: 8,  borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
@@ -5499,7 +5497,7 @@ export default function App() {
               }}
               placeholder="Search spots"
               placeholderTextColor={theme.textMuted}
-              style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 10, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
+              style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 10,  borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
             />
             <View style={{ marginTop: 8 }}>
               <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {searchResults.length}</Text>
@@ -5526,7 +5524,7 @@ export default function App() {
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   borderRadius: 999,
-                  borderWidth: 1,
+                  
                   borderColor: orderMode === 'distance' ? theme.primary : theme.border,
                   backgroundColor: orderMode === 'distance' ? '#123868' : theme.cardStrong,
                 }}
@@ -5539,7 +5537,7 @@ export default function App() {
                   paddingHorizontal: 10,
                   paddingVertical: 6,
                   borderRadius: 999,
-                  borderWidth: 1,
+                  
                   borderColor: orderMode === 'manual' ? theme.primary : theme.border,
                   backgroundColor: orderMode === 'manual' ? '#123868' : theme.cardStrong,
                 }}
@@ -5682,7 +5680,7 @@ export default function App() {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-          <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
 
             <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Follow requests</Text>
@@ -5698,7 +5696,7 @@ export default function App() {
                       style={{
                         backgroundColor: theme.bgElevated,
                         borderRadius: 10,
-                        borderWidth: 1,
+                        
                         borderColor: theme.border,
                         paddingHorizontal: 12,
                         paddingVertical: 10,
@@ -5782,7 +5780,7 @@ export default function App() {
               placeholderTextColor={theme.textMuted}
               style={{
                 marginTop: 10,
-                borderWidth: 1,
+                
                 borderColor: theme.border,
                 borderRadius: 10,
                 paddingHorizontal: 12,
@@ -5807,7 +5805,7 @@ export default function App() {
                     style={{
                       backgroundColor: theme.bgElevated,
                       borderRadius: 10,
-                      borderWidth: 1,
+                      
                       borderColor: theme.border,
                       paddingHorizontal: 12,
                       paddingVertical: 10,
@@ -6032,7 +6030,7 @@ export default function App() {
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
-        <View style={{ backgroundColor: theme.card, borderRadius: 12, padding: 16 }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
             <View style={{ marginLeft: 10 }}>
@@ -6120,7 +6118,7 @@ export default function App() {
                 <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Create profile</Text>
               </Pressable>
               {showAdminCreateProfile ? (
-                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 10 }}>
+                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10,  borderColor: theme.border, padding: 10 }}>
                   <TextInput
                     value={adminCreateNameInput}
                     onChangeText={setAdminCreateNameInput}
@@ -6183,7 +6181,7 @@ export default function App() {
                 </View>
               ) : null}
               {showAccountSwitcher ? (
-                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, borderWidth: 1, borderColor: theme.border, padding: 8 }}>
+                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10,  borderColor: theme.border, padding: 8 }}>
                   {(() => {
                     const data = visibleProfiles;
                     
@@ -6214,7 +6212,7 @@ export default function App() {
                         }}
                         style={{
                           borderRadius: 8,
-                          borderWidth: 1,
+                          
                           borderColor: theme.border,
                           backgroundColor: isActive ? '#D8F5FF' : theme.cardStrong,
                           paddingHorizontal: 10,
@@ -6459,7 +6457,7 @@ export default function App() {
       alignItems: 'center',
     } as const;
     const autoCheckoutBanner = autoCheckoutNotice ? (
-      <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 }}>
+      <View style={{ backgroundColor: '#16324d',  borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 }}>
         <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
         <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
       </View>
@@ -6472,7 +6470,7 @@ export default function App() {
         </Pressable>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 12,  borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
             <Pressable
@@ -6481,7 +6479,7 @@ export default function App() {
               }}
               style={{
                 borderRadius: 999,
-                borderWidth: 1,
+                
                 borderColor: theme.border,
                 backgroundColor: theme.bgElevated,
                 paddingHorizontal: 10,
@@ -6499,7 +6497,7 @@ export default function App() {
           {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
           <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>{nowSummaryLabel}</Text>
           {selectedSpotMomentumLabel ? (
-            <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
+            <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999,  borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
             </View>
           ) : null}
@@ -6508,7 +6506,7 @@ export default function App() {
               style={{
                 marginTop: 10,
                 borderRadius: 14,
-                borderWidth: 1,
+                
                 borderColor: theme.border,
                 backgroundColor: theme.bgElevated,
                 paddingHorizontal: 14,
@@ -6522,7 +6520,7 @@ export default function App() {
                   style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === spotNotificationPreferencesModel.length - 1 ? 0 : 10, minHeight: 32 }}
                 >
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999, borderWidth: 1, borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
+                  <View style={{ flexDirection: 'row', borderRadius: 999,  borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
                     {notificationModeOptions.map((option) => {
                       const isSelected = spotNotificationPreferences[notificationType.dbField] === option.value;
                       return (
@@ -6560,7 +6558,7 @@ export default function App() {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 }}>MY ACTION</Text>
           {topCtaMode === 'plan' ? (
             <Pressable
@@ -6634,7 +6632,7 @@ export default function App() {
                 Count: {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).length}
               </Text>
               {ownActiveSessions.map((sessionItem) => (
-                <View key={sessionItem.id} style={{ borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 10, gap: 8 }}>
+                <View key={sessionItem.id} style={{  borderColor: theme.border, borderRadius: 14, padding: 10, gap: 8 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
                     {sessionItem.start} - {sessionItem.end}
                   {(() => {
@@ -6734,10 +6732,10 @@ return { name, overlapPercent, barColor };
               <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Start time</Text>
 
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                   <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                   <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(startMinute)}</Text>
                 </Pressable>
               </View>
@@ -6755,7 +6753,7 @@ return { name, overlapPercent, barColor };
                           }
                         }
                       }}
-                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}
+                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}
                     >
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
@@ -6776,7 +6774,7 @@ return { name, overlapPercent, barColor };
                       return selectedStartMinutes <= planningNowReference.latestPlanningStartMinutes;
                     })
                     .map((minute) => (
-                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                     ))}
@@ -6785,17 +6783,17 @@ return { name, overlapPercent, barColor };
 
               <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>End time</Text>
               <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                   <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
                   <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(endMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {(Array.isArray(hours) ? hours : []).filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
-                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
                   ))}
@@ -6804,7 +6802,7 @@ return { name, overlapPercent, barColor };
               {activePicker === 'endMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
-                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated, borderWidth: 1, borderColor: theme.border, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 10, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                   ))}
@@ -6825,7 +6823,7 @@ return { name, overlapPercent, barColor };
                         flex: 1,
                         backgroundColor: isActive ? theme.primary : theme.bgElevated,
                         borderRadius: 10,
-                        borderWidth: 1,
+                        
                         borderColor: theme.border,
                         paddingVertical: 8,
                         paddingHorizontal: 8,
@@ -6881,10 +6879,10 @@ return { name, overlapPercent, barColor };
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>Sessions</Text>
-            <View style={{ flexDirection: 'row', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: theme.bgElevated, borderRadius: 999,  borderColor: theme.border, padding: 2 }}>
               {([
                 { key: 'everyone' as const, label: 'Everyone' },
                 { key: 'buddies' as const, label: 'Buddies' },
@@ -6936,7 +6934,7 @@ return { name, overlapPercent, barColor };
             }}
           />
           {selectedTimelineSession ? (
-            <View style={{ marginTop: 10, borderRadius: 12, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
+            <View style={{ marginTop: 10, borderRadius: 14,  borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                 {selectedTimelineSession.item.userName} · {selectedTimelineSession.item.start}–{selectedTimelineSession.item.end}
               </Text>
@@ -6948,7 +6946,7 @@ return { name, overlapPercent, barColor };
         </View>
 
         {shouldShowNowAtSpotPanel ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
             {nowAtSpotMode === 'live' ? (
               <>
@@ -6987,7 +6985,7 @@ return { name, overlapPercent, barColor };
           </View>
         ) : null}
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: theme.border }}>
+        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
           <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
 
           <TextInput
@@ -6995,7 +6993,7 @@ return { name, overlapPercent, barColor };
             onChangeText={setMessageInput}
             placeholder="Type a message"
             placeholderTextColor={theme.textMuted}
-            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 12, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
           />
           <Pressable
             onPress={() => {
@@ -7034,7 +7032,7 @@ return { name, overlapPercent, barColor };
                 await fetchSharedData();
               })();
             }}
-            style={{ backgroundColor: theme.primaryPressed, borderRadius: 12, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
+            style={{ backgroundColor: theme.primaryPressed, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
           >
             <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send</Text>
           </Pressable>
@@ -7068,7 +7066,7 @@ return { name, overlapPercent, barColor };
                   return (
                     <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
                       <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 8 }}>
+                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 }}>
                         <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
                           {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
                         </Text>
@@ -7098,280 +7096,147 @@ return { name, overlapPercent, barColor };
   
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
-      <View style={{ marginBottom: 18, borderWidth: 1, borderColor: '#223047', borderRadius: 20, backgroundColor: '#010B1F', paddingHorizontal: 22, paddingVertical: 24, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Image
-            source={require('./assets/logo.png')}
-            style={{ width: 140, height: 140, marginRight: 18 }}
-            resizeMode="contain"
-          />
-          <View style={{ flex: 1, justifyContent: 'center' }}>
-            <Text style={{ color: '#FFFFFF', fontSize: 30, fontWeight: '800' }}>See who’s going. Ride together.</Text>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <Image
+              source={require('./assets/logo.png')}
+              style={{ width: 58, height: 58, borderRadius: 16, marginRight: 14 }}
+              resizeMode="contain"
+            />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>
+                Where are we riding?
+              </Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, marginTop: 3 }}>
+                See who’s going. Ride together.
+              </Text>
+            </View>
           </View>
-        </View>
-        <View style={{ marginLeft: 10, width: 260 }}>
+
           <Pressable
             key={headerProfile?.userId ?? 'header-profile-empty'}
             onPress={() => setShowProfile(true)}
-            style={{ backgroundColor: '#061F45', borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#223047' }}
+            style={{ backgroundColor: theme.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}
           >
-            <Avatar uri={headerProfile?.avatarUrl ?? null} size={24} />
-            <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>
+            <Avatar uri={headerProfile?.avatarUrl ?? null} size={26} />
+            <Text style={{ color: theme.text, fontWeight: '700', marginLeft: 8, fontSize: 13 }}>
               {headerProfile?.displayName ?? 'Profile'}
             </Text>
           </Pressable>
-          {plannedSession && (
-            <Pressable
-              onPress={() => {
-                setSelectedSpot(plannedSession.spot);
-              }}
-              style={{
-                marginTop: 8,
-                marginBottom: 8,
-                backgroundColor: theme.card,
-                borderWidth: 1,
-                borderColor: theme.border,
-                borderRadius: 12,
-                paddingVertical: 8,
-                paddingHorizontal: 12,
-                width: '100%',
-              }}
-            >
-              <Text
-                style={{
-                  color: theme.text,
-                  fontSize: 13,
-                  fontWeight: '700',
-                  textAlign: 'center',
-                }}
-              >
-                🚨 Planned: {plannedSession.spot}
-              </Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, textAlign: 'center' }}>
-                {plannedSessionIntentLabel}
-              </Text>
-            </Pressable>
-          )}
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-            <Pressable
-              onPress={() => setShowYourSpotsPage(true)}
-              style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.border }}
-            >
-              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>
-                Your spots
-              </Text>
-            </Pressable>
-            <View style={{ width: 8 }} />
-            <View style={{ flex: 1, position: 'relative' }}>
-              <Pressable
-                onPress={() => setShowBuddies(true)}
-                style={{ backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.border }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>Your buddies</Text>
-              </Pressable>
-              {hasPendingRequests && (
-                <View
-                  style={{
-                    position: 'absolute',
-                    top: -4,
-                    right: -4,
-                    minWidth: 16,
-                    height: 16,
-                    borderRadius: 8,
-                    backgroundColor: 'red',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  {pendingRequestsCount !== null ? (
-                    <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>{pendingRequestsCount}</Text>
-                  ) : null}
-                </View>
-              )}
-            </View>
-          </View>
-          <Pressable onPress={() => {
-            setIsNotificationInboxExpanded((prev) => {
-              const nextExpanded = !prev;
-              if (nextExpanded) {
-                void markAllNotificationsAsRead();
-              }
-              return nextExpanded;
-            });
-          }} style={{ marginTop: 6 }}>
-            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
-              {`Notifications (${unreadCount})`}
+        </View>
+
+        {plannedSession ? (
+          <Pressable
+            onPress={() => setSelectedSpot(plannedSession.spot)}
+            style={{ backgroundColor: theme.cardStrong, borderRadius: 16, padding: 14, marginBottom: 14 }}
+          >
+            <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' }}>
+              Planned session
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 4 }}>
+              {plannedSession.spot}
+            </Text>
+            <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+              {plannedSessionIntentLabel}
             </Text>
           </Pressable>
-          {isNotificationInboxExpanded ? (
-            <View
-              style={{
-                marginTop: 10,
-                borderRadius: 14,
-                borderWidth: 1,
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-              }}
-            >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Recent notifications</Text>
-              {notificationRows.length === 0 ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
-              ) : (
-                notificationRows.map((notificationRow, index) => (
-                  <View
-                    key={notificationRow.id}
-                    style={{
-                      borderTopWidth: index === 0 ? 0 : 1,
-                      borderTopColor: theme.border,
-                      paddingTop: index === 0 ? 0 : 10,
-                      marginTop: index === 0 ? 0 : 10,
-                    }}
-                  >
-                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '700' : '600' }}>
-                      {getNotificationInboxSummary(notificationRow)}
-                    </Text>
-                    {notificationRow.created_at ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
-                        {new Date(notificationRow.created_at).toLocaleString()}
-                      </Text>
-                    ) : null}
-                  </View>
-                ))
-              )}
-            </View>
-          ) : null}
-        </View>
-      </View>
+        ) : null}
 
-      <View>
-        {autoCheckoutNotice ? (
-          <View style={{ backgroundColor: '#16324d', borderWidth: 1, borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
-            <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
-            <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
-          </View>
-        ) : null}
-        {!isWebPlatform && showAutoCheckinPrompt && nearestSpotName ? (
-          <Text style={{ color: theme.textSoft, marginBottom: 10, fontSize: 13 }}>
-            {`You're near ${nearestSpotName}.`}
-          </Text>
-        ) : null}
-        {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
-        <View style={{ marginBottom: 12 }}>
-          {(() => {
-            
-            return null;
-          })()}
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, padding: 2 }}>
-            {([
-              { key: 'today' as const, label: 'Today' },
-              { key: 'tomorrow' as const, label: 'Tomorrow' },
-            ]).map((option) => {
-              const isActive = activeDay === option.key;
-              return (
-                <Pressable
-                  key={`home-day-${option.key}`}
-                  onPress={() => setActiveDay(option.key)}
-                  style={{
-                    paddingHorizontal: 12,
-                    paddingVertical: 6,
-                    borderRadius: 999,
-                    backgroundColor: isActive ? theme.primary : 'transparent',
-                  }}
-                >
-                  <Text style={{ color: isActive ? '#ffffff' : theme.textSoft, fontSize: 12, fontWeight: '700' }}>{option.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+          <Pressable
+            onPress={() => setShowYourSpotsPage(true)}
+            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your spots</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowBuddies(true)}
+            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your buddies</Text>
+            {hasPendingRequests && pendingRequestsCount !== null ? (
+              <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{pendingRequestsCount}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          <Pressable
+            onPress={() => {
+              setIsNotificationInboxExpanded((prev) => {
+                const nextExpanded = !prev;
+                if (nextExpanded) void markAllNotificationsAsRead();
+                return nextExpanded;
+              });
+            }}
+            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{`Notifications (${unreadCount})`}</Text>
+          </Pressable>
         </View>
-        <View style={{ marginBottom: 12 }}>
-          {(() => {
-            
-            return null;
-          })()}
-          {isResolvingNearestSpot ? (
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · Getting location...</Text>
-          ) : nearestSpotResult && nearestSpotDistanceLabel ? (
-            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-              Nearest spot · <Text style={{ color: theme.textSoft, fontWeight: '700' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
-            </Text>
-          ) : (
-            <View>
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · No nearby spot</Text>
-              {locationPermissionStatus !== 'granted' ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Enable location for quick check-ins.</Text>
-              ) : null}
-            </View>
-          )}
-          {nearestSpotResult && (
-            (() => {
-              
-              return null;
-            })()
-          )}
-          {nearestSpotResult && nearestSpotDistanceLabel ? (
-            <View style={{ marginTop: 10 }}>
-              {isHomeCheckoutButtonVisible ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Pressable
-                    disabled={homeQuickCheckOutInFlight}
-                    onPress={() => {
-                      void handleQuickCheckOut();
-                    }}
-                    style={{
-                      borderRadius: 10,
-                      paddingVertical: 7,
-                      paddingHorizontal: 12,
-                      alignItems: 'center',
-                      backgroundColor: '#7c2d12',
-                      opacity: homeQuickCheckOutInFlight ? 0.45 : 1,
-                    }}
-                  >
-                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
-                      {homeQuickCheckOutInFlight ? 'Check out...' : 'Check out here'}
-                    </Text>
-                  </Pressable>
-                  {activeCheckedInSession.spot !== nearestSpotResult.spot ? (
-                    <Text numberOfLines={1} style={{ color: theme.textMuted, marginLeft: 8, fontSize: 11, maxWidth: 156 }}>
-                      You are checked in at {activeCheckedInSession.spot}
+
+        {isNotificationInboxExpanded ? (
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 14, marginBottom: 16 }}>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 10 }}>Recent notifications</Text>
+            {notificationRows.length === 0 ? (
+              <Text style={{ color: theme.textMuted, fontSize: 13 }}>No notifications yet.</Text>
+            ) : (
+              notificationRows.map((notificationRow, index) => (
+                <View key={notificationRow.id} style={{ paddingTop: index === 0 ? 0 : 10, marginTop: index === 0 ? 0 : 10, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: theme.border }}>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '800' : '600' }}>
+                    {getNotificationInboxSummary(notificationRow)}
+                  </Text>
+                  {notificationRow.created_at ? (
+                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
+                      {new Date(notificationRow.created_at).toLocaleString()}
                     </Text>
                   ) : null}
                 </View>
-              ) : (
-                nearestSpotCanCheckIn ? (
-                  <Pressable
-                    disabled={quickCheckInSpotInFlight !== null}
-                    onPress={() => {
-                      void handleQuickCheckIn(nearestSpotResult.spot);
-                    }}
-                    style={{
-                      borderRadius: 10,
-                      paddingVertical: 7,
-                      paddingHorizontal: 12,
-                      alignItems: 'center',
-                      alignSelf: 'flex-start',
-                      backgroundColor: '#15803d',
-                      opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
-                    }}
-                  >
-                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
-                      {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Check in...' : 'Check in here'}
-                    </Text>
-                  </Pressable>
-                ) : null
-              )}
-            </View>
-          ) : null}
+              ))
+            )}
+          </View>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.card, borderRadius: 999, padding: 3, marginBottom: 14 }}>
+          {([
+            { key: 'today' as const, label: 'Today' },
+            { key: 'tomorrow' as const, label: 'Tomorrow' },
+          ]).map((option) => {
+            const isActive = activeDay === option.key;
+            return (
+              <Pressable
+                key={`home-day-${option.key}`}
+                onPress={() => setActiveDay(option.key)}
+                style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: isActive ? theme.primary : 'transparent' }}
+              >
+                <Text style={{ color: isActive ? theme.bg : theme.textSoft, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
+              </Pressable>
+            );
+          })}
         </View>
+
+        <View style={{ marginBottom: 18 }}>
+          {isResolvingNearestSpot ? (
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Nearest spot · Getting location...</Text>
+          ) : nearestSpotResult && nearestSpotDistanceLabel ? (
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+              Nearest spot · <Text style={{ color: theme.text, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+            </Text>
+          ) : (
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Nearest spot · No nearby spot</Text>
+          )}
+        </View>
+
         {visibleSpots.length === 0 ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12, borderWidth: 1, borderColor: theme.border }}>
-            <Text style={{ color: theme.textSoft, fontSize: 14 }}>No spots selected yet</Text>
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16 }}>
+            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>No spots selected yet</Text>
             <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Manage your list from Your spots.</Text>
           </View>
         ) : null}
+
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
           const status = getSpotStatus({
@@ -7385,55 +7250,45 @@ return { name, overlapPercent, barColor };
           const statusLabel = status.label;
           const plannedCount = status.plannedCount;
           const activeCount = status.activeCount;
-
-          console.log('HOME_SPOT_STATUS_RESULT', {
-            spotName: spot.name,
-            label: statusLabel,
-          });
+          const isLiveSpot = activeCount > 0;
 
           return (
             <Pressable
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
-              style={{
-                backgroundColor: theme.card,
-                borderRadius: 16,
-                paddingHorizontal: 16,
-                paddingVertical: 14,
-                marginBottom: 12,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
+              style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 12 }}
             >
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot.name}</Text>
-              </View>
-              <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
-                Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
-              </Text>
-              {statusLabel ? (
-                <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
-                  <View style={{ backgroundColor: activeDay === 'today' ? '#0f2e25' : '#0a2640', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
-                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <View style={{ flex: 1, paddingRight: 12 }}>
+                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{spot.name}</Text>
+                  <Text style={{ color: theme.textMuted, marginTop: 4, fontSize: 13 }}>
+                    {spot.distanceMeters === null ? 'Distance unknown' : formatDistance(spot.distanceMeters)}
+                  </Text>
+                </View>
+
+                {statusLabel ? (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.cardStrong, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6 }}>
+                    <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 6 }} />
+                    <Text style={{ color: theme.text, fontSize: 11, fontWeight: '900', textTransform: 'uppercase' }}>
                       {statusLabel}
                     </Text>
                   </View>
+                ) : null}
+              </View>
+
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 22, marginTop: 18 }}>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{activeCount}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>now</Text>
                 </View>
-              ) : null}
-              <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
-                <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Planned</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700', marginTop: 2 }}>{plannedCount}</Text>
-                </View>
-                <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, borderWidth: 1, borderColor: '#D8E2EC', paddingVertical: 8, paddingHorizontal: 10 }}>
-                  <Text style={{ color: '#16A66A', fontSize: 12, fontWeight: '700' }}>Active</Text>
-                  <Text style={{ color: '#031633', fontSize: 20, fontWeight: '700', marginTop: 2 }}>{activeCount}</Text>
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 22, fontWeight: '800' }}>{plannedCount}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>later</Text>
                 </View>
               </View>
             </Pressable>
           );
         })}
-      </View>
       </ScrollView>
     </SafeAreaView>
   );
