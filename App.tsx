@@ -4020,7 +4020,7 @@ export default function App() {
         return false;
       }
 
-      return true;
+      return state !== 'finished';
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
