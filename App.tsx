@@ -164,18 +164,18 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Definitely', value: 'definitely' },
 ];
 const theme = {
-  bg: '#060b14',
-  bgElevated: '#0b1626',
-  card: '#101f33',
-  cardStrong: '#13263d',
-  border: '#1f3d5f',
-  text: '#f2f7ff',
-  textSoft: '#9eb2c9',
-  textMuted: '#7f97b3',
-  primary: '#2a8cff',
-  primaryPressed: '#1f72d4',
-  live: '#21c47f',
-  warm: '#c67a44',
+  bg: '#031633',
+  bgElevated: '#061F45',
+  card: '#061F45',
+  cardStrong: '#010B1F',
+  border: '#223047',
+  text: '#FFFFFF',
+  textSoft: '#AAB6C5',
+  textMuted: '#6E7C91',
+  primary: '#10AEE8',
+  primaryPressed: '#008DC7',
+  live: '#28D17C',
+  warm: '#FFC83D',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNotificationPreferencesModel.reduce((accumulator, preference) => {
