@@ -1472,8 +1472,11 @@ function SessionRow({
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  const isOwnSession = session?.userId === currentProfileId;
-const canJoinGroup = joinState.allowed && !isOwnSession;
+  const groupHasOwnSession = safeGroupSessions.some(
+  (s) => s.userId === currentProfileId
+);
+
+const canJoinGroup = joinState.allowed && !groupHasOwnSession;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
@@ -4462,19 +4465,25 @@ export default function App() {
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const topCta = spotState.topCtaState;
   const hasOwnSessionOnSelectedSpotDay = spotState.hasBlockingOwnSession;
-  const ownSessionCount = (spotState.sessionsForSpot ?? [])
-    .filter((sessionItem) => sessionItem.userId === activeAppUserId && getCanonicalSessionState(sessionItem) !== 'finished')
-    .length;
+  const ownActiveSessions = (spotState.sessionsForSpot ?? [])
+    .filter((s) =>
+      s.userId === activeAppUserId &&
+      getCanonicalSessionState(s) !== 'finished'
+    );
+
+  const ownSessionCount = ownActiveSessions.length;
   const joinedSession = spotState.ownSession;
   const canEditJoinedSession = Boolean(joinedSession && isPlannedSession(joinedSession));
   const canCancelJoinedSession = Boolean(
     joinedSession
-    && resolveSessionActorProfileId(joinedSession, availableProfiles) === activeAppUserId
+    && joinedSession?.userId === activeAppUserId
     && !joinedSession.checkedInAt
     && !joinedSession.checkedOutAt,
   );
   
-  const topCtaMode = ownSessionCount > 0 ? 'edit' as const : 'plan' as const;
+  const topCtaMode = ownSessionCount === 0
+    ? 'plan' as const
+    : 'edit' as const;
   const mode = spotState?.topCtaState?.mode ?? null;
   console.log("MODE_SAFE", { mode });
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
