@@ -3185,7 +3185,7 @@ export default function App() {
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
           .gte('created_at', dayBounds.start)
-          .lt('created_at', dayBounds.end)
+          .lt('created_at', dayBounds.endExclusive)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
