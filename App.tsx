@@ -3184,7 +3184,6 @@ export default function App() {
           .from('messages')
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
-          .eq('session_day', selectedDayKey)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
@@ -7071,6 +7070,14 @@ return { name, overlapPercent, barColor };
 
                 
                 
+                console.log("CHAT_SEND_DEBUG", {
+                  activeDay,
+                  selectedDayKey,
+                  selectedSpot,
+                  messageText,
+                  payload,
+                });
+
                 const { error } = await supabase.from('messages').insert({ ...payload, session_day: selectedDayKey });
 
                 if (error) {
