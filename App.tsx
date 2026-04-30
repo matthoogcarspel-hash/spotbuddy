@@ -3386,7 +3386,7 @@ console.log("CHAT_FETCH_FULL", rows.map(r => ({
       });
       
 
-      const nextMessagesBySpot = createSpotRecord<ChatMessage[]>(spotNames, () => []);
+      const nextMessagesBySpot: Record<string, ChatMessage[]> = {};
 
       for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
