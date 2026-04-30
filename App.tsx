@@ -3184,6 +3184,8 @@ export default function App() {
           .from('messages')
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
+          .gte('created_at', dayBounds.start)
+          .lt('created_at', dayBounds.end)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
