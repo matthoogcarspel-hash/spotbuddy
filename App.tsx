@@ -3139,6 +3139,8 @@ export default function App() {
     setSpotDefinitions(mappedSpots);
   };
 
+  const selectedDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+
   const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
     if (!skipLoadingState) {
       setLoadingData(true);
@@ -3152,7 +3154,6 @@ export default function App() {
     
     
 
-    const selectedDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
     const dayBounds = getDayBoundsForDayKey(selectedDayKey);
     const sessionsResponse = dayBounds
       ? await supabase
