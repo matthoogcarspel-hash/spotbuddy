@@ -3182,7 +3182,7 @@ export default function App() {
     const messagesResponse = selectedSpot && dayBounds
       ? await supabase
           .from('messages')
-          .select('id, user_id, text, spot_name, created_at')
+          .select('id, user_id, text, spot_name, created_at, session_day')
           .eq('spot_name', selectedSpot)
           .eq('session_day', selectedDayKey)
           .order('created_at', { ascending: true })
