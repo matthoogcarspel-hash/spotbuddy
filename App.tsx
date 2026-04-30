@@ -4199,6 +4199,12 @@ setMessagesBySpot((previous) => previous);
   }, [plannedSession]);
   const messages = selectedSpot ? messagesBySpot[`${selectedSpot}-${selectedDayKey}`] || [] : [];
   useEffect(() => {
+    if (!selectedSpot) return;
+    console.log("INITIAL_CHAT_FETCH", { selectedSpot, activeDay });
+    void fetchSharedData();
+  }, [selectedSpot]);
+
+  useEffect(() => {
     console.log("DAY_CHANGE_FETCH_TRIGGER", { activeDay });
     void fetchSharedData();
   }, [activeDay]);
