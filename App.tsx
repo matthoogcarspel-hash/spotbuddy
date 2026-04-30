@@ -7123,21 +7123,9 @@ return { name, overlapPercent, barColor };
                 const existingConversationResponse = await supabase
                   .from('conversations')
                   .select('id')
-                  selectedTimelineSessionId
-                  ? await supabase
-                      .from('conversations')
-                      .select('id')
-                      .eq('type', 'group')
-                      .eq('spot_name', selectedSpot)
-                      .eq('session_day', selectedDayKey)
-                      .eq('group_key', selectedTimelineSessionId)
-                      .limit(1)
-                  : await supabase
-                      .from('conversations')
-                      .select('id')
-                      .eq('type', 'spot')
-                      .eq('spot_name', selectedSpot)
-                      .eq('session_day', selectedDayKey)
+                  .eq('type', 'spot')
+                  .eq('spot_name', selectedSpot)
+                  .eq('session_day', selectedDayKey)
                   .limit(1);
 
                 let conversationId = Array.isArray(existingConversationResponse.data)
