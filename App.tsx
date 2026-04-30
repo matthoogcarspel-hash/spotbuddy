@@ -3391,6 +3391,17 @@ console.log("CHAT_FETCH_FULL", rows.map(r => ({
       for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
         const key = `${spot}-${selectedDayKey}`;
+
+        console.log("CHAT_STATE_MAP_DEBUG", {
+          rowText: row.text,
+          rowSpot: row.spot_name,
+          key,
+          selectedSpot,
+          selectedDayKey,
+          spotNames,
+          spotAllowed: spotNames.includes(spot),
+        });
+
         if (!spotNames.includes(spot)) {
           continue;
         }
@@ -4738,13 +4749,8 @@ setMessagesBySpot((previous) => previous);
     
   }, [activeCheckedInSession, hasOwnSessionOnSelectedSpotDay]);
   const filteredMessages = useMemo(
-    () =>
-      (Array.isArray(messages) ? messages : []).filter((message) => {
-        const belongsToDay = isIsoInRange(message.createdAt, activeDateStart, activeDateEnd);
-        
-        return belongsToDay;
-      }),
-    [activeDateEnd, activeDateStart, activeDay, messages],
+    () => (Array.isArray(messages) ? messages : []),
+    [messages],
   );
   const orderedMessages = useMemo(
     () => {
