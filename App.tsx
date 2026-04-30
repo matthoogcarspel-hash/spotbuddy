@@ -4183,6 +4183,11 @@ export default function App() {
     return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
   const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  useEffect(() => {
+    console.log("DAY_CHANGE_FETCH_TRIGGER", { activeDay });
+    void fetchSharedData();
+  }, [activeDay]);
+
   const areAnySpotNotificationsEnabled =
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
     || spotNotificationPreferences.checkin_notification_mode !== 'off'
