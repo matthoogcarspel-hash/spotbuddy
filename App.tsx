@@ -7070,7 +7070,7 @@ return { name, overlapPercent, barColor };
 
                 
                 
-                const { error } = await supabase.from('messages').insert(payload);
+                const { error } = await supabase.from('messages').insert({ ...payload, session_day: selectedDayKey });
 
                 if (error) {
                   console.error('FULL ERROR', error);
