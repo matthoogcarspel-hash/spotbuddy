@@ -1306,10 +1306,23 @@ const groupTimelineSessions = ({
       const visibleSessions = getSortedVisibleGroupSessions(
         (Array.isArray(group.sessions) ? group.sessions : []).filter(({ item }) => {
           const normalizedActiveProfileId = activeProfileId ?? null;
-          if (item.userId === normalizedActiveProfileId) {
-            return getSessionState(item) !== 'finished';
-          }
-          return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
+          const visible =
+            item.userId === normalizedActiveProfileId
+              ? getSessionState(item) !== 'finished'
+              : buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
+
+          console.log('GROUP_VISIBILITY_DEBUG', {
+            userName: item.userName,
+            userId: item.userId,
+            activeProfileId: normalizedActiveProfileId,
+            buddiesMode,
+            isSelf: item.userId === normalizedActiveProfileId,
+            isFollowing: safeFollowingUserIds.includes(item.userId),
+            state: getSessionState(item),
+            visible,
+          });
+
+          return visible;
         }),
       );
       return {
@@ -1466,7 +1479,7 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? null;
+  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? safeGroupSessions[0] ?? null;
   const joinTarget = joinTargetEntry?.item ?? null;
   const joinState = joinTarget?.id
     ? joinStateBySession[joinTarget.id] ?? getJoinState({
@@ -1581,7 +1594,14 @@ function SessionRow({
           console.log('GROUP_RIDER_ROW_RENDER', {
             groupStart: group.startTime,
             groupEnd: group.endTime,
-            riderName: rider?.profile_name ?? rider?.display_name ?? null,
+            riderName: riderRowName,
+            userId: item.userId,
+            sessionId: item.id,
+            start: item.start,
+            end: item.end,
+            state,
+            leftPercent,
+            widthPercent,
           });
           return (
             <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
@@ -3158,11 +3178,13 @@ export default function App() {
       })),
     });
 
-    const messagesResponse = selectedSpot
+    const messagesResponse = selectedSpot && dayBounds
       ? await supabase
           .from('messages')
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
+          .gte('created_at', dayBounds.start)
+          .lt('created_at', dayBounds.endExclusive)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
@@ -3258,6 +3280,14 @@ export default function App() {
           dropped: droppedRow === true
         });
         if (droppedRow) {
+          console.warn("FALLBACK_SPOT_USED", row?.spot_name);
+          // fallback: use raw spot name instead of dropping
+          const fallbackSpotName = row?.spot_name;
+          if (!fallbackSpotName || !nextSessionsBySpot[fallbackSpotName]) {
+            continue;
+          }
+          const mappedSession = toSpotSession(row, fallbackSpotName);
+          nextSessionsBySpot[fallbackSpotName].push(mappedSession);
           continue;
         }
 
@@ -3280,6 +3310,24 @@ export default function App() {
       console.log('OWN_SESSION_MATCH', {
         activeDay: selectedDayKey,
         matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
+      });
+
+      console.log("SESSIONS_BY_SPOT_BEFORE_SET", {
+        selectedSpot: getSelectedSpotName(selectedSpot),
+        activeDayKey: selectedDayKey,
+        spots: Object.entries(nextSessionsBySpot).map(([spot, sessions]) => ({
+          spot,
+          count: Array.isArray(sessions) ? sessions.length : 0,
+          riders: (Array.isArray(sessions) ? sessions : []).map((sessionItem) => ({
+            id: sessionItem.id,
+            userName: sessionItem.userName,
+            userId: sessionItem.userId,
+            spot: sessionItem.spot,
+            sessionDay: sessionItem.sessionDay,
+            start: sessionItem.start,
+            end: sessionItem.end,
+          })),
+        })),
       });
 
       setSessionsBySpot(nextSessionsBySpot);
@@ -3992,8 +4040,8 @@ export default function App() {
   }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-  const sessions = Array.isArray(selectedSpot ? sessionsBySpot[selectedSpot] : [])
-    ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
+  const sessions = selectedSpot && Array.isArray(sessionsBySpot[selectedSpot])
+    ? sessionsBySpot[selectedSpot]
     : [];
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const timelineSessions = useMemo(() => {
