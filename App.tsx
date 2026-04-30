@@ -3183,9 +3183,21 @@ export default function App() {
       ? await supabase
           .from('conversations')
           .select('id')
-          .eq('type', 'spot')
-          .eq('spot_name', selectedSpot)
-          .eq('session_day', selectedDayKey)
+          selectedTimelineSessionId
+          ? await supabase
+              .from('conversations')
+              .select('id')
+              .eq('type', 'group')
+              .eq('spot_name', selectedSpot)
+              .eq('session_day', selectedDayKey)
+              .eq('group_key', selectedTimelineSessionId)
+              .limit(1)
+          : await supabase
+              .from('conversations')
+              .select('id')
+              .eq('type', 'spot')
+              .eq('spot_name', selectedSpot)
+              .eq('session_day', selectedDayKey)
           .limit(1)
       : { data: [], error: null };
 
@@ -7080,7 +7092,7 @@ return { name, overlapPercent, barColor };
         ) : null}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Chat</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>{selectedTimelineSessionId ? 'Group chat' : 'Spot chat'}</Text>
 
           <TextInput
             value={messageInput}
@@ -7123,9 +7135,21 @@ return { name, overlapPercent, barColor };
                 const existingConversationResponse = await supabase
                   .from('conversations')
                   .select('id')
-                  .eq('type', 'spot')
-                  .eq('spot_name', selectedSpot)
-                  .eq('session_day', selectedDayKey)
+                  selectedTimelineSessionId
+                  ? await supabase
+                      .from('conversations')
+                      .select('id')
+                      .eq('type', 'group')
+                      .eq('spot_name', selectedSpot)
+                      .eq('session_day', selectedDayKey)
+                      .eq('group_key', selectedTimelineSessionId)
+                      .limit(1)
+                  : await supabase
+                      .from('conversations')
+                      .select('id')
+                      .eq('type', 'spot')
+                      .eq('spot_name', selectedSpot)
+                      .eq('session_day', selectedDayKey)
                   .limit(1);
 
                 let conversationId = Array.isArray(existingConversationResponse.data)
@@ -7136,9 +7160,10 @@ return { name, overlapPercent, barColor };
                   const createConversationResponse = await supabase
                     .from('conversations')
                     .insert({
-                      type: 'spot',
+                      type: selectedTimelineSessionId ? 'group' : 'spot',
                       spot_name: selectedSpot,
                       session_day: selectedDayKey,
+                      group_key: selectedTimelineSessionId,
                     })
                     .select('id')
                     .single();
