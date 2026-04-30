@@ -3183,8 +3183,8 @@ export default function App() {
           .from('messages')
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
-          .gte('created_at', dayBounds.start)
-          .lt('created_at', dayBounds.endExclusive)
+          .filter('created_at', 'gte', `${selectedDayKey}T00:00:00`)
+          .filter('created_at', 'lt', `${selectedDayKey}T23:59:59`)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
