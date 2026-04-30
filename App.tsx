@@ -3539,13 +3539,8 @@ console.log("CHAT_FETCH_FULL", rows.map(r => ({
       }
       return next;
     });
-    setMessagesBySpot((previous) => {
-      const next = createSpotRecord<ChatMessage[]>(spotNames, () => []);
-      for (const spot of spotNames) {
-        next[spot] = previous[spot] ?? [];
-      }
-      return next;
-    });
+    // FIX: do not reset messagesBySpot (we use spot+day keys now)
+setMessagesBySpot((previous) => previous);
   }, [spotNames]);
 
   useEffect(() => {
