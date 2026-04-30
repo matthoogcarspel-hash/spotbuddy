@@ -164,18 +164,14 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Definitely', value: 'definitely' },
 ];
 const theme = {
-  bg: '#07111F',
-  bgElevated: '#121B29',
-  card: '#162133',
-  cardStrong: '#1E2B3F',
-  border: '#2F4058',
-  text: '#FFFFFF',
-  textSoft: '#D6E2F0',
-  textMuted: '#A8B3C2',
-  primary: '#2FD4FF',
-  primaryPressed: '#1AB6E0',
-  live: '#3BE37A',
-  warm: '#F2C94C',
+  bg: '#F7F9FC',
+  card: '#FFFFFF',
+  primary: '#007AFF',
+  success: '#34C759',
+  warning: '#FFCC00',
+  text: '#0B0F14',
+  textSecondary: '#5C6B7A',
+  textMuted: '#9AA6B2',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNotificationPreferencesModel.reduce((accumulator, preference) => {
@@ -1306,23 +1302,10 @@ const groupTimelineSessions = ({
       const visibleSessions = getSortedVisibleGroupSessions(
         (Array.isArray(group.sessions) ? group.sessions : []).filter(({ item }) => {
           const normalizedActiveProfileId = activeProfileId ?? null;
-          const visible =
-            item.userId === normalizedActiveProfileId
-              ? getSessionState(item) !== 'finished'
-              : buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
-
-          console.log('GROUP_VISIBILITY_DEBUG', {
-            userName: item.userName,
-            userId: item.userId,
-            activeProfileId: normalizedActiveProfileId,
-            buddiesMode,
-            isSelf: item.userId === normalizedActiveProfileId,
-            isFollowing: safeFollowingUserIds.includes(item.userId),
-            state: getSessionState(item),
-            visible,
-          });
-
-          return visible;
+          if (item.userId === normalizedActiveProfileId) {
+            return getSessionState(item) !== 'finished';
+          }
+          return buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
         }),
       );
       return {
@@ -1479,16 +1462,16 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? safeGroupSessions[0] ?? null;
-  const joinTarget = joinTargetEntry?.item ?? null;
-  const joinState = joinTarget?.id
-    ? joinStateBySession[joinTarget.id] ?? getJoinState({
-      session: joinTarget,
+  const joinState = session?.id
+    ? joinStateBySession[session.id] ?? getJoinState({
+      session,
       ownSessionForSpotDay,
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  const canJoinGroup = Boolean(joinTarget) && joinState.allowed;
+  const groupHasOwnSession = safeGroupSessions.some((entry) => entry.item?.userId === currentProfileId);
+
+const canJoinGroup = joinState.allowed && !groupHasOwnSession;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
@@ -1547,7 +1530,7 @@ function SessionRow({
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
-                if (joinTarget) {
+                if (representative) {
                   console.log("JOIN_BUTTON_CLICK", {
                     selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
                     activeDay,
@@ -1561,9 +1544,9 @@ function SessionRow({
                     groupEnd: group.endTime,
                   });
                   onJoin({
-                    sessionId: joinTarget.id,
-                    sessionDay: joinTarget.sessionDay,
-                    sessionStatus: joinTarget.status ?? null,
+                    sessionId: representative.item.id,
+                    sessionDay: representative.item.sessionDay,
+                    sessionStatus: representative.item.status ?? null,
                     normalizedStart: group.startTime,
                     normalizedEnd: group.endTime,
                   });
@@ -1594,14 +1577,7 @@ function SessionRow({
           console.log('GROUP_RIDER_ROW_RENDER', {
             groupStart: group.startTime,
             groupEnd: group.endTime,
-            riderName: riderRowName,
-            userId: item.userId,
-            sessionId: item.id,
-            start: item.start,
-            end: item.end,
-            state,
-            leftPercent,
-            widthPercent,
+            riderName: rider?.profile_name ?? rider?.display_name ?? null,
           });
           return (
             <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
@@ -2254,7 +2230,7 @@ export default function App() {
 
     const { data, error } = await supabase
       .from("profiles")
-      .insert({ ...payload, session_day: selectedDayKey })
+      .insert(payload)
       .select()
       .single();
 
@@ -3178,12 +3154,11 @@ export default function App() {
       })),
     });
 
-    const messagesResponse = selectedSpot && dayBounds
+    const messagesResponse = selectedSpot
       ? await supabase
           .from('messages')
           .select('id, user_id, text, spot_name, created_at')
           .eq('spot_name', selectedSpot)
-          .eq('session_day', selectedDayKey)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
@@ -3279,14 +3254,6 @@ export default function App() {
           dropped: droppedRow === true
         });
         if (droppedRow) {
-          console.warn("FALLBACK_SPOT_USED", row?.spot_name);
-          // fallback: use raw spot name instead of dropping
-          const fallbackSpotName = row?.spot_name;
-          if (!fallbackSpotName || !nextSessionsBySpot[fallbackSpotName]) {
-            continue;
-          }
-          const mappedSession = toSpotSession(row, fallbackSpotName);
-          nextSessionsBySpot[fallbackSpotName].push(mappedSession);
           continue;
         }
 
@@ -3309,24 +3276,6 @@ export default function App() {
       console.log('OWN_SESSION_MATCH', {
         activeDay: selectedDayKey,
         matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
-      });
-
-      console.log("SESSIONS_BY_SPOT_BEFORE_SET", {
-        selectedSpot: getSelectedSpotName(selectedSpot),
-        activeDayKey: selectedDayKey,
-        spots: Object.entries(nextSessionsBySpot).map(([spot, sessions]) => ({
-          spot,
-          count: Array.isArray(sessions) ? sessions.length : 0,
-          riders: (Array.isArray(sessions) ? sessions : []).map((sessionItem) => ({
-            id: sessionItem.id,
-            userName: sessionItem.userName,
-            userId: sessionItem.userId,
-            spot: sessionItem.spot,
-            sessionDay: sessionItem.sessionDay,
-            start: sessionItem.start,
-            end: sessionItem.end,
-          })),
-        })),
       });
 
       setSessionsBySpot(nextSessionsBySpot);
@@ -4039,8 +3988,8 @@ export default function App() {
   }, [activeDateEnd, activeDateStart, activeAppUserId, sessionsBySpot]);
   const hasActiveCheckedInSession = Boolean(activeCheckedInSession);
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
-  const sessions = selectedSpot && Array.isArray(sessionsBySpot[selectedSpot])
-    ? sessionsBySpot[selectedSpot]
+  const sessions = Array.isArray(selectedSpot ? sessionsBySpot[selectedSpot] : [])
+    ? (selectedSpot ? sessionsBySpot[selectedSpot] : [])
     : [];
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const timelineSessions = useMemo(() => {
@@ -4067,7 +4016,7 @@ export default function App() {
         return false;
       }
 
-      return state !== 'finished';
+      return true;
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
@@ -4555,10 +4504,10 @@ export default function App() {
     return getSessionState(session) === "active";
   }).length;
   const nowSummaryLabel = liveCount > 0
-    ? `${liveCount} rider${liveCount === 1 ? '' : 's'} live now.`
+    ? 'Now: riders are checked in.'
     : mode === 'upcoming'
       ? 'Later: sessions are planned.'
-      : 'No live riders yet.';
+      : 'Now: no active sessions yet.';
   console.log("SPOT_NOW_SUMMARY_RESULT", {
     label: nowSummaryLabel ?? null,
     liveCount
@@ -6377,15 +6326,10 @@ export default function App() {
       await fetchSharedData();
       setSessionActionError('');
       setSelectedTimelineSessionId(null);
-
-      setTimeout(() => {
-        void fetchSharedData();
-      }, 300);
-
       setTimeout(() => {
         setSelectedTimelineSessionId(sessionId);
         void fetchSharedData();
-      }, 900);
+      }, 250);
     };
     const handleSave = async () => {
       console.log("PLAN_HANDLER_START");
@@ -6817,7 +6761,7 @@ return { name, overlapPercent, barColor };
                   {minuteOptions
                     .filter((minute) => {
                       if (startHour === null) {
-                        return false;
+                        return true;
                       }
                       const selectedStartMinutes = (startHour * 60) + minute;
                       if (planningNowReference.isToday && selectedStartMinutes < planningNowReference.earliestStartMinutes) {
@@ -7148,168 +7092,280 @@ return { name, overlapPercent, barColor };
   
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
-
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-            <Image
-              source={require('./assets/logo.png')}
-              style={{ width: 58, height: 58, borderRadius: 16, marginRight: 14 }}
-              resizeMode="contain"
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>
-                Where are we riding?
-              </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginTop: 3 }}>
-                See who’s going. Ride together.
-              </Text>
-            </View>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 28 }}>
+      <View style={{ marginBottom: 18,  borderColor: '#223047', borderRadius: 20, backgroundColor: 'transparent', paddingHorizontal: 22, paddingVertical: 24, minHeight: 172, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+          <Image
+            source={require('./assets/logo.png')}
+            style={{ width: 140, height: 140, marginRight: 18 }}
+            resizeMode="contain"
+          />
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Text style={{ color: '#FFFFFF', fontSize: 30, fontWeight: '800' }}>See who’s going. Ride together.</Text>
           </View>
-
+        </View>
+        <View style={{ marginLeft: 10, width: 260 }}>
           <Pressable
             key={headerProfile?.userId ?? 'header-profile-empty'}
             onPress={() => setShowProfile(true)}
-            style={{ backgroundColor: theme.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}
+            style={{ backgroundColor: '#061F45', borderRadius: 999, padding: 16, flexDirection: 'row', alignItems: 'center',  borderColor: '#223047' }}
           >
-            <Avatar uri={headerProfile?.avatarUrl ?? null} size={26} />
-            <Text style={{ color: theme.text, fontWeight: '700', marginLeft: 8, fontSize: 13 }}>
+            <Avatar uri={headerProfile?.avatarUrl ?? null} size={24} />
+            <Text style={{ color: '#FFFFFF', fontWeight: '600', marginLeft: 8 }}>
               {headerProfile?.displayName ?? 'Profile'}
             </Text>
           </Pressable>
-        </View>
-
-        {plannedSession ? (
-          <Pressable
-            onPress={() => setSelectedSpot(plannedSession.spot)}
-            style={{ backgroundColor: theme.cardStrong, borderRadius: 16, padding: 14, marginBottom: 14 }}
-          >
-            <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' }}>
-              Planned session
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 4 }}>
-              {plannedSession.spot}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
-              {plannedSessionIntentLabel}
+          {plannedSession && (
+            <Pressable
+              onPress={() => {
+                setSelectedSpot(plannedSession.spot);
+              }}
+              style={{
+                marginTop: 8,
+                marginBottom: 8,
+                backgroundColor: theme.card,
+                
+                borderColor: theme.border,
+                borderRadius: 14,
+                paddingVertical: 8,
+                paddingHorizontal: 12,
+                width: '100%',
+              }}
+            >
+              <Text
+                style={{
+                  color: theme.text,
+                  fontSize: 13,
+                  fontWeight: '700',
+                  textAlign: 'center',
+                }}
+              >
+                🚨 Planned: {plannedSession.spot}
+              </Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, textAlign: 'center' }}>
+                {plannedSessionIntentLabel}
+              </Text>
+            </Pressable>
+          )}
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+            <Pressable
+              onPress={() => setShowYourSpotsPage(true)}
+              style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10,  borderColor: theme.border }}
+            >
+              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>
+                Your spots
+              </Text>
+            </Pressable>
+            <View style={{ width: 8 }} />
+            <View style={{ flex: 1, position: 'relative' }}>
+              <Pressable
+                onPress={() => setShowBuddies(true)}
+                style={{ backgroundColor: theme.bgElevated, borderRadius: 10, paddingVertical: 7, paddingHorizontal: 10,  borderColor: theme.border }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700', textAlign: 'center' }}>Your buddies</Text>
+              </Pressable>
+              {hasPendingRequests && (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -4,
+                    right: -4,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 8,
+                    backgroundColor: 'red',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {pendingRequestsCount !== null ? (
+                    <Text style={{ color: 'white', fontSize: 10, fontWeight: '700' }}>{pendingRequestsCount}</Text>
+                  ) : null}
+                </View>
+              )}
+            </View>
+          </View>
+          <Pressable onPress={() => {
+            setIsNotificationInboxExpanded((prev) => {
+              const nextExpanded = !prev;
+              if (nextExpanded) {
+                void markAllNotificationsAsRead();
+              }
+              return nextExpanded;
+            });
+          }} style={{ marginTop: 6 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', textAlign: 'center' }}>
+              {`Notifications (${unreadCount})`}
             </Text>
           </Pressable>
+          {isNotificationInboxExpanded ? (
+            <View
+              style={{
+                marginTop: 10,
+                borderRadius: 14,
+                
+                borderColor: theme.border,
+                backgroundColor: theme.bgElevated,
+                paddingHorizontal: 14,
+                paddingVertical: 12,
+              }}
+            >
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Recent notifications</Text>
+              {notificationRows.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
+              ) : (
+                notificationRows.map((notificationRow, index) => (
+                  <View
+                    key={notificationRow.id}
+                    style={{
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      borderTopColor: theme.border,
+                      paddingTop: index === 0 ? 0 : 10,
+                      marginTop: index === 0 ? 0 : 10,
+                    }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '700' : '600' }}>
+                      {getNotificationInboxSummary(notificationRow)}
+                    </Text>
+                    {notificationRow.created_at ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
+                        {new Date(notificationRow.created_at).toLocaleString()}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </View>
+          ) : null}
+        </View>
+      </View>
+
+      <View>
+        {autoCheckoutNotice ? (
+          <View style={{ backgroundColor: '#16324d',  borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}>
+            <Text style={{ color: '#d9eeff', fontSize: 13, fontWeight: '700' }}>Automatically checked out</Text>
+            <Text style={{ color: '#d9eeff', fontSize: 13, marginTop: 2 }}>You appear to have left the spot</Text>
+          </View>
         ) : null}
-
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
-          <Pressable
-            onPress={() => setShowYourSpotsPage(true)}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
-          >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your spots</Text>
-          </Pressable>
-
-          <Pressable
-            onPress={() => setShowBuddies(true)}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
-          >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your buddies</Text>
-            {hasPendingRequests && pendingRequestsCount !== null ? (
-              <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{pendingRequestsCount}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-
-          <Pressable
-            onPress={() => {
-              setIsNotificationInboxExpanded((prev) => {
-                const nextExpanded = !prev;
-                if (nextExpanded) void markAllNotificationsAsRead();
-                return nextExpanded;
-              });
-            }}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
-          >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{`Notifications (${unreadCount})`}</Text>
-          </Pressable>
+        {!isWebPlatform && showAutoCheckinPrompt && nearestSpotName ? (
+          <Text style={{ color: theme.textSoft, marginBottom: 10, fontSize: 13 }}>
+            {`You're near ${nearestSpotName}.`}
+          </Text>
+        ) : null}
+        {homeQuickCheckInError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{homeQuickCheckInError}</Text> : null}
+        <View style={{ marginBottom: 12 }}>
+          {(() => {
+            
+            return null;
+          })()}
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.bgElevated, borderRadius: 999,  borderColor: theme.border, padding: 2 }}>
+            {([
+              { key: 'today' as const, label: 'Today' },
+              { key: 'tomorrow' as const, label: 'Tomorrow' },
+            ]).map((option) => {
+              const isActive = activeDay === option.key;
+              return (
+                <Pressable
+                  key={`home-day-${option.key}`}
+                  onPress={() => setActiveDay(option.key)}
+                  style={{
+                    paddingHorizontal: 12,
+                    paddingVertical: 6,
+                    borderRadius: 999,
+                    backgroundColor: isActive ? theme.primary : 'transparent',
+                  }}
+                >
+                  <Text style={{ color: isActive ? '#ffffff' : theme.textSoft, fontSize: 12, fontWeight: '700' }}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
-
-        {isNotificationInboxExpanded ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 14, marginBottom: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 10 }}>Recent notifications</Text>
-            {notificationRows.length === 0 ? (
-              <Text style={{ color: theme.textMuted, fontSize: 13 }}>No notifications yet.</Text>
-            ) : (
-              notificationRows.map((notificationRow, index) => (
-                <View key={notificationRow.id} style={{ paddingTop: index === 0 ? 0 : 10, marginTop: index === 0 ? 0 : 10, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: theme.border }}>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '800' : '600' }}>
-                    {getNotificationInboxSummary(notificationRow)}
-                  </Text>
-                  {notificationRow.created_at ? (
-                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
-                      {new Date(notificationRow.created_at).toLocaleString()}
+        <View style={{ marginBottom: 12 }}>
+          {(() => {
+            
+            return null;
+          })()}
+          {isResolvingNearestSpot ? (
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · Getting location...</Text>
+          ) : nearestSpotResult && nearestSpotDistanceLabel ? (
+            <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+              Nearest spot · <Text style={{ color: theme.textSoft, fontWeight: '700' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+            </Text>
+          ) : (
+            <View>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>Nearest spot · No nearby spot</Text>
+              {locationPermissionStatus !== 'granted' ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>Enable location for quick check-ins.</Text>
+              ) : null}
+            </View>
+          )}
+          {nearestSpotResult && (
+            (() => {
+              
+              return null;
+            })()
+          )}
+          {nearestSpotResult && nearestSpotDistanceLabel ? (
+            <View style={{ marginTop: 10 }}>
+              {isHomeCheckoutButtonVisible ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Pressable
+                    disabled={homeQuickCheckOutInFlight}
+                    onPress={() => {
+                      void handleQuickCheckOut();
+                    }}
+                    style={{
+                      borderRadius: 10,
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                      alignItems: 'center',
+                      backgroundColor: '#7c2d12',
+                      opacity: homeQuickCheckOutInFlight ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                      {homeQuickCheckOutInFlight ? 'Check out...' : 'Check out here'}
+                    </Text>
+                  </Pressable>
+                  {activeCheckedInSession.spot !== nearestSpotResult.spot ? (
+                    <Text numberOfLines={1} style={{ color: theme.textMuted, marginLeft: 8, fontSize: 11, maxWidth: 156 }}>
+                      You are checked in at {activeCheckedInSession.spot}
                     </Text>
                   ) : null}
                 </View>
-              ))
-            )}
-          </View>
-        ) : null}
-
-        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.card, borderRadius: 999, padding: 3, marginBottom: 14 }}>
-          {([
-            { key: 'today' as const, label: 'Today' },
-            { key: 'tomorrow' as const, label: 'Tomorrow' },
-          ]).map((option) => {
-            const isActive = activeDay === option.key;
-            return (
-              <Pressable
-                key={`home-day-${option.key}`}
-                onPress={() => setActiveDay(option.key)}
-                style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: isActive ? theme.primary : 'transparent' }}
-              >
-                <Text style={{ color: isActive ? theme.bg : theme.textSoft, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
-              </Pressable>
-            );
-          })}
+              ) : (
+                nearestSpotCanCheckIn ? (
+                  <Pressable
+                    disabled={quickCheckInSpotInFlight !== null}
+                    onPress={() => {
+                      void handleQuickCheckIn(nearestSpotResult.spot);
+                    }}
+                    style={{
+                      borderRadius: 10,
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                      alignItems: 'center',
+                      alignSelf: 'flex-start',
+                      backgroundColor: '#15803d',
+                      opacity: quickCheckInSpotInFlight !== null ? 0.45 : 1,
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>
+                      {quickCheckInSpotInFlight === nearestSpotResult.spot ? 'Check in...' : 'Check in here'}
+                    </Text>
+                  </Pressable>
+                ) : null
+              )}
+            </View>
+          ) : null}
         </View>
-
-        <View style={{ marginBottom: 18 }}>
-          {isResolvingNearestSpot ? (
-            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Nearest spot · Getting location...</Text>
-          ) : nearestSpotResult && nearestSpotDistanceLabel ? (
-            (() => {
-              const nearestSessions = daySessionsBySpot[nearestSpotResult.spot] ?? [];
-              const nearestStatus = getSpotStatus({
-                spotName: nearestSpotResult.spot,
-                sessions: nearestSessions,
-                selectedDay: activeDay,
-                now: new Date(),
-                getSessionState,
-              });
-              const activityParts = [
-                nearestStatus.activeCount > 0 ? `● ${nearestStatus.activeCount} now` : null,
-                nearestStatus.plannedCount > 0 ? `${nearestStatus.plannedCount} later` : null,
-              ].filter(Boolean);
-              return (
-                <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                    Nearest spot · <Text style={{ color: theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
-                    {activityParts.length > 0 ? (
-                      <Text style={{ color: theme.primary, fontWeight: '800' }}> · {activityParts.join(' · ')}</Text>
-                    ) : null}
-                  </Text>
-                </Pressable>
-              );
-            })()
-          ) : (
-            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Nearest spot · No nearby spot</Text>
-          )}
-        </View>
-
         {visibleSpots.length === 0 ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>No spots selected yet</Text>
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 12,  borderColor: theme.border }}>
+            <Text style={{ color: theme.textSoft, fontSize: 14 }}>No spots selected yet</Text>
             <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Manage your list from Your spots.</Text>
           </View>
         ) : null}
-
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
           const status = getSpotStatus({
@@ -7323,57 +7379,55 @@ return { name, overlapPercent, barColor };
           const statusLabel = status.label;
           const plannedCount = status.plannedCount;
           const activeCount = status.activeCount;
-          const isLiveSpot = activeCount > 0;
-          const liveRiders = daySpotSessions
-            .filter((sessionItem) => getSessionState(sessionItem) === 'active')
-            .slice(0, 4);
+
+          console.log('HOME_SPOT_STATUS_RESULT', {
+            spotName: spot.name,
+            label: statusLabel,
+          });
 
           return (
             <Pressable
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
-              style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 12 }}
+              style={{
+                backgroundColor: theme.card,
+                borderRadius: 16,
+                paddingHorizontal: 16,
+                paddingVertical: 14,
+                marginBottom: 12,
+                
+                borderColor: theme.border,
+              }}
             >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{spot.name}</Text>
-                  {statusLabel ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
-                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' }}>
-                        {statusLabel}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <Text style={{ color: theme.textSoft, marginTop: 6, fontSize: 13 }}>
-                    {spot.distanceMeters === null ? 'Distance unknown' : formatDistance(spot.distanceMeters)}
-                  </Text>
-                </View>
-
-                {liveRiders.length > 0 ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 2 }}>
-                    {liveRiders.map((sessionItem, index) => (
-                      <View key={`home-live-avatar-${spot.name}-${sessionItem.id}`} style={{ marginLeft: index === 0 ? 0 : -10 }}>
-                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={34} />
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>{spot.name}</Text>
               </View>
-
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 22, marginTop: 18 }}>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{activeCount}</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>now</Text>
+              <Text style={{ color: theme.textSoft, marginTop: 4, fontSize: 13 }}>
+                Distance: {spot.distanceMeters === null ? 'Unknown' : formatDistance(spot.distanceMeters)}
+              </Text>
+              {statusLabel ? (
+                <View style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+                  <View style={{ backgroundColor: activeDay === 'today' ? '#121821' : '#121821', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 4 }}>
+                    <Text style={{ color: activeDay === 'today' ? '#83d8b0' : '#6ab7ff', fontSize: 11, fontWeight: '700' }}>
+                      {statusLabel}
+                    </Text>
+                  </View>
                 </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 22, fontWeight: '800' }}>{plannedCount}</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>later</Text>
+              ) : null}
+              <View style={{ flexDirection: 'row', marginTop: 10, gap: 8 }}>
+                <View style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14, padding: 16 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '500' }}>Planned</Text>
+                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '600', marginTop: 2 }}>{plannedCount}</Text>
+                </View>
+                <View style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: 14,  borderColor: '#D8E2EC', padding: 16 }}>
+                  <Text style={{ color: '#16A66A', fontSize: 12, fontWeight: '700' }}>Active</Text>
+                  <Text style={{ color: '#031633', fontSize: 18, fontWeight: '600', marginTop: 2 }}>{activeCount}</Text>
                 </View>
               </View>
             </Pressable>
           );
         })}
+      </View>
       </ScrollView>
     </SafeAreaView>
   );
