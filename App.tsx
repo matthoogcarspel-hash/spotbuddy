@@ -1799,7 +1799,7 @@ export default function App() {
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
-  const [messagesBySpot, setMessagesBySpot] = useState<Record<SpotName, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
+  const [messagesBySpot, setMessagesBySpot] = useState<Record<string, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
   const activeProfileIdRef = useRef<string | null>(null);
@@ -3189,6 +3189,13 @@ export default function App() {
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
     const rows = messagesData;
+
+console.log("CHAT_FETCH_FULL", rows.map(r => ({
+  text: r.text,
+  session_day: r.session_day,
+  created_at: r.created_at
+})));
+
     console.log("CHAT_FETCH_ROW_TRACE", rows?.slice(0, 5).map((row) => ({
       id: row?.id ?? null,
       created_at: row?.created_at ?? null,
@@ -3383,11 +3390,13 @@ export default function App() {
 
       for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
+        const key = `${spot}-${selectedDayKey}`;
         if (!spotNames.includes(spot)) {
           continue;
         }
 
-        nextMessagesBySpot[spot].push({
+        nextMessagesBySpot[key] = nextMessagesBySpot[key] || [];
+        nextMessagesBySpot[key].push({
           id: row.id,
           text: row.text,
           userId: row.user_id,
@@ -4182,7 +4191,7 @@ export default function App() {
     const resolvedIntent = resolveSessionIntent(plannedSession.intent);
     return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
-  const messages = selectedSpot ? messagesBySpot[selectedSpot] : [];
+  const messages = selectedSpot ? messagesBySpot[`${selectedSpot}-${selectedDayKey}`] || [] : [];
   useEffect(() => {
     console.log("DAY_CHANGE_FETCH_TRIGGER", { activeDay });
     void fetchSharedData();
