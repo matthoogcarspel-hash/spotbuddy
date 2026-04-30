@@ -3179,12 +3179,32 @@ export default function App() {
       })),
     });
 
-    const messagesResponse = selectedSpot && dayBounds
+    const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
-          .from('messages')
-          .select('id, user_id, text, spot_name, created_at, session_day')
+          .from('conversations')
+          .select('id')
+          .eq('type', 'spot')
           .eq('spot_name', selectedSpot)
           .eq('session_day', selectedDayKey)
+          .limit(1)
+      : { data: [], error: null };
+
+    const conversationId = Array.isArray(conversationResponse.data)
+      ? conversationResponse.data[0]?.id ?? null
+      : null;
+
+    console.log("CHAT_CONVERSATION_FETCH", {
+      selectedSpot,
+      selectedDayKey,
+      conversationId,
+      error: conversationResponse.error?.message ?? null,
+    });
+
+    const messagesResponse = conversationId
+      ? await supabase
+          .from('messages')
+          .select('id, user_id, text, spot_name, created_at, session_day, conversation_id')
+          .eq('conversation_id', conversationId)
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
@@ -7100,7 +7120,50 @@ return { name, overlapPercent, barColor };
                   payload,
                 });
 
-                const { error } = await supabase.from('messages').insert({ ...payload, session_day: selectedDayKey });
+                const existingConversationResponse = await supabase
+                  .from('conversations')
+                  .select('id')
+                  .eq('type', 'spot')
+                  .eq('spot_name', selectedSpot)
+                  .eq('session_day', selectedDayKey)
+                  .limit(1);
+
+                let conversationId = Array.isArray(existingConversationResponse.data)
+                  ? existingConversationResponse.data[0]?.id ?? null
+                  : null;
+
+                if (!conversationId) {
+                  const createConversationResponse = await supabase
+                    .from('conversations')
+                    .insert({
+                      type: 'spot',
+                      spot_name: selectedSpot,
+                      session_day: selectedDayKey,
+                    })
+                    .select('id')
+                    .single();
+
+                  if (createConversationResponse.error) {
+                    console.error('CHAT_CONVERSATION_CREATE_ERROR', createConversationResponse.error);
+                    return;
+                  }
+
+                  conversationId = createConversationResponse.data?.id ?? null;
+                }
+
+                console.log("CHAT_SEND_CONVERSATION", {
+                  selectedSpot,
+                  selectedDayKey,
+                  conversationId,
+                });
+
+                const { error } = await supabase
+                  .from('messages')
+                  .insert({
+                    ...payload,
+                    session_day: selectedDayKey,
+                    conversation_id: conversationId,
+                  });
 
                 if (error) {
                   console.error('FULL ERROR', error);
