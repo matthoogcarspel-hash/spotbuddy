@@ -1846,6 +1846,7 @@ export default function App() {
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const [activeGroupChatKey, setActiveGroupChatKey] = useState<string | null>(null);
+  const [groupMessageInput, setGroupMessageInput] = useState('');
     const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
@@ -7127,9 +7128,31 @@ return { name, overlapPercent, barColor };
             <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
               {`Group Chat: ${activeGroupChatKey} 💬`}
             </Text>
-            <Text style={{ color: theme.textSoft, fontSize: 13 }}>
-              Group chat is opened. Message sending is the next step.
-            </Text>
+            <TextInput
+              value={groupMessageInput}
+              onChangeText={setGroupMessageInput}
+              placeholder="Type a group message"
+              placeholderTextColor={theme.textMuted}
+              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 14, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
+            />
+            <Pressable
+              onPress={() => {
+                const messageText = groupMessageInput.trim();
+                if (!messageText || !activeGroupChatKey) return;
+
+                console.log("GROUP_CHAT_SEND_CLICK", {
+                  selectedSpot,
+                  selectedDayKey,
+                  groupKey: activeGroupChatKey,
+                  messageText,
+                });
+
+                setGroupMessageInput('');
+              }}
+              style={{ backgroundColor: theme.primaryPressed, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send to group</Text>
+            </Pressable>
           </View>
         ) : null}
 
