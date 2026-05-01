@@ -1488,7 +1488,11 @@ function SessionRow({
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  const canJoinGroup = Boolean(joinTarget) && joinState.allowed;
+  const isAlreadyInGroup = safeGroupSessions.some(
+  (entry) => entry.item?.userId === currentProfileId
+);
+
+const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGroup;
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
