@@ -7100,7 +7100,7 @@ return { name, overlapPercent, barColor };
         ) : null}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>'Spot chat'</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>'Spot Chat 💬'</Text>
 
           <TextInput
             value={messageInput}
