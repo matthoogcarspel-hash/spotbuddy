@@ -1845,6 +1845,7 @@ export default function App() {
   const dragSpotNameRef = useRef<SpotName | null>(null);
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [activeChatGroupKey, setActiveChatGroupKey] = useState<string | null>(null);
   const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
@@ -7047,6 +7048,8 @@ return { name, overlapPercent, barColor };
                     selectedDayKey,
                     groupKey: selectedTimelineSessionId,
                   });
+                  setActiveChatGroupKey(selectedTimelineSessionId);
+                  setMessageInput('');
                 }}
                 style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
               >
@@ -7099,7 +7102,7 @@ return { name, overlapPercent, barColor };
         ) : null}
 
         <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>{selectedTimelineSessionId ? 'Group chat' : 'Spot chat'}</Text>
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>{activeChatGroupKey ? `Group chat · ${activeChatGroupKey}` : 'Spot chat'}</Text>
 
           <TextInput
             value={messageInput}
