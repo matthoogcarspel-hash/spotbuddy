@@ -7147,7 +7147,59 @@ return { name, overlapPercent, barColor };
                   messageText,
                 });
 
-                setGroupMessageInput('');
+                void (async () => {
+                  const existingConversationResponse = await supabase
+                    .from('conversations')
+                    .select('id')
+                    .eq('type', 'group')
+                    .eq('spot_name', selectedSpot)
+                    .eq('session_day', selectedDayKey)
+                    .eq('group_key', activeGroupChatKey)
+                    .limit(1);
+
+                  let conversationId = Array.isArray(existingConversationResponse.data)
+                    ? existingConversationResponse.data[0]?.id ?? null
+                    : null;
+
+                  if (!conversationId) {
+                    const createConversationResponse = await supabase
+                      .from('conversations')
+                      .insert({
+                        type: 'group',
+                        spot_name: selectedSpot,
+                        session_day: selectedDayKey,
+                        group_key: activeGroupChatKey,
+                      })
+                      .select('id')
+                      .single();
+
+                    if (createConversationResponse.error) {
+                      console.error('GROUP_CHAT_CREATE_ERROR', createConversationResponse.error);
+                      return;
+                    }
+
+                    conversationId = createConversationResponse.data?.id ?? null;
+                  }
+
+                  const { error } = await supabase
+                    .from('messages')
+                    .insert({
+                      user_id: activeAppUserId,
+                      text: messageText,
+                      spot_name: selectedSpot,
+                      session_day: selectedDayKey,
+                      conversation_id: conversationId,
+                      created_at: new Date().toISOString(),
+                    });
+
+                  if (error) {
+                    console.error('GROUP_CHAT_SEND_ERROR', error);
+                    return;
+                  }
+
+                  setGroupMessageInput('');
+                  await fetchSharedData();
+                })();
               }}
               style={{ backgroundColor: theme.primaryPressed, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
             >
