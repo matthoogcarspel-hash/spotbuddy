@@ -1845,6 +1845,7 @@ export default function App() {
   const dragSpotNameRef = useRef<SpotName | null>(null);
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const [activeGroupChatKey, setActiveGroupChatKey] = useState<string | null>(null);
     const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
@@ -4889,6 +4890,26 @@ setMessagesBySpot((previous) => previous);
       return groupKey === selectedTimelineSessionId;
     }) ?? null;
   }, [selectedTimelineSessionId, timelineSessions]);
+
+  const selectedTimelineGroupSessions = useMemo(() => {
+    if (!selectedTimelineSessionId) {
+      return [];
+    }
+
+    return timelineSessions.filter(({ item }) => {
+      const { startTime, endTime } = getRoundedSessionWindow(item);
+      return `${startTime}-${endTime}` === selectedTimelineSessionId;
+    });
+  }, [selectedTimelineSessionId, timelineSessions]);
+
+  const isCurrentUserInSelectedTimelineGroup = selectedTimelineGroupSessions.some(
+    ({ item }) => item.userId === activeAppUserId,
+  );
+
+  useEffect(() => {
+    setActiveGroupChatKey(null);
+  }, [selectedSpot, activeDay]);
+
   const openEmptyPlanningForm = () => {
     const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
     setEditingSessionId(null);
@@ -7040,21 +7061,23 @@ return { name, overlapPercent, barColor };
                 Status: {getTimelineLabel(selectedTimelineSession.state, false)}
               </Text>
 
-              <Pressable
-                onPress={() => {
-                  console.log("GROUP_CHAT_BUTTON_CLICK", {
-                    selectedSpot,
-                    selectedDayKey,
-                    groupKey: selectedTimelineSessionId,
-                  });
-                                    setMessageInput('');
-                }}
-                style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
-              >
-                <Text style={{ color: theme.bg, fontSize: 13, fontWeight: '800' }}>
-                  Start group chat
-                </Text>
-              </Pressable>
+              {isCurrentUserInSelectedTimelineGroup ? (
+                <Pressable
+                  onPress={() => {
+                    console.log("GROUP_CHAT_BUTTON_CLICK", {
+                      selectedSpot,
+                      selectedDayKey,
+                      groupKey: selectedTimelineSessionId,
+                    });
+                    setActiveGroupChatKey(selectedTimelineSessionId);
+                  }}
+                  style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
+                >
+                  <Text style={{ color: theme.bg, fontSize: 13, fontWeight: '800' }}>
+                    {activeGroupChatKey === selectedTimelineSessionId ? 'Open group chat' : 'Start group chat'}
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : null}
         </View>
@@ -7096,6 +7119,17 @@ return { name, overlapPercent, barColor };
             ) : (
               <Text style={{ color: theme.textMuted, fontSize: 13 }}>No one at the spot yet</Text>
             )}
+          </View>
+        ) : null}
+
+        {activeGroupChatKey ? (
+          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderColor: theme.border }}>
+            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
+              {`Group Chat: ${activeGroupChatKey} 💬`}
+            </Text>
+            <Text style={{ color: theme.textSoft, fontSize: 13 }}>
+              Group chat is opened. Message sending is the next step.
+            </Text>
           </View>
         ) : null}
 
