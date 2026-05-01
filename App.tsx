@@ -1369,7 +1369,7 @@ const buildSpotDetailState = ({
   const blockingOwnSession = blockingOwnSessions[0] ?? null;
   const hasBlockingOwnSession = blockingOwnSessions.length > 0;
   console.log("OWN_SESSION_BLOCKING_EVALUATION", {
-    selectedSpot: (selectedSpot as { name?: string | null } | string | null)?.name ?? selectedSpot ?? null,
+    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
     activeDayKey,
     ownSessionIds: ownSessionForSpotDay?.ownSessions?.map((s) => s?.id ?? null) ?? [],
     blockingSessionIds: blockingOwnSessions?.map((s) => s?.id ?? null) ?? []
@@ -1883,89 +1883,6 @@ export default function App() {
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
   const [activeDay, setActiveDay] = useState<ActiveDay>('today');
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
-  useEffect(() => {
-    if (!activeGroupChatKey || !selectedSpot || !selectedDayKey) {
-      setGroupMessages([]);
-      return;
-    }
-
-    let isCancelled = false;
-
-    const loadGroupMessages = async () => {
-      const conversationResponse = await supabase
-        .from('conversations')
-        .select('id')
-        .eq('type', 'group')
-        .eq('spot_name', selectedSpot)
-        .eq('session_day', selectedDayKey)
-        .eq('group_key', activeGroupChatKey)
-        .limit(1);
-
-      const conversationId = Array.isArray(conversationResponse.data)
-        ? conversationResponse.data[0]?.id ?? null
-        : null;
-
-      if (!conversationId) {
-        if (!isCancelled) setGroupMessages([]);
-        return;
-      }
-
-      const messagesResponse = await supabase
-        .from('messages')
-        .select('id, user_id, text, created_at')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true });
-
-      if (messagesResponse.error) {
-        console.error('GROUP_CHAT_FETCH_ERROR', messagesResponse.error);
-        return;
-      }
-
-      const rows = messagesResponse.data ?? [];
-      const userIds = [...new Set(rows.map((message) => message.user_id).filter(Boolean))];
-
-      const profilesResponse = userIds.length
-        ? await supabase
-            .from('profiles')
-            .select('id, display_name, avatar_url')
-            .in('id', userIds)
-        : { data: [], error: null };
-
-      if (profilesResponse.error) {
-        console.error('GROUP_CHAT_PROFILES_ERROR', profilesResponse.error);
-        return;
-      }
-
-      const profilesById = new Map((profilesResponse.data ?? []).map((profile) => [profile.id, profile]));
-
-      const nextMessages = rows.map((message) => {
-        const profile = message.user_id ? profilesById.get(message.user_id) : null;
-        return {
-          id: message.id,
-          text: message.text,
-          userId: message.user_id,
-          display_name: profile?.display_name?.trim() || 'Unknown rider',
-          avatar_url: profile?.avatar_url ?? null,
-          created_at: message.created_at,
-          createdAt: message.created_at,
-        };
-      });
-
-      console.log('GROUP_CHAT_FETCH_RESULT', {
-        groupKey: activeGroupChatKey,
-        count: nextMessages.length,
-      });
-
-      if (!isCancelled) setGroupMessages(nextMessages);
-    };
-
-    void loadGroupMessages();
-
-    return () => {
-      isCancelled = true;
-    };
-  }, [activeGroupChatKey, selectedSpot, selectedDayKey]);
-
   const authUser = session?.user ?? null;
   const authenticatedUserId = authUser?.id ?? null;
   const authenticatedUserEmail = normalizeEmail(authUser?.email ?? '');
@@ -2096,7 +2013,14 @@ export default function App() {
       return;
     }
 
-    setNotificationRows((data ?? []) as NotificationRow[]);
+    setNotificationRows(
+  (data ?? []).map((row) => ({
+    ...row,
+    actor_profile: Array.isArray(row.actor_profile)
+      ? row.actor_profile[0] ?? null
+      : row.actor_profile ?? null,
+  }))
+);
 
     const { count, error: unreadCountError } = await supabase
       .from('notifications')
@@ -3230,6 +3154,90 @@ export default function App() {
   };
 
   const selectedDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+
+  useEffect(() => {
+    if (!activeGroupChatKey || !selectedSpot || !selectedDayKey) {
+      setGroupMessages([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const loadGroupMessages = async () => {
+      const conversationResponse = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('type', 'group')
+        .eq('spot_name', selectedSpot)
+        .eq('session_day', selectedDayKey)
+        .eq('group_key', activeGroupChatKey)
+        .limit(1);
+
+      const conversationId = Array.isArray(conversationResponse.data)
+        ? conversationResponse.data[0]?.id ?? null
+        : null;
+
+      if (!conversationId) {
+        if (!isCancelled) setGroupMessages([]);
+        return;
+      }
+
+      const messagesResponse = await supabase
+        .from('messages')
+        .select('id, user_id, text, created_at')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true });
+
+      if (messagesResponse.error) {
+        console.error('GROUP_CHAT_FETCH_ERROR', messagesResponse.error);
+        return;
+      }
+
+      const rows = messagesResponse.data ?? [];
+      const userIds = [...new Set(rows.map((message) => message.user_id).filter(Boolean))];
+
+      const profilesResponse = userIds.length
+        ? await supabase
+            .from('profiles')
+            .select('id, display_name, avatar_url')
+            .in('id', userIds)
+        : { data: [], error: null };
+
+      if (profilesResponse.error) {
+        console.error('GROUP_CHAT_PROFILES_ERROR', profilesResponse.error);
+        return;
+      }
+
+      const profilesById = new Map((profilesResponse.data ?? []).map((profile) => [profile.id, profile]));
+
+      const nextMessages = rows.map((message) => {
+        const profile = message.user_id ? profilesById.get(message.user_id) : null;
+        return {
+          id: message.id,
+          text: message.text,
+          userId: message.user_id,
+          display_name: profile?.display_name?.trim() || 'Unknown rider',
+          avatar_url: profile?.avatar_url ?? null,
+          created_at: message.created_at,
+          createdAt: message.created_at,
+        };
+      });
+
+      console.log('GROUP_CHAT_FETCH_RESULT', {
+        groupKey: activeGroupChatKey,
+        count: nextMessages.length,
+      });
+
+      if (!isCancelled) setGroupMessages(nextMessages);
+    };
+
+    void loadGroupMessages();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [activeGroupChatKey, selectedSpot, selectedDayKey]);
+
 
   const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
     if (!skipLoadingState) {
@@ -4674,7 +4682,7 @@ setMessagesBySpot((previous) => previous);
     ? 'You’re going today. Others can join you.'
     : 'See who’s going or start a session.';
   console.log("SPOT_NOW_SUMMARY_INPUT", {
-    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
     activeDayKey,
     totalSessionsForSpot: spotState?.sessionsForSpot?.length ?? 0
   });
@@ -4922,7 +4930,7 @@ setMessagesBySpot((previous) => previous);
   }, [spotState]);
   const selectedSpotForReadModelLogs = typeof selectedSpot === 'string'
     ? selectedSpot
-    : selectedSpot?.name ?? null;
+    : selectedSpot ?? null;
   useEffect(() => {
     console.log("READ_MODEL_TIMELINE_SOURCE", {
       selectedSpot: selectedSpotForReadModelLogs,
@@ -7219,27 +7227,6 @@ return { name, overlapPercent, barColor };
               placeholderTextColor={theme.textMuted}
               style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 14, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
             />
-            {groupMessages.length > 0 ? (
-              <View style={{ marginBottom: 10 }}>
-                {groupMessages.map((message) => {
-                  const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
-                  return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                      <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 }}>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                          {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
-                        </Text>
-                        <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            ) : (
-              <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 10 }}>No group messages yet</Text>
-            )}
-
             <Pressable
               onPress={() => {
                 const messageText = groupMessageInput.trim();
@@ -7319,6 +7306,27 @@ return { name, overlapPercent, barColor };
             >
               <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send to group</Text>
             </Pressable>
+            {groupMessages.length > 0 ? (
+              <ScrollView style={{ maxHeight: 250, marginTop: 12 }}>
+                {groupMessages.slice(-10).reverse().map((message) => {
+                  const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
+                  return (
+                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                      <Avatar uri={message.avatar_url} size={24} />
+                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 }}>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
+                          {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
+                        </Text>
+                        <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 12 }}>No group messages yet</Text>
+            )}
+
           </View>
         ) : null}
 
@@ -7427,8 +7435,8 @@ return { name, overlapPercent, barColor };
           </Pressable>
 
           {orderedMessages.length > 0 ? (
-            <View style={{ marginTop: 12 }}>
-              {orderedMessages.map((message) => (
+            <ScrollView style={{ maxHeight: 250, marginTop: 12 }}>
+              {orderedMessages.slice(0, 10).map((message) => (
                 (() => {
                   const chosenTimestampValue =
                     message?.createdAt ??
@@ -7465,7 +7473,7 @@ return { name, overlapPercent, barColor };
                   );
                 })()
               ))}
-            </View>
+            </ScrollView>
           ) : (
             <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>No messages yet</Text>
           )}

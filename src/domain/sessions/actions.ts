@@ -81,13 +81,13 @@ const readOwnSessionsForSpotDay = async (input: {
   const selectedSpot = input.selectedSpot as { name?: string | null } | string | null;
   const activeDay = input.activeDay;
   console.log("NO_SESSION_DAY_RUNTIME_PATH", {
-    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
     activeDay,
     dayStrategy: "derived-from-real-schema"
   });
 
   console.log("OWN_SESSIONS_QUERY_INPUT", {
-    selectedSpot: selectedSpot?.name ?? selectedSpot ?? null,
+    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
     activeDay
   });
 
