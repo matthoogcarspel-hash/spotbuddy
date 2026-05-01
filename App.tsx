@@ -7032,13 +7032,28 @@ return { name, overlapPercent, barColor };
             }}
           />
           {selectedTimelineSession ? (
-            <View style={{ marginTop: 10, borderRadius: 14,  borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
+            <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                 {selectedTimelineSession.item.userName} · {selectedTimelineSession.item.start}–{selectedTimelineSession.item.end}
               </Text>
               <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>
                 Status: {getTimelineLabel(selectedTimelineSession.state, false)}
               </Text>
+
+              <Pressable
+                onPress={() => {
+                  console.log("GROUP_CHAT_BUTTON_CLICK", {
+                    selectedSpot,
+                    selectedDayKey,
+                    groupKey: selectedTimelineSessionId,
+                  });
+                }}
+                style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
+              >
+                <Text style={{ color: theme.bg, fontSize: 13, fontWeight: '800' }}>
+                  Start group chat
+                </Text>
+              </Pressable>
             </View>
           ) : null}
         </View>
