@@ -1479,7 +1479,7 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? safeGroupSessions[0] ?? null;
+  const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? null;
   const joinTarget = joinTargetEntry?.item ?? null;
   const joinState = joinTarget?.id
     ? joinStateBySession[joinTarget.id] ?? getJoinState({
