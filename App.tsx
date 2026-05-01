@@ -7140,10 +7140,10 @@ return { name, overlapPercent, barColor };
                   const createConversationResponse = await supabase
                     .from('conversations')
                     .insert({
-                      type: selectedTimelineSessionId ? 'group' : 'spot',
+                      type: 'spot',
                       spot_name: selectedSpot,
                       session_day: selectedDayKey,
-                      group_key: selectedTimelineSessionId,
+                      
                     })
                     .select('id')
                     .single();
