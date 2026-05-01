@@ -1848,6 +1848,7 @@ export default function App() {
   const [activeGroupChatKey, setActiveGroupChatKey] = useState<string | null>(null);
   const [groupMessageInput, setGroupMessageInput] = useState('');
   const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
+  const [groupMessagesRefreshKey, setGroupMessagesRefreshKey] = useState(0);
     const [spotNotificationPreferences, setSpotNotificationPreferences] = useState<SpotNotificationPreferences>(defaultSpotNotificationPreferences);
   const [loadingSpotNotificationPreferences, setLoadingSpotNotificationPreferences] = useState(false);
   const [savingNotificationPreferenceKey, setSavingNotificationPreferenceKey] = useState<SpotNotificationPreferenceType | null>(null);
@@ -3236,7 +3237,7 @@ export default function App() {
     return () => {
       isCancelled = true;
     };
-  }, [activeGroupChatKey, selectedSpot, selectedDayKey]);
+  }, [activeGroupChatKey, selectedSpot, selectedDayKey, groupMessagesRefreshKey]);
 
 
   const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
@@ -3746,6 +3747,51 @@ setMessagesBySpot((previous) => previous);
       console.log('SESSIONS_REALTIME_UNSUBSCRIBED');
     };
   }, [activeAppUserId, activeDay, selectedSpot, spotNames]);
+
+  useEffect(() => {
+    if (!activeAppUserId || !selectedSpot) {
+      return;
+    }
+
+    const realtimeChannel = supabase
+      .channel(`messages-realtime-${selectedSpot}-${selectedDayKey}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'messages' },
+        (payload) => {
+          const nextRow = payload?.new as { spot_name?: string | null; session_day?: string | null } | null;
+          const oldRow = payload?.old as { spot_name?: string | null; session_day?: string | null } | null;
+          const payloadSpot = nextRow?.spot_name ?? oldRow?.spot_name ?? null;
+          const payloadDay = nextRow?.session_day ?? oldRow?.session_day ?? null;
+
+          if (payloadSpot !== selectedSpot || payloadDay !== selectedDayKey) {
+            return;
+          }
+
+          console.log('MESSAGES_REALTIME_EVENT', {
+            eventType: payload?.eventType ?? null,
+            selectedSpot,
+            selectedDayKey,
+          });
+
+          void fetchSharedData({ skipLoadingState: true });
+          setGroupMessagesRefreshKey((value) => value + 1);
+        },
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('MESSAGES_REALTIME_SUBSCRIBED', {
+            selectedSpot,
+            selectedDayKey,
+          });
+        }
+      });
+
+    return () => {
+      void supabase.removeChannel(realtimeChannel);
+      console.log('MESSAGES_REALTIME_UNSUBSCRIBED');
+    };
+  }, [activeAppUserId, selectedSpot, selectedDayKey]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
