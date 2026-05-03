@@ -7728,12 +7728,14 @@ return { name, overlapPercent, barColor };
           });
 
           const statusLabel = status.label;
-          const plannedCount = status.plannedCount;
-          const activeCount = status.activeCount;
+          const liveSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
+          const goingSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
+          const maybeSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
+          const activeCount = liveSessions.length;
+          const goingCount = goingSessions.length;
+          const maybeCount = maybeSessions.length;
           const isLiveSpot = activeCount > 0;
-          const liveRiders = daySpotSessions
-            .filter((sessionItem) => getSessionState(sessionItem) === 'active')
-            .slice(0, 4);
+          const liveRiders = liveSessions.slice(0, 4);
 
           return (
             <Pressable
@@ -7768,15 +7770,29 @@ return { name, overlapPercent, barColor };
                 ) : null}
               </View>
 
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 22, marginTop: 18 }}>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{activeCount}</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>now</Text>
-                </View>
-                <View style={{ alignItems: 'flex-end' }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 22, fontWeight: '800' }}>{plannedCount}</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 2 }}>later</Text>
-                </View>
+              <View style={{ flexDirection: 'row', marginTop: 18, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 14 }}>
+                {[
+                  { label: 'LIVE', value: activeCount, color: activeCount > 0 ? theme.live : theme.textMuted },
+                  { label: 'GOING', value: goingCount, color: theme.textMuted },
+                  { label: 'MAYBE', value: maybeCount, color: theme.textMuted },
+                ].map((metric, index) => (
+                  <View
+                    key={`${spot.name}-${metric.label}`}
+                    style={{
+                      flex: 1,
+                      paddingLeft: index === 0 ? 0 : 14,
+                      borderLeftWidth: index === 0 ? 0 : 1,
+                      borderLeftColor: theme.border,
+                    }}
+                  >
+                    <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900', marginBottom: 5 }}>
+                      {metric.label}
+                    </Text>
+                    <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900' }}>
+                      {metric.value}
+                    </Text>
+                  </View>
+                ))}
               </View>
             </Pressable>
           );
