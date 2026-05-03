@@ -1787,7 +1787,12 @@ function SessionTimeline({
               if (section.groups.length === 0) return null;
 
               return (
-                <View key={section.key} style={{ marginBottom: 18 }}>
+                <View key={section.key} style={{
+                  marginBottom: section.key === 'live' ? 24 : 18,
+                  padding: section.key === 'live' ? 10 : 0,
+                  borderRadius: section.key === 'live' ? 14 : 0,
+                  backgroundColor: section.key === 'live' ? 'rgba(31,156,127,0.08)' : 'transparent'
+                }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
