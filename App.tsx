@@ -445,6 +445,13 @@ const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, ran
 
   return dateValue >= rangeStart && dateValue < rangeEnd;
 };
+type CleanSessionStatus = 'live' | 'going' | 'maybe';
+
+const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => {
+  if (sessionItem.checkedInAt && !sessionItem.checkedOutAt) return 'live';
+  return resolveSessionIntent(sessionItem.intent) === 'definitely' ? 'going' : 'maybe';
+};
+
 const getSessionState = (sessionItem: SpotSession, now = new Date()): DeterministicSessionState => {
   const startDate = getSessionStartTime(sessionItem);
   const endDate = getSessionEndTime(sessionItem);
@@ -1650,6 +1657,16 @@ type SessionTimelineProps = {
   onClearSelection: () => void;
 };
 
+const getGroupCleanStatus = (group: any): 'live' | 'going' | 'maybe' => {
+  const sessions = (group.visibleSessions ?? [])
+    .map((entry: any) => entry.item)
+    .filter(Boolean);
+
+  if (sessions.some((s: any) => getCleanSessionStatus(s) === 'live')) return 'live';
+  if (sessions.some((s: any) => getCleanSessionStatus(s) === 'going')) return 'going';
+  return 'maybe';
+};
+
 function SessionTimeline({
   groupedSessions,
   joinStateBySession,
@@ -1685,6 +1702,9 @@ function SessionTimeline({
     [currentLocalMinutes, timelineWindowEndMinutes, timelineWindowStartMinutes],
   );
   const visibleGroups = Array.isArray(groupedSessions) ? groupedSessions : [];
+  const liveGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'live');
+  const goingGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'going');
+  const maybeGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'maybe');
   console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
     usingCentralGroupingAdapter: true
   });
@@ -7653,7 +7673,14 @@ return { name, overlapPercent, barColor };
               <Pressable
                 key={`home-day-${option.key}`}
                 onPress={() => setActiveDay(option.key)}
-                style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: isActive ? theme.primary : 'transparent' }}
+                style={{
+  backgroundColor: '#0b0f14',
+  borderRadius: 10,
+  paddingVertical: 10,
+  paddingHorizontal: 16,
+  marginRight: 6,
+  opacity: isActive ? 1 : 0.6
+}}
               >
                 <Text style={{ color: isActive ? theme.bg : theme.textSoft, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
               </Pressable>
