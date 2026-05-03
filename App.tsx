@@ -4773,7 +4773,7 @@ setMessagesBySpot((previous) => previous);
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
-    : 'See who’s going or start a session.';
+    : '';
   console.log("SPOT_NOW_SUMMARY_INPUT", {
     selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
     activeDayKey,
@@ -7169,10 +7169,10 @@ return { name, overlapPercent, barColor };
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
+        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>Sessions</Text>
-            <View style={{ flexDirection: 'row', backgroundColor: theme.bgElevated, borderRadius: 999,  borderColor: theme.border, padding: 2 }}>
+            
+            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 999, padding: 2 }}>
               {([
                 { key: 'everyone' as const, label: 'Everyone' },
                 { key: 'buddies' as const, label: 'Buddies' },
