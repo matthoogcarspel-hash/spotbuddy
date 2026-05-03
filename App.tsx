@@ -6525,6 +6525,17 @@ setMessagesBySpot((previous) => previous);
   }
 
   if (selectedSpot) {
+    const spotSessions = daySessionsBySpot[selectedSpot] ?? [];
+
+    const liveSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'live');
+    const goingSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'going');
+    const maybeSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'maybe');
+
+    const liveCount = liveSessions.length;
+    const goingCount = goingSessions.length;
+    const maybeCount = maybeSessions.length;
+    const totalSessions = spotSessions.length;
+
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("JOIN_HANDLER_START");
       const joinState = spotState.joinStateBySession[sessionId]
@@ -6825,7 +6836,23 @@ setMessagesBySpot((previous) => previous);
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
+        
+<View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+          {[
+            { label: 'LIVE', value: liveCount, color: theme.live },
+            { label: 'GOING', value: goingCount, color: theme.primary },
+            { label: 'MAYBE', value: maybeCount, color: '#a855f7' },
+            { label: 'SESSIONS', value: totalSessions, color: theme.textSoft },
+          ].map((metric) => (
+            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: theme.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: theme.border }}>
+              <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900', marginBottom: 8 }}>{metric.label}</Text>
+              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900' }}>{metric.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        
+<View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 }}>MY ACTION</Text>
           {topCtaMode === 'plan' ? (
             <Pressable
