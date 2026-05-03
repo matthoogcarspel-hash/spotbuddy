@@ -1534,106 +1534,75 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={{
-        marginTop: nearOverlapWithPrevious ? 2 : 0,
-        marginBottom: nearOverlapWithPrevious ? 8 : 6,
-        borderRadius: 10,
-        backgroundColor: 'transparent',
-        borderWidth: 0,
-        borderColor: 'transparent',
-        paddingVertical: 0,
-        paddingHorizontal: 0,
+        marginBottom: 12,
+        borderRadius: 16,
+        backgroundColor: theme.bgElevated,
+        padding: 12,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-        <View style={{ width: 80 }}>
-          <Text numberOfLines={1} style={{ color: '#e5f3ff', fontSize: 11, fontWeight: '800', letterSpacing: 0.2 }}>
-            {group.startTime}–{group.endTime}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 72 }}>
+          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>
+            {group.startTime}
           </Text>
-          <Text numberOfLines={1} style={{ color: '#9fb2c8', fontSize: 9, marginTop: 1 }}>
-            {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
+          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+            {group.endTime}
           </Text>
         </View>
-        <View style={{ flex: 1, alignItems: 'flex-start' }}>
-          {canJoinGroup ? (
-            <Pressable
-              onPress={(event) => {
-                event.stopPropagation();
-                if (joinTarget) {
-                  console.log("JOIN_BUTTON_CLICK", {
-                    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-                    activeDay,
-                    groupStart: group.startTime,
-                    groupEnd: group.endTime
-                  });
-                  console.log('GROUP_JOIN_CLICK_RESTORED', {
-                    activeProfileId: currentProfileId ?? null,
-                    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-                    groupStart: group.startTime,
-                    groupEnd: group.endTime,
-                  });
-                  onJoin({
-                    sessionId: joinTarget.id,
-                    sessionDay: joinTarget.sessionDay,
-                    sessionStatus: joinTarget.status ?? null,
-                    normalizedStart: group.startTime,
-                    normalizedEnd: group.endTime,
-                  });
-                }
-              }}
-              style={{
-                backgroundColor: '#1a66c9',
-                
-                borderColor: '#81c0ff',
-                borderRadius: 999,
-                paddingHorizontal: 10,
-                paddingVertical: 4,
-              }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '700' }}>Join</Text>
-            </Pressable>
-          ) : null}
-        </View>
-      </View>
 
-      <View style={{ marginTop: 6, padding: 8, borderRadius: 14,  borderColor: 'rgba(129,192,255,0.25)', backgroundColor: 'rgba(42,140,255,0.08)' }}>
-        <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginBottom: 6 }}>
-          Group session · {sortedVisibleSessions.length} rider{sortedVisibleSessions.length === 1 ? '' : 's'}
-        </Text>
-        {sortedVisibleSessions.map(({ item, state }, index) => {
-          const rider = item as SpotSession & { profile_name?: string; display_name?: string };
-          const riderRowName = getRiderRowName(item);
-          console.log('GROUP_RIDER_ROW_RENDER', {
-            groupStart: group.startTime,
-            groupEnd: group.endTime,
-            riderName: riderRowName,
-            userId: item.userId,
-            sessionId: item.id,
-            start: item.start,
-            end: item.end,
-            state,
-            leftPercent,
-            widthPercent,
-          });
-          return (
-            <View key={`group-rider-row-${group.key}-${item.id}-${index}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3 }}>
-              <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, width: 80, marginRight: 4 }}>
-                {riderRowName}
-              </Text>
-              <SessionBar
-                leftPercent={leftPercent}
-                widthPercent={widthPercent}
-                state={state}
-                intent={resolveSessionIntent(item.intent)}
-                isSelected={isSelected}
-                showJoinButton={false}
-                onPress={() => onSelect(group.key)}
-                onJoin={() => {
-                  // Join is managed at the group header level.
-                }}
-              />
+        <View style={{ flexDirection: 'row', width: 82 }}>
+          {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
+            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+              <Avatar uri={item.userAvatarUrl ?? null} size={36} />
             </View>
-          );
-        })}
+          ))}
+        </View>
+
+        <View style={{ flex: 1, paddingLeft: 10 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
+            {sortedVisibleSessions.length > 1
+              ? `${sortedVisibleSessions.length} riders`
+              : getRiderRowName(sortedVisibleSessions[0]?.item)}
+          </Text>
+
+          <View style={{ marginTop: 10 }}>
+            <SessionBar
+              leftPercent={leftPercent}
+              widthPercent={widthPercent}
+              state={representative?.state ?? 'planned'}
+              intent={resolveSessionIntent(session?.intent)}
+              isSelected={isSelected}
+              showJoinButton={false}
+              onPress={() => onSelect(group.key)}
+              onJoin={() => {}}
+            />
+          </View>
+        </View>
+
+        {canJoinGroup ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              if (!joinTarget) return;
+              onJoin({
+                sessionId: joinTarget.id,
+                sessionDay: joinTarget.sessionDay,
+                sessionStatus: joinTarget.status ?? null,
+                normalizedStart: group.startTime,
+                normalizedEnd: group.endTime,
+              });
+            }}
+            style={{
+              marginLeft: 10,
+              backgroundColor: '#0b0f14',
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Join</Text>
+          </Pressable>
+        ) : null}
       </View>
     </Pressable>
   );
