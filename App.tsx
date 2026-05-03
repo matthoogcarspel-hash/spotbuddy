@@ -1278,7 +1278,7 @@ const groupTimelineSessions = ({
       startTime,
       endTime,
     } = getRoundedSessionWindow(timelineSession.item);
-    const groupKey = `${startTime}-${endTime}`;
+    const groupKey = `${timelineSession.state}-${startTime}-${endTime}`;
     const entry: SessionGroupEntry = {
       item: timelineSession.item,
       state: timelineSession.state,
@@ -6786,7 +6786,7 @@ setMessagesBySpot((previous) => previous);
                 borderRadius: 14,
                 
                 borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
+                backgroundColor: '#081827',
                 paddingHorizontal: 14,
                 paddingVertical: 12,
               }}
@@ -6839,14 +6839,19 @@ setMessagesBySpot((previous) => previous);
         
 <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
           {[
-            { label: 'LIVE', value: liveCount, color: theme.live },
-            { label: 'GOING', value: goingCount, color: theme.primary },
-            { label: 'MAYBE', value: maybeCount, color: '#a855f7' },
-            { label: 'SESSIONS', value: totalSessions, color: theme.textSoft },
+            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: theme.live },
+            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: theme.primary },
+            { icon: '🤔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
           ].map((metric) => (
-            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: theme.card, borderRadius: 16, padding: 12, borderWidth: 1, borderColor: theme.border }}>
-              <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900', marginBottom: 8 }}>{metric.label}</Text>
-              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900' }}>{metric.value}</Text>
+            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: '#081827', borderRadius: 18, padding: 14, minHeight: 104, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                  <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>{metric.icon}</Text>
+                </View>
+                <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900' }}>{metric.label}</Text>
+              </View>
+              <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
             </View>
           ))}
         </View>
