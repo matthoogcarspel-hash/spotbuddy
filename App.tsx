@@ -1639,7 +1639,7 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
             <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900' }}>{metric.label}</Text>
           </View>
           <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
-          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
         </View>
       ))}
     </View>
@@ -6000,7 +6000,7 @@ setMessagesBySpot((previous) => previous);
                         borderColor: theme.border,
                         paddingHorizontal: 12,
                         paddingVertical: 10,
-                        marginBottom: 10,
+                        marginBottom: 18,
                       }}
                     >
                       <Text style={{ color: theme.text, fontSize: 15, marginBottom: 8 }}>
@@ -7195,7 +7195,7 @@ return { name, overlapPercent, barColor };
               })}
             </View>
           </View>
-          <View style={{ marginBottom: 10 }}>
+          <View style={{ marginBottom: 14 }}>
             <View style={{ marginLeft: 98, flexDirection: 'row', justifyContent: 'space-between' }}>
               {timelineLabels.map((label) => (
                 <Text key={label} style={{ color: theme.textMuted, fontSize: 11 }}>
