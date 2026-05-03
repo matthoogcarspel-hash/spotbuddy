@@ -1585,7 +1585,16 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
               isSelected={isSelected}
               showJoinButton={canJoinGroup}
               onPress={() => onSelect(group.key)}
-              onJoin={() => {}}
+              onJoin={() => {
+                if (!joinTarget) return;
+                onJoin({
+                  sessionId: joinTarget.id,
+                  sessionDay: joinTarget.sessionDay,
+                  sessionStatus: joinTarget.status ?? null,
+                  normalizedStart: group.startTime,
+                  normalizedEnd: group.endTime,
+                });
+              }}
             />
           </View>
         </View>
