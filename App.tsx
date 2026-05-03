@@ -1618,7 +1618,7 @@ type SpotSummaryMetric = {
 
 function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; theme: any }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+    <View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 20, marginTop: -6, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
       {metrics.map((metric) => (
         <View
           key={`spot-summary-${metric.label}`}
@@ -6786,9 +6786,9 @@ setMessagesBySpot((previous) => previous);
         </Pressable>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: '#061421', borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+        <View style={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0, paddingBottom: 8, marginBottom: 0 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
+            <View />
             <Pressable
               onPress={() => {
                 setIsNotificationPanelExpanded((prev) => !prev);
@@ -6811,8 +6811,8 @@ setMessagesBySpot((previous) => previous);
           </View>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
           {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
-          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 4 }}>{nowSummaryLabel}</Text>
-          {selectedSpotMomentumLabel ? (
+          
+          {false && selectedSpotMomentumLabel ? (
             <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999,  borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
             
@@ -6848,8 +6848,8 @@ setMessagesBySpot((previous) => previous);
         </View>
 
         
-<View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.1, marginBottom: 8 }}>MY ACTION</Text>
+<View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
+          
           {topCtaMode === 'plan' ? (
             <Pressable
               onPress={() => {
