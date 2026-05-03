@@ -1599,7 +1599,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           </View>
         </View>
 
-        {canJoinGroup ? (
+        {false && canJoinGroup ? (
           <Pressable
             onPress={(event) => {
               event.stopPropagation();
