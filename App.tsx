@@ -6847,7 +6847,7 @@ setMessagesBySpot((previous) => previous);
             { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: theme.primary },
             { icon: '🤔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
           ].map((metric) => (
-            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: '#081827', borderRadius: 18, padding: 14, minHeight: 104, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 6 }}>
+            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: metric.label === 'LIVE' && metric.value > 0 ? '#0f2f2a' : '#081827', borderRadius: 18, padding: 14, minHeight: 104, borderWidth: 1, borderColor: metric.label === 'LIVE' && metric.value > 0 ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.06)', shadowColor: metric.label === 'LIVE' && metric.value > 0 ? '#34d399' : '#000', shadowOpacity: metric.label === 'LIVE' && metric.value > 0 ? 0.25 : 0.12, shadowRadius: metric.label === 'LIVE' && metric.value > 0 ? 10 : 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                 <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
                   <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>{metric.icon}</Text>
