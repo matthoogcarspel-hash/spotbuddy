@@ -1534,18 +1534,19 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={{
-        marginBottom: 12,
-        borderRadius: 16,
-        backgroundColor: theme.bgElevated,
-        padding: 12,
+        marginBottom: 14,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.02)',
+        paddingVertical: 12,
+        paddingHorizontal: 10,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ width: 72 }}>
-          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>
+          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
             {group.startTime}
           </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
             {group.endTime}
           </Text>
         </View>
@@ -1553,7 +1554,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
         <View style={{ flexDirection: 'row', width: 82 }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
             <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-              <Avatar uri={item.userAvatarUrl ?? null} size={36} />
+              <Avatar uri={item.userAvatarUrl ?? null} size={32} />
             </View>
           ))}
         </View>
@@ -1565,7 +1566,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
               : getRiderRowName(sortedVisibleSessions[0]?.item)}
           </Text>
 
-          <View style={{ marginTop: 10 }}>
+          <View style={{ marginTop: 6 }}>
             <SessionBar
               leftPercent={leftPercent}
               widthPercent={widthPercent}
@@ -1594,7 +1595,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
             }}
             style={{
               marginLeft: 10,
-              backgroundColor: '#0b0f14',
+              backgroundColor: 'rgba(255,255,255,0.06)',
               borderRadius: 10,
               paddingHorizontal: 12,
               paddingVertical: 8,
@@ -1782,10 +1783,18 @@ function SessionTimeline({
               if (section.groups.length === 0) return null;
 
               return (
-                <View key={section.key} style={{ marginBottom: 16 }}>
-                  <Text style={{ color: section.color, fontSize: 13, fontWeight: '900', marginBottom: 6 }}>
-                    {section.title}
-                  </Text>
+                <View key={section.key} style={{ marginBottom: 18 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
+                      <Text style={{ color: section.color, fontSize: 13, fontWeight: '900', letterSpacing: 0.4 }}>
+                        {section.title}
+                      </Text>
+                    </View>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                      {section.groups.length} {section.groups.length === 1 ? 'session' : 'sessions'}
+                    </Text>
+                  </View>
 
                   {section.groups.map((group, index) => (
                     <SessionRow
