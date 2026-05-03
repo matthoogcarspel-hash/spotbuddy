@@ -1608,6 +1608,44 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
   );
 }
 
+type SpotSummaryMetric = {
+  icon: string;
+  label: string;
+  helper: string;
+  value: number;
+  color: string;
+};
+
+function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; theme: any }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+      {metrics.map((metric) => (
+        <View
+          key={`spot-summary-${metric.label}`}
+          style={{
+            flex: 1,
+            backgroundColor: '#081827',
+            borderRadius: 18,
+            padding: 14,
+            minHeight: 104,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.06)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+              <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>{metric.icon}</Text>
+            </View>
+            <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900' }}>{metric.label}</Text>
+          </View>
+          <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 type SessionTimelineProps = {
   groupedSessions: TimelineGroupedSession[];
   joinStateBySession: Record<string, { allowed: boolean; reason: string | null }>;
