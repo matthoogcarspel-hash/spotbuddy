@@ -6748,7 +6748,7 @@ setMessagesBySpot((previous) => previous);
         </Pressable>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 18, marginBottom: 12,  borderColor: theme.border }}>
+        <View style={{ backgroundColor: '#061421', borderRadius: 22, padding: 18, marginBottom: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', letterSpacing: 1.3 }}>SPOT SUMMARY</Text>
             <Pressable
@@ -6777,67 +6777,20 @@ setMessagesBySpot((previous) => previous);
           {selectedSpotMomentumLabel ? (
             <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999,  borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>{selectedSpotMomentumLabel}</Text>
-            </View>
+            
+</View>
           ) : null}
           {isNotificationPanelExpanded ? (
-            <View
-              style={{
-                marginTop: 10,
-                borderRadius: 14,
-                
-                borderColor: theme.border,
-                backgroundColor: '#081827',
-                paddingHorizontal: 14,
-                paddingVertical: 12,
-              }}
-            >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Notifications for this spot</Text>
-              {spotNotificationPreferencesModel.map((notificationType, index) => (
-                <View
-                  key={notificationType.key}
-                  style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: index === spotNotificationPreferencesModel.length - 1 ? 0 : 10, minHeight: 32 }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', paddingRight: 10, flexShrink: 1 }}>{notificationType.label}</Text>
-                  <View style={{ flexDirection: 'row', borderRadius: 999,  borderColor: theme.border, overflow: 'hidden', marginLeft: 8 }}>
-                    {notificationModeOptions.map((option) => {
-                      const isSelected = spotNotificationPreferences[notificationType.dbField] === option.value;
-                      return (
-                        <Pressable
-                          key={`${notificationType.key}-${option.value}`}
-                          disabled={loadingSpotNotificationPreferences || savingNotificationPreferenceKey !== null}
-                          onPress={() => {
-                            const preferenceType = notificationType.key;
-                            const nextValue = option.value;
-                            const previousPreferences = spotNotificationPreferences;
-                            const nextPreferences = normalizeSpotNotificationPreferences({ ...previousPreferences, [notificationType.dbField]: nextValue });
-                            setSpotNotificationPreferences(nextPreferences);
-                            void saveSpotNotificationPreferences(nextPreferences, preferenceType).then((didSave) => {
-                              if (!didSave) {
-                                setSpotNotificationPreferences(previousPreferences);
-                              }
-                            });
-                          }}
-                          style={{
-                            paddingVertical: 5,
-                            paddingHorizontal: 9,
-                            backgroundColor: isSelected ? '#2563eb' : theme.bg,
-                            opacity: loadingSpotNotificationPreferences ? 0.55 : 1,
-                          }}
-                        >
-                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: isSelected ? '700' : '600' }}>{option.label}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-              {notificationPreferencesError ? <Text style={{ color: '#ff7e7e', fontSize: 12, marginTop: 8 }}>{notificationPreferencesError}</Text> : null}
+            <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: '#081827', paddingHorizontal: 14, paddingVertical: 12 }}>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
+                Notifications for this spot
+              </Text>
             </View>
           ) : null}
         </View>
 
         
-<View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+<View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
           {[
             { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: theme.live },
             { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: theme.primary },
