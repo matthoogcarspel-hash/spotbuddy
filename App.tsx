@@ -1503,6 +1503,8 @@ function SessionRow({
 );
 
 const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGroup;
+  const rowStatus = representative?.state ?? 'planned';
+  const isLiveRow = rowStatus === 'live';
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
     sessionDay: session?.sessionDay ?? null,
@@ -1539,9 +1541,11 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
       style={({ pressed }) => ({
         marginBottom: 14,
         borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.02)',
+        backgroundColor: isLiveRow ? 'rgba(31,156,127,0.10)' : 'rgba(255,255,255,0.02)',
         paddingVertical: 12,
         paddingHorizontal: 10,
+        borderWidth: isLiveRow ? 1 : 0,
+        borderColor: isLiveRow ? 'rgba(99,228,190,0.35)' : 'transparent',
         opacity: pressed ? 0.7 : 1,
       })}
     >
