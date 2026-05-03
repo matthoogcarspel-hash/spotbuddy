@@ -6684,7 +6684,31 @@ setMessagesBySpot((previous) => previous);
         void fetchSharedData();
       }, 900);
     };
-    const handleSave = async () => {
+    const handleQuickLive = async () => {
+  console.log("QUICK_LIVE_START");
+
+  if (!activeProfile?.id || !selectedSpot) return;
+
+  const now = new Date();
+
+  const start = now;
+  const end = new Date(now.getTime() + (2 * 60 * 60 * 1000));
+
+  try {
+    await handleJoinSession({
+      sessionId: null,
+      sessionDay: selectedPlanningDateKey,
+      sessionStatus: 'live',
+      normalizedStart: `${start.getHours()}:${String(start.getMinutes()).padStart(2,'0')}`,
+      normalizedEnd: `${end.getHours()}:${String(end.getMinutes()).padStart(2,'0')}`,
+      forceCreate: true
+    });
+  } catch (e) {
+    console.log("QUICK_LIVE_FAILED", e);
+  }
+};
+
+const handleSave = async () => {
       console.log("PLAN_HANDLER_START");
       logSessionUiActionStart({
         type: 'planSession',
