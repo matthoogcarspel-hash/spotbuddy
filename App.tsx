@@ -998,6 +998,9 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   };
   const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
+  const plannedBarColor = intent === 'maybe' ? '#7c3aed' : '#2563eb';
+  const plannedBorderColor = intent === 'maybe' ? '#a855f7' : '#60a5fa';
+  const plannedTextColor = intent === 'maybe' ? '#f3e8ff' : '#dbeafe';
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
   return (
@@ -1016,9 +1019,9 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           top: 2,
           bottom: 2,
           borderRadius: 999,
-          backgroundColor: stateStyle[state].bar,
+          backgroundColor: state === 'planned' ? plannedBarColor : stateStyle[state].bar,
           borderWidth: intentStyle.barBorderWidth,
-          borderColor: stateStyle[state].border,
+          borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
           opacity: (stateStyle[state].opacity ?? 1) * intentStyle.barOpacity,
           shadowColor: state === 'live' ? '#63e4be' : '#000000',
@@ -1029,7 +1032,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           paddingHorizontal: 6,
         }}
       >
-        <Text numberOfLines={1} style={{ color: stateStyle[state].text, fontSize: 10, fontWeight: '700' }}>
+        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 10, fontWeight: '700' }}>
           {timelineLabel}
         </Text>
       </View>
@@ -6815,7 +6818,7 @@ setMessagesBySpot((previous) => previous);
               }}
             >
               <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Notifications${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
-              <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
+              <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
