@@ -448,7 +448,9 @@ const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, ran
 type CleanSessionStatus = 'live' | 'going' | 'maybe';
 
 const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => {
-  if (sessionItem.checkedInAt && !sessionItem.checkedOutAt) return 'live';
+  if ((sessionItem.status === 'live' || sessionItem.status === 'Is er al' || sessionItem.checkedInAt) && !sessionItem.checkedOutAt) {
+    return 'live';
+  }
   return resolveSessionIntent(sessionItem.intent) === 'definitely' ? 'going' : 'maybe';
 };
 
