@@ -7776,7 +7776,7 @@ return { name, overlapPercent, barColor };
             <Pressable
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
-              style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 12 }}
+              style={{ backgroundColor: '#061421', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
@@ -7784,7 +7784,7 @@ return { name, overlapPercent, barColor };
                   {statusLabel ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
-                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 12, fontWeight: '900', textTransform: 'uppercase' }}>
+                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 }}>
                         {statusLabel}
                       </Text>
                     </View>
@@ -7805,7 +7805,7 @@ return { name, overlapPercent, barColor };
                 ) : null}
               </View>
 
-              <View style={{ flexDirection: 'row', marginTop: 18, borderTopWidth: 1, borderTopColor: theme.border, paddingTop: 14 }}>
+              <View style={{ flexDirection: 'row', marginTop: 16 }}>
                 {[
                   { label: 'LIVE', value: activeCount, color: activeCount > 0 ? theme.live : theme.textMuted },
                   { label: 'GOING', value: goingCount, color: theme.textMuted },
@@ -7816,14 +7816,14 @@ return { name, overlapPercent, barColor };
                     style={{
                       flex: 1,
                       paddingLeft: index === 0 ? 0 : 14,
-                      borderLeftWidth: index === 0 ? 0 : 1,
+                      borderLeftWidth: 0,
                       borderLeftColor: theme.border,
                     }}
                   >
-                    <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900', marginBottom: 5 }}>
+                    <Text style={{ color: metric.color, fontSize: 10, fontWeight: '800', marginBottom: 4 }}>
                       {metric.label}
                     </Text>
-                    <Text style={{ color: theme.text, fontSize: 24, fontWeight: '900' }}>
+                    <Text style={{ color: theme.text, fontSize: 22, fontWeight: '800' }}>
                       {metric.value}
                     </Text>
                   </View>
