@@ -1583,7 +1583,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
               state={representative?.state ?? 'planned'}
               intent={resolveSessionIntent(session?.intent)}
               isSelected={isSelected}
-              showJoinButton={false}
+              showJoinButton={true}
               onPress={() => onSelect(group.key)}
               onJoin={() => {}}
             />
