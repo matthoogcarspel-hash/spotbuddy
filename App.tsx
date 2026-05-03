@@ -1536,13 +1536,14 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
   return (
     <Pressable
       onPress={() => onSelect(group.key)}
-      style={{
+      style={({ pressed }) => ({
         marginBottom: 14,
         borderRadius: 14,
         backgroundColor: 'rgba(255,255,255,0.02)',
         paddingVertical: 12,
         paddingHorizontal: 10,
-      }}
+        opacity: pressed ? 0.7 : 1,
+      })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <View style={{ width: 72 }}>
@@ -7776,7 +7777,7 @@ return { name, overlapPercent, barColor };
             <Pressable
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
-              style={{ backgroundColor: '#061421', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+              style={({ pressed }) => ({ backgroundColor: '#061421', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', opacity: pressed ? 0.85 : 1 })}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
