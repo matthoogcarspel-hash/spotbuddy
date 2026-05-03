@@ -1049,18 +1049,18 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
             position: 'absolute',
             left: `${joinPlacement.leftPercent}%`,
             width: `${timelineJoinButtonWidthPercent}%`,
-            top: 5,
-            bottom: 5,
+            top: 3,
+            bottom: 3,
             borderRadius: 999,
-            backgroundColor: joinPlacement.placement === 'inside' ? '#2a8cff' : '#1a66c9',
+            backgroundColor: '#ffffff',
             
-            borderColor: '#81c0ff',
+            borderColor: 'rgba(255,255,255,0.8)',
             justifyContent: 'center',
             alignItems: 'center',
             paddingHorizontal: 4,
           }}
         >
-          <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '700' }}>Join</Text>
+          <Text style={{ color: '#061421', fontSize: 10, fontWeight: '900' }}>JOIN</Text>
         </Pressable>
       ) : null}
     </Pressable>
@@ -1583,7 +1583,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
               state={representative?.state ?? 'planned'}
               intent={resolveSessionIntent(session?.intent)}
               isSelected={isSelected}
-              showJoinButton={true}
+              showJoinButton={canJoinGroup}
               onPress={() => onSelect(group.key)}
               onJoin={() => {}}
             />
