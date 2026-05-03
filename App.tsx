@@ -1735,27 +1735,47 @@ function SessionTimeline({
         ) : null}
 
         {visibleGroups.length > 0 ? (
-          visibleGroups.map((group, index) => (
-              <SessionRow
-                key={group.key}
-                group={group}
-                currentProfileId={currentProfileId}
-                activeDay={activeDay}
-                activeDayKey={activeDayKey}
-                selectedSpot={selectedSpot}
-                ownSessionForSpotDay={ownSessionForSpotDay}
-                joinStateBySession={joinStateBySession}
-                nearOverlapWithPrevious={index > 0 && group.startMinutes - visibleGroups[index - 1].endMinutes <= 20}
-                timelineWindowStartMinutes={timelineWindowStartMinutes}
-                timelineWindowEndMinutes={timelineWindowEndMinutes}
-                isSelected={selectedTimelineSessionId === group.key}
-                onSelect={onSelectSession}
-                onJoin={onJoinSession}
-              />
-          ))
+          <>
+            {[
+              { key: 'live', title: 'LIVE NOW', groups: liveGroups, color: theme.live },
+              { key: 'going', title: 'GOING', groups: goingGroups, color: theme.primary },
+              { key: 'maybe', title: 'MAYBE', groups: maybeGroups, color: '#a855f7' },
+            ].map((section) => {
+              if (section.groups.length === 0) return null;
+
+              return (
+                <View key={section.key} style={{ marginBottom: 16 }}>
+                  <Text style={{ color: section.color, fontSize: 13, fontWeight: '900', marginBottom: 6 }}>
+                    {section.title}
+                  </Text>
+
+                  {section.groups.map((group, index) => (
+                    <SessionRow
+                      key={group.key}
+                      group={group}
+                      currentProfileId={currentProfileId}
+                      activeDay={activeDay}
+                      activeDayKey={activeDayKey}
+                      selectedSpot={selectedSpot}
+                      ownSessionForSpotDay={ownSessionForSpotDay}
+                      joinStateBySession={joinStateBySession}
+                      nearOverlapWithPrevious={false}
+                      timelineWindowStartMinutes={timelineWindowStartMinutes}
+                      timelineWindowEndMinutes={timelineWindowEndMinutes}
+                      isSelected={selectedTimelineSessionId === group.key}
+                      onSelect={onSelectSession}
+                      onJoin={onJoinSession}
+                    />
+                  ))}
+                </View>
+              );
+            })}
+          </>
         ) : (
           <Text style={{ color: theme.textSoft, fontSize: 14 }}>
-            {timelineFilter === 'buddies' ? 'No buddy sessions on the timeline yet' : 'No sessions on the timeline yet'}
+            {timelineFilter === 'buddies'
+              ? 'No buddy sessions on the timeline yet'
+              : 'No sessions on the timeline yet'}
           </Text>
         )}
       </View>
