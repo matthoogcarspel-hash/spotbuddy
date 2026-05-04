@@ -1548,48 +1548,44 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
-        marginBottom: 8,
-        borderRadius: 12,
-        backgroundColor: 'transparent',
-        paddingVertical: 10,
-        paddingHorizontal: 8,
-        borderWidth: 0,
-        borderColor: isLiveRow ? 'rgba(99,228,190,0.35)' : 'transparent',
+        marginBottom: 10,
+        borderRadius: 14,
+        backgroundColor: 'rgba(255,255,255,0.025)',
+        paddingVertical: 12,
+        paddingHorizontal: 12,
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
-        <View style={{ width: 48 }}>
-          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-            {group.startTime}
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 138 }}>
+          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
+            {group.startTime} – {group.endTime}
           </Text>
-          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 1, opacity: 0.65 }}>
-            {group.endTime}
+          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
+            {sortedVisibleSessions.length > 1
+              ? '👥 Group session'
+              : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', width: 72, gap: 2 }}>
+        <View style={{ width: 92, flexDirection: 'row', alignItems: 'center' }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
-            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: 0 }}>
-              <Avatar uri={item.userAvatarUrl ?? null} size={28} />
+            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+              <Avatar uri={item.userAvatarUrl ?? null} size={34} />
             </View>
           ))}
         </View>
 
-        <View style={{ flex: 1, paddingLeft: 8, minWidth: 0 }}>
-          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>
-            {sortedVisibleSessions.length > 1
-              ? 'Group session'
-              : getRiderRowName(sortedVisibleSessions[0]?.item)}
-          </Text>
-
-
-        </View>
-
-        {false && canJoinGroup ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
+        <View style={{ flex: 1, marginLeft: 10 }}>
+          <SessionBar
+            leftPercent={leftPercent}
+            widthPercent={widthPercent}
+            state={representative?.state ?? 'planned'}
+            intent={resolveSessionIntent(session?.intent)}
+            isSelected={isSelected}
+            showJoinButton={canJoinGroup}
+            onPress={() => onSelect(group.key)}
+            onJoin={() => {
               if (!joinTarget) return;
               onJoin({
                 sessionId: joinTarget.id,
@@ -1599,36 +1595,8 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
                 normalizedEnd: group.endTime,
               });
             }}
-            style={{
-              marginLeft: 10,
-              backgroundColor: 'rgba(255,255,255,0.06)',
-              borderRadius: 10,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Join</Text>
-          </Pressable>
-        ) : null}
-      <SessionBar
-        leftPercent={leftPercent}
-        widthPercent={widthPercent}
-        state={representative?.state ?? 'planned'}
-        intent={resolveSessionIntent(session?.intent)}
-        isSelected={isSelected}
-        showJoinButton={canJoinGroup}
-        onPress={() => onSelect(group.key)}
-        onJoin={() => {
-          if (!joinTarget) return;
-          onJoin({
-            sessionId: joinTarget.id,
-            sessionDay: joinTarget.sessionDay,
-            sessionStatus: joinTarget.status ?? null,
-            normalizedStart: group.startTime,
-            normalizedEnd: group.endTime,
-          });
-        }}
-      />
+          />
+        </View>
       </View>
     </Pressable>
   );
@@ -1778,7 +1746,7 @@ function SessionTimeline({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 98,
+              left: 240,
               right: 0,
               top: 0,
               bottom: 0,
@@ -7290,7 +7258,7 @@ return { name, overlapPercent, barColor };
             </View>
           </View>
           <View style={{ marginBottom: 14 }}>
-            <View style={{ marginLeft: 98, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ marginLeft: 240, flexDirection: 'row', justifyContent: 'space-between' }}>
               {timelineLabels.map((label) => (
                 <Text key={label} style={{ color: theme.textMuted, fontSize: 11 }}>
                   {label}
