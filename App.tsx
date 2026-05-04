@@ -1541,12 +1541,12 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
-        marginBottom: 10,
+        marginBottom: 8,
         borderRadius: 12,
-        backgroundColor: isLiveRow ? 'rgba(31,156,127,0.10)' : 'rgba(255,255,255,0.02)',
-        paddingVertical: 10,
+        backgroundColor: 'transparent',
+        paddingVertical: 8,
         paddingHorizontal: 8,
-        borderWidth: isLiveRow ? 1 : 0,
+        borderWidth: 0,
         borderColor: isLiveRow ? 'rgba(99,228,190,0.35)' : 'transparent',
         opacity: pressed ? 0.7 : 1,
       })}
