@@ -1054,8 +1054,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           }}
           style={{
             position: 'absolute',
-            left: `${joinPlacement.leftPercent}%`,
-            width: `${timelineJoinButtonWidthPercent}%`,
+            right: 8,
+            width: 88,
             top: 3,
             bottom: 3,
             borderRadius: 999,
