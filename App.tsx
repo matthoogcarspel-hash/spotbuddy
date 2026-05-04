@@ -1060,7 +1060,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
             paddingHorizontal: 4,
           }}
         >
-          <Text style={{ color: '#061421', fontSize: 10, fontWeight: '900' }}>JOIN</Text>
+          <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>JOIN</Text>
         </Pressable>
       ) : null}
     </Pressable>
@@ -1638,33 +1638,57 @@ type SpotSummaryMetric = {
 
 function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; theme: any }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 20, marginTop: -6, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
-      {metrics.map((metric) => (
-        <View
-          key={`spot-summary-${metric.label}`}
-          style={{
-            flex: 1,
-            backgroundColor: '#081827',
-            borderRadius: 18,
-            padding: 14,
-            minHeight: 104,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.06)',
-          }}
-        >
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-              <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>{metric.icon}</Text>
+    <View style={{ flexDirection: 'row', gap: 12, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 20, marginTop: -6, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
+      {metrics.map((metric) => {
+        const isLive = metric.label === 'LIVE';
+        const isGoing = metric.label === 'GOING';
+        const accent = isLive ? '#22c55e' : isGoing ? '#3b82f6' : '#a855f7';
+        const iconBg = isLive ? 'rgba(34,197,94,0.16)' : isGoing ? 'rgba(59,130,246,0.16)' : 'rgba(168,85,247,0.16)';
+
+        return (
+          <View
+            key={`spot-summary-${metric.label}`}
+            style={{
+              flex: 1,
+              minHeight: 128,
+              backgroundColor: '#071827',
+              borderRadius: 18,
+              padding: 16,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+              borderLeftWidth: isLive && metric.value > 0 ? 4 : 1,
+              borderLeftColor: isLive && metric.value > 0 ? accent : 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+              <Text style={{ color: accent, fontSize: 30, fontWeight: '900' }}>{metric.icon}</Text>
             </View>
-            <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900' }}>{metric.label}</Text>
+
+            <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+              <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '900', marginRight: 8 }}>
+                {metric.value}
+              </Text>
+              <Text style={{ color: accent, fontSize: 13, fontWeight: '900' }}>
+                {metric.label}
+              </Text>
+            </View>
+
+            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '700', marginTop: 2 }}>
+              riders
+            </Text>
+
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 12 }} />
+
+            <Text style={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, fontWeight: '600' }}>
+              {metric.helper}
+            </Text>
           </View>
-          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{metric.value}</Text>
-          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
-        </View>
-      ))}
+        );
+      })}
     </View>
   );
 }
+
 
 type SessionTimelineProps = {
   groupedSessions: TimelineGroupedSession[];
@@ -6899,16 +6923,16 @@ const handleSave = async () => {
         
 <View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 18, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
           {[
-            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: theme.live },
-            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: theme.primary },
-            { icon: '🤔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
+            { icon: '∿', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e' },
+            { icon: '○○', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6' },
+            { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
           ].map((metric) => (
-            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: metric.label === 'LIVE' && metric.value > 0 ? '#0f2f2a' : '#081827', borderRadius: 18, padding: 12, minHeight: 88, borderWidth: 1, borderColor: metric.label === 'LIVE' && metric.value > 0 ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.06)', shadowColor: metric.label === 'LIVE' && metric.value > 0 ? '#34d399' : '#000', shadowOpacity: metric.label === 'LIVE' && metric.value > 0 ? 0.25 : 0.12, shadowRadius: metric.label === 'LIVE' && metric.value > 0 ? 10 : 6 }}>
+            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: metric.label === 'LIVE' && metric.value > 0 ? '#0f2f2a' : '#081827', borderRadius: 18, padding: 16, minHeight: 132, borderWidth: 1, borderColor: metric.label === 'LIVE' && metric.value > 0 ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.06)', shadowColor: metric.label === 'LIVE' && metric.value > 0 ? '#34d399' : '#000', shadowOpacity: metric.label === 'LIVE' && metric.value > 0 ? 0.25 : 0.12, shadowRadius: metric.label === 'LIVE' && metric.value > 0 ? 10 : 6 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                  <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>{metric.icon}</Text>
+                <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Text style={{ color: metric.color, fontSize: 26, fontWeight: '900' }}>{metric.icon}</Text>
                 </View>
-                <Text style={{ color: metric.color, fontSize: 10, fontWeight: '900' }}>{metric.label}</Text>
+                <Text style={{ color: metric.color, fontSize: 12, fontWeight: '900' }}>{metric.label}</Text>
               </View>
               <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
