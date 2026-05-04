@@ -1000,8 +1000,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   };
   const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
-  const plannedBarColor = intent === 'maybe' ? '#7c3aed' : '#2563eb';
-  const plannedBorderColor = intent === 'maybe' ? '#a855f7' : '#60a5fa';
+  const plannedBarColor = intent === 'maybe' ? '#7c3aed' : '#3b82f6';
+  const plannedBorderColor = intent === 'maybe' ? '#a855f7' : '#3b82f6';
   const plannedTextColor = intent === 'maybe' ? '#f3e8ff' : '#dbeafe';
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
@@ -1826,7 +1826,7 @@ function SessionTimeline({
           <>
             {[
               { key: 'live', title: 'LIVE NOW', groups: liveGroups, color: theme.live },
-              { key: 'going', title: 'GOING', groups: goingGroups, color: theme.primary },
+              { key: 'going', title: 'GOING', groups: goingGroups, color: '#3b82f6' },
               { key: 'maybe', title: 'MAYBE', groups: maybeGroups, color: '#a855f7' },
             ].map((section) => {
               if (section.groups.length === 0) return null;
