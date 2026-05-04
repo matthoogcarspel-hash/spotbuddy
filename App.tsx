@@ -6866,8 +6866,12 @@ const handleSave = async () => {
               <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
-          <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700', marginTop: 6 }}>{selectedSpot}</Text>
-          {headerStateLabel ? <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 6 }}>{headerStateLabel}</Text> : null}
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.4 }}>{selectedSpot}</Text>
+            <Text style={{ color: liveCount > 0 ? theme.live : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
+              {liveCount > 0 ? 'Live now' : 'No one live now'}
+            </Text>
+          </View>
           
           {false && selectedSpotMomentumLabel ? (
             <View style={{ alignSelf: 'flex-start', marginTop: 8, borderRadius: 999,  borderColor: theme.border, backgroundColor: theme.bgElevated, paddingHorizontal: 10, paddingVertical: 4 }}>
