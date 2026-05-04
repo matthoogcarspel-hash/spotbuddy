@@ -6843,7 +6843,7 @@ const handleSave = async () => {
         </Pressable>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: 'transparent', paddingHorizontal: 0, paddingTop: 0, paddingBottom: 8, marginBottom: 0 }}>
+        <View style={{ backgroundColor: '#061421', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10, marginBottom: 0, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View />
             <Pressable
@@ -6885,7 +6885,7 @@ const handleSave = async () => {
         </View>
 
         
-<View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+<View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 18, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
           {[
             { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: theme.live },
             { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: theme.primary },
