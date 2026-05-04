@@ -161,7 +161,6 @@ const hours = Array.from({ length: 24 }, (_, index) => index);
 const minuteOptions = [0, 15, 30, 45];
 const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Maybe', value: 'maybe' },
-  { label: 'Likely', value: 'likely' },
   { label: 'Definitely', value: 'definitely' },
 ];
 const theme = {
