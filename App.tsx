@@ -1840,6 +1840,8 @@ function SessionTimeline({
                     ? 'rgba(31,156,127,0.08)'
                     : 'rgba(255,255,255,0.025)',
                   borderWidth: 1,
+                  borderLeftWidth: 4,
+                  borderLeftColor: section.color,
                   borderColor: section.key === 'live'
                     ? 'rgba(99,228,190,0.20)'
                     : 'rgba(255,255,255,0.05)'
