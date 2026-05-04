@@ -6932,7 +6932,7 @@ const handleSave = async () => {
                 <View style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
                   <Text style={{ color: metric.color, fontSize: 28, fontWeight: '900' }}>{metric.icon}</Text>
                 </View>
-                <Text style={{ color: metric.color, fontSize: 12, fontWeight: '900' }}>{metric.label}</Text>
+
               </View>
               <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
                 <Text style={{ color: theme.text, fontSize: 30, fontWeight: '900', marginRight: 8 }}>{metric.value}</Text>
