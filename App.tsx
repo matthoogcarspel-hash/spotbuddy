@@ -6928,14 +6928,19 @@ const handleSave = async () => {
             { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
           ].map((metric) => (
             <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: metric.label === 'LIVE' && metric.value > 0 ? '#0f2f2a' : '#081827', borderRadius: 18, padding: 16, minHeight: 132, borderWidth: 1, borderColor: metric.label === 'LIVE' && metric.value > 0 ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.06)', shadowColor: metric.label === 'LIVE' && metric.value > 0 ? '#34d399' : '#000', shadowOpacity: metric.label === 'LIVE' && metric.value > 0 ? 0.25 : 0.12, shadowRadius: metric.label === 'LIVE' && metric.value > 0 ? 10 : 6 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                  <Text style={{ color: metric.color, fontSize: 26, fontWeight: '900' }}>{metric.icon}</Text>
+              <View style={{ alignItems: 'flex-start', marginBottom: 12 }}>
+                <View style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
+                  <Text style={{ color: metric.color, fontSize: 28, fontWeight: '900' }}>{metric.icon}</Text>
                 </View>
                 <Text style={{ color: metric.color, fontSize: 12, fontWeight: '900' }}>{metric.label}</Text>
               </View>
-              <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 6 }}>{metric.helper}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
+                <Text style={{ color: theme.text, fontSize: 30, fontWeight: '900', marginRight: 8 }}>{metric.value}</Text>
+                <Text style={{ color: metric.color, fontSize: 13, fontWeight: '900' }}>{metric.label}</Text>
+              </View>
+              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>riders</Text>
+              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 10 }} />
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>{metric.helper}</Text>
             </View>
           ))}
         </View>
