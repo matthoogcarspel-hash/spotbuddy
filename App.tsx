@@ -6924,9 +6924,9 @@ const handleSave = async () => {
         
 <TargetSpotSummaryCards
           metrics={[
-            { icon: '∿', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e', sessions: liveSessions },
-            { icon: '○○', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6', sessions: goingSessions },
-            { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7', sessions: maybeSessions },
+            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e', sessions: liveSessions },
+            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6', sessions: goingSessions },
+            { icon: '❔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7', sessions: maybeSessions },
           ]}
         />
 

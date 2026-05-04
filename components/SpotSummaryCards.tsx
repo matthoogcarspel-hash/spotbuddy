@@ -100,18 +100,18 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View
                 style={{
-                  width: 62,
-                  height: 62,
-                  borderRadius: 31,
-                  backgroundColor: `${metric.color}22`,
+                  width: 44,
+                  height: 44,
+                  borderRadius: 22,
+                  backgroundColor: `${metric.color}18`,
                   borderWidth: 1,
-                  borderColor: `${metric.color}55`,
+                  borderColor: `${metric.color}33`,
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 14,
                 }}
               >
-                <Text style={{ color: metric.color, fontSize: 32, fontWeight: '900' }}>
+                <Text style={{ color: metric.color, fontSize: 20, fontWeight: '700' }}>
                   {metric.icon}
                 </Text>
               </View>
