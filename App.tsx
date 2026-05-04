@@ -21,6 +21,7 @@ import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './sr
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 import { theme as appTheme } from './src/theme/theme';
+import { SpotSummaryCards as TargetSpotSummaryCards } from './components/SpotSummaryCards';
 
 const fallbackSpots = spots;
 type SpotName = string;
@@ -6921,29 +6922,13 @@ const handleSave = async () => {
         </View>
 
         
-<View style={{ flexDirection: 'row', gap: 10, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 18, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
-          {[
-            { icon: '∿', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e' },
-            { icon: '○○', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6' },
-            { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7' },
-          ].map((metric) => (
-            <View key={`spot-summary-${metric.label}`} style={{ flex: 1, backgroundColor: metric.label === 'LIVE' && metric.value > 0 ? '#0f2f2a' : '#081827', borderRadius: 18, padding: 16, minHeight: 132, borderWidth: 1, borderColor: metric.label === 'LIVE' && metric.value > 0 ? 'rgba(52,211,153,0.45)' : 'rgba(255,255,255,0.06)', shadowColor: metric.label === 'LIVE' && metric.value > 0 ? '#34d399' : '#000', shadowOpacity: metric.label === 'LIVE' && metric.value > 0 ? 0.25 : 0.12, shadowRadius: metric.label === 'LIVE' && metric.value > 0 ? 10 : 6 }}>
-              <View style={{ alignItems: 'flex-start', marginBottom: 12 }}>
-                <View style={{ width: 56, height: 56, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-                  <Text style={{ color: metric.color, fontSize: 28, fontWeight: '900' }}>{metric.icon}</Text>
-                </View>
-
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 4 }}>
-                <Text style={{ color: theme.text, fontSize: 30, fontWeight: '900', marginRight: 8 }}>{metric.value}</Text>
-                <Text style={{ color: metric.color, fontSize: 13, fontWeight: '900' }}>{metric.label}</Text>
-              </View>
-              <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>riders</Text>
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 10 }} />
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>{metric.helper}</Text>
-            </View>
-          ))}
-        </View>
+<TargetSpotSummaryCards
+          metrics={[
+            { icon: '∿', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e', sessions: liveSessions },
+            { icon: '○○', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6', sessions: goingSessions },
+            { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7', sessions: maybeSessions },
+          ]}
+        />
 
         
 <View style={{ display: 'none', backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
