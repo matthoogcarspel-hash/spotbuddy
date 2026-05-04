@@ -1567,7 +1567,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
         <View style={{ width: 92, flexDirection: 'row', alignItems: 'center' }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
             <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-              <Avatar uri={item.userAvatarUrl ?? null} size={34} />
+              <Avatar uri={item.userAvatarUrl ?? null} size={38} />
             </View>
           ))}
         </View>
@@ -1726,6 +1726,7 @@ function SessionTimeline({
   const liveGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'live');
   const goingGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'going');
   const maybeGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'maybe');
+  const timelineGridLabels = getTimelineLabelsForRange(timelineWindowStartMinutes, timelineWindowEndMinutes);
   console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
     usingCentralGroupingAdapter: true
   });
@@ -1800,6 +1801,8 @@ function SessionTimeline({
                   marginBottom: 18,
                   padding: 14,
                   borderRadius: 18,
+                  position: 'relative',
+                  overflow: 'hidden',
                   backgroundColor: section.key === 'live'
                     ? 'rgba(31,156,127,0.08)'
                     : 'rgba(255,255,255,0.025)',
@@ -1810,6 +1813,30 @@ function SessionTimeline({
                     ? 'rgba(99,228,190,0.20)'
                     : 'rgba(255,255,255,0.05)'
                 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 250, right: 14, top: 52, bottom: 14 }}>
+                    {timelineGridLabels.map((label, i) => (
+                      <View key={`grid-hour-${section.key}-${label}`} style={{
+                        position: 'absolute',
+                        left: timelineGridLabels.length <= 1 ? 0 : `${(i / (timelineGridLabels.length - 1)) * 100}%`,
+                        top: 0,
+                        bottom: 0,
+                        width: 1,
+                        backgroundColor: 'rgba(255,255,255,0.035)'
+                      }} />
+                    ))}
+
+                    {section.groups.slice(1).map((_, i) => (
+                      <View key={`grid-row-${section.key}-${i}`} style={{
+                        position: 'absolute',
+                        left: -250,
+                        right: 0,
+                        top: `${((i + 1) / section.groups.length) * 100}%`,
+                        height: 1,
+                        backgroundColor: 'rgba(255,255,255,0.045)'
+                      }} />
+                    ))}
+                  </View>
+
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
