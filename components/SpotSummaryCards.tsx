@@ -34,9 +34,9 @@ function SummaryAvatar({ uri }: { uri?: string | null }) {
     return (
       <View
         style={{
-          width: 38,
-          height: 38,
-          borderRadius: 19,
+          width: 44,
+          height: 44,
+          borderRadius: 22,
           backgroundColor: 'rgba(255,255,255,0.14)',
           borderWidth: 1,
           borderColor: 'rgba(255,255,255,0.22)',
@@ -88,10 +88,10 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
             key={metric.label}
             style={{
               flex: 1,
-              minHeight: 170,
+              minHeight: 158,
               backgroundColor: '#071827',
               borderRadius: 20,
-              padding: 18,
+              padding: 16,
               borderWidth: 1,
               borderLeftWidth: isLive && metric.value > 0 ? 4 : 1,
               borderColor: isLive && metric.value > 0 ? metric.color : 'rgba(255,255,255,0.09)',
@@ -100,9 +100,9 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <View
                 style={{
-                  width: 58,
-                  height: 58,
-                  borderRadius: 29,
+                  width: 62,
+                  height: 62,
+                  borderRadius: 31,
                   backgroundColor: `${metric.color}22`,
                   borderWidth: 1,
                   borderColor: `${metric.color}55`,
@@ -111,7 +111,7 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                   marginRight: 14,
                 }}
               >
-                <Text style={{ color: metric.color, fontSize: 30, fontWeight: '900' }}>
+                <Text style={{ color: metric.color, fontSize: 32, fontWeight: '900' }}>
                   {metric.icon}
                 </Text>
               </View>
@@ -133,11 +133,11 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
 
             <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 18, marginBottom: 12 }} />
 
-            <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13, fontWeight: '600' }}>
+            <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
               {metric.helper}
             </Text>
 
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16, minHeight: 44 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16, minHeight: 44, justifyContent: 'center', alignItems: 'center' }}>
               {visibleAvatars.map((session, index) => (
                 <SummaryAvatar
                   key={`${metric.label}-${session.userId ?? session.user_id ?? session.id ?? index}`}
