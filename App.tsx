@@ -6917,7 +6917,7 @@ const handleSave = async () => {
         </View>
 
         
-<View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
+<View style={{ display: 'none', backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
           
           {topCtaMode === 'plan' ? (
             <Pressable
