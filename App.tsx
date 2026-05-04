@@ -1018,8 +1018,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           position: 'absolute',
           left: `${leftPercent}%`,
           width: `${widthPercent}%`,
-          top: 2,
-          bottom: 2,
+          top: 0,
+          bottom: 0,
           borderRadius: 999,
           backgroundColor: state === 'planned' ? plannedBarColor : stateStyle[state].bar,
           borderWidth: intentStyle.barBorderWidth,
@@ -1031,10 +1031,10 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           shadowRadius: state === 'live' ? 4 : 1,
           shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
-          paddingHorizontal: 6,
+          paddingHorizontal: 8,
         }}
       >
-        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 10, fontWeight: '700' }}>
+        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 11, fontWeight: '800' }}>
           {timelineLabel}
         </Text>
       </View>
@@ -1541,42 +1541,42 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
-        marginBottom: 14,
-        borderRadius: 14,
+        marginBottom: 10,
+        borderRadius: 12,
         backgroundColor: isLiveRow ? 'rgba(31,156,127,0.10)' : 'rgba(255,255,255,0.02)',
-        paddingVertical: 12,
-        paddingHorizontal: 10,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
         borderWidth: isLiveRow ? 1 : 0,
         borderColor: isLiveRow ? 'rgba(99,228,190,0.35)' : 'transparent',
         opacity: pressed ? 0.7 : 1,
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ width: 72 }}>
-          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
+        <View style={{ width: 58 }}>
+          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
             {group.startTime}
           </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2, opacity: 0.7 }}>
+          <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 1, opacity: 0.65 }}>
             {group.endTime}
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', width: 82 }}>
+        <View style={{ flexDirection: 'row', width: 70 }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
             <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-              <Avatar uri={item.userAvatarUrl ?? null} size={32} />
+              <Avatar uri={item.userAvatarUrl ?? null} size={28} />
             </View>
           ))}
         </View>
 
-        <View style={{ flex: 1, paddingLeft: 10 }}>
-          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>
+        <View style={{ flex: 1, paddingLeft: 8 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
             {sortedVisibleSessions.length > 1
               ? `${sortedVisibleSessions.length} riders`
               : getRiderRowName(sortedVisibleSessions[0]?.item)}
           </Text>
 
-          <View style={{ marginTop: 6 }}>
+          <View style={{ marginTop: 5 }}>
             <SessionBar
               leftPercent={leftPercent}
               widthPercent={widthPercent}
@@ -1803,10 +1803,18 @@ function SessionTimeline({
 
               return (
                 <View key={section.key} style={{
-                  marginBottom: section.key === 'live' ? 24 : 18,
-                  padding: section.key === 'live' ? 10 : 0,
-                  borderRadius: section.key === 'live' ? 14 : 0,
-                  backgroundColor: section.key === 'live' ? 'rgba(31,156,127,0.08)' : 'transparent'
+                  marginBottom: 18,
+                  padding: 12,
+                  borderRadius: 16,
+                  backgroundColor: section.key === 'live'
+                    ? 'rgba(31,156,127,0.08)'
+                    : section.key === 'going'
+                      ? 'rgba(37,99,235,0.06)'
+                      : 'rgba(168,85,247,0.06)',
+                  borderWidth: 1,
+                  borderColor: section.key === 'live'
+                    ? 'rgba(99,228,190,0.20)'
+                    : 'rgba(255,255,255,0.05)'
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
