@@ -118,14 +118,14 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
 
               <View>
                 <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
-                  <Text style={{ color: '#fff', fontSize: 31, fontWeight: '900', marginRight: 7 }}>
+                  <Text style={{ color: '#fff', fontSize: 34, fontWeight: '900', marginRight: 7 }}>
                     {metric.value}
                   </Text>
-                  <Text style={{ color: metric.color, fontSize: 13, fontWeight: '900' }}>
+                  <Text style={{ color: metric.color, fontSize: 14, fontWeight: '900' }}>
                     {metric.label}
                   </Text>
                 </View>
-                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '700', marginTop: -2 }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700', marginTop: -4 }}>
                   riders
                 </Text>
               </View>
@@ -137,7 +137,7 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
               {metric.helper}
             </Text>
 
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 14, minHeight: 38 }}>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 16, minHeight: 44 }}>
               {visibleAvatars.map((session, index) => (
                 <SummaryAvatar
                   key={`${metric.label}-${session.userId ?? session.user_id ?? session.id ?? index}`}
@@ -158,7 +158,7 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                     justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ color: '#fff', fontSize: 13, fontWeight: '900' }}>
+                  <Text style={{ color: '#fff', fontSize: 14, fontWeight: '900' }}>
                     +{hiddenCount}
                   </Text>
                 </View>
