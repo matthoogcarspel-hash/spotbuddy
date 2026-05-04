@@ -1011,7 +1011,16 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
         event.stopPropagation();
         onPress();
       }}
-      style={{ flex: 1, height: 22, borderRadius: 999, backgroundColor: theme.bgElevated,  borderColor: isSelected ? theme.primary : theme.border, overflow: 'hidden' }}
+      style={{
+  position: 'absolute',
+  left: 120,
+  right: 0,
+  top: 12,
+  height: 24,
+  borderRadius: 999,
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  overflow: 'hidden'
+}}
     >
       <View
         style={{
@@ -1022,21 +1031,19 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           bottom: 0,
           borderRadius: 999,
           backgroundColor: state === 'planned' ? plannedBarColor : stateStyle[state].bar,
-          borderWidth: intentStyle.barBorderWidth,
+          borderWidth: 0,
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
-          opacity: (stateStyle[state].opacity ?? 1) * intentStyle.barOpacity,
+          opacity: 1,
           shadowColor: state === 'live' ? '#63e4be' : '#000000',
-          shadowOpacity: state === 'live' ? 0.2 : 0.06,
-          shadowRadius: state === 'live' ? 4 : 1,
+          shadowOpacity: state === 'live' ? 0.28 : 0.18,
+          shadowRadius: state === 'live' ? 7 : 5,
           shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
           paddingHorizontal: 8,
         }}
       >
-        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 10, fontWeight: '800' }}>
-          {timelineLabel}
-        </Text>
+
       </View>
 
       {showJoinButton ? (
@@ -1481,7 +1488,7 @@ function SessionRow({
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
-  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 6, 100 - leftPercent);
+  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 10, 100 - leftPercent);
 
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
   const sortedVisibleSessions = Array.isArray(group.visibleSessions) ? group.visibleSessions : [];
@@ -1544,15 +1551,15 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
         marginBottom: 8,
         borderRadius: 12,
         backgroundColor: 'transparent',
-        paddingVertical: 8,
+        paddingVertical: 10,
         paddingHorizontal: 8,
         borderWidth: 0,
         borderColor: isLiveRow ? 'rgba(99,228,190,0.35)' : 'transparent',
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-        <View style={{ width: 58 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
+        <View style={{ width: 48 }}>
           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
             {group.startTime}
           </Text>
@@ -1561,7 +1568,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', width: 86, gap: 4 }}>
+        <View style={{ flexDirection: 'row', width: 72, gap: 2 }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
             <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: 0 }}>
               <Avatar uri={item.userAvatarUrl ?? null} size={28} />
@@ -1569,34 +1576,14 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           ))}
         </View>
 
-        <View style={{ flex: 1, paddingLeft: 8 }}>
-          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
+        <View style={{ flex: 1, paddingLeft: 8, minWidth: 0 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>
             {sortedVisibleSessions.length > 1
               ? 'Group session'
               : getRiderRowName(sortedVisibleSessions[0]?.item)}
           </Text>
 
-          <View style={{ marginTop: 5 }}>
-            <SessionBar
-              leftPercent={leftPercent}
-              widthPercent={widthPercent}
-              state={representative?.state ?? 'planned'}
-              intent={resolveSessionIntent(session?.intent)}
-              isSelected={isSelected}
-              showJoinButton={canJoinGroup}
-              onPress={() => onSelect(group.key)}
-              onJoin={() => {
-                if (!joinTarget) return;
-                onJoin({
-                  sessionId: joinTarget.id,
-                  sessionDay: joinTarget.sessionDay,
-                  sessionStatus: joinTarget.status ?? null,
-                  normalizedStart: group.startTime,
-                  normalizedEnd: group.endTime,
-                });
-              }}
-            />
-          </View>
+
         </View>
 
         {false && canJoinGroup ? (
@@ -1623,6 +1610,25 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
             <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Join</Text>
           </Pressable>
         ) : null}
+      <SessionBar
+        leftPercent={leftPercent}
+        widthPercent={widthPercent}
+        state={representative?.state ?? 'planned'}
+        intent={resolveSessionIntent(session?.intent)}
+        isSelected={isSelected}
+        showJoinButton={canJoinGroup}
+        onPress={() => onSelect(group.key)}
+        onJoin={() => {
+          if (!joinTarget) return;
+          onJoin({
+            sessionId: joinTarget.id,
+            sessionDay: joinTarget.sessionDay,
+            sessionStatus: joinTarget.status ?? null,
+            normalizedStart: group.startTime,
+            normalizedEnd: group.endTime,
+          });
+        }}
+      />
       </View>
     </Pressable>
   );
@@ -1828,8 +1834,8 @@ function SessionTimeline({
               return (
                 <View key={section.key} style={{
                   marginBottom: 18,
-                  padding: 12,
-                  borderRadius: 16,
+                  padding: 14,
+                  borderRadius: 18,
                   backgroundColor: section.key === 'live'
                     ? 'rgba(31,156,127,0.08)'
                     : 'rgba(255,255,255,0.025)',
