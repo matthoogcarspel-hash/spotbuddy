@@ -1833,9 +1833,7 @@ function SessionTimeline({
                   borderRadius: 16,
                   backgroundColor: section.key === 'live'
                     ? 'rgba(31,156,127,0.08)'
-                    : section.key === 'going'
-                      ? 'rgba(37,99,235,0.06)'
-                      : 'rgba(168,85,247,0.06)',
+                    : 'rgba(255,255,255,0.025)',
                   borderWidth: 1,
                   borderColor: section.key === 'live'
                     ? 'rgba(99,228,190,0.20)'
@@ -1843,12 +1841,12 @@ function SessionTimeline({
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 9, height: 9, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
-                      <Text style={{ color: section.color, fontSize: 13, fontWeight: '900', letterSpacing: 0.4 }}>
+                      <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
+                      <Text style={{ color: section.color, fontSize: 11, fontWeight: '700', letterSpacing: 0.2 }}>
                         {section.title}
                       </Text>
                     </View>
-                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>
                       {section.groups.length} {section.groups.length === 1 ? 'session' : 'sessions'}
                     </Text>
                   </View>
@@ -6931,7 +6929,7 @@ const handleSave = async () => {
         />
 
         
-<View style={{ display: 'none', backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
+<View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
           
           {topCtaMode === 'plan' ? (
             <Pressable
@@ -7855,7 +7853,7 @@ return { name, overlapPercent, barColor };
                   {statusLabel ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
-                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 11, fontWeight: '800', letterSpacing: 0.4 }}>
+                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 10, fontWeight: '600', letterSpacing: 0.4 }}>
                         {statusLabel}
                       </Text>
                     </View>
