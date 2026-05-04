@@ -4663,11 +4663,17 @@ setMessagesBySpot((previous) => previous);
       nowLabel: formatMinutesAsHourMinute(currentLocalMinutes),
     };
   }, [currentLocalMinutes, selectedPlanningDateKey]);
-  const windowInfo = useMemo(() => ({
-    startMinutes: timelineStartMinutes,
-    endMinutes: timelineEndMinutes,
-    mode: 'full_day',
-  }), []);
+  const windowInfo = useMemo(() => {
+    const twoHoursBack = currentLocalMinutes - 120;
+    const roundedStart = Math.floor(twoHoursBack / 60) * 60;
+    const dynamicTodayStart = clamp(roundedStart, timelineStartMinutes, timelineEndMinutes - 60);
+
+    return {
+      startMinutes: activeDay === 'today' ? dynamicTodayStart : timelineStartMinutes,
+      endMinutes: timelineEndMinutes,
+      mode: activeDay === 'today' ? 'rolling_today' : 'full_day',
+    };
+  }, [activeDay, currentLocalMinutes]);
   const timelineMode = windowInfo.mode;
   useEffect(() => {
     
