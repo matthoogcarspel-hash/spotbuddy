@@ -1034,7 +1034,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           paddingHorizontal: 8,
         }}
       >
-        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 11, fontWeight: '800' }}>
+        <Text numberOfLines={1} style={{ color: state === 'planned' ? plannedTextColor : stateStyle[state].text, fontSize: 10, fontWeight: '800' }}>
           {timelineLabel}
         </Text>
       </View>
@@ -1556,7 +1556,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
             {group.startTime}
           </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 10, marginTop: 1, opacity: 0.65 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 1, opacity: 0.65 }}>
             {group.endTime}
           </Text>
         </View>
