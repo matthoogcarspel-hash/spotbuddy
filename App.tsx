@@ -1012,25 +1012,21 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
         onPress();
       }}
       style={{
-  position: 'absolute',
-  left: 120,
-  right: 0,
-  top: 12,
-  height: 24,
-  borderRadius: 999,
-  backgroundColor: 'rgba(255,255,255,0.05)',
-  overflow: 'hidden'
-}}
+        flex: 1,
+        height: 24,
+        borderRadius: 999,
+        backgroundColor: 'transparent',
+        overflow: 'hidden',
+        position: 'relative'
+      }}
     >
       <View
         style={{
-          position: 'absolute',
-          left: `${leftPercent}%`,
+          marginLeft: `${leftPercent}%`,
           width: `${widthPercent}%`,
-          top: 0,
-          bottom: 0,
+          height: '100%',
           borderRadius: 999,
-          backgroundColor: state === 'planned' ? plannedBarColor : stateStyle[state].bar,
+          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? '#8b5cf6' : '#3b82f6',
           borderWidth: 0,
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
@@ -1550,7 +1546,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
       style={({ pressed }) => ({
         marginBottom: 10,
         borderRadius: 14,
-        backgroundColor: 'rgba(255,255,255,0.025)',
+        backgroundColor: 'transparent',
         paddingVertical: 12,
         paddingHorizontal: 12,
         opacity: pressed ? 0.7 : 1,
@@ -1563,7 +1559,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
             {sortedVisibleSessions.length > 1
-              ? '👥 Group session'
+              ? `👥 Group · ${sortedVisibleSessions.length} riders`
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
         </View>
@@ -1576,7 +1572,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           ))}
         </View>
 
-        <View style={{ flex: 1, marginLeft: 10 }}>
+        <View style={{ flex: 1, marginLeft: 10, height: 24, minWidth: 240 }}>
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
