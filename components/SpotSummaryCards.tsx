@@ -1,5 +1,6 @@
 import React from 'react';
 import { Image, Text, View } from 'react-native';
+import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
 type SummarySession = {
   id?: string | null;
@@ -111,9 +112,13 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                   marginRight: 14,
                 }}
               >
-                <Text style={{ color: metric.color, fontSize: 20, fontWeight: '700' }}>
-                  {metric.icon}
-                </Text>
+                {metric.label === 'LIVE' ? (
+                  <Zap size={22} color={metric.color} strokeWidth={2.5} />
+                ) : metric.label === 'GOING' ? (
+                  <Users size={22} color={metric.color} strokeWidth={2.5} />
+                ) : (
+                  <HelpCircle size={22} color={metric.color} strokeWidth={2.5} />
+                )}
               </View>
 
               <View>

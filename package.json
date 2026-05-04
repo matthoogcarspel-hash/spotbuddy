@@ -7,18 +7,19 @@
     "start": "expo start"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^1.23.1",
+    "@supabase/supabase-js": "^2.49.8",
     "expo": "~54.0.13",
     "expo-constants": "~18.0.10",
     "expo-device": "~8.0.7",
+    "expo-image-picker": "~17.0.8",
+    "expo-location": "~19.0.7",
+    "expo-notifications": "~0.32.13",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.4",
-    "react-native-web": "^0.21.0",
-    "@react-native-async-storage/async-storage": "^1.23.1",
-    "@supabase/supabase-js": "^2.49.8",
-    "expo-image-picker": "~17.0.8",
-    "expo-location": "~19.0.7",
-    "expo-notifications": "~0.32.13"
+    "react-native-svg": "15.12.1",
+    "react-native-web": "^0.21.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2",
