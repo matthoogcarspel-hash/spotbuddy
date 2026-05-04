@@ -1561,9 +1561,9 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           </Text>
         </View>
 
-        <View style={{ flexDirection: 'row', width: 70 }}>
+        <View style={{ flexDirection: 'row', width: 86, gap: 4 }}>
           {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
-            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: 0 }}>
               <Avatar uri={item.userAvatarUrl ?? null} size={28} />
             </View>
           ))}
@@ -1572,7 +1572,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
         <View style={{ flex: 1, paddingLeft: 8 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>
             {sortedVisibleSessions.length > 1
-              ? `${sortedVisibleSessions.length} riders`
+              ? 'Group session'
               : getRiderRowName(sortedVisibleSessions[0]?.item)}
           </Text>
 
