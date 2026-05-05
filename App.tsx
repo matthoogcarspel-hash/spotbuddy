@@ -1813,30 +1813,6 @@ function SessionTimeline({
                     ? 'rgba(99,228,190,0.20)'
                     : 'rgba(255,255,255,0.05)'
                 }}>
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 250, right: 14, top: 52, bottom: 14 }}>
-                    {timelineGridLabels.map((label, i) => (
-                      <View key={`grid-hour-${section.key}-${label}`} style={{
-                        position: 'absolute',
-                        left: timelineGridLabels.length <= 1 ? 0 : `${(i / (timelineGridLabels.length - 1)) * 100}%`,
-                        top: 0,
-                        bottom: 0,
-                        width: 1,
-                        backgroundColor: 'rgba(255,255,255,0.035)'
-                      }} />
-                    ))}
-
-                    {section.groups.slice(1).map((_, i) => (
-                      <View key={`grid-row-${section.key}-${i}`} style={{
-                        position: 'absolute',
-                        left: -250,
-                        right: 0,
-                        top: `${((i + 1) / section.groups.length) * 100}%`,
-                        height: 1,
-                        backgroundColor: 'rgba(255,255,255,0.045)'
-                      }} />
-                    ))}
-                  </View>
-
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
