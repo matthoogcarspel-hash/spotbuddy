@@ -448,10 +448,14 @@ const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, ran
 type CleanSessionStatus = 'live' | 'going' | 'maybe';
 
 const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => {
-  if ((sessionItem.status === 'live' || sessionItem.status === 'Is er al' || sessionItem.checkedInAt) && !sessionItem.checkedOutAt) {
-    return 'live';
-  }
-  return resolveSessionIntent(sessionItem.intent) === 'definitely' ? 'going' : 'maybe';
+  // Alleen echte check-in bepaalt LIVE
+  if ((sessionItem as any).status === 'checked_in') return 'live';
+
+  // GEEN 'happening now' → blijft gewoon going
+  if (sessionItem.intent === 'definitely') return 'going';
+  if (sessionItem.intent === 'likely') return 'going';
+
+  return 'maybe';
 };
 
 const getSessionState = (sessionItem: SpotSession, now = new Date()): DeterministicSessionState => {
@@ -1576,7 +1580,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
-            state={representative?.state ?? 'planned'}
+            state={getCleanSessionStatus(session) === 'live' ? 'live' : 'planned'}
             intent={resolveSessionIntent(session?.intent)}
             isSelected={isSelected}
             showJoinButton={false}
@@ -6661,9 +6665,9 @@ setMessagesBySpot((previous) => previous);
   if (selectedSpot) {
     const spotSessions = daySessionsBySpot[selectedSpot] ?? [];
 
-    const liveSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'live');
-    const goingSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'going');
-    const maybeSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'maybe');
+    const liveSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'live');
+    const goingSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'going');
+    const maybeSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'maybe');
 
     const liveCount = liveSessions.length;
     const goingCount = goingSessions.length;
