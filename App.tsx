@@ -1559,7 +1559,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
             {sortedVisibleSessions.length > 1
-              ? `👥 Group · ${sortedVisibleSessions.length} riders`
+              ? `👥 Group: ${sortedVisibleSessions.length} riders`
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
         </View>
