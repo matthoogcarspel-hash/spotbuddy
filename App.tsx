@@ -1050,12 +1050,12 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           }}
           style={{
             position: 'absolute',
-            right: 8,
-            width: 88,
+            right: 0,
+            width: 72,
             top: 3,
             bottom: 3,
             borderRadius: 999,
-            backgroundColor: '#ffffff',
+            backgroundColor: 'rgba(255,255,255,0.88)',
             
             borderColor: 'rgba(255,255,255,0.8)',
             justifyContent: 'center',
@@ -1552,7 +1552,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 138 }}>
           <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
             {group.startTime} – {group.endTime}
@@ -1572,14 +1572,14 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
           ))}
         </View>
 
-        <View style={{ flex: 1, marginLeft: 10, height: 24, minWidth: 240 }}>
+        <View style={{ flex: 1, marginLeft: 10, marginRight: 92, height: 24, minWidth: 200 }}>
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
             state={representative?.state ?? 'planned'}
             intent={resolveSessionIntent(session?.intent)}
             isSelected={isSelected}
-            showJoinButton={canJoinGroup}
+            showJoinButton={false}
             onPress={() => onSelect(group.key)}
             onJoin={() => {
               if (!joinTarget) return;
@@ -1593,6 +1593,36 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
             }}
           />
         </View>
+
+        {canJoinGroup ? (
+          <Pressable
+            onPress={(event) => {
+              event.stopPropagation();
+              if (!joinTarget) return;
+              onJoin({
+                sessionId: joinTarget.id,
+                sessionDay: joinTarget.sessionDay,
+                sessionStatus: joinTarget.status ?? null,
+                normalizedStart: group.startTime,
+                normalizedEnd: group.endTime,
+              });
+            }}
+            style={{
+              width: 72,
+              height: 18,
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.88)',
+              justifyContent: 'center',
+              alignItems: 'center',
+              position: 'absolute',
+              right: 0,
+            }}
+          >
+            <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
+          </Pressable>
+        ) : (
+          <View style={{ width: 72 }} />
+        )}
       </View>
     </Pressable>
   );
@@ -1829,7 +1859,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 240, right: 0, top: 52, bottom: 14 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 240, right: 100, top: 52, bottom: 14 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -7279,7 +7309,7 @@ return { name, overlapPercent, barColor };
             </View>
           </View>
           <View style={{ marginBottom: 14 }}>
-            <View style={{ marginLeft: 240, flexDirection: 'row', justifyContent: 'space-between' }}>
+            <View style={{ marginLeft: 240, marginRight: 100, flexDirection: 'row', justifyContent: 'space-between' }}>
               {timelineLabels.map((label) => (
                 <Text key={label} style={{ color: theme.textMuted, fontSize: 11 }}>
                   {label}
