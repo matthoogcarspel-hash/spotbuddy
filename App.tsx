@@ -1727,6 +1727,10 @@ function SessionTimeline({
   const goingGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'going');
   const maybeGroups = visibleGroups.filter((group) => getGroupCleanStatus(group) === 'maybe');
   const timelineGridLabels = getTimelineLabelsForRange(timelineWindowStartMinutes, timelineWindowEndMinutes);
+  const timelineHourMarks = Array.from(
+    { length: Math.floor(timelineWindowEndMinutes / 60) - Math.ceil(timelineWindowStartMinutes / 60) + 1 },
+    (_, i) => (Math.ceil(timelineWindowStartMinutes / 60) + i) * 60
+  );
   console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
     usingCentralGroupingAdapter: true
   });
@@ -1823,6 +1827,19 @@ function SessionTimeline({
                     <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>
                       {section.groups.length} {section.groups.length === 1 ? 'session' : 'sessions'}
                     </Text>
+                  </View>
+
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 240, right: 0, top: 52, bottom: 14 }}>
+                    {timelineHourMarks.map((hourMinutes) => (
+                      <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
+                        position: 'absolute',
+                        left: `${((hourMinutes - timelineWindowStartMinutes) / Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1)) * 100}%`,
+                        top: 0,
+                        bottom: 0,
+                        width: 1,
+                        backgroundColor: 'rgba(255,255,255,0.04)'
+                      }} />
+                    ))}
                   </View>
 
                   {section.groups.map((group, index) => (
