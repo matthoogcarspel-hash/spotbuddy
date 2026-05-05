@@ -1544,7 +1544,7 @@ const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGro
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
-        marginBottom: 10,
+        marginBottom: 0,
         borderRadius: 14,
         backgroundColor: 'transparent',
         paddingVertical: 12,
@@ -1826,7 +1826,11 @@ function SessionTimeline({
                   </View>
 
                   {section.groups.map((group, index) => (
-                    <SessionRow
+                    <View key={`timeline-row-wrap-${section.key}-${group.key}`}>
+                      {index > 0 ? (
+                        <View pointerEvents="none" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.055)', marginBottom: 8 }} />
+                      ) : null}
+                      <SessionRow
                       key={group.key}
                       group={group}
                       currentProfileId={currentProfileId}
@@ -1842,6 +1846,7 @@ function SessionTimeline({
                       onSelect={onSelectSession}
                       onJoin={onJoinSession}
                     />
+                    </View>
                   ))}
                 </View>
               );
