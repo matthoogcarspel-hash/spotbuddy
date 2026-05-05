@@ -344,7 +344,8 @@ export async function joinSession(input: {
     .from('sessions')
     .select('id, user_id, spot_name, session_day, start_time, end_time, status, checked_out_at')
     .eq('user_id', sessionIdentity.user_id)
-    .eq('session_day', sessionIdentity.day_key);
+    .gte('created_at', getDayBoundsForDayKey(sessionIdentity.day_key)?.start)
+    .lt('created_at', getDayBoundsForDayKey(sessionIdentity.day_key)?.endExclusive);
 
   if (ownSessionsForDayError) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'OWN_DAY_SESSIONS_QUERY_FAILED', error: ownSessionsForDayError });
@@ -386,6 +387,13 @@ export async function joinSession(input: {
     }
   }
 
+  console.log("JOIN_DEBUG_EXISTING_ROWS", {
+    activeProfileId: sessionIdentity.user_id,
+    spotName: sessionIdentity.spot_name,
+    dayKey: sessionIdentity.day_key,
+    ownSessionsForDay,
+  });
+
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
@@ -399,7 +407,28 @@ export async function joinSession(input: {
     checked_out_at: null,
   };
 
-  const writeResult = await supabase.from('sessions').insert(joinPayload);
+  // 🔥 FIX: altijd eerst ALLE eigen sessies voor die dag verwijderen
+const existingIds = (ownSessionsForDay ?? [])
+  .filter(s => s?.id)
+  .map(s => s.id);
+
+if (existingIds.length > 0) {
+  const deleteResult = await supabase
+    .from('sessions')
+    .delete()
+    .in('id', existingIds);
+
+  if (deleteResult.error) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'DELETE_EXISTING_FAILED', error: deleteResult.error });
+  }
+}
+
+// daarna altijd clean insert
+const writeResult = await supabase
+  .from('sessions')
+  .insert(joinPayload)
+  .select('id')
+  .single();
 
   if (writeResult.error) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });

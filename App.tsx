@@ -1511,7 +1511,7 @@ function SessionRow({
   (entry) => entry.item?.userId === currentProfileId
 );
 
-const canJoinGroup = Boolean(joinTarget) && joinState.allowed && !isAlreadyInGroup;
+const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
   const rowStatus = representative?.state ?? 'planned';
   const isLiveRow = rowStatus === 'live';
   console.log("JOIN_REGRESSION_COMPARE", {
