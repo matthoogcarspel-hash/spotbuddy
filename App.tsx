@@ -2029,6 +2029,7 @@ export default function App() {
   const dragSpotNameRef = useRef<SpotName | null>(null);
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const spotChatScrollRef = useRef<ScrollView | null>(null);
   const [activeGroupChatKey, setActiveGroupChatKey] = useState<string | null>(null);
   const [groupMessageInput, setGroupMessageInput] = useState('');
   const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
@@ -7700,16 +7701,72 @@ return { name, overlapPercent, barColor };
           </View>
         ) : null}
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Spot Chat 💬</Text>
+        <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+              <Text style={{ fontSize: 16 }}>💬</Text>
+            </View>
+            <View>
+              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Spot Chat</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Messages for this spot</Text>
+            </View>
+          </View>
 
-          <TextInput
-            value={messageInput}
-            onChangeText={setMessageInput}
-            placeholder="Type a message"
-            placeholderTextColor={theme.textMuted}
-            style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
-          />
+          {orderedMessages.length > 0 ? (
+            <ScrollView ref={spotChatScrollRef} style={{ maxHeight: 250, marginBottom: 12 }} onContentSizeChange={(width, height) => { setTimeout(() => spotChatScrollRef.current?.scrollToEnd({ animated: false }), 0); }}>
+              {orderedMessages
+                .slice()
+                .sort((a, b) => {
+                  const aTime = new Date(a.createdAt ?? a.created_at ?? a.timestamp ?? 0).getTime();
+                  const bTime = new Date(b.createdAt ?? b.created_at ?? b.timestamp ?? 0).getTime();
+                  return aTime - bTime;
+                })
+                .slice(-10)
+                .map((message) => (
+                (() => {
+                  const chosenTimestampValue =
+                    message?.createdAt ??
+                    message?.created_at ??
+                    message?.timestamp ??
+                    null;
+                  const renderedTime = chosenTimestampValue
+                    ? formatToHourMinute(chosenTimestampValue)
+                    : "";
+                  const isOwnMessage = message.userId === activeAppUserId;
+
+                  return (
+                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
+                      <Avatar uri={message.avatar_url} size={24} />
+                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: isOwnMessage ? 'rgba(32,40,51,0.95)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwnMessage ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.065)' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                          <Text style={{ color: isOwnMessage ? '#dbeafe' : theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
+                            {isOwnMessage ? 'You' : message.display_name}
+                          </Text>
+                          {renderedTime ? (
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
+                              {renderedTime}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })()
+              ))}
+            </ScrollView>
+          ) : (
+            <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 12 }}>No messages yet</Text>
+          )}
+
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5 }}>
+            <TextInput
+              value={messageInput}
+              onChangeText={setMessageInput}
+              placeholder="Type a message"
+              placeholderTextColor={theme.textMuted}
+              style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15 }}
+            />
           <Pressable
             onPress={() => {
               void (async () => {
@@ -7799,54 +7856,11 @@ return { name, overlapPercent, barColor };
                 await fetchSharedData();
               })();
             }}
-            style={{ backgroundColor: theme.primaryPressed, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
+            style={{ backgroundColor: '#f4f1df', borderRadius: 999, paddingVertical: 7, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}
           >
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send</Text>
+            <Text style={{ color: '#1b2430', fontSize: 12, fontWeight: '900', letterSpacing: 0.3 }}>Send</Text>
           </Pressable>
-
-          {orderedMessages.length > 0 ? (
-            <ScrollView style={{ maxHeight: 250, marginTop: 12 }}>
-              {orderedMessages.slice(0, 10).map((message) => (
-                (() => {
-                  const chosenTimestampValue =
-                    message?.createdAt ??
-                    message?.created_at ??
-                    message?.timestamp ??
-                    null;
-                  const renderedTime = chosenTimestampValue
-                    ? formatToHourMinute(chosenTimestampValue)
-                    : "";
-                  console.log("CHAT_RENDER_TRACE", {
-                    id: message?.id ?? null,
-                    created_at: message?.created_at ?? null,
-                    createdAt: message?.createdAt ?? null,
-                    timestamp: message?.timestamp ?? null,
-                    time: message?.time ?? null
-                  });
-
-                  console.log("CHAT_RENDER_TIME_SOURCE", {
-                    id: message?.id ?? null,
-                    chosenValue: chosenTimestampValue ?? null,
-                    renderedTime: renderedTime ?? null
-                  });
-
-                  return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
-                      <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 }}>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                          {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
-                        </Text>
-                        <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
-                      </View>
-                    </View>
-                  );
-                })()
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 15, marginTop: 12 }}>No messages yet</Text>
-          )}
+          </View>
         </View>
 
 
