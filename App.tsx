@@ -1505,19 +1505,6 @@ function SessionRow({
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
   const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 1, 100 - leftPercent);
 
-  console.log('TIMELINE_BAR_GEOMETRY', {
-    groupStart: group.startTime,
-    groupEnd: group.endTime,
-    groupStartMinutes: group.startMinutes,
-    groupEndMinutes: group.endMinutes,
-    timelineWindowStartMinutes,
-    timelineWindowEndMinutes,
-    clampedStartMinutes,
-    clampedEndMinutes,
-    leftPercent,
-    widthPercent,
-  });
-
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
   const sortedVisibleSessions = Array.isArray(group.visibleSessions) ? group.visibleSessions : [];
   const getRiderRowName = (sessionItem: SpotSession) => {
@@ -4788,14 +4775,6 @@ setMessagesBySpot((previous) => previous);
     
   }, [timelineWindow.endMinutes, timelineWindow.startMinutes]);
   useEffect(() => {
-    console.log('TIMELINE_LABEL_GEOMETRY', {
-      timelineWindow,
-      labels: timelineLabels.map((item) => ({
-        label: item.label,
-        minutes: item.minutes,
-        leftPercent: clamp(((item.minutes - timelineWindow.startMinutes) / Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1)) * 100, 0, 100),
-      })),
-    });
   }, [timelineLabels, timelineWindow]);
   useEffect(() => {
     
@@ -7124,12 +7103,6 @@ const handleSave = async () => {
           {checkInCtaVisible ? (
             <Pressable
               onPress={() => {
-                console.log('SPOT_CHECKIN_BUTTON_PRESSED', {
-                  selectedSpot,
-                  selectedSpotDistanceMeters,
-                  selectedSpotWithinCheckInRadius,
-                  hasActiveCheckedInSession,
-                });
                 void handleUpdateSessionStatus('Is er al');
               }}
               style={{ ...primaryButtonStyle, backgroundColor: '#22c55e', marginBottom: 10 }}
@@ -8107,19 +8080,6 @@ return { name, overlapPercent, barColor };
           const liveSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
 
           if (normalizeSpotName(spot.name) === normalizeSpotName('Scheveningen KZVS')) {
-            console.log('HOME_SPOT_LIVE_DEBUG', {
-              spot: spot.name,
-              daySpotSessions: daySpotSessions.map((s) => ({
-                id: s.id,
-                status: s.status,
-                intent: s.intent,
-                sessionDay: s.sessionDay,
-                checkedInAt: s.checkedInAt,
-                checkedOutAt: s.checkedOutAt,
-                clean: getCleanSessionStatus(s),
-              })),
-              liveCount: liveSessions.length,
-            });
           }
           const goingSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
           const maybeSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
