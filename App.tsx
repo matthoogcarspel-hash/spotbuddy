@@ -445,9 +445,18 @@ const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, ran
 
   return dateValue >= rangeStart && dateValue < rangeEnd;
 };
-type CleanSessionStatus = 'live' | 'going' | 'maybe';
+type CleanSessionStatus = 'live' | 'going' | 'maybe' | 'finished';
 
 const getSessionViewState = (sessionItem: SpotSession): CleanSessionStatus => {
+  if (
+    sessionItem.checkedOutAt ||
+    sessionItem.status === 'Uitchecken' ||
+    sessionItem.status === 'finished' ||
+    isSessionExpired(sessionItem)
+  ) {
+    return 'finished';
+  }
+
   // LIVE = alleen echte check-in
   if (sessionItem.checkedInAt && !sessionItem.checkedOutAt) {
     return 'live';
@@ -1762,7 +1771,8 @@ type SessionTimelineProps = {
 
 const getGroupCleanStatus = (group: any): 'live' | 'going' | 'maybe' => {
   const hostSession = group?.representative?.item ?? group?.sessions?.[0]?.item ?? group?.visibleSessions?.[0]?.item ?? null;
-  return getCleanSessionStatus(hostSession);
+  const status = getCleanSessionStatus(hostSession);
+  return status === 'finished' ? 'maybe' : status;
 };
 
 function SessionTimeline({
@@ -6820,7 +6830,7 @@ setMessagesBySpot((previous) => previous);
   }
 
   if (selectedSpot) {
-    const spotSessions = daySessionsBySpot[selectedSpot] ?? [];
+    const spotSessions = (daySessionsBySpot[selectedSpot] ?? []).filter((s) => getCleanSessionStatus(s) !== 'finished');
 
     const liveSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'live');
     const goingSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'going');
@@ -8114,12 +8124,13 @@ return { name, overlapPercent, barColor };
           });
 
           const statusLabel = status.label;
-          const liveSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
+          const cleanDaySpotSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) !== 'finished');
+          const liveSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
 
           if (normalizeSpotName(spot.name) === normalizeSpotName('Scheveningen KZVS')) {
           }
-          const goingSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
-          const maybeSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
+          const goingSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
+          const maybeSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
           const activeCount = liveSessions.length;
           const goingCount = goingSessions.length;
           const maybeCount = maybeSessions.length;
