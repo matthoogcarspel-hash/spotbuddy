@@ -4422,7 +4422,8 @@ setMessagesBySpot((previous) => previous);
 
     return visibleSessions
       .map((item) => {
-        const state = getTimelineState(item);
+        const viewState = getSessionViewState(item);
+        const state: TimelineState = viewState === 'live' ? 'live' : 'planned';
         const startMinutes = hasPlannedTimeWindow(item) ? toMinutes(item.start) : null;
         const checkedInMinutes = getLocalMinutesFromIso(item.checkedInAt);
         const checkedOutMinutes = getLocalMinutesFromIso(item.checkedOutAt);
