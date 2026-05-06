@@ -1688,12 +1688,12 @@ type SpotSummaryMetric = {
 
 function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; theme: any }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 12, backgroundColor: '#061421', paddingHorizontal: 18, paddingBottom: 20, marginTop: -6, borderBottomLeftRadius: 22, borderBottomRightRadius: 22, marginBottom: 16, borderWidth: 1, borderTopWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
+    <View style={{ flexDirection: 'row', gap: 12, backgroundColor: 'transparent', paddingHorizontal: 0, paddingBottom: 0, marginTop: 0, marginBottom: 16, borderWidth: 0 }}>
       {metrics.map((metric) => {
         const isLive = metric.label === 'LIVE';
         const isGoing = metric.label === 'GOING';
         const accent = isLive ? '#22c55e' : isGoing ? '#3b82f6' : '#a855f7';
-        const iconBg = isLive ? 'rgba(34,197,94,0.16)' : isGoing ? 'rgba(59,130,246,0.16)' : 'rgba(168,85,247,0.16)';
+        const iconBg = 'rgba(255,255,255,0.05)';
 
         return (
           <View
@@ -1701,13 +1701,13 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
             style={{
               flex: 1,
               minHeight: 128,
-              backgroundColor: '#071827',
+              backgroundColor: 'rgba(255,255,255,0.025)',
               borderRadius: 18,
               padding: 16,
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.08)',
+              borderColor: 'rgba(255,255,255,0.045)',
               borderLeftWidth: 1,
-              borderLeftColor: 'rgba(255,255,255,0.08)',
+              borderLeftColor: 'rgba(255,255,255,0.045)',
             }}
           >
             <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
@@ -1727,7 +1727,7 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
               riders
             </Text>
 
-            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 12 }} />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.045)', marginVertical: 12 }} />
 
             <Text style={{ color: 'rgba(255,255,255,0.68)', fontSize: 12, fontWeight: '600' }}>
               {metric.helper}
@@ -1881,24 +1881,20 @@ function SessionTimeline({
 
               return (
                 <View key={section.key} style={{
-                  marginBottom: 18,
-                  padding: 14,
+                  marginBottom: 14,
+                  padding: 12,
                   borderRadius: 18,
                   position: 'relative',
                   overflow: 'hidden',
-                  backgroundColor: section.key === 'live'
-                    ? 'rgba(31,156,127,0.08)'
-                    : 'rgba(255,255,255,0.025)',
+                  backgroundColor: 'rgba(255,255,255,0.018)',
                   borderWidth: 1,
-                  borderLeftWidth: 4,
-                  borderLeftColor: section.color,
-                  borderColor: section.key === 'live'
-                    ? 'rgba(99,228,190,0.20)'
-                    : 'rgba(255,255,255,0.05)'
+                  borderLeftWidth: 1,
+                  borderLeftColor: 'rgba(255,255,255,0.05)',
+                  borderColor: 'rgba(255,255,255,0.045)'
                 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
+                      <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: section.color, marginRight: 8, opacity: 0.85 }} />
                       <Text style={{ color: section.color, fontSize: 11, fontWeight: '700', letterSpacing: 0.2 }}>
                         {section.title}
                       </Text>
@@ -7043,7 +7039,7 @@ const handleSave = async () => {
         </Pressable>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: '#061421', borderTopLeftRadius: 22, borderTopRightRadius: 22, paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10, marginBottom: 0, borderWidth: 1, borderBottomWidth: 0, borderColor: 'rgba(255,255,255,0.06)' }}>
+        <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 10, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View />
             <Pressable

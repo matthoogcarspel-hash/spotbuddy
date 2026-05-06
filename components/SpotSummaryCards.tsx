@@ -67,15 +67,15 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
       style={{
         flexDirection: 'row',
         gap: 12,
-        backgroundColor: '#061421',
-        paddingHorizontal: 18,
-        paddingBottom: 22,
-        borderBottomLeftRadius: 22,
-        borderBottomRightRadius: 22,
+        backgroundColor: 'transparent',
+        paddingHorizontal: 0,
+        paddingBottom: 0,
+        borderBottomLeftRadius: 0,
+        borderBottomRightRadius: 0,
         marginBottom: 20,
-        borderWidth: 1,
+        borderWidth: 0,
         borderTopWidth: 0,
-        borderColor: 'rgba(255,255,255,0.07)',
+        borderColor: 'transparent',
       }}
     >
       {metrics.map((metric) => {
@@ -90,12 +90,12 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
             style={{
               flex: 1,
               minHeight: 158,
-              backgroundColor: '#071827',
+              backgroundColor: 'rgba(255,255,255,0.025)',
               borderRadius: 20,
               padding: 16,
               borderWidth: 1,
-              borderLeftWidth: isLive && metric.value > 0 ? 4 : 1,
-              borderColor: isLive && metric.value > 0 ? metric.color : 'rgba(255,255,255,0.09)',
+              borderLeftWidth: 1,
+              borderColor: 'rgba(255,255,255,0.055)',
             }}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -104,9 +104,9 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                   width: 44,
                   height: 44,
                   borderRadius: 22,
-                  backgroundColor: `${metric.color}18`,
+                  backgroundColor: 'rgba(255,255,255,0.05)',
                   borderWidth: 1,
-                  borderColor: `${metric.color}33`,
+                  borderColor: 'rgba(255,255,255,0.08)',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 14,
@@ -136,7 +136,7 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
               </View>
             </View>
 
-            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 18, marginBottom: 12 }} />
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.045)', marginTop: 18, marginBottom: 12 }} />
 
             <Text style={{ color: 'rgba(255,255,255,0.72)', fontSize: 13, fontWeight: '600', textAlign: 'center' }}>
               {metric.helper}
