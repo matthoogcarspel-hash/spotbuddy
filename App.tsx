@@ -447,15 +447,23 @@ const isIsoInRange = (isoValue: string | null | undefined, rangeStart: Date, ran
 };
 type CleanSessionStatus = 'live' | 'going' | 'maybe';
 
-const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => {
-  // Alleen echte check-in bepaalt LIVE
-  if ((sessionItem as any).status === 'checked_in') return 'live';
+const getSessionViewState = (sessionItem: SpotSession): CleanSessionStatus => {
+  // LIVE = alleen echte check-in
+  if (sessionItem.checkedInAt && !sessionItem.checkedOutAt) {
+    return 'live';
+  }
 
-  // GEEN 'happening now' → blijft gewoon going
-  if (sessionItem.intent === 'definitely') return 'going';
-  if (sessionItem.intent === 'likely') return 'going';
+  // GOING = definitely / likely
+  const resolvedIntent = resolveSessionIntent(sessionItem.intent);
+  if (resolvedIntent === 'definitely') {
+    return 'going';
+  }
 
   return 'maybe';
+};
+
+const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => {
+  return getSessionViewState(sessionItem);
 };
 
 const getSessionState = (sessionItem: SpotSession, now = new Date()): DeterministicSessionState => {
@@ -1512,7 +1520,9 @@ function SessionRow({
 );
 
 const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
-  const rowStatus = representative?.state ?? 'planned';
+  const hostCleanStatus = getCleanSessionStatus(session);
+  const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
+  const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
   const isLiveRow = rowStatus === 'live';
   console.log("JOIN_REGRESSION_COMPARE", {
     sessionId: session?.id ?? null,
@@ -1581,7 +1591,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
             leftPercent={leftPercent}
             widthPercent={widthPercent}
             state={getCleanSessionStatus(session) === 'live' ? 'live' : 'planned'}
-            intent={resolveSessionIntent(session?.intent)}
+            intent={rowIntent}
             isSelected={isSelected}
             showJoinButton={false}
             onPress={() => onSelect(group.key)}
