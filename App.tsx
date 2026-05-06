@@ -1584,6 +1584,12 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
 
+          {isLiveRow && session?.checkedInAt ? (
+            <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '800', marginTop: 4 }}>
+              ⚡ checked in at: {formatToHourMinute(session.checkedInAt)}
+            </Text>
+          ) : null}
+
           {sortedVisibleSessions.length > 1 && isAlreadyInGroup ? (
             <Pressable
               onPress={(event) => {
@@ -1691,8 +1697,8 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
               padding: 16,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.08)',
-              borderLeftWidth: isLive && metric.value > 0 ? 4 : 1,
-              borderLeftColor: isLive && metric.value > 0 ? accent : 'rgba(255,255,255,0.08)',
+              borderLeftWidth: 1,
+              borderLeftColor: 'rgba(255,255,255,0.08)',
             }}
           >
             <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
@@ -7098,19 +7104,6 @@ const handleSave = async () => {
             </Pressable>
           ) : null}
 
-          {canCheckOut ? (
-            <Pressable
-              onPress={() => {
-                void handleUpdateSessionStatus('Uitchecken');
-              }}
-              style={{ ...primaryButtonStyle, backgroundColor: '#8b1f38', marginBottom: 10 }}
-            >
-              <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '900' }}>
-                Check out
-              </Text>
-            </Pressable>
-          ) : null}
-
           {topCtaMode === 'plan' ? (
             <Pressable
               onPress={() => {
@@ -7125,7 +7118,23 @@ const handleSave = async () => {
             </Pressable>
           ) : null}
           {topCtaMode === 'edit' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
+              {canCheckOut ? (
+                <Pressable
+                  onPress={() => {
+                    void handleUpdateSessionStatus('Uitchecken');
+                  }}
+                  style={{
+                    backgroundColor: '#8b1f38',
+                    borderRadius: 999,
+                    paddingHorizontal: 13,
+                    paddingVertical: 7,
+                  }}
+                >
+                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Check out</Text>
+                </Pressable>
+              ) : null}
+
               <Pressable
                 onPress={() => {
                   setShowManageSessions(true);
@@ -7136,9 +7145,9 @@ const handleSave = async () => {
                   setFormError('');
                   setSaveError(null);
                 }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a', opacity: 1 }}
+                style={{ paddingVertical: 6, paddingHorizontal: 0, opacity: 1 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Manage sessions</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '800' }}>☰ Manage sessions</Text>
               </Pressable>
               {ownSessionCount === 1 ? (
                 <Pressable
@@ -7149,9 +7158,9 @@ const handleSave = async () => {
                     }
                     void handleCancelPlannedSession();
                   }}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38', opacity: joinedSession && canCancelJoinedSession ? 1 : 0.45 }}
+                  style={{ paddingVertical: 6, paddingHorizontal: 0, opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35 }}
                 >
-                  <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
+                  <Text style={{ color: '#ff8fa3', fontSize: 13, fontWeight: '800' }}>× Cancel session</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -7160,16 +7169,16 @@ const handleSave = async () => {
                   setSessionActionError('');
                   openEmptyPlanningForm();
                 }}
-                style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#334155' }}
+                style={{ paddingVertical: 6, paddingHorizontal: 0 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Add extra session</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '800' }}>＋ Add extra session</Text>
               </Pressable>
               {showManageSessions ? (
                 <Pressable
                   onPress={() => setShowManageSessions(false)}
-                  style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#475569' }}
+                  style={{ paddingVertical: 6, paddingHorizontal: 0 }}
                 >
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Close</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '800' }}>Close</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -7432,7 +7441,7 @@ return { name, overlapPercent, barColor };
         <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: 14 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
-            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 999, padding: 2 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
               {([
                 { key: 'everyone' as const, label: 'Everyone' },
                 { key: 'buddies' as const, label: 'Buddies' },
@@ -7446,10 +7455,10 @@ return { name, overlapPercent, barColor };
                       paddingHorizontal: 10,
                       paddingVertical: 5,
                       borderRadius: 999,
-                      backgroundColor: isActive ? theme.primary : 'transparent',
+                      backgroundColor: isActive ? '#202833' : 'transparent',
                     }}
                   >
-                    <Text style={{ color: isActive ? '#ffffff' : theme.textSoft, fontSize: 12, fontWeight: '700' }}>{option.label}</Text>
+                    <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
                   </Pressable>
                 );
               })}
@@ -7517,7 +7526,7 @@ return { name, overlapPercent, barColor };
           ) : null}
         </View>
 
-        {shouldShowNowAtSpotPanel ? (
+        {false && shouldShowNowAtSpotPanel ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
             {nowAtSpotMode === 'live' ? (
@@ -7939,7 +7948,7 @@ return { name, overlapPercent, barColor };
           </View>
         ) : null}
 
-        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.card, borderRadius: 999, padding: 3, marginBottom: 14 }}>
+        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
           {([
             { key: 'today' as const, label: 'Today' },
             { key: 'tomorrow' as const, label: 'Tomorrow' },
@@ -7950,15 +7959,15 @@ return { name, overlapPercent, barColor };
                 key={`home-day-${option.key}`}
                 onPress={() => setActiveDay(option.key)}
                 style={{
-  backgroundColor: '#0b0f14',
-  borderRadius: 10,
-  paddingVertical: 10,
-  paddingHorizontal: 16,
-  marginRight: 6,
-  opacity: isActive ? 1 : 0.6
+  backgroundColor: isActive ? '#202833' : 'transparent',
+  borderRadius: 999,
+  paddingVertical: 6,
+  paddingHorizontal: 13,
+  marginRight: 0,
+  opacity: 1
 }}
               >
-                <Text style={{ color: isActive ? theme.bg : theme.textSoft, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
+                <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
               </Pressable>
             );
           })}
