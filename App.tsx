@@ -1724,13 +1724,8 @@ type SessionTimelineProps = {
 };
 
 const getGroupCleanStatus = (group: any): 'live' | 'going' | 'maybe' => {
-  const sessions = (group.visibleSessions ?? [])
-    .map((entry: any) => entry.item)
-    .filter(Boolean);
-
-  if (sessions.some((s: any) => getCleanSessionStatus(s) === 'live')) return 'live';
-  if (sessions.some((s: any) => getCleanSessionStatus(s) === 'going')) return 'going';
-  return 'maybe';
+  const hostSession = group?.representative?.item ?? group?.sessions?.[0]?.item ?? group?.visibleSessions?.[0]?.item ?? null;
+  return getCleanSessionStatus(hostSession);
 };
 
 function SessionTimeline({
@@ -1966,7 +1961,7 @@ export default function App() {
   const [startMinute, setStartMinute] = useState(0);
   const [endHour, setEndHour] = useState<number | null>(null);
   const [endMinute, setEndMinute] = useState(0);
-  const [intent, setIntent] = useState<SessionIntent>('likely');
+  const [intent, setIntent] = useState<SessionIntent>('definitely');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [showManageSessions, setShowManageSessions] = useState(false);
   const [formError, setFormError] = useState('');
@@ -5211,7 +5206,7 @@ setMessagesBySpot((previous) => previous);
   const openEmptyPlanningForm = () => {
     const nowReference = getPlanningNowReference(selectedPlanningDateKey, getCurrentLocalMinutes());
     setEditingSessionId(null);
-    setIntent('likely');
+    setIntent('definitely');
     if (nowReference.isToday && nowReference.hasValidStartSlot) {
       const defaultStart = minuteValueToHourMinute(nowReference.earliestStartMinutes);
       const defaultEndMinutes = getDefaultEndMinutesForStart(nowReference.earliestStartMinutes);
@@ -5708,7 +5703,7 @@ setMessagesBySpot((previous) => previous);
     setStartMinute(0);
     setEndHour(null);
     setEndMinute(0);
-    setIntent('likely');
+    setIntent('definitely');
     setEditingSessionId(null);
     setFormError('');
     setSaveError(null);
