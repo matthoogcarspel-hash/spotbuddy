@@ -483,7 +483,8 @@ const getSessionState = (sessionItem: SpotSession, now = new Date()): Determinis
   
   return 'planned';
 };
-const isLiveSession = (sessionItem: SpotSession, now = new Date()) => getSessionState(sessionItem, now) === 'active';
+const isLiveSession = (sessionItem: SpotSession) =>
+  getSessionViewState(sessionItem) === 'live';
 const isSessionForLocalDate = (sessionItem: SpotSession, localDateKey: string) => {
   return (sessionItem.sessionDay ?? '') === localDateKey;
 };
@@ -588,7 +589,7 @@ const getSpotMomentumLabels = (spotName: SpotName, sessions: SpotSession[]): Spo
 };
 const isPlannedSession = (sessionItem: SpotSession) =>
   hasPlannedTimeWindow(sessionItem)
-  && getSessionState(sessionItem) === 'planned';
+  && getSessionViewState(sessionItem) !== 'live';
 const getTimelineState = (sessionItem: SpotSession): TimelineState => {
   const deterministicState = getSessionState(sessionItem);
   if (deterministicState === 'active') {
@@ -1335,7 +1336,7 @@ const groupTimelineSessions = ({
           const normalizedActiveProfileId = activeProfileId ?? null;
           const visible =
             item.userId === normalizedActiveProfileId
-              ? getSessionState(item) !== 'finished'
+              ? !isSessionExpired(item)
               : buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
 
           console.log('GROUP_VISIBILITY_DEBUG', {
@@ -1345,7 +1346,7 @@ const groupTimelineSessions = ({
             buddiesMode,
             isSelf: item.userId === normalizedActiveProfileId,
             isFollowing: safeFollowingUserIds.includes(item.userId),
-            state: getSessionState(item),
+            state: getSessionViewState(item) === 'live' ? 'live' : 'planned',
             visible,
           });
 
@@ -4379,7 +4380,7 @@ setMessagesBySpot((previous) => previous);
     const dedupedSessions = Array.from(new Map(safeTimelineSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
       const sameDay = item.sessionDay === activeDayKey;
-      const state = getSessionState(item);
+      const state = getSessionViewState(item);
       console.log('TIMELINE_FILTER_REASON', {
         id: item.id,
         userId: item.userId,
@@ -4487,7 +4488,7 @@ setMessagesBySpot((previous) => previous);
       .filter((sessionItem) => sessionItem.userId === currentUserId)
       .filter((sessionItem) => isSessionOnDayKey(sessionItem, activeDayKey));
     const userSessions = allCandidateSessions
-      .filter((sessionItem) => getSessionState(sessionItem) === 'planned');
+      .filter((sessionItem) => getSessionViewState(sessionItem) !== 'live');
     
 
     return userSessions
@@ -4809,7 +4810,7 @@ setMessagesBySpot((previous) => previous);
           && !sessionItem.checkedInAt
           && !sessionItem.checkedOutAt
           && hasPlannedTimeWindow(sessionItem)
-          && getSessionState(sessionItem) === 'planned'
+          && getSessionViewState(sessionItem) !== 'live'
           && (sessionItem.sessionDay ?? '') === activeDayKey,
       ),
   );
@@ -5270,7 +5271,7 @@ setMessagesBySpot((previous) => previous);
     () =>
       sessions
         .filter((sessionItem) => (sessionItem.sessionDay ?? '') === activeDayKey)
-        .filter((sessionItem) => getSessionState(sessionItem) === 'planned')
+        .filter((sessionItem) => getSessionViewState(sessionItem) !== 'live')
         .sort((a, b) => toMinutes(a.start) - toMinutes(b.start))
         .slice(0, 3),
     [activeDayKey, sessions],
