@@ -394,6 +394,18 @@ export async function joinSession(input: {
     ownSessionsForDay,
   });
 
+  const { data: sourceSessionForJoin, error: sourceSessionForJoinError } = await supabase
+    .from('sessions')
+    .select('intent')
+    .eq('id', input.sessionId)
+    .maybeSingle();
+
+  if (sourceSessionForJoinError) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'SOURCE_SESSION_QUERY_FAILED', error: sourceSessionForJoinError });
+  }
+
+  const inheritedIntent: SessionIntent = sourceSessionForJoin?.intent === 'maybe' ? 'maybe' : 'definitely';
+
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
@@ -402,28 +414,11 @@ export async function joinSession(input: {
     start_time: input.normalizedStart,
     end_time: input.normalizedEnd,
     status: 'Gaat' as const,
-    intent: input.intent,
+    intent: inheritedIntent,
     checked_in_at: null,
     checked_out_at: null,
   };
 
-  // 🔥 FIX: altijd eerst ALLE eigen sessies voor die dag verwijderen
-const existingIds = (ownSessionsForDay ?? [])
-  .filter(s => s?.id)
-  .map(s => s.id);
-
-if (existingIds.length > 0) {
-  const deleteResult = await supabase
-    .from('sessions')
-    .delete()
-    .in('id', existingIds);
-
-  if (deleteResult.error) {
-    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'DELETE_EXISTING_FAILED', error: deleteResult.error });
-  }
-}
-
-// daarna altijd clean insert
 const writeResult = await supabase
   .from('sessions')
   .insert(joinPayload)

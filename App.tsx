@@ -1170,6 +1170,7 @@ const buildCancelActionInput = ({
   activeProfile,
   activeDateKey,
   availableProfiles,
+  sessionOverride = null,
 }: {
   ownSessionForSpotDay: {
     ownSession: SpotSession | null;
@@ -1179,8 +1180,9 @@ const buildCancelActionInput = ({
   activeProfile: Profile | null;
   activeDateKey: string;
   availableProfiles: Profile[];
+  sessionOverride?: SpotSession | null;
 }) => {
-  const sessionToCancel = ownSessionForSpotDay.ownSession;
+  const sessionToCancel = sessionOverride ?? ownSessionForSpotDay.ownSession;
   const activeProfileId = activeProfile?.id ?? null;
   if (!sessionToCancel || !activeProfileId) {
     return null;
@@ -1299,7 +1301,7 @@ const groupTimelineSessions = ({
       startTime,
       endTime,
     } = getRoundedSessionWindow(timelineSession.item);
-    const groupKey = `${timelineSession.state}-${startTime}-${endTime}`;
+    const groupKey = `${startTime}-${endTime}`;
     const entry: SessionGroupEntry = {
       item: timelineSession.item,
       state: timelineSession.state,
@@ -1476,6 +1478,8 @@ type SessionRowProps = {
   nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
   onJoin: (request: SessionJoinRequest) => void;
+  onOpenGroupChat: (groupKey: string) => void;
+  activeGroupChatKey: string | null;
 };
 
 function SessionRow({
@@ -1492,6 +1496,8 @@ function SessionRow({
   nearOverlapWithPrevious,
   onSelect,
   onJoin,
+  onOpenGroupChat,
+  activeGroupChatKey,
 }: SessionRowProps) {
   const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -1577,6 +1583,20 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
               ? `👥 Group: ${sortedVisibleSessions.length} riders`
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
+
+          {sortedVisibleSessions.length > 1 && isAlreadyInGroup ? (
+            <Pressable
+              onPress={(event) => {
+                event.stopPropagation();
+                onOpenGroupChat(group.key);
+              }}
+              style={{ marginTop: 4 }}
+            >
+              <Text style={{ color: activeGroupChatKey === group.key ? theme.primary : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                💬 {activeGroupChatKey === group.key ? 'Open Group Chat' : 'Open Group Chat'}
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         <View style={{ width: 92, flexDirection: 'row', alignItems: 'center' }}>
@@ -1720,6 +1740,8 @@ type SessionTimelineProps = {
   activeDay: 'today' | 'tomorrow';
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (request: SessionJoinRequest) => void;
+  onOpenGroupChat: (groupKey: string) => void;
+  activeGroupChatKey: string | null;
   onClearSelection: () => void;
 };
 
@@ -1743,6 +1765,8 @@ function SessionTimeline({
   activeDay,
   onSelectSession,
   onJoinSession,
+  onOpenGroupChat,
+  activeGroupChatKey,
   onClearSelection,
 }: SessionTimelineProps) {
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
@@ -1902,6 +1926,8 @@ function SessionTimeline({
                       isSelected={selectedTimelineSessionId === group.key}
                       onSelect={onSelectSession}
                       onJoin={onJoinSession}
+                      onOpenGroupChat={onOpenGroupChat}
+                      activeGroupChatKey={activeGroupChatKey}
                     />
                     </View>
                   ))}
@@ -3871,9 +3897,11 @@ setMessagesBySpot((previous) => previous);
           }
 
           void fetchSharedData({ skipLoadingState: true }).then(() => {
+            setGroupMessagesRefreshKey((value) => value + 1);
             console.log('SESSIONS_REALTIME_REFETCH_DONE', {
               selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
               activeDay,
+              selectedDayKey,
             });
           });
         },
@@ -3893,7 +3921,7 @@ setMessagesBySpot((previous) => previous);
       void supabase.removeChannel(realtimeChannel);
       console.log('SESSIONS_REALTIME_UNSUBSCRIBED');
     };
-  }, [activeAppUserId, activeDay, selectedSpot, spotNames]);
+  }, [activeAppUserId, activeDay, selectedSpot, selectedDayKey, spotNames]);
 
   useEffect(() => {
     if (!activeAppUserId || !selectedSpot) {
@@ -4845,7 +4873,7 @@ setMessagesBySpot((previous) => previous);
   const withinRange = selectedSpotWithinCheckInRadius;
   const shouldShowSpotCheckIn = activeDay === 'today' && !isCheckedInAtSelectedSpot;
   const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
-  const canCheckIn = shouldShowSpotCheckIn && withinRange && !hasPlannedSession && !hasActiveCheckedInSession;
+  const canCheckIn = shouldShowSpotCheckIn && withinRange;
   const checkInCtaVisible = canCheckIn;
   useEffect(() => {
     
@@ -4925,12 +4953,13 @@ setMessagesBySpot((previous) => previous);
     setShowManageSessions(false);
   }, [selectedSpot, activeDayKey]);
 
-  const handleCancelPlannedSession = async () => {
+  const handleCancelPlannedSession = async (sessionOverride: SpotSession | null = null) => {
     const input = buildCancelActionInput({
       ownSessionForSpotDay: spotState.ownSessionForSpotDay,
       activeProfile,
       activeDateKey,
       availableProfiles,
+      sessionOverride,
     });
     if (!input) {
       setSessionActionError(getCancelErrorMessage());
@@ -5475,7 +5504,17 @@ setMessagesBySpot((previous) => previous);
       
       return { ok: false, reason: 'fetch_existing_checked_in_sessions_for_day_failed', error: existingCheckedInSessionsForDayResponse.error };
     }
-    const existingCheckedInSessionsForDay = existingCheckedInSessionsForDayResponse.data ?? [];
+    const existingCheckedInSessionsForDay = (
+      existingCheckedInSessionsForDayResponse.data ?? []
+    ).filter((session) => {
+      const checkedInAt = session.checked_in_at
+        ? new Date(session.checked_in_at).getTime()
+        : 0;
+
+      const ageHours = (Date.now() - checkedInAt) / (1000 * 60 * 60);
+
+      return ageHours < 12;
+    });
     
     const activeSession = existingCheckedInSessionsForDay
       .slice()
@@ -5565,7 +5604,7 @@ setMessagesBySpot((previous) => previous);
       intent: 'definitely' as const,
       checked_in_at: nowIso,
       checked_out_at: null,
-  session_day: new Date().toISOString().slice(0,10),
+      session_day: activeDayKey,
     };
     
     
@@ -5607,7 +5646,9 @@ setMessagesBySpot((previous) => previous);
     source: 'spot_page' | 'home_quick';
   }): Promise<{ errorMessage: string | null; checkedInSpot: SpotName | null }> => {
     
+    console.log('CHECKIN_SHARED_FLOW_START', { spot, source });
     const checkInResult = await runCheckInFlowForSpot({ spot, source });
+    console.log('CHECKIN_SHARED_FLOW_RESULT', checkInResult);
     if (!checkInResult.ok) {
       const failureResult = checkInResult as { ok: false; reason: string; error?: unknown };
       const failureReason = failureResult.reason;
@@ -5617,6 +5658,18 @@ setMessagesBySpot((previous) => previous);
     }
 
     
+    console.log('CHECKIN_FORCE_REFRESH_START');
+
+    await fetchSharedData({ skipLoadingState: true });
+
+    if (checkInResult.spot) {
+      setSelectedSpot(checkInResult.spot);
+    }
+
+    console.log('CHECKIN_FORCE_REFRESH_DONE', {
+      checkedInSpot: checkInResult.spot,
+    });
+
     return { errorMessage: null, checkedInSpot: checkInResult.spot };
   };
 
@@ -5957,6 +6010,18 @@ setMessagesBySpot((previous) => previous);
             {selectedSpotCards.length > 0 ? (
               <View style={{ marginTop: 8 }}>
                 {selectedSpotCards.map(({ spot, distanceMeters }, manualIndex) => {
+                  const isCheckedInAtThisSpot = Boolean(
+                    activeCheckedInSession
+                    && normalizeSpotName(activeCheckedInSession.spot_name) === normalizeSpotName(spot)
+                  );
+                  const isNearestSpotCard = Boolean(
+                    nearestSpotResult
+                    && normalizeSpotName(nearestSpotResult.spot) === normalizeSpotName(spot)
+                  );
+                  const isHomeSpotWithinCheckInRadius = Boolean(
+                    (distanceMeters !== null && distanceMeters <= CHECK_IN_RADIUS_METERS)
+                    || (isNearestSpotCard && nearestSpotResult && nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS)
+                  );
                   const panResponder = orderMode === 'manual' && !isWebPlatform ? PanResponder.create({
                     onStartShouldSetPanResponder: () => true,
                     onMoveShouldSetPanResponder: (_, gestureState) => Math.abs(gestureState.dy) > 3,
@@ -6030,6 +6095,46 @@ setMessagesBySpot((previous) => previous);
                           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>
                             Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
                           </Text>
+
+                          {isHomeSpotWithinCheckInRadius ? (
+                            <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                              {!hasActiveCheckedInSession ? (
+                                <Pressable
+                                  onPress={() => {
+                                    void handleQuickCheckIn(spot);
+                                  }}
+                                  style={{
+                                    backgroundColor: '#22c55e',
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 999,
+                                  }}
+                                >
+                                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>
+                                    Check in
+                                  </Text>
+                                </Pressable>
+                              ) : null}
+
+                              {isCheckedInAtThisSpot ? (
+                                <Pressable
+                                  onPress={() => {
+                                    void handleQuickCheckOut();
+                                  }}
+                                  style={{
+                                    backgroundColor: '#8b1f38',
+                                    paddingHorizontal: 10,
+                                    paddingVertical: 6,
+                                    borderRadius: 999,
+                                  }}
+                                >
+                                  <Text style={{ color: '#ffd7de', fontSize: 12, fontWeight: '900' }}>
+                                    Check out
+                                  </Text>
+                                </Pressable>
+                              ) : null}
+                            </View>
+                          ) : null}
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                           {orderMode === 'manual' ? (
@@ -6672,7 +6777,7 @@ setMessagesBySpot((previous) => previous);
   if (selectedSpot) {
     const spotSessions = daySessionsBySpot[selectedSpot] ?? [];
 
-    const liveSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'live');
+    const liveSessions = spotSessions.filter((s) => getCleanSessionStatus(s) === 'live');
     const goingSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'going');
     const maybeSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'maybe');
 
@@ -6974,6 +7079,38 @@ const handleSave = async () => {
         
 <View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
           
+          {checkInCtaVisible ? (
+            <Pressable
+              onPress={() => {
+                console.log('SPOT_CHECKIN_BUTTON_PRESSED', {
+                  selectedSpot,
+                  selectedSpotDistanceMeters,
+                  selectedSpotWithinCheckInRadius,
+                  hasActiveCheckedInSession,
+                });
+                void handleUpdateSessionStatus('Is er al');
+              }}
+              style={{ ...primaryButtonStyle, backgroundColor: '#22c55e', marginBottom: 10 }}
+            >
+              <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>
+                Check in now · {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'nearby'}
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {canCheckOut ? (
+            <Pressable
+              onPress={() => {
+                void handleUpdateSessionStatus('Uitchecken');
+              }}
+              style={{ ...primaryButtonStyle, backgroundColor: '#8b1f38', marginBottom: 10 }}
+            >
+              <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '900' }}>
+                Check out
+              </Text>
+            </Pressable>
+          ) : null}
+
           {topCtaMode === 'plan' ? (
             <Pressable
               onPress={() => {
@@ -7125,8 +7262,7 @@ return { name, overlapPercent, barColor };
                     </Pressable>
                     <Pressable
                       onPress={() => {
-                        setEditingSessionId(sessionItem.id);
-                        void handleCancelPlannedSession();
+                        void handleCancelPlannedSession(sessionItem);
                         setShowManageSessions(false);
                       }}
                       style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
@@ -7346,6 +7482,10 @@ return { name, overlapPercent, barColor };
             onJoinSession={(joinRequest) => {
               void joinSession(joinRequest);
             }}
+            onOpenGroupChat={(groupKey) => {
+              setActiveGroupChatKey(groupKey);
+            }}
+            activeGroupChatKey={activeGroupChatKey}
           />
           {selectedTimelineSession ? (
             <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
@@ -7369,7 +7509,7 @@ return { name, overlapPercent, barColor };
                   style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
                 >
                   <Text style={{ color: theme.bg, fontSize: 13, fontWeight: '800' }}>
-                    {activeGroupChatKey === selectedTimelineSessionId ? 'Open group chat' : 'Start group chat'}
+                    {activeGroupChatKey === selectedTimelineSessionId ? 'Open Group Chat' : 'Start group chat'}
                   </Text>
                 </Pressable>
               ) : null}
@@ -7842,14 +7982,44 @@ return { name, overlapPercent, barColor };
                 nearestStatus.plannedCount > 0 ? `${nearestStatus.plannedCount} later` : null,
               ].filter(Boolean);
               return (
-                <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start', paddingVertical: 6 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                    Nearest spot · <Text style={{ color: theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
-                    {activityParts.length > 0 ? (
-                      <Text style={{ color: theme.primary, fontWeight: '800' }}> · {activityParts.join(' · ')}</Text>
-                    ) : null}
-                  </Text>
-                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
+                  <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start' }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 13 }}>
+                      Nearest spot · <Text style={{ color: theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+                      {activityParts.length > 0 ? (
+                        <Text style={{ color: theme.primary, fontWeight: '800' }}> · {activityParts.join(' · ')}</Text>
+                      ) : null}
+                    </Text>
+                  </Pressable>
+
+                  {false ? (
+                    <Pressable
+                      onPress={() => {
+                        console.log('HOME_NEAREST_CHECKIN_BUTTON_PRESSED', {
+                          nearestSpot: nearestSpotResult.spot,
+                          nearestSpotDistance: nearestSpotResult.distanceMeters,
+                          nearestSpotCanCheckIn,
+                          hasActiveCheckedInSession,
+                        });
+                        void handleQuickCheckIn(nearestSpotResult.spot);
+                      }}
+                      style={{ backgroundColor: '#22c55e', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}
+                    >
+                      <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>CHECK IN</Text>
+                    </Pressable>
+                  ) : null}
+
+                  {false ? (
+                    <Pressable
+                      onPress={() => {
+                        void handleQuickCheckOut();
+                      }}
+                      style={{ backgroundColor: '#8b1f38', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}
+                    >
+                      <Text style={{ color: '#ffd7de', fontSize: 11, fontWeight: '900' }}>CHECK OUT</Text>
+                    </Pressable>
+                  ) : null}
+                </View>
               );
             })()
           ) : (
@@ -7876,6 +8046,22 @@ return { name, overlapPercent, barColor };
 
           const statusLabel = status.label;
           const liveSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
+
+          if (normalizeSpotName(spot.name) === normalizeSpotName('Scheveningen KZVS')) {
+            console.log('HOME_SPOT_LIVE_DEBUG', {
+              spot: spot.name,
+              daySpotSessions: daySpotSessions.map((s) => ({
+                id: s.id,
+                status: s.status,
+                intent: s.intent,
+                sessionDay: s.sessionDay,
+                checkedInAt: s.checkedInAt,
+                checkedOutAt: s.checkedOutAt,
+                clean: getCleanSessionStatus(s),
+              })),
+              liveCount: liveSessions.length,
+            });
+          }
           const goingSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
           const maybeSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
           const activeCount = liveSessions.length;
