@@ -8,6 +8,7 @@ import {
   REAL_SESSION_SCHEMA_FIELDS,
 } from '../../lib/sessionHelpers';
 import { buildSpotNotificationPreferenceKey, normalizeSpotNotificationMode } from '../../lib/spotNotificationPreferences';
+import { sendExpoPushNotification } from '../../lib/pushNotifications';
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -547,6 +548,45 @@ const writeResult = await supabase
         sessionId: input.sessionId,
         recipientProfileId: sessionOwnerId,
       });
+
+      const { data: pushTokenRows, error: pushTokenFetchError } = await supabase
+        .from('push_tokens')
+        .select('expo_push_token')
+        .eq('user_id', sessionOwnerId);
+
+      if (pushTokenFetchError) {
+        console.error('PUSH_TOKEN_FETCH_ERROR', pushTokenFetchError);
+      } else {
+        const uniqueTokens = Array.from(
+          new Set((pushTokenRows ?? []).map((row) => row.expo_push_token).filter(Boolean))
+        );
+
+        console.log('PUSH_SEND_TARGETS', {
+          sessionId: input.sessionId,
+          recipientProfileId: sessionOwnerId,
+          count: uniqueTokens.length,
+        });
+
+        for (const expoPushToken of uniqueTokens) {
+          const pushResult = await sendExpoPushNotification({
+            to: expoPushToken,
+            title: 'Someone joined your session',
+            body: spotName ? `Someone joined your session at ${spotName}.` : 'Someone joined your session.',
+            data: {
+              type: 'session_joined',
+              sessionId: input.sessionId,
+              spotName,
+            },
+          });
+
+          console.log('PUSH_SEND_RESULT', {
+            sessionId: input.sessionId,
+            recipientProfileId: sessionOwnerId,
+            ok: pushResult.ok,
+            status: pushResult.status,
+          });
+        }
+      }
     }
 
     console.log("NOTIFICATION_RPC_RESULT", {
