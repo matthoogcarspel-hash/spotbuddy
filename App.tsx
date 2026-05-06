@@ -2565,10 +2565,15 @@ export default function App() {
 
   useEffect(() => {
     console.log('PUSH_INIT');
-    const FALLBACK_EAS_PROJECT_ID = "<PASTE_ACTUAL_EAS_PROJECT_ID_HERE>";
+    const FALLBACK_EAS_PROJECT_ID = "6420f442-2be4-4803-9620-f769bc5def4f";
 
     const register = async () => {
       try {
+        if (Platform.OS === 'web') {
+          console.log('PUSH_SKIP_WEB');
+          return;
+        }
+
         const { status } = await Notifications.requestPermissionsAsync();
         console.log('PUSH_PERMISSION_STATUS', status);
 
@@ -2584,13 +2589,35 @@ export default function App() {
         });
 
         console.log('PUSH_TOKEN', token.data);
+
+        if (!activeAppUserId || !token.data) {
+          return;
+        }
+
+        const { error: pushTokenSaveError } = await supabase
+          .from('push_tokens')
+          .upsert(
+            {
+              user_id: activeAppUserId,
+              expo_push_token: token.data,
+              platform: Platform.OS,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'user_id,expo_push_token' }
+          );
+
+        if (pushTokenSaveError) {
+          console.error('PUSH_TOKEN_SAVE_ERROR', pushTokenSaveError);
+        } else {
+          console.log('PUSH_TOKEN_SAVED');
+        }
       } catch (e) {
         console.log('PUSH_ERROR', e);
       }
     };
 
     register();
-  }, []);
+  }, [activeAppUserId]);
 
   useEffect(() => {
     if (!activeAppUserId || spotNames.length === 0) {
