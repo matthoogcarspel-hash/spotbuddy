@@ -1503,7 +1503,20 @@ function SessionRow({
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
   const windowTotalMinutes = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / windowTotalMinutes) * 100, 0, 100);
-  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 10, 100 - leftPercent);
+  const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / windowTotalMinutes) * 100, 1, 100 - leftPercent);
+
+  console.log('TIMELINE_BAR_GEOMETRY', {
+    groupStart: group.startTime,
+    groupEnd: group.endTime,
+    groupStartMinutes: group.startMinutes,
+    groupEndMinutes: group.endMinutes,
+    timelineWindowStartMinutes,
+    timelineWindowEndMinutes,
+    clampedStartMinutes,
+    clampedEndMinutes,
+    leftPercent,
+    widthPercent,
+  });
 
   const safeGroupSessions = Array.isArray(group.sessions) ? group.sessions : [];
   const sortedVisibleSessions = Array.isArray(group.visibleSessions) ? group.visibleSessions : [];
@@ -1613,7 +1626,14 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           ))}
         </View>
 
-        <View style={{ flex: 1, marginLeft: 10, marginRight: 92, height: 24, minWidth: 200 }}>
+        <View
+          style={{
+            position: 'absolute',
+            left: 252,
+            right: 104,
+            height: 24,
+          }}
+        >
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
@@ -1634,6 +1654,8 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
             }}
           />
         </View>
+
+        <View style={{ width: 92 }} />
 
         {canJoinGroup ? (
           <Pressable
@@ -1899,7 +1921,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 240, right: 100, top: 52, bottom: 14 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 252, right: 104, top: 52, bottom: 14 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -4752,15 +4774,29 @@ setMessagesBySpot((previous) => previous);
     [windowInfo.endMinutes, windowInfo.startMinutes],
   );
   const timelineLabels = useMemo(
-    () => getTimelineLabelsForRange(timelineWindow.startMinutes, timelineWindow.endMinutes),
+    () => getTimelineLabelsForRange(timelineWindow.startMinutes, timelineWindow.endMinutes)
+      .map((label) => {
+        const [hour, minute] = label.split(':').map(Number);
+        return {
+          label,
+          minutes: (Number.isFinite(hour) ? hour : 0) * 60 + (Number.isFinite(minute) ? minute : 0),
+        };
+      }),
     [timelineWindow.endMinutes, timelineWindow.startMinutes],
   );
   useEffect(() => {
     
   }, [timelineWindow.endMinutes, timelineWindow.startMinutes]);
   useEffect(() => {
-    
-  }, [timelineLabels]);
+    console.log('TIMELINE_LABEL_GEOMETRY', {
+      timelineWindow,
+      labels: timelineLabels.map((item) => ({
+        label: item.label,
+        minutes: item.minutes,
+        leftPercent: clamp(((item.minutes - timelineWindow.startMinutes) / Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1)) * 100, 0, 100),
+      })),
+    });
+  }, [timelineLabels, timelineWindow]);
   useEffect(() => {
     
   }, [nowReference]);
@@ -7465,12 +7501,26 @@ return { name, overlapPercent, barColor };
             </View>
           </View>
           <View style={{ marginBottom: 14 }}>
-            <View style={{ marginLeft: 240, marginRight: 100, flexDirection: 'row', justifyContent: 'space-between' }}>
-              {timelineLabels.map((label) => (
-                <Text key={label} style={{ color: theme.textMuted, fontSize: 11 }}>
-                  {label}
-                </Text>
-              ))}
+            <View style={{ marginLeft: 252, marginRight: 104, height: 16, position: 'relative' }}>
+              {timelineLabels.map((item) => {
+                const totalMinutes = Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1);
+                const leftPercent = clamp(((item.minutes - timelineWindow.startMinutes) / totalMinutes) * 100, 0, 100);
+
+                return (
+                  <Text
+                    key={item.label}
+                    style={{
+                      position: 'absolute',
+                      left: `${leftPercent}%`,
+                      transform: [{ translateX: -12 }],
+                      color: theme.textMuted,
+                      fontSize: 11,
+                    }}
+                  >
+                    {item.label}
+                  </Text>
+                );
+              })}
             </View>
           </View>
           <SessionTimeline
