@@ -1039,7 +1039,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
       }}
       style={{
         flex: 1,
-        height: 24,
+        height: 18,
         borderRadius: 999,
         backgroundColor: 'transparent',
         overflow: 'hidden',
@@ -1070,10 +1070,10 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           <Text
             numberOfLines={1}
             style={{
-              color: '#f8fafc',
-              fontSize: 12,
-              fontWeight: '900',
-              letterSpacing: 0.2,
+              color: 'rgba(255,255,255,0.92)',
+              fontSize: 10,
+              fontWeight: '700',
+              letterSpacing: 0.1,
             }}
           >
             {label}
@@ -1597,13 +1597,13 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
         marginBottom: 0,
         borderRadius: 14,
         backgroundColor: 'transparent',
-        paddingVertical: 12,
+        paddingVertical: 6,
         paddingHorizontal: 12,
         opacity: pressed ? 0.7 : 1,
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
-        <View style={{ width: 96, alignItems: 'center' }}>
+        <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
             <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginBottom: 4 }}>
               {`${sortedVisibleSessions.length} riders`}
@@ -1613,7 +1613,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
               <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-                <Avatar uri={item.userAvatarUrl ?? null} size={44} />
+                <Avatar uri={item.userAvatarUrl ?? null} size={40} />
               </View>
             ))}
             {sortedVisibleSessions.length > 3 ? (
@@ -1665,7 +1665,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
         <View
           style={{
             position: 'absolute',
-            left: 120,
+            left: 104,
             right: 104,
             height: 24,
           }}
@@ -1877,7 +1877,7 @@ function SessionTimeline({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 120,
+              left: 104,
               right: 0,
               top: 0,
               bottom: 0,
@@ -1955,7 +1955,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 120, right: 104, top: 52, bottom: 14 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 104, right: 104, top: 52, bottom: 14 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -6365,7 +6365,7 @@ setMessagesBySpot((previous) => previous);
                 {followedUsers.map((userItem) => (
                   <View key={`following-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
                     <Avatar uri={userItem.avatar_url} size={28} />
-                    <Text style={{ color: theme.text, marginLeft: 8, fontSize: 15 }}>{userItem.display_name}</Text>
+                    <Text style={{ color: theme.text, marginLeft: 2, fontSize: 15 }}>{userItem.display_name}</Text>
                   </View>
                 ))}
               </View>
