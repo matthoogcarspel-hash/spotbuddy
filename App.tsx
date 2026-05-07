@@ -4988,9 +4988,7 @@ setMessagesBySpot((previous) => previous);
   }).length;
   const nowSummaryLabel = liveCount > 0
     ? `${liveCount} rider${liveCount === 1 ? '' : 's'} live now.`
-    : mode === 'upcoming'
-      ? 'Later: sessions are planned.'
-      : 'No live riders yet.';
+    : 'No live riders yet.';
   console.log("SPOT_NOW_SUMMARY_RESULT", {
     label: nowSummaryLabel ?? null,
     liveCount
