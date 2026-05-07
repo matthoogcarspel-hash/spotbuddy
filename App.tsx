@@ -6070,7 +6070,7 @@ setMessagesBySpot((previous) => previous);
                 {selectedSpotCards.map(({ spot, distanceMeters }, manualIndex) => {
                   const isCheckedInAtThisSpot = Boolean(
                     activeCheckedInSession
-                    && normalizeSpotName(activeCheckedInSession.spot_name) === normalizeSpotName(spot)
+                    && normalizeSpotName(activeCheckedInSession.spot) === normalizeSpotName(spot)
                   );
                   const isNearestSpotCard = Boolean(
                     nearestSpotResult
