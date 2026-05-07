@@ -1614,7 +1614,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
               style={{ marginTop: 4 }}
             >
               <Text style={{ color: activeGroupChatKey === group.key ? theme.primary : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
-                💬 {activeGroupChatKey === group.key ? 'Open Group Chat' : 'Open Group Chat'}
+                💬 Group chat
               </Text>
             </Pressable>
           ) : null}
