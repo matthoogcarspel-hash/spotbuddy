@@ -1528,9 +1528,6 @@ function SessionRow({
   };
   const representative = group.representative ?? safeGroupSessions[0];
   const session = representative?.item ?? null;
-  const hostSession = safeGroupSessions.find(
-    (entry) => !entry.item?.sourceSessionId
-  )?.item ?? session;
   const joinTargetEntry = safeGroupSessions.find((entry) => entry.item?.userId !== currentProfileId) ?? null;
   const joinTarget = joinTargetEntry?.item ?? null;
   const joinState = joinTarget?.id
@@ -1598,7 +1595,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
             {sortedVisibleSessions.length > 1
-              ? `👥 Host: ${getRiderRowName(hostSession)} +${Math.max(sortedVisibleSessions.length - 1, 0)} joining`
+              ? `👥 ${getRiderRowName(session)} +${Math.max(sortedVisibleSessions.length - 1, 0)} joining`
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
 
@@ -1678,66 +1675,6 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
         </View>
 
         <View style={{ width: 92 }} />
-
-        {sortedVisibleSessions.length > 1 ? (
-          <View style={{
-            marginTop: 10,
-            paddingTop: 8,
-            borderTopWidth: 1,
-            borderTopColor: 'rgba(255,255,255,0.06)',
-            gap: 6,
-          }}>
-            {sortedVisibleSessions.map(({ item }) => {
-              const isHost = !item.sourceSessionId;
-
-              return (
-                <View
-                  key={`group-member-${group.key}-${item.id}`}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <Avatar uri={item.userAvatarUrl ?? null} size={24} />
-
-                  <Text
-                    style={{
-                      color: isHost ? theme.text : theme.textMuted,
-                      fontSize: 11,
-                      fontWeight: isHost ? '800' : '700',
-                    }}
-                  >
-                    {isHost ? 'HOST · ' : ''}
-                    {getRiderRowName(item)}
-                  </Text>
-
-                  <View
-                    style={{
-                      marginLeft: 'auto',
-                      paddingHorizontal: 8,
-                      paddingVertical: 2,
-                      borderRadius: 999,
-                      backgroundColor: isHost
-                        ? 'rgba(34,197,94,0.16)'
-                        : 'rgba(255,255,255,0.06)',
-                    }}
-                  >
-                    <Text
-                      style={{
-                        color: isHost ? '#22c55e' : theme.textMuted,
-                        fontSize: 10,
-                        fontWeight: '800',
-                      }}
-                    >
-                      {isHost ? 'LIVE SESSION' : 'JOINED'}
-                    </Text>
-                  </View>
-                </View>
-              );
-            })}
-          </View>
-        ) : null}
 
         {canJoinGroup ? (
           <Pressable
