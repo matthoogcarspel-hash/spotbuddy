@@ -408,6 +408,28 @@ export async function joinSession(input: {
 
   const inheritedIntent: SessionIntent = sourceSessionForJoin?.intent === 'maybe' ? 'maybe' : 'definitely';
 
+  const { data: existingJoinedSession, error: existingJoinedSessionError } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('user_id', sessionIdentity.user_id)
+    .eq('source_session_id', input.sessionId)
+    .maybeSingle();
+
+  if (existingJoinedSessionError) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', {
+      ok: false,
+      reason: 'EXISTING_JOIN_QUERY_FAILED',
+      error: existingJoinedSessionError,
+    });
+  }
+
+  if (existingJoinedSession?.id) {
+    return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', {
+      ok: true,
+      sessionId: existingJoinedSession.id,
+    });
+  }
+
   const joinPayload = {
     spot_name: sessionIdentity.spot_name,
     user_id: sessionIdentity.user_id,
