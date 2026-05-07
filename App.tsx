@@ -7229,7 +7229,7 @@ const handleSave = async () => {
                 Manage sessions open
               </Text>
               <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                Count: {(spotState.ownSessionsForSpotDay?.ownSessions ?? []).length}
+                Count: {(spotState.ownSessionForSpotDay?.ownSessions ?? []).length}
               </Text>
               {ownActiveSessions.map((sessionItem) => (
                 <View key={sessionItem.id} style={{  borderColor: theme.border, borderRadius: 14, padding: 10, gap: 8 }}>
