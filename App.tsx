@@ -1595,7 +1595,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           </Text>
           <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
             {sortedVisibleSessions.length > 1
-              ? `👥 ${getRiderRowName(session)} +${Math.max(sortedVisibleSessions.length - 1, 0)} joining`
+              ? `👥 ${sortedVisibleSessions.length} riders`
               : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
           </Text>
 
