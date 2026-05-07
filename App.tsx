@@ -7664,10 +7664,16 @@ return { name, overlapPercent, barColor };
         ) : null}
 
         {activeGroupChatKey ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14, borderColor: theme.border }}>
-            <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>
-              {`Group Chat: ${activeGroupChatKey} 💬`}
-            </Text>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                <Text style={{ fontSize: 16 }}>💬</Text>
+              </View>
+              <View>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Group Chat</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Messages for this session</Text>
+              </View>
+            </View>
             <TextInput
               value={groupMessageInput}
               onChangeText={setGroupMessageInput}
