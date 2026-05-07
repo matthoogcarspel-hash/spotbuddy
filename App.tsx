@@ -8191,6 +8191,8 @@ return { name, overlapPercent, barColor };
           const maybeCount = maybeSessions.length;
           const isLiveSpot = activeCount > 0;
           const liveRiders = liveSessions.slice(0, 4);
+          const activeRiderSessions = [...liveSessions, ...goingSessions, ...maybeSessions].slice(0, 5);
+          const totalActiveRiders = activeCount + goingCount + maybeCount;
 
           return (
             <Pressable
@@ -8233,7 +8235,22 @@ return { name, overlapPercent, barColor };
                 ) : null}
               </View>
 
-              <View style={{ marginTop: 16, gap: 10 }}>
+              {totalActiveRiders > 0 ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
+                    {activeRiderSessions.map((sessionItem, index) => (
+                      <View key={`home-active-avatar-${spot.name}-${sessionItem.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={28} />
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>
+                    {`${totalActiveRiders} rider${totalActiveRiders === 1 ? '' : 's'} active today`}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={{ marginTop: 14, gap: 10 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>
                     Activity today
