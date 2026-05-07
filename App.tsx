@@ -7258,7 +7258,7 @@ const handleSave = async () => {
                         if (overlapMinutes <= 0) return null;
 
                         const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
-                        const name = otherSession.userName ?? otherSession.name ?? 'Someone';
+                        const name = otherSession.userName || 'Someone';
 if (overlapPercent < 25) return null;
 const barColor = overlapPercent >= 75 ? '#22c55e' : overlapPercent >= 50 ? '#eab308' : '#f97316';
 return { name, overlapPercent, barColor };
