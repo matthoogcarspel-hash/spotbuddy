@@ -7085,7 +7085,7 @@ const handleSave = async () => {
       setSessionActionError('');
     };
     const primaryButtonStyle = {
-      backgroundColor: '#1d4ed8',
+      backgroundColor: 'rgba(255,255,255,0.055)',
       borderRadius: 8,
       paddingVertical: 8,
       paddingHorizontal: 12,
@@ -8196,11 +8196,19 @@ return { name, overlapPercent, barColor };
             <Pressable
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
-              style={({ pressed }) => ({ backgroundColor: '#061421', borderRadius: 20, padding: 16, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', opacity: pressed ? 0.85 : 1 })}
+              style={({ pressed }) => ({
+                backgroundColor: '#061421',
+                borderRadius: 22,
+                padding: 16,
+                marginBottom: 14,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.07)',
+                opacity: pressed ? 0.85 : 1,
+              })}
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{spot.name}</Text>
+                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>{spot.name}</Text>
                   {statusLabel ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
@@ -8209,8 +8217,8 @@ return { name, overlapPercent, barColor };
                       </Text>
                     </View>
                   ) : null}
-                  <Text style={{ color: theme.textSoft, marginTop: 6, fontSize: 13 }}>
-                    {spot.distanceMeters === null ? 'Distance unknown' : formatDistance(spot.distanceMeters)}
+                  <Text style={{ color: theme.textSoft, marginTop: 6, fontSize: 12, fontWeight: '600' }}>
+                    {spot.distanceMeters === null ? 'Distance unknown' : `${formatDistance(spot.distanceMeters)} away`}
                   </Text>
                 </View>
 
@@ -8225,29 +8233,36 @@ return { name, overlapPercent, barColor };
                 ) : null}
               </View>
 
-              <View style={{ flexDirection: 'row', marginTop: 16 }}>
-                {[
-                  { label: 'LIVE', value: activeCount, color: activeCount > 0 ? theme.live : theme.textMuted },
-                  { label: 'GOING', value: goingCount, color: theme.textMuted },
-                  { label: 'MAYBE', value: maybeCount, color: theme.textMuted },
-                ].map((metric, index) => (
-                  <View
-                    key={`${spot.name}-${metric.label}`}
-                    style={{
-                      flex: 1,
-                      paddingLeft: index === 0 ? 0 : 14,
-                      borderLeftWidth: 0,
-                      borderLeftColor: theme.border,
-                    }}
-                  >
-                    <Text style={{ color: metric.color, fontSize: 10, fontWeight: '800', marginBottom: 4 }}>
-                      {metric.label}
-                    </Text>
-                    <Text style={{ color: theme.text, fontSize: 22, fontWeight: '800' }}>
-                      {metric.value}
-                    </Text>
-                  </View>
-                ))}
+              <View style={{ marginTop: 16, gap: 10 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                    Activity today
+                  </Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>
+                    {activeCount + goingCount + maybeCount} riders
+                  </Text>
+                </View>
+
+                <View style={{ height: 8, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.055)' }}>
+                  <View style={{ flex: Math.max(activeCount, 0), backgroundColor: activeCount > 0 ? theme.live : 'transparent' }} />
+                  <View style={{ flex: Math.max(goingCount, 0), backgroundColor: goingCount > 0 ? 'rgba(59,130,246,0.75)' : 'transparent' }} />
+                  <View style={{ flex: Math.max(maybeCount, 0), backgroundColor: maybeCount > 0 ? 'rgba(168,85,247,0.75)' : 'transparent' }} />
+                  {activeCount + goingCount + maybeCount === 0 ? (
+                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.055)' }} />
+                  ) : null}
+                </View>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={{ color: activeCount > 0 ? theme.live : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                    ● {activeCount} live
+                  </Text>
+                  <Text style={{ color: goingCount > 0 ? '#60a5fa' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                    ● {goingCount} going
+                  </Text>
+                  <Text style={{ color: maybeCount > 0 ? '#c084fc' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                    ● {maybeCount} maybe
+                  </Text>
+                </View>
               </View>
             </Pressable>
           );
