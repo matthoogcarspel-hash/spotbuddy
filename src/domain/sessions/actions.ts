@@ -212,6 +212,7 @@ export async function planSession(input: {
     intent: input.intent,
     checked_in_at: null,
     checked_out_at: null,
+    source_session_id: null,
   };
 
   let result;
@@ -418,6 +419,7 @@ export async function joinSession(input: {
     intent: inheritedIntent,
     checked_in_at: null,
     checked_out_at: null,
+    source_session_id: input.sessionId,
   };
 
 const writeResult = await supabase
