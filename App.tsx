@@ -6932,18 +6932,11 @@ setMessagesBySpot((previous) => previous);
   const start = now;
   const end = new Date(now.getTime() + (2 * 60 * 60 * 1000));
 
-  try {
-    await handleJoinSession({
-      sessionId: null,
-      sessionDay: selectedPlanningDateKey,
-      sessionStatus: 'live',
-      normalizedStart: `${start.getHours()}:${String(start.getMinutes()).padStart(2,'0')}`,
-      normalizedEnd: `${end.getHours()}:${String(end.getMinutes()).padStart(2,'0')}`,
-      forceCreate: true
-    });
-  } catch (e) {
-    console.log("QUICK_LIVE_FAILED", e);
-  }
+  console.log("QUICK_LIVE_DISABLED_PENDING_JOIN_HANDLER_REWIRE", {
+    selectedPlanningDateKey,
+    start: `${start.getHours()}:${String(start.getMinutes()).padStart(2,'0')}`,
+    end: `${end.getHours()}:${String(end.getMinutes()).padStart(2,'0')}`,
+  });
 };
 
 const handleSave = async () => {
