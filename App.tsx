@@ -1026,8 +1026,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   };
   const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
-  const plannedBarColor = intent === 'maybe' ? '#7c3aed' : '#3b82f6';
-  const plannedBorderColor = intent === 'maybe' ? '#a855f7' : '#3b82f6';
+  const plannedBarColor = intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(148,163,184,0.58)';
+  const plannedBorderColor = intent === 'maybe' ? 'rgba(168,85,247,0.82)' : 'rgba(148,163,184,0.72)';
   const plannedTextColor = intent === 'maybe' ? '#f3e8ff' : '#dbeafe';
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
@@ -1052,7 +1052,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           width: `${widthPercent}%`,
           height: '100%',
           borderRadius: 999,
-          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? '#8b5cf6' : '#3b82f6',
+          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(148,163,184,0.58)',
           borderWidth: 0,
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
@@ -7166,7 +7166,7 @@ const handleSave = async () => {
 <TargetSpotSummaryCards
           metrics={[
             { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e', sessions: liveSessions },
-            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#3b82f6', sessions: goingSessions },
+            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: 'rgba(203,213,225,0.86)', sessions: goingSessions },
             { icon: '❔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7', sessions: maybeSessions },
           ]}
         />
@@ -8003,9 +8003,9 @@ return { name, overlapPercent, barColor };
         {plannedSession ? (
           <Pressable
             onPress={() => setSelectedSpot(plannedSession.spot)}
-            style={{ backgroundColor: theme.cardStrong, borderRadius: 16, padding: 14, marginBottom: 14 }}
+            style={{ backgroundColor: 'rgba(255,255,255,0.035)', borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
           >
-            <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' }}>
+            <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
               Planned session
             </Text>
             <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 4 }}>
