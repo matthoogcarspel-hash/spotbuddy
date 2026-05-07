@@ -48,3 +48,13 @@
 - Reduce duplicate fetchSharedData calls
 - Audit DB constraints and RLS
 - Clean migrations later
+
+## 7. Auth / Branding
+- Improve login screen design
+- Improve forgot password flow
+- Verify password reset deep linking
+- Improve auth error states
+- Improve onboarding feeling
+- Rework logo
+- Rework header text
+- Improve visual identity consistency
