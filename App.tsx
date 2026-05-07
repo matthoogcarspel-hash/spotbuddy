@@ -2283,12 +2283,13 @@ export default function App() {
     return notificationRow.type || 'Notification';
   };
   const visibleProfiles = switchableAccounts;
-  const availableProfiles = useMemo<Array<Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>>(() => {
-    const profileMap = new Map<string, Pick<Profile, 'id' | 'display_name' | 'owner_uid'>>();
+  const availableProfiles = useMemo<Profile[]>(() => {
+    const profileMap = new Map<string, Profile>();
     if (profile?.id) {
       profileMap.set(profile.id, {
         id: profile.id,
         display_name: profile.display_name,
+        avatar_url: profile.avatar_url ?? null,
         owner_uid: (profile as Profile & { owner_uid?: string | null }).owner_uid ?? null,
       });
     }
@@ -2296,6 +2297,7 @@ export default function App() {
       profileMap.set(account.id, {
         id: account.id,
         display_name: account.display_name,
+        avatar_url: account.avatar_url ?? null,
         owner_uid: account.owner_uid ?? null,
       });
     }
@@ -6901,13 +6903,14 @@ setMessagesBySpot((previous) => previous);
       });
       const result = await joinSessionAction(input);
       console.log("JOIN_SERVICE_CALL_RESULT", result);
+      const joinResultReason = 'reason' in result ? result.reason : null;
       console.log("JOIN_HANDLER_RESULT_AFTER_CLICK", {
         ok: result?.ok ?? false,
-        reason: result?.reason ?? null
+        reason: joinResultReason
       });
       logSessionUiActionResult('joinSession', result);
       if (!result.ok) {
-        const joinReason = 'reason' in result ? result.reason : null;
+        const joinReason = joinResultReason;
         setSessionActionError(getJoinErrorMessageByReason(joinReason));
         return;
       }
