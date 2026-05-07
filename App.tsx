@@ -4942,7 +4942,7 @@ setMessagesBySpot((previous) => previous);
     
   }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const topCta = spotState.topCtaState;
-  const hasOwnSessionOnSelectedSpotDay = spotState.hasBlockingOwnSession;
+  const hasOwnSessionOnSelectedSpotDay = spotState.ownSessionForSpotDay?.hasBlockingOwnSession ?? false;
   const ownActiveSessions = (spotState.sessionsForSpot ?? [])
     .filter((s) =>
       s.userId === activeAppUserId &&
