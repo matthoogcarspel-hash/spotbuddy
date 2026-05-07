@@ -422,7 +422,10 @@ export async function joinSession(input: {
 
 const writeResult = await supabase
   .from('sessions')
-  .insert(joinPayload)
+  .upsert(joinPayload, {
+    onConflict: 'user_id,spot_name,start_time,end_time',
+    ignoreDuplicates: false,
+  })
   .select('id')
   .single();
 
@@ -552,7 +555,7 @@ const writeResult = await supabase
       const { data: pushTokenRows, error: pushTokenFetchError } = await supabase
         .from('push_tokens')
         .select('expo_push_token')
-        .eq('user_id', sessionOwnerId);
+        .or(`user_id.eq.${sessionOwnerId},user_id.eq.${ownerProfileById?.owner_uid ?? sessionOwnerId}`);
 
       if (pushTokenFetchError) {
         console.error('PUSH_TOKEN_FETCH_ERROR', pushTokenFetchError);
