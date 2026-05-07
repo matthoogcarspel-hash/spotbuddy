@@ -1621,11 +1621,28 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
         </View>
 
         <View style={{ width: 92, flexDirection: 'row', alignItems: 'center' }}>
-          {sortedVisibleSessions.slice(0, 4).map(({ item }, index) => (
+          {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
             <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
               <Avatar uri={item.userAvatarUrl ?? null} size={38} />
             </View>
           ))}
+          {sortedVisibleSessions.length > 3 ? (
+            <View style={{
+              marginLeft: -8,
+              width: 38,
+              height: 38,
+              borderRadius: 999,
+              backgroundColor: 'rgba(255,255,255,0.16)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.22)',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}>
+              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+                +{sortedVisibleSessions.length - 3}
+              </Text>
+            </View>
+          ) : null}
         </View>
 
         <View
