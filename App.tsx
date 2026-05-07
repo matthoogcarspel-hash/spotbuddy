@@ -3936,14 +3936,17 @@ setMessagesBySpot((previous) => previous);
         'postgres_changes',
         { event: '*', schema: 'public', table: 'sessions' },
         (payload) => {
+          const newRecord = payload?.new as { id?: string; spot_name?: string } | null;
+          const oldRecord = payload?.old as { id?: string; spot_name?: string } | null;
+
           console.log('SESSIONS_REALTIME_EVENT', {
             eventType: payload?.eventType ?? null,
             table: payload?.table ?? null,
-            recordId: payload?.new?.id ?? payload?.old?.id ?? null,
+            recordId: newRecord?.id ?? oldRecord?.id ?? null,
           });
 
-          const payloadSpot = (payload?.new as { spot_name?: string } | null)?.spot_name
-            ?? (payload?.old as { spot_name?: string } | null)?.spot_name
+          const payloadSpot = newRecord?.spot_name
+            ?? oldRecord?.spot_name
             ?? null;
           if (selectedSpot && payloadSpot && normalizeSpotName(payloadSpot) !== normalizeSpotName(selectedSpot)) {
             return;
