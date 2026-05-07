@@ -7674,13 +7674,14 @@ return { name, overlapPercent, barColor };
                 <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Messages for this session</Text>
               </View>
             </View>
-            <TextInput
-              value={groupMessageInput}
-              onChangeText={setGroupMessageInput}
-              placeholder="Type a group message"
-              placeholderTextColor={theme.textMuted}
-              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 14, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 }}
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5, marginBottom: 10 }}>
+              <TextInput
+                value={groupMessageInput}
+                onChangeText={setGroupMessageInput}
+                placeholder="Type a group message"
+                placeholderTextColor={theme.textMuted}
+                style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15 }}
+              />
             <Pressable
               onPress={() => {
                 const messageText = groupMessageInput.trim();
@@ -7756,10 +7757,11 @@ return { name, overlapPercent, barColor };
                   await fetchSharedData();
                 })();
               }}
-              style={{ backgroundColor: theme.primaryPressed, borderRadius: 14, paddingVertical: 11, paddingHorizontal: 12, alignItems: 'center' }}
+              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}
             >
-              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>Send to group</Text>
+              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
             </Pressable>
+            </View>
             {groupMessages.length > 0 ? (
               <ScrollView style={{ maxHeight: 250, marginTop: 12 }}>
                 {groupMessages.slice(-10).reverse().map((message) => {
