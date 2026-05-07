@@ -1026,8 +1026,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   };
   const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
-  const plannedBarColor = intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(148,163,184,0.58)';
-  const plannedBorderColor = intent === 'maybe' ? 'rgba(168,85,247,0.82)' : 'rgba(148,163,184,0.72)';
+  const plannedBarColor = intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(96,165,250,0.46)';
+  const plannedBorderColor = intent === 'maybe' ? 'rgba(168,85,247,0.82)' : 'rgba(147,197,253,0.62)';
   const plannedTextColor = intent === 'maybe' ? '#f3e8ff' : '#dbeafe';
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
@@ -1052,7 +1052,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           width: `${widthPercent}%`,
           height: '100%',
           borderRadius: 999,
-          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(148,163,184,0.58)',
+          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(96,165,250,0.46)',
           borderWidth: 0,
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
@@ -1932,8 +1932,8 @@ function SessionTimeline({
 
               return (
                 <View key={section.key} style={{
-                  marginBottom: 14,
-                  padding: 12,
+                  marginBottom: 10,
+                  padding: 10,
                   borderRadius: 18,
                   position: 'relative',
                   overflow: 'hidden',
@@ -1943,7 +1943,7 @@ function SessionTimeline({
                   borderLeftColor: 'rgba(255,255,255,0.05)',
                   borderColor: 'rgba(255,255,255,0.045)'
                 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View style={{ width: 5, height: 5, borderRadius: 999, backgroundColor: section.color, marginRight: 8, opacity: 0.85 }} />
                       <Text style={{ color: section.color, fontSize: 11, fontWeight: '700', letterSpacing: 0.2 }}>
@@ -1955,7 +1955,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 104, right: 104, top: 52, bottom: 14 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 104, right: 104, top: 42, bottom: 10 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -1971,7 +1971,7 @@ function SessionTimeline({
                   {section.groups.map((group, index) => (
                     <View key={`timeline-row-wrap-${section.key}-${group.key}`}>
                       {index > 0 ? (
-                        <View pointerEvents="none" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.055)', marginBottom: 8 }} />
+                        <View pointerEvents="none" style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.055)', marginBottom: 5 }} />
                       ) : null}
                       <SessionRow
                       key={group.key}
