@@ -36,6 +36,7 @@ type SpotSession = {
   id: string;
   spot: SpotName;
   sessionDay: string | null;
+  sourceSessionId?: string | null;
   start: string;
   end: string;
   status: SessionStatus;
@@ -57,6 +58,8 @@ type SessionAdapterRow = {
   profile_id?: string | null;
   created_by?: string | null;
   spot_name?: string | null;
+  session_day?: string | null;
+  source_session_id?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   created_at?: string | null;
@@ -3264,6 +3267,7 @@ export default function App() {
       id: row.id,
       spot: canonicalSpotName,
       sessionDay: row.session_day ?? getSessionDayKey(row),
+      sourceSessionId: row.source_session_id ?? null,
       start: (row.start_time ?? '').slice(0, 5),
       end: (row.end_time ?? '').slice(0, 5),
       status: normalizedSession.status,
