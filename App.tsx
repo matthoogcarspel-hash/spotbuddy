@@ -1012,11 +1012,12 @@ type SessionBarProps = {
   intent: SessionIntent;
   isSelected: boolean;
   showJoinButton: boolean;
+  label?: string;
   onPress: () => void;
   onJoin: () => void;
 };
 
-function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, showJoinButton, onPress, onJoin }: SessionBarProps) {
+function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, showJoinButton, label, onPress, onJoin }: SessionBarProps) {
   const stateStyle: Record<TimelineState, { bar: string; text: string; border: string; borderStyle?: 'solid' | 'dashed'; opacity?: number }> = {
     planned: { bar: '#1b3f68', text: '#cae2ff', border: '#5f91c2', borderStyle: 'dashed', opacity: 0.9 },
     planned_no_check_in: { bar: '#5c471e', text: '#f5e3c6', border: '#bc9153', borderStyle: 'dashed', opacity: 0.88 },
@@ -1061,10 +1062,23 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           shadowRadius: state === 'live' ? 7 : 5,
           shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
+          alignItems: 'center',
           paddingHorizontal: 8,
         }}
       >
-
+        {label ? (
+          <Text
+            numberOfLines={1}
+            style={{
+              color: '#f8fafc',
+              fontSize: 12,
+              fontWeight: '900',
+              letterSpacing: 0.2,
+            }}
+          >
+            {label}
+          </Text>
+        ) : null}
       </View>
 
       {showJoinButton ? (
@@ -1589,19 +1603,47 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
       })}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
-        <View style={{ width: 138 }}>
-          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900' }}>
-            {group.startTime} – {group.endTime}
-          </Text>
-          <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginTop: 5 }}>
-            {sortedVisibleSessions.length > 1
-              ? `👥 ${sortedVisibleSessions.length} riders`
-              : `👤 ${getRiderRowName(sortedVisibleSessions[0]?.item)}`}
-          </Text>
+        <View style={{ width: 96, alignItems: 'center' }}>
+          {sortedVisibleSessions.length > 1 ? (
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginBottom: 4 }}>
+              {`${sortedVisibleSessions.length} riders`}
+            </Text>
+          ) : null}
+
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
+              <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+                <Avatar uri={item.userAvatarUrl ?? null} size={44} />
+              </View>
+            ))}
+            {sortedVisibleSessions.length > 3 ? (
+              <View style={{
+                marginLeft: -8,
+                width: 44,
+                height: 44,
+                borderRadius: 999,
+                backgroundColor: 'rgba(255,255,255,0.16)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.22)',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+                  +{sortedVisibleSessions.length - 3}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {sortedVisibleSessions.length === 1 ? (
+            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 4, textAlign: 'center', width: 64 }} numberOfLines={1}>
+              {getRiderRowName(sortedVisibleSessions[0]?.item)}
+            </Text>
+          ) : null}
 
           {isLiveRow && session?.checkedInAt ? (
-            <Text style={{ color: '#22c55e', fontSize: 11, fontWeight: '800', marginTop: 4 }}>
-              ⚡ checked in at: {formatToHourMinute(session.checkedInAt)}
+            <Text style={{ color: '#22c55e', fontSize: 10, fontWeight: '700', marginTop: 4 }}>
+              checked in at: {formatToHourMinute(session.checkedInAt)}
             </Text>
           ) : null}
 
@@ -1613,42 +1655,17 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
               }}
               style={{ marginTop: 4 }}
             >
-              <Text style={{ color: activeGroupChatKey === group.key ? theme.primary : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+              <Text style={{ color: activeGroupChatKey === group.key ? theme.primary : theme.textMuted, fontSize: 10, fontWeight: '700' }}>
                 💬 Group chat
               </Text>
             </Pressable>
           ) : null}
         </View>
 
-        <View style={{ width: 92, flexDirection: 'row', alignItems: 'center' }}>
-          {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
-            <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-              <Avatar uri={item.userAvatarUrl ?? null} size={38} />
-            </View>
-          ))}
-          {sortedVisibleSessions.length > 3 ? (
-            <View style={{
-              marginLeft: -8,
-              width: 38,
-              height: 38,
-              borderRadius: 999,
-              backgroundColor: 'rgba(255,255,255,0.16)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.22)',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}>
-              <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
-                +{sortedVisibleSessions.length - 3}
-              </Text>
-            </View>
-          ) : null}
-        </View>
-
         <View
           style={{
             position: 'absolute',
-            left: 252,
+            left: 120,
             right: 104,
             height: 24,
           }}
@@ -1661,6 +1678,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
             isSelected={isSelected}
             showJoinButton={false}
             onPress={() => onSelect(group.key)}
+            label={`${group.startTime} – ${group.endTime}`}
             onJoin={() => {
               if (!joinTarget) return;
               onJoin({
@@ -1859,7 +1877,7 @@ function SessionTimeline({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 240,
+              left: 120,
               right: 0,
               top: 0,
               bottom: 0,
@@ -1937,7 +1955,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 252, right: 104, top: 52, bottom: 14 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 120, right: 104, top: 52, bottom: 14 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
