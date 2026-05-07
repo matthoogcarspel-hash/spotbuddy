@@ -7765,13 +7765,20 @@ return { name, overlapPercent, barColor };
                 {groupMessages.slice(-10).reverse().map((message) => {
                   const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
                   return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 }}>
+                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
                       <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 8 }}>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 2 }}>
-                          {message.display_name}{renderedTime ? ` · ${renderedTime}` : ''}
-                        </Text>
-                        <Text style={{ color: theme.text, fontSize: 15 }}>{message.text}</Text>
+                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
+                            {message.display_name}
+                          </Text>
+                          {renderedTime ? (
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
+                              {renderedTime}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
                       </View>
                     </View>
                   );
