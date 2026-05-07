@@ -5365,6 +5365,7 @@ setMessagesBySpot((previous) => previous);
   
   
   
+  const duplicatePlannedSessionMessage = 'You already have a session at this spot and time.';
   const liveKiterCountLabel = `${checkedInUsers.length} ${checkedInUsers.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
   const shouldShowNowAtSpotPanel = activeDay === 'today' && checkedInUsers.length > 0;
   useEffect(() => {
