@@ -424,10 +424,7 @@ export async function joinSession(input: {
 
 const writeResult = await supabase
   .from('sessions')
-  .upsert(joinPayload, {
-    onConflict: 'user_id,spot_name,start_time,end_time',
-    ignoreDuplicates: false,
-  })
+  .insert(joinPayload)
   .select('id')
   .single();
 
