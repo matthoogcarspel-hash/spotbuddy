@@ -1313,7 +1313,10 @@ const groupTimelineSessions = ({
       startTime,
       endTime,
     } = getRoundedSessionWindow(timelineSession.item);
-    const groupKey = `${startTime}-${endTime}`;
+    const groupRootId = timelineSession.item.sourceSessionId ?? timelineSession.item.id ?? null;
+    const groupKey = groupRootId
+      ? `source:${groupRootId}`
+      : `${startTime}-${endTime}`;
     const entry: SessionGroupEntry = {
       item: timelineSession.item,
       state: timelineSession.state,
