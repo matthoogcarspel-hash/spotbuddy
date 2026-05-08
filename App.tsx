@@ -2052,6 +2052,9 @@ export default function App() {
   const [orderMode, setOrderMode] = useState<SpotOrderMode>('distance');
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
+  const [showDiscoverSpotsPage, setShowDiscoverSpotsPage] = useState(false);
+  const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
+  const [yourSpotsMode, setYourSpotsMode] = useState<'search' | 'discover'>('search');
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
   const [spots, setSpots] = useState<SpotSearchResult[]>([]);
@@ -2802,11 +2805,11 @@ export default function App() {
     setSearchResults([]);
   };
   const handleSearchResultPress = (selectedSpot: SpotSearchResult) => {
-    
     if (searchBlurTimeoutRef.current) {
       clearTimeout(searchBlurTimeoutRef.current);
       searchBlurTimeoutRef.current = null;
     }
+
     openSpotLookup(selectedSpot.name);
   };
   const removeSelectedSpot = (spotName: SpotName) => {
@@ -5825,6 +5828,19 @@ setMessagesBySpot((previous) => previous);
     await fetchSharedData();
   };
 
+  useEffect(() => {
+    if (!showDiscoverSpotsPage) {
+      return;
+    }
+
+    if (currentCoordinates) {
+      setDiscoverMapCenter(currentCoordinates);
+      return;
+    }
+
+    setDiscoverMapCenter({ latitude: 52.1326, longitude: 5.2913 });
+  }, [showDiscoverSpotsPage, currentCoordinates]);
+
   if (loadingSession || loadingProfile || loadingData) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
@@ -5870,6 +5886,67 @@ setMessagesBySpot((previous) => previous);
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
+  if (showDiscoverSpotsPage) {
+
+    const discoverCenterLabel = discoverMapCenter
+      ? `${discoverMapCenter.latitude.toFixed(3)}, ${discoverMapCenter.longitude.toFixed(3)}`
+      : 'Locating…';
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+          <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>
+            Discover
+          </Text>
+
+          <Pressable
+            onPress={() => setShowDiscoverSpotsPage(false)}
+            style={{
+              backgroundColor: theme.cardStrong,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: theme.border,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>
+              Back
+            </Text>
+          </Pressable>
+        </View>
+
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: theme.card,
+            borderRadius: 18,
+            borderWidth: 1,
+            borderColor: theme.border,
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 20,
+          }}
+        >
+          <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900' }}>
+            Europe map coming here
+          </Text>
+
+          <Text
+            style={{
+              color: theme.textMuted,
+              fontSize: 14,
+              textAlign: 'center',
+              marginTop: 10,
+              lineHeight: 20,
+            }}
+          >
+            Starting center: {discoverCenterLabel}. Next step: interactive map with nearby spots, live activity and tomorrow sessions.
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (showYourSpotsPage) {
     const manualOrderToRender = orderMode === 'manual' && dragManualOrder ? dragManualOrder : manualOrder;
@@ -5890,48 +5967,140 @@ setMessagesBySpot((previous) => previous);
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
-                style={{ backgroundColor: theme.bgElevated, borderRadius: 8,  borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
             </View>
-            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 12, marginBottom: 6 }}>Spot lookup</Text>
-            <TextInput
-              value={homeSpotSearchQuery}
-              onChangeText={(value) => {
-                setHomeSpotSearchQuery(value);
-              }}
-              onFocus={() => {
-                if (searchBlurTimeoutRef.current) {
-                  clearTimeout(searchBlurTimeoutRef.current);
-                  searchBlurTimeoutRef.current = null;
-                }
-              }}
-              onBlur={() => {
-                if (searchBlurTimeoutRef.current) {
-                  clearTimeout(searchBlurTimeoutRef.current);
-                }
-                searchBlurTimeoutRef.current = setTimeout(() => {
-                  searchBlurTimeoutRef.current = null;
-                }, 120);
-              }}
-              placeholder="Search spots"
-              placeholderTextColor={theme.textMuted}
-              style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 10,  borderColor: theme.border, paddingHorizontal: 11, paddingVertical: 9, fontSize: 14 }}
-            />
-            <View style={{ marginTop: 8 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 6 }}>Results: {searchResults.length}</Text>
-              {searchResults.map((spotItem) => (
-                <Pressable
-                  key={`your-spots-page-search-${spotItem.country}-${spotItem.name}-${spotItem.longitude}-${spotItem.latitude}`}
-                  onPressIn={() => handleSearchResultPress(spotItem)}
-                  style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-                >
-                  <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, flex: 1, marginRight: 8 }}>{`${spotItem.country} - ${spotItem.name}`}</Text>
-                  <Text style={{ color: theme.primary, fontSize: 13, fontWeight: '700' }}>Open</Text>
-                </Pressable>
-              ))}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 10 }}>
+              <TextInput
+                value={homeSpotSearchQuery}
+                onChangeText={(value) => {
+                  setHomeSpotSearchQuery(value);
+                  setYourSpotsMode('search');
+                }}
+                onFocus={() => {
+                  setYourSpotsMode('search');
+
+                  if (searchBlurTimeoutRef.current) {
+                    clearTimeout(searchBlurTimeoutRef.current);
+                    searchBlurTimeoutRef.current = null;
+                  }
+                }}
+                onBlur={() => {
+                  if (searchBlurTimeoutRef.current) {
+                    clearTimeout(searchBlurTimeoutRef.current);
+                  }
+                  searchBlurTimeoutRef.current = setTimeout(() => {
+                    searchBlurTimeoutRef.current = null;
+                  }, 120);
+                }}
+                placeholder="Search spots"
+                placeholderTextColor={theme.textMuted}
+                style={{
+                  flex: 1,
+                  backgroundColor: theme.card,
+                  color: theme.text,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  fontSize: 14,
+                }}
+              />
+
+              <Pressable
+                onPress={() => {
+                  setShowDiscoverSpotsPage(true);
+                }}
+                style={{
+                  backgroundColor: theme.cardStrong,
+                  borderRadius: 999,
+                  borderWidth: 1,
+                  borderColor: theme.border,
+                  paddingHorizontal: 12,
+                  paddingVertical: 10,
+                }}
+              >
+                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '800' }}>
+                  Discover
+                </Text>
+              </Pressable>
             </View>
+
+            <View style={{ marginTop: 8 }}>
+              {searchResults.map((spotItem) => {
+                const isAdded = favoriteSpots.includes(spotItem.name);
+
+                return (
+                  <View
+                    key={`your-spots-page-search-${spotItem.country}-${spotItem.name}-${spotItem.longitude}-${spotItem.latitude}`}
+                    style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                  >
+                    <Pressable
+                      onPressIn={() => handleSearchResultPress(spotItem)}
+                      style={{ flex: 1, marginRight: 8 }}
+                    >
+                      <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14 }}>{`${spotItem.country} - ${spotItem.name}`}</Text>
+                    </Pressable>
+
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Pressable
+                        disabled={isAdded}
+                        onPress={() => {
+                          if (!isAdded) {
+                            addSelectedSpot(spotItem.name);
+                          }
+                        }}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 999,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          backgroundColor: theme.cardStrong,
+                          opacity: isAdded ? 0.6 : 1,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: isAdded ? theme.textMuted : theme.textSoft,
+                            fontSize: 11,
+                            fontWeight: '800',
+                          }}
+                        >
+                          {isAdded ? 'Added' : 'Add'}
+                        </Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPressIn={() => handleSearchResultPress(spotItem)}
+                        style={{
+                          paddingHorizontal: 10,
+                          paddingVertical: 6,
+                          borderRadius: 999,
+                          borderWidth: 1,
+                          borderColor: theme.border,
+                          backgroundColor: theme.cardStrong,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: theme.textSoft,
+                            fontSize: 11,
+                            fontWeight: '800',
+                          }}
+                        >
+                          Open
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
             {homeSpotsLimitMessage ? (
               <Text style={{ color: '#ffb6b6', fontSize: 12, marginTop: 8 }}>{homeSpotsLimitMessage}</Text>
             ) : null}
@@ -7124,6 +7293,47 @@ const handleSave = async () => {
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 14 }}>
+          {!isSelectedSpotSaved && canAddSelectedSpotToMySpots ? (
+            <Pressable
+              onPress={() => {
+                if (selectedSpot) {
+                  addSelectedSpot(selectedSpot);
+                }
+              }}
+              style={{
+                backgroundColor: theme.card,
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '900' }}>
+                Add to my spots
+              </Text>
+            </Pressable>
+          ) : null}
+
+          {isSelectedSpotSaved ? (
+            <View
+              style={{
+                backgroundColor: theme.card,
+                borderRadius: 999,
+                paddingHorizontal: 12,
+                paddingVertical: 7,
+                borderWidth: 1,
+                borderColor: theme.border,
+              }}
+            >
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800' }}>
+                In your spots
+              </Text>
+            </View>
+          ) : null}
+        </View>
         {autoCheckoutBanner}
 
         <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 10, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
