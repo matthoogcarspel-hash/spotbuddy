@@ -1058,8 +1058,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
           opacity: 1,
           shadowColor: state === 'live' ? '#63e4be' : '#000000',
-          shadowOpacity: state === 'live' ? 0.28 : 0.18,
-          shadowRadius: state === 'live' ? 7 : 5,
+          shadowOpacity: state === 'live' ? 0.16 : 0.08,
+          shadowRadius: state === 'live' ? 4 : 2,
           shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
           alignItems: 'center',
@@ -1354,7 +1354,19 @@ const groupTimelineSessions = ({
     }
   }
 
-  const orderedGroups = Array.from(groups.values()).sort((a, b) => a.startMinutes - b.startMinutes || a.endMinutes - b.endMinutes);
+  const orderedGroups = Array.from(groups.values()).sort((a, b) => {
+    const startDiff = a.startMinutes - b.startMinutes;
+
+    if (Math.abs(startDiff) <= 30) {
+      return b.endMinutes - a.endMinutes;
+    }
+
+    if (startDiff !== 0) {
+      return startDiff;
+    }
+
+    return a.endMinutes - b.endMinutes;
+  });
   console.log('SESSION_VISIBILITY_RESTORED', {
     rawSessionsCount: safeSessions.length,
     groupedCount: orderedGroups.length,
@@ -1567,30 +1579,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
     hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
     joinStateAllowed: joinState?.allowed ?? null,
     joinStateReason: joinState?.reason ?? null
-  });
-  console.log("JOIN_BUTTON_RENDER_DECISION", {
-    sessionId: session?.id ?? null,
-    rendered: !!joinState?.allowed
-  });
-  console.log("JOIN_STATE_EVALUATED", {
-    sessionId: representative?.item?.id ?? null,
-    allowed: joinState.allowed,
-    reason: joinState.reason
-  });
-  console.log("STABLE_JOIN_CTA_MODE", {
-    groupStart: group.startTime,
-    groupEnd: group.endTime,
-    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
-    allowed: joinState.allowed,
-    reason: joinState.reason ?? null
-  });
-  console.log("GROUP_HEADER_RENDER", {
-    groupStart: group.startTime,
-    groupEnd: group.endTime,
-    riderCount: safeGroupSessions.length
-  });
-
-  return (
+  });  return (
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
@@ -1605,7 +1594,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginBottom: 4 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.42)', fontSize: 10, fontWeight: '500', marginBottom: 4 }}>
               {`${sortedVisibleSessions.length} riders`}
             </Text>
           ) : null}
@@ -1718,7 +1707,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
               right: 0,
             }}
           >
-            <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
+            <Text style={{ color: '#061421', fontSize: 10, fontWeight: '900' }}>JOIN</Text>
           </Pressable>
         ) : (
           <View style={{ width: 72 }} />
@@ -1752,7 +1741,7 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
               flex: 1,
               minHeight: 128,
               backgroundColor: 'rgba(255,255,255,0.025)',
-              borderRadius: 18,
+              borderRadius: 16,
               padding: 16,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.045)',
@@ -1839,9 +1828,7 @@ function SessionTimeline({
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const isCurrentTimeMarkerVisible = showNowMarker && currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
   const currentPercent = ((currentLocalMinutes - timelineWindowStartMinutes) / totalRange) * 100;
-  const nowPosition = clamp(currentPercent, 0, 100);
-  console.log('TIMELINE_NOW_POSITION', nowPosition);
-  const renderRange = useMemo(
+  const nowPosition = clamp(currentPercent, 0, 100);  const renderRange = useMemo(
     () => ({
       timelineWindowStartMinutes,
       timelineWindowEndMinutes,
@@ -1861,10 +1848,6 @@ function SessionTimeline({
     { length: Math.floor(timelineWindowEndMinutes / 60) - Math.ceil(timelineWindowStartMinutes / 60) + 1 },
     (_, i) => (Math.ceil(timelineWindowStartMinutes / 60) + i) * 60
   );
-  console.log("TIMELINE_GROUP_BOUNDARY_ACTIVE", {
-    usingCentralGroupingAdapter: true
-  });
-
   useEffect(() => {
     
   }, [renderRange]);
@@ -1901,8 +1884,8 @@ function SessionTimeline({
                   borderRadius: 999,
                   backgroundColor: '#e6f6ff',
                   shadowColor: '#d8eeff',
-                  shadowOpacity: 0.32,
-                  shadowRadius: 6,
+                  shadowOpacity: 0.14,
+                  shadowRadius: 3,
                   shadowOffset: { width: 0, height: 0 },
                 }}
               />
@@ -1914,7 +1897,7 @@ function SessionTimeline({
                   flex: 1,
                   borderLeftWidth: 2,
                   borderStyle: 'solid',
-                  borderColor: '#cde9ffb8',
+                  borderColor: 'rgba(205,233,255,0.32)',
                 }}
               />
             </View>
@@ -1963,7 +1946,7 @@ function SessionTimeline({
                         top: 0,
                         bottom: 0,
                         width: 1,
-                        backgroundColor: 'rgba(255,255,255,0.04)'
+                        backgroundColor: 'rgba(255,255,255,0.022)'
                       }} />
                     ))}
                   </View>
@@ -3287,16 +3270,7 @@ export default function App() {
       checkedOutAt: autoClosedAt,
     };
   };
-  const toSpotSession = (row: SessionAdapterRow, canonicalSpotName: SpotName): SpotSession => {
-    console.log("SESSION_ADAPTER_ROW_IN", {
-      id: row?.id ?? null,
-      user_id: row?.user_id ?? null,
-      spot_name: row?.spot_name ?? null,
-      start_time: row?.start_time ?? null,
-      end_time: row?.end_time ?? null,
-      created_at: row?.created_at ?? null
-    });
-    const normalizedSession = normalizeLoadedSession({
+  const toSpotSession = (row: SessionAdapterRow, canonicalSpotName: SpotName): SpotSession => {    const normalizedSession = normalizeLoadedSession({
       id: row.id,
       status: row.status,
       created_at: row.created_at ?? null,
@@ -3320,17 +3294,7 @@ export default function App() {
       userAvatarUrl: row.avatar_url ?? null,
       userOwnerUid: row.owner_uid ?? null,
       resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
-    };
-    console.log("SESSION_ADAPTER_ROW_OUT", {
-      id: session?.id ?? null,
-      userId: session?.userId ?? null,
-      spot: session?.spot ?? null,
-      start: session?.start ?? null,
-      end: session?.end ?? null,
-      createdAt: session?.createdAt ?? null,
-      sessionDay: session?.sessionDay ?? null
-    });
-    return session;
+    };    return session;
   };
 
   const fetchSpotDefinitions = async () => {
@@ -3528,22 +3492,6 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
-    console.log('SESSIONS_FETCH_AFTER_JOIN_DEBUG', {
-      activeDay,
-      selectedDayKey,
-      count: sessionsData.length,
-      rows: sessionsData.map((row) => ({
-        id: row.id,
-        user_id: row.user_id,
-        spot_name: row.spot_name,
-        session_day: row.session_day,
-        created_at: row.created_at,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        status: row.status,
-      })),
-    });
-
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -3573,21 +3521,7 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: null };
     const messagesData = messagesResponse.data ?? [];
-    const rows = messagesData;
-
-console.log("CHAT_FETCH_FULL", rows.map(r => ({
-  text: r.text,
-  session_day: r.session_day,
-  created_at: r.created_at
-})));
-
-    console.log("CHAT_FETCH_ROW_TRACE", rows?.slice(0, 5).map((row) => ({
-      id: row?.id ?? null,
-      created_at: row?.created_at ?? null,
-      inserted_at: (row as { inserted_at?: string | null })?.inserted_at ?? null,
-      updated_at: (row as { updated_at?: string | null })?.updated_at ?? null
-    })));
-    const messagesError = messagesResponse.error;
+    const rows = messagesData;    const messagesError = messagesResponse.error;
     if (!selectedSpot) {
       
     }
@@ -3703,25 +3637,6 @@ console.log("CHAT_FETCH_FULL", rows.map(r => ({
         activeDay: selectedDayKey,
         matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
       });
-
-      console.log("SESSIONS_BY_SPOT_BEFORE_SET", {
-        selectedSpot: getSelectedSpotName(selectedSpot),
-        activeDayKey: selectedDayKey,
-        spots: Object.entries(nextSessionsBySpot).map(([spot, sessions]) => ({
-          spot,
-          count: Array.isArray(sessions) ? sessions.length : 0,
-          riders: (Array.isArray(sessions) ? sessions : []).map((sessionItem) => ({
-            id: sessionItem.id,
-            userName: sessionItem.userName,
-            userId: sessionItem.userId,
-            spot: sessionItem.spot,
-            sessionDay: sessionItem.sessionDay,
-            start: sessionItem.start,
-            end: sessionItem.end,
-          })),
-        })),
-      });
-
       setSessionsBySpot(nextSessionsBySpot);
     }
 
@@ -3776,17 +3691,6 @@ console.log("CHAT_FETCH_FULL", rows.map(r => ({
       for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
         const key = `${spot}-${selectedDayKey}`;
-
-        console.log("CHAT_STATE_MAP_DEBUG", {
-          rowText: row.text,
-          rowSpot: row.spot_name,
-          key,
-          selectedSpot,
-          selectedDayKey,
-          spotNames,
-          spotAllowed: spotNames.includes(spot),
-        });
-
         if (!spotNames.includes(spot)) {
           continue;
         }
@@ -4522,24 +4426,6 @@ setMessagesBySpot((previous) => previous);
     });
 
     const visibleSessions = Array.isArray(filteredSessions) ? filteredSessions : [];
-    console.log('TIMELINE_DEBUG_AFTER_FILTER', {
-      activeDayKey,
-      sessionsCount: safeTimelineSessions.length,
-      dedupedCount: dedupedSessions.length,
-      filteredCount: filteredSessions.length,
-      visibleCount: visibleSessions.length,
-      visible: visibleSessions.map((item) => ({
-        id: item.id,
-        userId: item.userId,
-        userName: item.userName,
-        spot: item.spot,
-        sessionDay: item.sessionDay,
-        start: item.start,
-        end: item.end,
-        status: item.status,
-      })),
-    });
-
     return visibleSessions
       .map((item) => {
         const viewState = getSessionViewState(item);
@@ -5010,43 +4896,12 @@ setMessagesBySpot((previous) => previous);
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
-    : '';
-  console.log("SPOT_NOW_SUMMARY_INPUT", {
-    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
-    activeDayKey,
-    totalSessionsForSpot: spotState?.sessionsForSpot?.length ?? 0
-  });
-  console.log("SPOT_NOW_SUMMARY_LIVE_STATE", {
-    liveSessionIds: (spotState?.sessionsForSpot ?? [])
-      .filter((session) => {
-        return getSessionState(session) === "active";
-      })
-      .map((session) => session?.id ?? null),
-    liveCount: (spotState?.sessionsForSpot ?? []).filter((session) => {
-      return getSessionState(session) === "active";
-    }).length
-  });
-  const liveCount = (spotState?.sessionsForSpot ?? []).filter((session) => {
+    : '';  const liveCount = (spotState?.sessionsForSpot ?? []).filter((session) => {
     return getSessionState(session) === "active";
   }).length;
   const nowSummaryLabel = liveCount > 0
     ? `${liveCount} rider${liveCount === 1 ? '' : 's'} live now.`
-    : 'No live riders yet.';
-  console.log("SPOT_NOW_SUMMARY_RESULT", {
-    label: nowSummaryLabel ?? null,
-    liveCount
-  });
-  console.log("SPOT_DETAIL_UI_LAYOUT", {
-    order: ["summary", "my-action", "timeline"]
-  });
-  console.log("SECONDARY_CONTROLS_REMOVED", {
-    removed: true
-  });
-  console.log("SPOT_DETAIL_UI_ACTION_BLOCK", {
-    hasOwnSession: spotState?.hasOwnSession ?? false,
-    mode: spotState?.topCtaState?.mode ?? null
-  });
-  useEffect(() => {
+    : 'No live riders yet.';  useEffect(() => {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
   useEffect(() => {
@@ -5230,51 +5085,19 @@ setMessagesBySpot((previous) => previous);
       time: message?.time ?? null
     })));
   }, [messages]);
-  useEffect(() => {
-    console.log("CHAT_ORDER_INPUT", {
-      totalMessages: messages?.length ?? 0
-    });
-  }, [messages]);
-  useEffect(() => {
-    console.log("CHAT_ORDER_OUTPUT", {
-      orderedMessageIds: orderedMessages.map((m) => m?.id ?? null)
-    });
-  }, [orderedMessages]);
-  useEffect(() => {
-    console.log("CHAT_ORDER_TOP_MESSAGE", {
-      id: orderedMessages?.[0]?.id ?? null,
-      createdAt: orderedMessages?.[0]?.created_at ?? orderedMessages?.[0]?.createdAt ?? null
-    });
-  }, [orderedMessages]);
+  useEffect(() => {  }, [messages]);
+  useEffect(() => {  }, [orderedMessages]);
+  useEffect(() => {  }, [orderedMessages]);
   useEffect(() => {
     
   }, [activeDay, filteredMessages]);
 
-  useEffect(() => {
-    console.log("SPOT_STATE_BUILT", {
-      hasOwnSession: spotState.hasOwnSession,
-      totalGroups: spotState.groupedSessions?.length ?? 0,
-      ownSessionId: spotState.ownSession?.id ?? null
-    });
-  }, [spotState]);
+  useEffect(() => {  }, [spotState]);
   const selectedSpotForReadModelLogs = typeof selectedSpot === 'string'
     ? selectedSpot
     : selectedSpot ?? null;
-  useEffect(() => {
-    console.log("READ_MODEL_TIMELINE_SOURCE", {
-      selectedSpot: selectedSpotForReadModelLogs,
-      activeDayKey,
-      timelineSessionIds: timelineSessions.map((s) => s?.item?.id ?? null)
-    });
-  }, [activeDayKey, selectedSpotForReadModelLogs, timelineSessions]);
-  useEffect(() => {
-    console.log("READ_MODEL_OWN_SESSION_SOURCE", {
-      selectedSpot: selectedSpotForReadModelLogs,
-      activeDayKey,
-      ownSessionId: spotState.ownSession?.id ?? null,
-      ownSessionCount: spotState.ownSessionForSpotDay?.ownSessions?.length ?? 0
-    });
-  }, [activeDayKey, selectedSpotForReadModelLogs, spotState.ownSession, spotState.ownSessionForSpotDay]);
+  useEffect(() => {  }, [activeDayKey, selectedSpotForReadModelLogs, timelineSessions]);
+  useEffect(() => {  }, [activeDayKey, selectedSpotForReadModelLogs, spotState.ownSession, spotState.ownSessionForSpotDay]);
   
   
   const selectedSpotMomentumLabel = useMemo(
@@ -5308,7 +5131,8 @@ setMessagesBySpot((previous) => previous);
 
     return timelineSessions.find(({ item }) => {
       const { startTime, endTime } = getRoundedSessionWindow(item);
-      const groupKey = `${startTime}-${endTime}`;
+      const representativeId = item.id ?? 'unknown';
+      const groupKey = `${startTime}-${endTime}-${representativeId}`;
       return groupKey === selectedTimelineSessionId;
     }) ?? null;
   }, [selectedTimelineSessionId, timelineSessions]);
@@ -5323,6 +5147,24 @@ setMessagesBySpot((previous) => previous);
       return `${startTime}-${endTime}` === selectedTimelineSessionId;
     });
   }, [selectedTimelineSessionId, timelineSessions]);
+
+  const activeGroupChatContext = useMemo(() => {
+    if (!activeGroupChatKey) {
+      return null;
+    }
+
+    const group = spotState.groupedSessions.find((item) => item.key === activeGroupChatKey);
+    if (!group) {
+      return null;
+    }
+
+    const riderCount = group.visibleSessions?.length ?? group.sessions?.length ?? 0;
+
+    return {
+      title: selectedSpot ? `${selectedSpot}` : 'Group Chat',
+      subtitle: `${group.startTime} – ${group.endTime} · ${riderCount} rider${riderCount === 1 ? '' : 's'}`,
+    };
+  }, [activeGroupChatKey, selectedSpot, spotState.groupedSessions]);
 
   const isCurrentUserInSelectedTimelineGroup = selectedTimelineGroupSessions.some(
     ({ item }) => item.userId === activeAppUserId,
@@ -6659,7 +6501,7 @@ setMessagesBySpot((previous) => previous);
               placeholder="Display name"
               placeholderTextColor={theme.textMuted}
               autoCapitalize="none"
-              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 10, padding: 12, marginBottom: 10 }}
+              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 10, padding: 10, marginBottom: 10 }}
             />
 
             {profileEditError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{profileEditError}</Text> : null}
@@ -7559,7 +7401,7 @@ return { name, overlapPercent, barColor };
                     style={{
                       position: 'absolute',
                       left: `${leftPercent}%`,
-                      transform: [{ translateX: -12 }],
+                      transform: [{ translateX: -8 }],
                       color: theme.textMuted,
                       fontSize: 11,
                     }}
@@ -7593,38 +7435,11 @@ return { name, overlapPercent, barColor };
             }}
             activeGroupChatKey={activeGroupChatKey}
           />
-          {selectedTimelineSession ? (
-            <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: theme.bgElevated, padding: 10 }}>
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
-                {selectedTimelineSession.item.userName} · {selectedTimelineSession.item.start}–{selectedTimelineSession.item.end}
-              </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 4 }}>
-                Status: {getTimelineLabel(selectedTimelineSession.state, false)}
-              </Text>
 
-              {isCurrentUserInSelectedTimelineGroup ? (
-                <Pressable
-                  onPress={() => {
-                    console.log("GROUP_CHAT_BUTTON_CLICK", {
-                      selectedSpot,
-                      selectedDayKey,
-                      groupKey: selectedTimelineSessionId,
-                    });
-                    setActiveGroupChatKey(selectedTimelineSessionId);
-                  }}
-                  style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
-                >
-                  <Text style={{ color: theme.bg, fontSize: 13, fontWeight: '800' }}>
-                    {activeGroupChatKey === selectedTimelineSessionId ? 'Open Group Chat' : 'Start group chat'}
-                  </Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
         </View>
 
         {false && shouldShowNowAtSpotPanel ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 14,  borderColor: theme.border }}>
+          <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 10,  borderColor: theme.border }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
             {nowAtSpotMode === 'live' ? (
               <>
@@ -7670,8 +7485,12 @@ return { name, overlapPercent, barColor };
                 <Text style={{ fontSize: 16 }}>💬</Text>
               </View>
               <View>
-                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Group Chat</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Messages for this session</Text>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>
+                  {activeGroupChatContext?.title ?? 'Group Chat'}
+                </Text>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                  {activeGroupChatContext?.subtitle ?? 'Messages for this session'}
+                </Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5, marginBottom: 10 }}>
@@ -8210,25 +8029,35 @@ return { name, overlapPercent, barColor };
             >
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>{spot.name}</Text>
+                  <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', letterSpacing: 0.2 }}>
+                    {spot.name}
+                  </Text>
                   {statusLabel ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 7 }}>
                       <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
                       <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 10, fontWeight: '600', letterSpacing: 0.4 }}>
                         {statusLabel}
                       </Text>
                     </View>
                   ) : null}
-                  <Text style={{ color: theme.textSoft, marginTop: 6, fontSize: 12, fontWeight: '600' }}>
-                    {spot.distanceMeters === null ? 'Distance unknown' : `${formatDistance(spot.distanceMeters)} away`}
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
+                    {spot.distanceMeters === null ? 'DISTANCE UNKNOWN' : `${formatDistance(spot.distanceMeters)} AWAY`}
                   </Text>
                 </View>
 
                 {liveRiders.length > 0 ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 2 }}>
                     {liveRiders.map((sessionItem, index) => (
-                      <View key={`home-live-avatar-${spot.name}-${sessionItem.id}`} style={{ marginLeft: index === 0 ? 0 : -10 }}>
-                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={34} />
+                      <View
+                      key={`home-live-avatar-${spot.name}-${sessionItem.id}`}
+                      style={{
+                        marginLeft: index === 0 ? 0 : -12,
+                        borderWidth: 2,
+                        borderColor: '#061421',
+                        borderRadius: 999,
+                      }}
+                    >
+                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={38} />
                       </View>
                     ))}
                   </View>
