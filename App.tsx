@@ -5222,15 +5222,14 @@ setMessagesBySpot((previous) => previous);
       return;
     }
 
-    const exists = timelineSessions.some(({ item }) => {
-      const { startTime, endTime } = getRoundedSessionWindow(item);
-      return `${startTime}-${endTime}` === selectedTimelineSessionId;
-    });
+    const exists = spotState.groupedSessions.some(
+      (group) => group.key === selectedTimelineSessionId
+    );
 
     if (!exists) {
       setSelectedTimelineSessionId(null);
     }
-  }, [selectedTimelineSessionId, timelineSessions]);
+  }, [selectedTimelineSessionId, spotState.groupedSessions]);
   useEffect(() => {
     
   }, [selectedSpot, sessions, timelineSessions]);
@@ -6870,6 +6869,23 @@ setMessagesBySpot((previous) => previous);
       }
 
       setMessageInput('');
+      setMessagesBySpot((prev) => {
+        const key = `${selectedSpot}-${selectedDayKey}`;
+        const previousMessages = prev[key] ?? [];
+
+        return {
+          ...prev,
+          [key]: [...previousMessages, {
+            id: `${conversationId}-${Date.now()}`,
+            text: messageText,
+            userId: activeAppUserId,
+            display_name: activeProfile?.display_name?.trim() || 'You',
+            avatar_url: activeProfile?.avatar_url ?? null,
+            created_at: new Date().toISOString(),
+            createdAt: new Date().toISOString(),
+          }],
+        };
+      });
       setTimeout(() => {
         spotChatScrollRef.current?.scrollToEnd({ animated: false });
       }, 0);
@@ -7697,79 +7713,6 @@ return { name, overlapPercent, barColor };
               data-group-chat-send="true"
               onPress={() => {
                 void sendGroupChatMessage();
-                return;
-                const messageText = groupMessageInput.trim();
-                if (!messageText || !activeGroupChatKey) return;
-
-                console.log("GROUP_CHAT_SEND_CLICK", {
-                  selectedSpot,
-                  selectedDayKey,
-                  groupKey: activeGroupChatKey,
-                  messageText,
-                });
-
-                void (async () => {
-                  const existingConversationResponse = await supabase
-                    .from('conversations')
-                    .select('id')
-                    .eq('type', 'group')
-                    .eq('spot_name', selectedSpot)
-                    .eq('session_day', selectedDayKey)
-                    .eq('group_key', activeGroupChatKey)
-                    .limit(1);
-
-                  let conversationId = Array.isArray(existingConversationResponse.data)
-                    ? existingConversationResponse.data[0]?.id ?? null
-                    : null;
-
-                  if (!conversationId) {
-                    const createConversationResponse = await supabase
-                      .from('conversations')
-                      .insert({
-                        type: 'group',
-                        spot_name: selectedSpot,
-                        session_day: selectedDayKey,
-                        group_key: activeGroupChatKey,
-                      })
-                      .select('id')
-                      .single();
-
-                    if (createConversationResponse.error) {
-                      console.error('GROUP_CHAT_CREATE_ERROR', createConversationResponse.error);
-                      return;
-                    }
-
-                    conversationId = createConversationResponse.data?.id ?? null;
-                  }
-
-                  const { error } = await supabase
-                    .from('messages')
-                    .insert({
-                      user_id: activeAppUserId,
-                      text: messageText,
-                      spot_name: selectedSpot,
-                      session_day: selectedDayKey,
-                      conversation_id: conversationId,
-                      created_at: new Date().toISOString(),
-                    });
-
-                  if (error) {
-                    console.error('GROUP_CHAT_SEND_ERROR', error);
-                    return;
-                  }
-
-                  setGroupMessageInput('');
-                  setGroupMessages((prev) => [...prev, {
-                    id: `${conversationId}-${Date.now()}`,
-                    text: messageText,
-                    userId: activeAppUserId,
-                    display_name: activeProfile?.display_name?.trim() || 'You',
-                    avatar_url: activeProfile?.avatar_url ?? null,
-                    created_at: new Date().toISOString(),
-                    createdAt: new Date().toISOString(),
-                  }]);
-                  setGroupMessagesRefreshKey((value) => value + 1);
-                })();
               }}
               style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
             >
@@ -7791,7 +7734,15 @@ return { name, overlapPercent, barColor };
           </View>
 
           {orderedMessages.length > 0 ? (
-            <ScrollView ref={spotChatScrollRef} style={{ maxHeight: 250, marginBottom: 12 }} onContentSizeChange={(width, height) => { setTimeout(() => spotChatScrollRef.current?.scrollToEnd({ animated: false }), 0); }}>
+            <ScrollView
+              ref={spotChatScrollRef}
+              style={{ maxHeight: 250, marginBottom: 12 }}
+              onContentSizeChange={() => {
+                setTimeout(() => {
+                  spotChatScrollRef.current?.scrollToEnd({ animated: false });
+                }, 0);
+              }}
+            >
               {orderedMessages
                 .slice()
                 .sort((a, b) => {
@@ -7853,93 +7804,6 @@ return { name, overlapPercent, barColor };
             data-spot-chat-send="true"
             onPress={() => {
               void sendSpotChatMessage();
-              return;
-              void (async () => {
-                const messageText = messageInput.trim();
-                if (!messageText || !selectedSpot) {
-                  return;
-                }
-
-                
-                const payload = {
-                  user_id: activeAppUserId,
-                  text: messageText,
-                  spot_name: selectedSpot,
-                  created_at: new Date().toISOString(),
-                };
-                
-                if (!activeAppUserId) {
-                  console.error('NO AUTH USER');
-                  return;
-                }
-
-                
-                
-                console.log("CHAT_SEND_DEBUG", {
-                  activeDay,
-                  selectedDayKey,
-                  selectedSpot,
-                  messageText,
-                  payload,
-                });
-
-                const existingConversationResponse = await supabase
-                  .from('conversations')
-                  .select('id')
-                  .eq('type', 'spot')
-                  .eq('spot_name', selectedSpot)
-                  .eq('session_day', selectedDayKey)
-                  .limit(1);
-
-                let conversationId = Array.isArray(existingConversationResponse.data)
-                  ? existingConversationResponse.data[0]?.id ?? null
-                  : null;
-
-                if (!conversationId) {
-                  const createConversationResponse = await supabase
-                    .from('conversations')
-                    .insert({
-                      type: 'spot',
-                      spot_name: selectedSpot,
-                      session_day: selectedDayKey,
-                      
-                    })
-                    .select('id')
-                    .single();
-
-                  if (createConversationResponse.error) {
-                    console.error('CHAT_CONVERSATION_CREATE_ERROR', createConversationResponse.error);
-                    return;
-                  }
-
-                  conversationId = createConversationResponse.data?.id ?? null;
-                }
-
-                console.log("CHAT_SEND_CONVERSATION", {
-                  selectedSpot,
-                  selectedDayKey,
-                  conversationId,
-                });
-
-                const { error } = await supabase
-                  .from('messages')
-                  .insert({
-                    ...payload,
-                    session_day: selectedDayKey,
-                    conversation_id: conversationId,
-                  });
-
-                if (error) {
-                  console.error('FULL ERROR', error);
-                  console.error('ERROR MESSAGE', error.message);
-                  console.error('ERROR DETAILS', error.details);
-                  console.error('ERROR HINT', error.hint);
-                  return;
-                }
-
-                setMessageInput('');
-                scheduleRealtimeRefetch();
-              })();
             }}
             style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
           >
