@@ -5,6 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import DiscoverMap from './src/components/DiscoverMap';
 import * as Notifications from 'expo-notifications';
 import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
@@ -5919,30 +5920,28 @@ setMessagesBySpot((previous) => previous);
         <View
           style={{
             flex: 1,
-            backgroundColor: theme.card,
+            overflow: 'hidden',
             borderRadius: 18,
             borderWidth: 1,
             borderColor: theme.border,
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: 20,
+            backgroundColor: theme.card,
           }}
         >
-          <Text style={{ color: theme.text, fontSize: 20, fontWeight: '900' }}>
-            Europe map coming here
-          </Text>
-
-          <Text
-            style={{
-              color: theme.textMuted,
-              fontSize: 14,
-              textAlign: 'center',
-              marginTop: 10,
-              lineHeight: 20,
+          <DiscoverMap
+            center={{
+              latitude: discoverMapCenter?.latitude ?? 52.1326,
+              longitude: discoverMapCenter?.longitude ?? 5.2913,
             }}
-          >
-            Starting center: {discoverCenterLabel}. Next step: interactive map with nearby spots, live activity and tomorrow sessions.
-          </Text>
+            spots={spotDefinitions.map((spotItem) => ({
+              name: spotItem.spot,
+              latitude: spotItem.latitude,
+              longitude: spotItem.longitude,
+            }))}
+            onOpenSpot={(spotName) => {
+              setSelectedSpot(spotName);
+              setShowDiscoverSpotsPage(false);
+            }}
+          />
         </View>
       </SafeAreaView>
     );
