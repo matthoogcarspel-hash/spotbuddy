@@ -2064,6 +2064,7 @@ export default function App() {
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const spotChatScrollRef = useRef<ScrollView | null>(null);
+  const groupChatScrollRef = useRef<ScrollView | null>(null);
   const realtimeRefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleRealtimeRefetch = () => {
     if (realtimeRefetchTimeoutRef.current) {
@@ -6867,6 +6868,9 @@ setMessagesBySpot((previous) => previous);
       }
 
       setMessageInput('');
+      setTimeout(() => {
+        spotChatScrollRef.current?.scrollToEnd({ animated: false });
+      }, 0);
       scheduleRealtimeRefetch();
     };
 
@@ -7625,7 +7629,44 @@ return { name, overlapPercent, barColor };
                 </Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5, marginBottom: 10 }}>
+
+            {groupMessages.length > 0 ? (
+              <ScrollView
+                ref={groupChatScrollRef}
+                style={{ maxHeight: 250, marginTop: 12 }}
+                onContentSizeChange={() => {
+                  setTimeout(() => {
+                    groupChatScrollRef.current?.scrollToEnd({ animated: false });
+                  }, 0);
+                }}
+              >
+                {groupMessages.slice(-10).map((message) => {
+                  const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
+                  return (
+                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
+                      <Avatar uri={message.avatar_url} size={24} />
+                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)' }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
+                            {message.display_name}
+                          </Text>
+                          {renderedTime ? (
+                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
+                              {renderedTime}
+                            </Text>
+                          ) : null}
+                        </View>
+                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            ) : (
+              <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 12 }}>No group messages yet</Text>
+            )}
+
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5, marginTop: 10 }}>
               <TextInput
                 value={groupMessageInput}
                 onChangeText={setGroupMessageInput}
@@ -7715,39 +7756,11 @@ return { name, overlapPercent, barColor };
                   setGroupMessagesRefreshKey((value) => value + 1);
                 })();
               }}
-              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}
+              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
             >
               <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
             </Pressable>
             </View>
-            {groupMessages.length > 0 ? (
-              <ScrollView style={{ maxHeight: 250, marginTop: 12 }}>
-                {groupMessages.slice(-10).reverse().map((message) => {
-                  const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
-                  return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)' }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
-                            {message.display_name}
-                          </Text>
-                          {renderedTime ? (
-                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
-                              {renderedTime}
-                            </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 12 }}>No group messages yet</Text>
-            )}
-
           </View>
         ) : null}
 
@@ -7913,9 +7926,9 @@ return { name, overlapPercent, barColor };
                 scheduleRealtimeRefetch();
               })();
             }}
-            style={{ backgroundColor: '#f4f1df', borderRadius: 999, paddingVertical: 7, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
           >
-            <Text style={{ color: '#1b2430', fontSize: 12, fontWeight: '900', letterSpacing: 0.3 }}>Send</Text>
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
           </Pressable>
           </View>
         </View>
