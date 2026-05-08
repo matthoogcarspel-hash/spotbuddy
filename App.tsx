@@ -7667,11 +7667,39 @@ return { name, overlapPercent, barColor };
                 style={{ maxHeight: 250, marginTop: 12 }}
                 onContentSizeChange={() => {
                   setTimeout(() => {
-                    groupChatScrollRef.current?.scrollToEnd({ animated: false });
+                    const node = groupChatScrollRef.current as any;
+                    console.log('GROUP_SCROLL_METRICS', {
+                      hasRef: Boolean(node),
+                      keys: node ? Object.keys(node).slice(0, 20) : [],
+                      hasScrollableNode: Boolean(node?.getScrollableNode),
+                      hasInnerViewNode: Boolean(node?.getInnerViewNode),
+                    });
+                    const scrollNode =
+                      (groupChatScrollRef.current as any)?.getScrollableNode?.();
+                    const innerNode =
+                      (groupChatScrollRef.current as any)?.getInnerViewNode?.();
+
+                    console.log('GROUP_SCROLL_NODE_NUMBERS_BEFORE', {
+                      scrollTop: scrollNode?.scrollTop,
+                      scrollHeight: scrollNode?.scrollHeight,
+                      clientHeight: scrollNode?.clientHeight,
+                      innerScrollHeight: innerNode?.scrollHeight,
+                      innerClientHeight: innerNode?.clientHeight,
+                    });
+
+                    if (scrollNode) {
+                      scrollNode.scrollTop = scrollNode.scrollHeight;
+                    }
+
+                    console.log('GROUP_SCROLL_NODE_NUMBERS_AFTER', {
+                      scrollTop: scrollNode?.scrollTop,
+                      scrollHeight: scrollNode?.scrollHeight,
+                      clientHeight: scrollNode?.clientHeight,
+                    });
                   }, 0);
                 }}
               >
-                {groupMessages.slice(-10).map((message) => {
+                {groupMessages.map((message) => {
                   const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
                   return (
                     <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
@@ -7739,7 +7767,12 @@ return { name, overlapPercent, barColor };
               style={{ maxHeight: 250, marginBottom: 12 }}
               onContentSizeChange={() => {
                 setTimeout(() => {
-                  spotChatScrollRef.current?.scrollToEnd({ animated: false });
+                  const scrollNode =
+                    (spotChatScrollRef.current as any)?.getScrollableNode?.();
+
+                  if (scrollNode) {
+                    scrollNode.scrollTop = scrollNode.scrollHeight;
+                  }
                 }, 0);
               }}
             >
@@ -7750,7 +7783,6 @@ return { name, overlapPercent, barColor };
                   const bTime = new Date(b.createdAt ?? b.created_at ?? b.timestamp ?? 0).getTime();
                   return aTime - bTime;
                 })
-                .slice(-10)
                 .map((message) => (
                 (() => {
                   const chosenTimestampValue =
