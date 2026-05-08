@@ -467,7 +467,7 @@ const getSessionViewState = (sessionItem: SpotSession): CleanSessionStatus => {
 
   // GOING = definitely / likely
   const resolvedIntent = resolveSessionIntent(sessionItem.intent);
-  if (resolvedIntent === 'definitely') {
+  if (resolvedIntent === 'definitely' || resolvedIntent === 'likely') {
     return 'going';
   }
 
