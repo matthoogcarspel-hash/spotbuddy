@@ -2040,6 +2040,7 @@ export default function App() {
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
+  const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<Location.PermissionStatus | null>(null);
@@ -6876,6 +6877,11 @@ setMessagesBySpot((previous) => previous);
     };
 
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+      if (joinInFlightSessionId === sessionId) {
+        return;
+      }
+
+      setJoinInFlightSessionId(sessionId);
       console.log("JOIN_HANDLER_START");
       const joinState = spotState.joinStateBySession[sessionId]
         ?? getJoinState({
@@ -6927,22 +6933,30 @@ setMessagesBySpot((previous) => previous);
         selectedSpot,
         activeDay,
       });
-      const result = await joinSessionAction(input);
-      console.log("JOIN_SERVICE_CALL_RESULT", result);
-      const joinResultReason = 'reason' in result ? result.reason : null;
-      console.log("JOIN_HANDLER_RESULT_AFTER_CLICK", {
-        ok: result?.ok ?? false,
-        reason: joinResultReason
-      });
-      logSessionUiActionResult('joinSession', result);
-      if (!result.ok) {
-        const joinReason = joinResultReason;
-        setSessionActionError(getJoinErrorMessageByReason(joinReason));
-        return;
+      try {
+        const result = await joinSessionAction(input);
+        console.log("JOIN_SERVICE_CALL_RESULT", result);
+        const joinResultReason = 'reason' in result ? result.reason : null;
+        console.log("JOIN_HANDLER_RESULT_AFTER_CLICK", {
+          ok: result?.ok ?? false,
+          reason: joinResultReason
+        });
+        logSessionUiActionResult('joinSession', result);
+        if (!result.ok) {
+          const joinReason = joinResultReason;
+          setSessionActionError(getJoinErrorMessageByReason(joinReason));
+          return;
+        }
+
+        await fetchSharedData({ skipLoadingState: true });
+        setSessionActionError('');
+        setSelectedTimelineSessionId(null);
+      } catch (error) {
+        console.error('JOIN_HANDLER_ERROR', error);
+        setSessionActionError('Joining the session failed. Please try again.');
+      } finally {
+        setJoinInFlightSessionId(null);
       }
-      await fetchSharedData({ skipLoadingState: true });
-      setSessionActionError('');
-      setSelectedTimelineSessionId(null);
     };
     const handleQuickLive = async () => {
   console.log("QUICK_LIVE_START");
