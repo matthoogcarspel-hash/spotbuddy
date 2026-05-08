@@ -2064,6 +2064,20 @@ export default function App() {
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const spotChatScrollRef = useRef<ScrollView | null>(null);
+  const realtimeRefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRealtimeRefetch = () => {
+    if (realtimeRefetchTimeoutRef.current) {
+      clearTimeout(realtimeRefetchTimeoutRef.current);
+    }
+
+    realtimeRefetchTimeoutRef.current = setTimeout(() => {
+      realtimeRefetchTimeoutRef.current = null;
+      void fetchSharedData({ skipLoadingState: true }).then(() => {
+        setGroupMessagesRefreshKey((value) => value + 1);
+      });
+    }, 250);
+  };
+
   const [activeGroupChatKey, setActiveGroupChatKey] = useState<string | null>(null);
   const [groupMessageInput, setGroupMessageInput] = useState('');
   const [groupMessages, setGroupMessages] = useState<ChatMessage[]>([]);
@@ -3777,6 +3791,15 @@ export default function App() {
   }, [authenticatedUserId, headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId]);
 
   useEffect(() => {
+    return () => {
+      if (realtimeRefetchTimeoutRef.current) {
+        clearTimeout(realtimeRefetchTimeoutRef.current);
+        realtimeRefetchTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (showProfile && profile) {
       setProfileNameInput(profile.display_name);
     }
@@ -3896,14 +3919,7 @@ setMessagesBySpot((previous) => previous);
             return;
           }
 
-          void fetchSharedData({ skipLoadingState: true }).then(() => {
-            setGroupMessagesRefreshKey((value) => value + 1);
-            console.log('SESSIONS_REALTIME_REFETCH_DONE', {
-              selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-              activeDay,
-              selectedDayKey,
-            });
-          });
+          scheduleRealtimeRefetch();
         },
       )
       .subscribe((status) => {
@@ -3949,8 +3965,7 @@ setMessagesBySpot((previous) => previous);
             selectedDayKey,
           });
 
-          void fetchSharedData({ skipLoadingState: true });
-          setGroupMessagesRefreshKey((value) => value + 1);
+          scheduleRealtimeRefetch();
         },
       )
       .subscribe((status) => {
@@ -6729,6 +6744,132 @@ setMessagesBySpot((previous) => previous);
     const maybeCount = maybeSessions.length;
     const totalSessions = spotSessions.length;
 
+    const sendGroupChatMessage = async () => {
+      const messageText = groupMessageInput.trim();
+      if (!messageText || !activeGroupChatKey) return;
+
+      const existingConversationResponse = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('type', 'group')
+        .eq('spot_name', selectedSpot)
+        .eq('session_day', selectedDayKey)
+        .eq('group_key', activeGroupChatKey)
+        .limit(1);
+
+      let conversationId = Array.isArray(existingConversationResponse.data)
+        ? existingConversationResponse.data[0]?.id ?? null
+        : null;
+
+      if (!conversationId) {
+        const createConversationResponse = await supabase
+          .from('conversations')
+          .insert({
+            type: 'group',
+            spot_name: selectedSpot,
+            session_day: selectedDayKey,
+            group_key: activeGroupChatKey,
+          })
+          .select('id')
+          .single();
+
+        if (createConversationResponse.error) {
+          console.error('GROUP_CHAT_CREATE_ERROR', createConversationResponse.error);
+          return;
+        }
+
+        conversationId = createConversationResponse.data?.id ?? null;
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          user_id: activeAppUserId,
+          text: messageText,
+          spot_name: selectedSpot,
+          session_day: selectedDayKey,
+          conversation_id: conversationId,
+          created_at: new Date().toISOString(),
+        });
+
+      if (error) {
+        console.error('GROUP_CHAT_SEND_ERROR', error);
+        return;
+      }
+
+      setGroupMessageInput('');
+      setGroupMessages((prev) => [...prev, {
+        id: `${conversationId}-${Date.now()}`,
+        text: messageText,
+        userId: activeAppUserId,
+        display_name: activeProfile?.display_name?.trim() || 'You',
+        avatar_url: activeProfile?.avatar_url ?? null,
+        created_at: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+      }]);
+
+      setGroupMessagesRefreshKey((value) => value + 1);
+    };
+
+    const sendSpotChatMessage = async () => {
+      const messageText = messageInput.trim();
+      if (!messageText || !selectedSpot) return;
+
+      const payload = {
+        user_id: activeAppUserId,
+        text: messageText,
+        spot_name: selectedSpot,
+        created_at: new Date().toISOString(),
+      };
+
+      const existingConversationResponse = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('type', 'spot')
+        .eq('spot_name', selectedSpot)
+        .eq('session_day', selectedDayKey)
+        .limit(1);
+
+      let conversationId = Array.isArray(existingConversationResponse.data)
+        ? existingConversationResponse.data[0]?.id ?? null
+        : null;
+
+      if (!conversationId) {
+        const createConversationResponse = await supabase
+          .from('conversations')
+          .insert({
+            type: 'spot',
+            spot_name: selectedSpot,
+            session_day: selectedDayKey,
+          })
+          .select('id')
+          .single();
+
+        if (createConversationResponse.error) {
+          console.error('CHAT_CONVERSATION_CREATE_ERROR', createConversationResponse.error);
+          return;
+        }
+
+        conversationId = createConversationResponse.data?.id ?? null;
+      }
+
+      const { error } = await supabase
+        .from('messages')
+        .insert({
+          ...payload,
+          session_day: selectedDayKey,
+          conversation_id: conversationId,
+        });
+
+      if (error) {
+        console.error('FULL ERROR', error);
+        return;
+      }
+
+      setMessageInput('');
+      scheduleRealtimeRefetch();
+    };
+
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
       console.log("JOIN_HANDLER_START");
       const joinState = spotState.joinStateBySession[sessionId]
@@ -6794,18 +6935,9 @@ setMessagesBySpot((previous) => previous);
         setSessionActionError(getJoinErrorMessageByReason(joinReason));
         return;
       }
-      await fetchSharedData();
+      await fetchSharedData({ skipLoadingState: true });
       setSessionActionError('');
       setSelectedTimelineSessionId(null);
-
-      setTimeout(() => {
-        void fetchSharedData();
-      }, 300);
-
-      setTimeout(() => {
-        setSelectedTimelineSessionId(sessionId);
-        void fetchSharedData();
-      }, 900);
     };
     const handleQuickLive = async () => {
   console.log("QUICK_LIVE_START");
@@ -7497,12 +7629,19 @@ return { name, overlapPercent, barColor };
               <TextInput
                 value={groupMessageInput}
                 onChangeText={setGroupMessageInput}
+                onSubmitEditing={() => {
+                  void sendGroupChatMessage();
+                }}
+                blurOnSubmit={false}
                 placeholder="Type a group message"
                 placeholderTextColor={theme.textMuted}
-                style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15 }}
+                style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
               />
             <Pressable
+              data-group-chat-send="true"
               onPress={() => {
+                void sendGroupChatMessage();
+                return;
                 const messageText = groupMessageInput.trim();
                 if (!messageText || !activeGroupChatKey) return;
 
@@ -7573,7 +7712,7 @@ return { name, overlapPercent, barColor };
                     created_at: new Date().toISOString(),
                     createdAt: new Date().toISOString(),
                   }]);
-                  await fetchSharedData();
+                  setGroupMessagesRefreshKey((value) => value + 1);
                 })();
               }}
               style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center' }}
@@ -7674,12 +7813,19 @@ return { name, overlapPercent, barColor };
             <TextInput
               value={messageInput}
               onChangeText={setMessageInput}
+              onSubmitEditing={() => {
+                void sendSpotChatMessage();
+              }}
+              blurOnSubmit={false}
               placeholder="Type a message"
               placeholderTextColor={theme.textMuted}
-              style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15 }}
+              style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
             />
           <Pressable
+            data-spot-chat-send="true"
             onPress={() => {
+              void sendSpotChatMessage();
+              return;
               void (async () => {
                 const messageText = messageInput.trim();
                 if (!messageText || !selectedSpot) {
@@ -7764,7 +7910,7 @@ return { name, overlapPercent, barColor };
                 }
 
                 setMessageInput('');
-                await fetchSharedData();
+                scheduleRealtimeRefetch();
               })();
             }}
             style={{ backgroundColor: '#f4f1df', borderRadius: 999, paddingVertical: 7, paddingHorizontal: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}
