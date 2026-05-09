@@ -6001,7 +6001,10 @@ setMessagesBySpot((previous) => previous);
 
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
             {spotDefinitions
-              .filter((spotItem) => spotItem.spot.toLowerCase().includes('scheveningen'))
+              .filter((spotItem) => {
+                const matchingSearchRow = allSpots.find((searchSpot) => searchSpot.name === spotItem.spot);
+                return matchingSearchRow?.country === 'Netherlands';
+              })
               .map((spotItem) => {
                 const isActive = coordinateReviewSpotName === spotItem.spot;
 
@@ -6084,7 +6087,7 @@ setMessagesBySpot((previous) => previous);
             }}
             spots={spotDefinitions
               .filter((spotItem) =>
-                spotItem.coordinateStatus === 'verified'
+                (spotItem.coordinateStatus === 'verified' || spotItem.coordinateStatus === 'review')
                 && Number.isFinite(spotItem.latitude)
                 && Number.isFinite(spotItem.longitude)
               )
