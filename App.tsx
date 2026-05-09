@@ -28,8 +28,10 @@ const fallbackSpots = spots;
 type SpotName = string;
 type SpotDefinition = {
   spot: SpotName;
+  canonicalName: string;
   latitude: number;
   longitude: number;
+  coordinateStatus: 'unverified' | 'review' | 'verified';
 };
 type SessionStatus = 'Is er al' | 'Gaat' | 'Uitchecken' | 'live' | 'finished';
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -2006,7 +2008,13 @@ export default function App() {
   const [loadingSession, setLoadingSession] = useState(true);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [profileHydrationError, setProfileHydrationError] = useState('');
-  const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(fallbackSpots.map((spot) => ({ ...spot })));
+  const [spotDefinitions, setSpotDefinitions] = useState<SpotDefinition[]>(
+    fallbackSpots.map((spot) => ({
+      ...spot,
+      canonicalName: normalizeSpotName(spot.spot),
+      coordinateStatus: 'unverified',
+    }))
+  );
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showBuddies, setShowBuddies] = useState(false);
@@ -2022,6 +2030,10 @@ export default function App() {
   const [, setAdminCreateSuccess] = useState(false);
   const [isAdminCreatingProfile, setIsAdminCreatingProfile] = useState(false);
   const spotNames = useMemo(() => spotDefinitions.map((spot) => spot.spot), [spotDefinitions]);
+  const verifiedSpotDefinitions = useMemo(
+    () => spotDefinitions.filter((spot) => spot.coordinateStatus === 'verified'),
+    [spotDefinitions],
+  );
   const [sessionsBySpot, setSessionsBySpot] = useState<Record<SpotName, SpotSession[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [messagesBySpot, setMessagesBySpot] = useState<Record<string, ChatMessage[]>>(() => createSpotRecord(fallbackSpots.map((spot) => spot.spot), () => []));
   const [loadingData, setLoadingData] = useState(false);
@@ -2055,6 +2067,8 @@ export default function App() {
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [showDiscoverSpotsPage, setShowDiscoverSpotsPage] = useState(false);
   const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
+  const [coordinateReviewSpotName, setCoordinateReviewSpotName] = useState<SpotName | null>(null);
+  const [coordinateReviewPoint, setCoordinateReviewPoint] = useState<SpotCoordinates | null>(null);
   const [yourSpotsMode, setYourSpotsMode] = useState<'search' | 'discover'>('search');
   const [homeSpotSearchQuery, setHomeSpotSearchQuery] = useState('');
   const [allSpots, setAllSpots] = useState<SpotSearchResult[]>([]);
@@ -3343,8 +3357,17 @@ export default function App() {
     const mappedSpots = (data ?? [])
       .map((row) => {
         const spotName = (row.spot_name ?? row.name ?? row.spot ?? '').toString().trim();
-        const rawLatitudeValue = Number(row.latitude ?? row.lat ?? null);
-        const rawLongitudeValue = Number(row.longitude ?? row.lng ?? row.lon ?? null);
+        const coordinateStatus = row.coordinate_status === 'verified' || row.coordinate_status === 'review' || row.coordinate_status === 'unverified'
+          ? row.coordinate_status
+          : 'unverified';
+        const hasVerifiedLaunchCoordinates = coordinateStatus === 'verified'
+          && row.launch_latitude !== null
+          && row.launch_latitude !== undefined
+          && row.launch_longitude !== null
+          && row.launch_longitude !== undefined;
+
+        const rawLatitudeValue = Number(hasVerifiedLaunchCoordinates ? row.launch_latitude : row.latitude ?? row.lat ?? null);
+        const rawLongitudeValue = Number(hasVerifiedLaunchCoordinates ? row.launch_longitude : row.longitude ?? row.lng ?? row.lon ?? null);
         const fallbackSpot = fallbackSpots.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(spotName)) ?? null;
 
         const coordinatesInNormalOrderAreValid = Number.isFinite(rawLatitudeValue)
@@ -3388,10 +3411,30 @@ export default function App() {
           return null;
         }
 
+        const canonicalName = normalizeSpotName(
+          (row.canonical_name ?? spotName).toString()
+        );
+
+        const fallbackSpotMatch =
+          fallbackSpots.find(
+            (spot) =>
+              normalizeSpotName(spot.spot) === canonicalName
+          ) ?? null;
+
+        const shouldUseFallbackCoordinates =
+          coordinateStatus !== 'verified'
+          && fallbackSpotMatch;
+
         return {
           spot: spotName,
-          latitude: latitudeValue,
-          longitude: longitudeValue,
+          canonicalName,
+          latitude: shouldUseFallbackCoordinates
+            ? fallbackSpotMatch.latitude
+            : latitudeValue,
+          longitude: shouldUseFallbackCoordinates
+            ? fallbackSpotMatch.longitude
+            : longitudeValue,
+          coordinateStatus,
         } satisfies SpotDefinition;
       })
       .filter((spot): spot is SpotDefinition => Boolean(spot));
@@ -3879,7 +3922,11 @@ setMessagesBySpot((previous) => previous);
     }
 
     if (!spotNames.includes(selectedSpot)) {
-      const replacementSpot = spotDefinitions.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(selectedSpot))?.spot ?? null;
+      const selectedCanonicalName = normalizeSpotName(selectedSpot);
+      const replacementSpot = spotDefinitions.find((spot) =>
+        spot.canonicalName === selectedCanonicalName
+        || normalizeSpotName(spot.spot) === selectedCanonicalName
+      )?.spot ?? null;
       if (replacementSpot) {
         setSelectedSpot(replacementSpot);
         return;
@@ -4207,7 +4254,7 @@ setMessagesBySpot((previous) => previous);
           longitude,
         };
         setCurrentCoordinates(coordinates);
-        const nearest = getNearestSpot(coordinates, spotDefinitions);
+        const nearest = getNearestSpot(coordinates, verifiedSpotDefinitions);
         setNearestSpotResult(nearest);
         
         setIsResolvingNearestSpot(false);
@@ -4232,7 +4279,7 @@ setMessagesBySpot((previous) => previous);
     return () => {
       active = false;
     };
-  }, [isNativePlatform, spotDefinitions]);
+  }, [isNativePlatform, verifiedSpotDefinitions]);
 
   useEffect(() => {
     let active = true;
@@ -4303,7 +4350,7 @@ setMessagesBySpot((previous) => previous);
 
         const applyCoordinates = (coordinates: SpotCoordinates) => {
           setCurrentCoordinates(coordinates);
-          const nearest = getNearestSpot(coordinates, spotDefinitions);
+          const nearest = getNearestSpot(coordinates, verifiedSpotDefinitions);
           setNearestSpotResult(nearest);
           
         };
@@ -4368,7 +4415,7 @@ setMessagesBySpot((previous) => previous);
         stopWatcher('EFFECT_CLEANUP');
       }
     };
-  }, [gpsActiveCheckedInSession, isNativePlatform, spotDefinitions]);
+  }, [gpsActiveCheckedInSession, isNativePlatform, verifiedSpotDefinitions]);
 
   useEffect(() => {
     
@@ -4638,7 +4685,7 @@ setMessagesBySpot((previous) => previous);
         return;
       }
 
-      const activeSpotDefinition = spotDefinitions.find(
+      const activeSpotDefinition = verifiedSpotDefinitions.find(
         (spot) => normalizeSpotName(spot.spot) === normalizeSpotName(gpsActiveCheckedInSession.spot),
       );
       if (!activeSpotDefinition) {
@@ -4710,7 +4757,7 @@ setMessagesBySpot((previous) => previous);
     };
 
     void runAutoCheckOutIfNeeded();
-  }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, activeAppUserId, spotDefinitions]);
+  }, [currentCoordinates, gpsActiveCheckedInSession, isNativePlatform, activeAppUserId, verifiedSpotDefinitions]);
   const selectedPlanningDateKey = activeDateKey;
   const planningNowReference = useMemo(
     () => getPlanningNowReference(selectedPlanningDateKey, currentLocalMinutes),
@@ -5414,8 +5461,12 @@ setMessagesBySpot((previous) => previous);
       return { ok: false, reason: 'missing_auth_or_profile' };
     }
 
+    const requestedCanonicalName = normalizeSpotName(spot);
     const canonicalSpot =
-      spotDefinitions.find((spotDefinition) => normalizeSpotName(spotDefinition.spot) === normalizeSpotName(spot))?.spot
+      spotDefinitions.find((spotDefinition) =>
+        spotDefinition.canonicalName === requestedCanonicalName
+        || normalizeSpotName(spotDefinition.spot) === requestedCanonicalName
+      )?.spot
       ?? spot;
     if (!canonicalSpot) {
       return { ok: false, reason: 'missing_spot' };
@@ -5786,6 +5837,34 @@ setMessagesBySpot((previous) => previous);
     await handleQuickCheckIn(nearestSpotName);
   };
 
+  const verifySpotCoordinates = async ({
+    canonicalName,
+    latitude,
+    longitude,
+  }: {
+    canonicalName: string;
+    latitude: number;
+    longitude: number;
+  }) => {
+    const { error } = await supabase
+      .from('spots')
+      .update({
+        launch_latitude: latitude,
+        launch_longitude: longitude,
+        coordinate_status: 'verified',
+        coordinate_verification_source: 'discover_map_admin',
+        coordinate_verified_at: new Date().toISOString(),
+      })
+      .eq('canonical_name', canonicalName);
+
+    if (error) {
+      console.error('VERIFY_SPOT_COORDINATES_ERROR', error);
+      return;
+    }
+
+    await fetchSpotDefinitions();
+  };
+
   const handleQuickCheckOut = async () => {
     
     setHomeQuickCheckInError('');
@@ -5917,6 +5996,77 @@ setMessagesBySpot((previous) => previous);
           </Pressable>
         </View>
 
+        <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: theme.border, padding: 12, marginBottom: 12 }}>
+          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>Verify spot location</Text>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+            {spotDefinitions
+              .filter((spotItem) => spotItem.spot.toLowerCase().includes('scheveningen'))
+              .map((spotItem) => {
+                const isActive = coordinateReviewSpotName === spotItem.spot;
+
+                return (
+                  <Pressable
+                    key={`coordinate-review-${spotItem.spot}`}
+                    onPress={() => {
+                      setCoordinateReviewSpotName(spotItem.spot);
+                      setCoordinateReviewPoint(null);
+                    }}
+                    style={{
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: isActive ? theme.primary : theme.border,
+                      backgroundColor: isActive ? '#123868' : theme.cardStrong,
+                      paddingHorizontal: 10,
+                      paddingVertical: 6,
+                    }}
+                  >
+                    <Text style={{ color: isActive ? theme.primary : theme.textSoft, fontSize: 11, fontWeight: '800' }}>
+                      {spotItem.spot}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+          </View>
+
+          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>
+            {coordinateReviewSpotName
+              ? coordinateReviewPoint
+                ? `Selected: ${coordinateReviewSpotName} · ${coordinateReviewPoint.latitude}, ${coordinateReviewPoint.longitude}`
+                : `Selected: ${coordinateReviewSpotName} · click the exact launch point on the map`
+              : 'Select a spot, then click the exact launch point on the map'}
+          </Text>
+
+          {coordinateReviewSpotName && coordinateReviewPoint ? (
+            <Pressable
+              onPress={() => {
+                const selectedDefinition = spotDefinitions.find((spotItem) => spotItem.spot === coordinateReviewSpotName);
+                if (!selectedDefinition) return;
+
+                void verifySpotCoordinates({
+                  canonicalName: selectedDefinition.canonicalName,
+                  latitude: coordinateReviewPoint.latitude,
+                  longitude: coordinateReviewPoint.longitude,
+                });
+
+                setCoordinateReviewPoint(null);
+              }}
+              style={{
+                alignSelf: 'flex-start',
+                marginTop: 10,
+                backgroundColor: theme.cardStrong,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: theme.primary,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '900' }}>Verify location</Text>
+            </Pressable>
+          ) : null}
+        </View>
+
         <View
           style={{
             flex: 1,
@@ -5929,17 +6079,43 @@ setMessagesBySpot((previous) => previous);
         >
           <DiscoverMap
             center={{
-              latitude: discoverMapCenter?.latitude ?? 52.1326,
-              longitude: discoverMapCenter?.longitude ?? 5.2913,
+              latitude: discoverMapCenter?.latitude ?? 52.3676,
+              longitude: discoverMapCenter?.longitude ?? 4.9041,
             }}
-            spots={spotDefinitions.map((spotItem) => ({
+            spots={spotDefinitions
+              .filter((spotItem) =>
+                spotItem.coordinateStatus === 'verified'
+                && Number.isFinite(spotItem.latitude)
+                && Number.isFinite(spotItem.longitude)
+              )
+              .map((spotItem) => {
+                if (spotItem.canonicalName.includes('scheveningen')) {
+                  console.log('DISCOVER_RENDER_COORDS', {
+                    spot: spotItem.spot,
+                    canonicalName: spotItem.canonicalName,
+                    latitude: spotItem.latitude,
+                    longitude: spotItem.longitude,
+                    coordinateStatus: spotItem.coordinateStatus,
+                  });
+                }
+
+                return ({
               name: spotItem.spot,
               latitude: spotItem.latitude,
               longitude: spotItem.longitude,
-            }))}
+              isAdded: favoriteSpots.includes(spotItem.spot),
+              coordinateStatus: spotItem.coordinateStatus,
+            });
+              })}
             onOpenSpot={(spotName) => {
               setSelectedSpot(spotName);
               setShowDiscoverSpotsPage(false);
+            }}
+            onAddSpot={(spotName) => {
+              addSelectedSpot(spotName);
+            }}
+            onMapClick={(latitude, longitude) => {
+              setCoordinateReviewPoint({ latitude, longitude });
             }}
           />
         </View>

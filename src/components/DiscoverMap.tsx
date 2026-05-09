@@ -4,6 +4,8 @@ type SpotMarker = {
   name: string;
   latitude: number;
   longitude: number;
+  isAdded: boolean;
+  coordinateStatus: 'unverified' | 'review' | 'verified';
 };
 
 type Props = {
@@ -13,6 +15,8 @@ type Props = {
   };
   spots: SpotMarker[];
   onOpenSpot: (spotName: string) => void;
+  onAddSpot: (spotName: string) => void;
+  onMapClick?: (latitude: number, longitude: number) => void;
 };
 
 export default function DiscoverMap(_props: Props) {
