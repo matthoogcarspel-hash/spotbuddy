@@ -2000,6 +2000,55 @@ function SessionTimeline({
 export default function App() {
   const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
   const isWebPlatform = Platform.OS === 'web';
+  const [isPasswordResetRoute, setIsPasswordResetRoute] = useState(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') {
+      return false;
+    }
+
+    return (
+      window.location.pathname === '/reset-password'
+      || window.location.href.includes('/reset-password#')
+    );
+  });
+  const [resetPasswordInput, setResetPasswordInput] = useState('');
+  const [resetPasswordConfirmInput, setResetPasswordConfirmInput] = useState('');
+  const [resetPasswordError, setResetPasswordError] = useState('');
+  const [resetPasswordSuccess, setResetPasswordSuccess] = useState('');
+  const [isSavingResetPassword, setIsSavingResetPassword] = useState(false);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web') {
+      return;
+    }
+
+    const hash = window.location.hash;
+
+    if (!hash.includes('access_token')) {
+      return;
+    }
+
+    const params = new URLSearchParams(hash.replace('#', ''));
+
+    const access_token = params.get('access_token');
+    const refresh_token = params.get('refresh_token');
+
+    if (!access_token || !refresh_token) {
+      return;
+    }
+
+    supabase.auth.setSession({
+      access_token,
+      refresh_token,
+    }).then(({ error }) => {
+      if (error) {
+        console.error('RESET_SET_SESSION_ERROR', error);
+        return;
+      }
+
+      console.log('RESET_SESSION_READY', true);
+    });
+  }, []);
+
   const [session, setSession] = useState<AuthSession | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [switchableAccounts, setSwitchableAccounts] = useState<SwitchableAccount[]>([]);
@@ -2365,6 +2414,10 @@ export default function App() {
       return configuredRedirect.trim();
     }
 
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.origin) {
+      return `${window.location.origin}/reset-password`;
+    }
+
     const configuredScheme = Constants.expoConfig?.scheme;
     if (typeof configuredScheme === 'string' && configuredScheme.trim()) {
       return `${configuredScheme.trim()}://reset-password`;
@@ -2373,6 +2426,54 @@ export default function App() {
     return undefined;
   }, []);
   const getActiveProfileStorageKey = (ownerUid: string) => `${activeProfileStorageKeyPrefix}:${ownerUid}`;
+
+  const handleSaveResetPassword = async () => {
+    const passwordValue = resetPasswordInput.trim();
+    const confirmValue = resetPasswordConfirmInput.trim();
+
+    setResetPasswordError('');
+    setResetPasswordSuccess('');
+
+    if (!passwordValue || !confirmValue) {
+      setResetPasswordError('Enter and confirm your new password');
+      return;
+    }
+
+    if (passwordValue.length < 8) {
+      setResetPasswordError('Password must be at least 8 characters');
+      return;
+    }
+
+    if (passwordValue !== confirmValue) {
+      setResetPasswordError('Passwords do not match');
+      return;
+    }
+
+    setIsSavingResetPassword(true);
+
+    const { error } = await supabase.auth.updateUser({
+      password: passwordValue,
+    });
+
+    setIsSavingResetPassword(false);
+
+    if (error) {
+      console.error('RESET_PASSWORD_UPDATE_ERROR', error);
+      setResetPasswordError('Could not update password. Please request a new reset link.');
+      return;
+    }
+
+    setResetPasswordSuccess('Password updated. You can now log in.');
+    setResetPasswordInput('');
+    setResetPasswordConfirmInput('');
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      window.history.replaceState({}, '', '/');
+    }
+
+    setIsPasswordResetRoute(false);
+    await supabase.auth.signOut();
+  };
 
   const handlePasswordResetRequest = async (email: string) => {
     
@@ -3360,14 +3461,30 @@ export default function App() {
         const coordinateStatus = row.coordinate_status === 'verified' || row.coordinate_status === 'review' || row.coordinate_status === 'unverified'
           ? row.coordinate_status
           : 'unverified';
-        const hasVerifiedLaunchCoordinates = coordinateStatus === 'verified'
-          && row.launch_latitude !== null
+        const hasLaunchCoordinates =
+          row.launch_latitude !== null
           && row.launch_latitude !== undefined
           && row.launch_longitude !== null
           && row.launch_longitude !== undefined;
 
-        const rawLatitudeValue = Number(hasVerifiedLaunchCoordinates ? row.launch_latitude : row.latitude ?? row.lat ?? null);
-        const rawLongitudeValue = Number(hasVerifiedLaunchCoordinates ? row.launch_longitude : row.longitude ?? row.lng ?? row.lon ?? null);
+        const shouldUseLaunchCoordinates =
+          hasLaunchCoordinates
+          && (
+            coordinateStatus === 'verified'
+            || coordinateStatus === 'review'
+          );
+
+        const rawLatitudeValue = Number(
+          shouldUseLaunchCoordinates
+            ? row.launch_latitude
+            : row.latitude ?? row.lat ?? null
+        );
+
+        const rawLongitudeValue = Number(
+          shouldUseLaunchCoordinates
+            ? row.launch_longitude
+            : row.longitude ?? row.lng ?? row.lon ?? null
+        );
         const fallbackSpot = fallbackSpots.find((spot) => normalizeSpotName(spot.spot) === normalizeSpotName(spotName)) ?? null;
 
         const coordinatesInNormalOrderAreValid = Number.isFinite(rawLatitudeValue)
@@ -5929,6 +6046,89 @@ setMessagesBySpot((previous) => previous);
     );
   }
 
+  if (isPasswordResetRoute) {
+    return (
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: '#0b1220',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: 24,
+        }}
+      >
+        <View
+          style={{
+            width: '100%',
+            maxWidth: 420,
+            backgroundColor: '#111827',
+            borderRadius: 16,
+            padding: 24,
+            gap: 12,
+          }}
+        >
+          <Text style={{ color: 'white', fontSize: 28, fontWeight: '700', marginBottom: 8 }}>
+            Reset password
+          </Text>
+
+          <TextInput
+            value={resetPasswordInput}
+            onChangeText={setResetPasswordInput}
+            placeholder="New password"
+            placeholderTextColor="#94a3b8"
+            secureTextEntry
+            style={{
+              backgroundColor: '#1e293b',
+              color: 'white',
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+            }}
+          />
+
+          <TextInput
+            value={resetPasswordConfirmInput}
+            onChangeText={setResetPasswordConfirmInput}
+            placeholder="Confirm new password"
+            placeholderTextColor="#94a3b8"
+            secureTextEntry
+            style={{
+              backgroundColor: '#1e293b',
+              color: 'white',
+              borderRadius: 12,
+              paddingHorizontal: 16,
+              paddingVertical: 14,
+            }}
+          />
+
+          {!!resetPasswordError && (
+            <Text style={{ color: '#f87171' }}>{resetPasswordError}</Text>
+          )}
+
+          {!!resetPasswordSuccess && (
+            <Text style={{ color: '#4ade80' }}>{resetPasswordSuccess}</Text>
+          )}
+
+          <Pressable
+            onPress={handleSaveResetPassword}
+            disabled={isSavingResetPassword}
+            style={{
+              backgroundColor: '#2563eb',
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginTop: 8,
+            }}
+          >
+            <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
+              {isSavingResetPassword ? 'Saving...' : 'Save new password'}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    );
+  }
+
   if (!session) {
     return <AuthScreen
       onSignupSuccess={() => {
@@ -5996,80 +6196,6 @@ setMessagesBySpot((previous) => previous);
           </Pressable>
         </View>
 
-        <View style={{ backgroundColor: theme.card, borderRadius: 16, borderWidth: 1, borderColor: theme.border, padding: 12, marginBottom: 12 }}>
-          <Text style={{ color: theme.text, fontSize: 14, fontWeight: '900' }}>Verify spot location</Text>
-
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
-            {spotDefinitions
-              .filter((spotItem) => {
-                const matchingSearchRow = allSpots.find((searchSpot) => searchSpot.name === spotItem.spot);
-                return matchingSearchRow?.country === 'Netherlands';
-              })
-              .map((spotItem) => {
-                const isActive = coordinateReviewSpotName === spotItem.spot;
-
-                return (
-                  <Pressable
-                    key={`coordinate-review-${spotItem.spot}`}
-                    onPress={() => {
-                      setCoordinateReviewSpotName(spotItem.spot);
-                      setCoordinateReviewPoint(null);
-                    }}
-                    style={{
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: isActive ? theme.primary : theme.border,
-                      backgroundColor: isActive ? '#123868' : theme.cardStrong,
-                      paddingHorizontal: 10,
-                      paddingVertical: 6,
-                    }}
-                  >
-                    <Text style={{ color: isActive ? theme.primary : theme.textSoft, fontSize: 11, fontWeight: '800' }}>
-                      {spotItem.spot}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-          </View>
-
-          <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10 }}>
-            {coordinateReviewSpotName
-              ? coordinateReviewPoint
-                ? `Selected: ${coordinateReviewSpotName} · ${coordinateReviewPoint.latitude}, ${coordinateReviewPoint.longitude}`
-                : `Selected: ${coordinateReviewSpotName} · click the exact launch point on the map`
-              : 'Select a spot, then click the exact launch point on the map'}
-          </Text>
-
-          {coordinateReviewSpotName && coordinateReviewPoint ? (
-            <Pressable
-              onPress={() => {
-                const selectedDefinition = spotDefinitions.find((spotItem) => spotItem.spot === coordinateReviewSpotName);
-                if (!selectedDefinition) return;
-
-                void verifySpotCoordinates({
-                  canonicalName: selectedDefinition.canonicalName,
-                  latitude: coordinateReviewPoint.latitude,
-                  longitude: coordinateReviewPoint.longitude,
-                });
-
-                setCoordinateReviewPoint(null);
-              }}
-              style={{
-                alignSelf: 'flex-start',
-                marginTop: 10,
-                backgroundColor: theme.cardStrong,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: theme.primary,
-                paddingHorizontal: 12,
-                paddingVertical: 8,
-              }}
-            >
-              <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '900' }}>Verify location</Text>
-            </Pressable>
-          ) : null}
-        </View>
-
         <View
           style={{
             flex: 1,
@@ -6087,8 +6213,7 @@ setMessagesBySpot((previous) => previous);
             }}
             spots={spotDefinitions
               .filter((spotItem) =>
-                (spotItem.coordinateStatus === 'verified' || spotItem.coordinateStatus === 'review')
-                && Number.isFinite(spotItem.latitude)
+                Number.isFinite(spotItem.latitude)
                 && Number.isFinite(spotItem.longitude)
               )
               .map((spotItem) => {
