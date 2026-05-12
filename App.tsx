@@ -180,7 +180,7 @@ const theme = {
   textMuted: '#A8B3C2',
   primary: '#2FD4FF',
   primaryPressed: '#1AB6E0',
-  live: '#3BE37A',
+  live: '#5EF0D0',
   warm: '#F2C94C',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
@@ -1029,8 +1029,8 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
   };
   const intentStyle = getIntentVisualStyle(intent);
   const timelineLabel = getTimelineLabel(state, true);
-  const plannedBarColor = intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(96,165,250,0.46)';
-  const plannedBorderColor = intent === 'maybe' ? 'rgba(168,85,247,0.82)' : 'rgba(147,197,253,0.62)';
+  const plannedBarColor = intent === 'maybe' ? '#5F83A6' : 'rgba(96,165,250,0.46)';
+  const plannedBorderColor = intent === 'maybe' ? '#5F83A6' : 'rgba(147,197,253,0.62)';
   const plannedTextColor = intent === 'maybe' ? '#f3e8ff' : '#dbeafe';
   const joinPlacement = getSessionJoinPlacement(leftPercent, widthPercent);
 
@@ -1055,7 +1055,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           width: `${widthPercent}%`,
           height: '100%',
           borderRadius: 999,
-          backgroundColor: state === 'live' ? '#22c55e' : intent === 'maybe' ? 'rgba(168,85,247,0.72)' : 'rgba(96,165,250,0.46)',
+          backgroundColor: state === 'live' ? '#5EF0D0' : intent === 'maybe' ? '#5F83A6' : 'rgba(96,165,250,0.46)',
           borderWidth: 0,
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
@@ -1635,7 +1635,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           ) : null}
 
           {isLiveRow && session?.checkedInAt ? (
-            <Text style={{ color: '#22c55e', fontSize: 10, fontWeight: '700', marginTop: 4 }}>
+            <Text style={{ color: '#5EF0D0', fontSize: 10, fontWeight: '700', marginTop: 4 }}>
               checked in at: {formatToHourMinute(session.checkedInAt)}
             </Text>
           ) : null}
@@ -1735,8 +1735,7 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
       {metrics.map((metric) => {
         const isLive = metric.label === 'LIVE';
         const isGoing = metric.label === 'GOING';
-        const accent = isLive ? '#22c55e' : isGoing ? '#3b82f6' : '#a855f7';
-        const iconBg = 'rgba(255,255,255,0.05)';
+        const accent = isLive ? '#5EF0D0' : isGoing ? '#4DB8FF' : '#5F83A6';
 
         return (
           <View
@@ -1753,9 +1752,18 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
               borderLeftColor: 'rgba(255,255,255,0.045)',
             }}
           >
-            <View style={{ width: 54, height: 54, borderRadius: 999, backgroundColor: iconBg, alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
-              <Text style={{ color: accent, fontSize: 30, fontWeight: '900' }}>{metric.icon}</Text>
-            </View>
+            <Text
+              style={{
+                color: accent,
+                fontSize: 38,
+                lineHeight: 38,
+                fontWeight: '900',
+                marginBottom: 14,
+              }}
+            >
+              {metric.icon}
+            </Text>
+
 
             <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
               <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '900', marginRight: 8 }}>
@@ -1911,9 +1919,9 @@ function SessionTimeline({
         {visibleGroups.length > 0 ? (
           <>
             {[
-              { key: 'live', title: 'LIVE NOW', groups: liveGroups, color: theme.live },
-              { key: 'going', title: 'GOING', groups: goingGroups, color: '#3b82f6' },
-              { key: 'maybe', title: 'MAYBE', groups: maybeGroups, color: '#a855f7' },
+              { key: 'live', title: 'LIVE NOW', groups: liveGroups, color: '#5EF0D0' },
+              { key: 'going', title: 'GOING', groups: goingGroups, color: '#4DB8FF' },
+              { key: 'maybe', title: 'MAYBE', groups: maybeGroups, color: '#5F83A6' },
             ].map((section) => {
               if (section.groups.length === 0) return null;
 
@@ -6544,7 +6552,7 @@ setMessagesBySpot((previous) => previous);
                                     void handleQuickCheckIn(spot);
                                   }}
                                   style={{
-                                    backgroundColor: '#22c55e',
+                                    backgroundColor: '#5EF0D0',
                                     paddingHorizontal: 10,
                                     paddingVertical: 6,
                                     borderRadius: 999,
@@ -7601,7 +7609,7 @@ const handleSave = async () => {
 
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
-        <Pressable onPress={() => setShowDiscoverSpotsPage(true)} style={{ marginBottom: 18 }}>
+        <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
 
@@ -7672,7 +7680,7 @@ const handleSave = async () => {
           </View>
           <View style={{ marginTop: 10 }}>
             <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.4 }}>{selectedSpot}</Text>
-            <Text style={{ color: liveCount > 0 ? theme.live : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
+            <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
               {liveCount > 0 ? 'Live now' : 'No one live now'}
             </Text>
           </View>
@@ -7695,9 +7703,9 @@ const handleSave = async () => {
         
 <TargetSpotSummaryCards
           metrics={[
-            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#22c55e', sessions: liveSessions },
-            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: 'rgba(203,213,225,0.86)', sessions: goingSessions },
-            { icon: '❔', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#a855f7', sessions: maybeSessions },
+            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
+            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
+            { icon: '◌', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
           ]}
         />
 
@@ -7709,7 +7717,7 @@ const handleSave = async () => {
               onPress={() => {
                 void handleUpdateSessionStatus('Is er al');
               }}
-              style={{ ...primaryButtonStyle, backgroundColor: '#22c55e', marginBottom: 10 }}
+              style={{ ...primaryButtonStyle, backgroundColor: '#5EF0D0', marginBottom: 10 }}
             >
               <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>
                 Check in now · {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'nearby'}
@@ -7833,7 +7841,7 @@ const handleSave = async () => {
                         const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
                         const name = otherSession.userName || 'Someone';
 if (overlapPercent < 25) return null;
-const barColor = overlapPercent >= 75 ? '#22c55e' : overlapPercent >= 50 ? '#eab308' : '#f97316';
+const barColor = overlapPercent >= 75 ? '#5EF0D0' : overlapPercent >= 50 ? '#eab308' : '#f97316';
 return { name, overlapPercent, barColor };
                       })
                       .filter(Boolean)
@@ -8263,7 +8271,7 @@ return { name, overlapPercent, barColor };
               onPress={() => {
                 void sendGroupChatMessage();
               }}
-              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
             >
               <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
             </Pressable>
@@ -8358,7 +8366,7 @@ return { name, overlapPercent, barColor };
             onPress={() => {
               void sendSpotChatMessage();
             }}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
           >
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
           </Pressable>
@@ -8641,7 +8649,7 @@ return { name, overlapPercent, barColor };
                         });
                         void handleQuickCheckIn(nearestSpotResult.spot);
                       }}
-                      style={{ backgroundColor: '#22c55e', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}
+                      style={{ backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}
                     >
                       <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>CHECK IN</Text>
                     </Pressable>
@@ -8802,13 +8810,13 @@ return { name, overlapPercent, barColor };
                           width: 8,
                           height: 8,
                           borderRadius: 999,
-                          backgroundColor: isLiveSpot ? '#7FE6D2' : '#63B3ED',
+                          backgroundColor: isLiveSpot ? '#5EF0D0' : '#4DB8FF',
                           marginRight: 7,
                         }}
                       />
                       <Text
                         style={{
-                          color: isLiveSpot ? '#7FE6D2' : '#63B3ED',
+                          color: isLiveSpot ? '#5EF0D0' : '#4DB8FF',
                           fontSize: 12,
                           fontWeight: '800',
                         }}
@@ -8940,15 +8948,15 @@ return { name, overlapPercent, barColor };
                     borderTopColor: 'rgba(255,255,255,0.06)',
                   }}
                 >
-                  <Text style={{ color: activeCount > 0 ? '#7FE6D2' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: activeCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {activeCount} live
                   </Text>
 
-                  <Text style={{ color: goingCount > 0 ? '#63B3ED' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: goingCount > 0 ? '#4DB8FF' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {goingCount} going
                   </Text>
 
-                  <Text style={{ color: maybeCount > 0 ? '#4B6B88' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: maybeCount > 0 ? '#5F83A6' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {maybeCount} maybe
                   </Text>
                 </View>

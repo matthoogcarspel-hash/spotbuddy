@@ -103,21 +103,17 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                 style={{
                   width: 44,
                   height: 44,
-                  borderRadius: 22,
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.08)',
                   alignItems: 'center',
                   justifyContent: 'center',
                   marginRight: 14,
                 }}
               >
                 {metric.label === 'LIVE' ? (
-                  <Zap size={22} color={metric.color} strokeWidth={2.5} />
+                  <Zap size={36} color={metric.color} strokeWidth={2.5} />
                 ) : metric.label === 'GOING' ? (
-                  <Users size={22} color={metric.color} strokeWidth={2.5} />
+                  <Users size={36} color={metric.color} strokeWidth={2.5} />
                 ) : (
-                  <HelpCircle size={22} color={metric.color} strokeWidth={2.5} />
+                  <HelpCircle size={36} color={metric.color} strokeWidth={2.5} />
                 )}
               </View>
 
