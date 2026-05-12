@@ -8757,10 +8757,18 @@ return { name, overlapPercent, barColor };
             const hour = 7 + hourIndex;
 
             const sessionsInHour = cleanDaySpotSessions.filter((sessionItem) => {
-              const startHour = Number(String(sessionItem.start || '0').split(':')[0] || 0);
-              const endHour = Number(String(sessionItem.end || '0').split(':')[0] || 0);
+              const [startHourRaw, startMinuteRaw] = String(sessionItem.start || '0:00').split(':');
+              const [endHourRaw, endMinuteRaw] = String(sessionItem.end || '0:00').split(':');
 
-              return hour >= startHour && hour < endHour;
+              const startMinutes =
+                (Number(startHourRaw) * 60) + Number(startMinuteRaw || 0);
+              const endMinutes =
+                (Number(endHourRaw) * 60) + Number(endMinuteRaw || 0);
+
+              const hourStartMinutes = hour * 60;
+              const hourEndMinutes = hourStartMinutes + 60;
+
+              return startMinutes < hourEndMinutes && endMinutes > hourStartMinutes;
             });
 
 
@@ -8778,18 +8786,18 @@ return { name, overlapPercent, barColor };
             ).length;
 
             const totalHourCount =
-              (liveHourCount * 1.4) +
-              (goingHourCount * 1) +
-              (maybeHourCount * 0.6);
+              (liveHourCount * 1.6) +
+              (goingHourCount * 1.25) +
+              (maybeHourCount * 0.85);
 
             let color = 'rgba(255,255,255,0.10)';
 
             if (liveHourCount > 0) {
-              color = 'rgba(127,230,210,0.95)';
+              color = '#5EF0D0';
             } else if (goingHourCount > 0) {
-              color = 'rgba(99,179,237,0.85)';
+              color = '#4DB8FF';
             } else if (maybeHourCount > 0) {
-              color = 'rgba(75,107,136,0.82)';
+              color = '#5F83A6';
             }
 
             return {
@@ -8799,7 +8807,9 @@ return { name, overlapPercent, barColor };
               maybeHourCount,
               totalHourCount,
               color,
-              height: Math.max(8, Math.min(76, totalHourCount * 14)),
+              height: totalHourCount > 0
+                ? Math.max(34, Math.min(82, totalHourCount * 24))
+                : 8,
             };
           });
 
@@ -8936,7 +8946,7 @@ return { name, overlapPercent, barColor };
                       <View
                         key={`forecast-bar-${spot.name}-${index}`}
                         style={{
-                          width: 16,
+                          width: 18,
                           height: item.h,
                           borderRadius: 6,
                           backgroundColor: item.c,
