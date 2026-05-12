@@ -8708,6 +8708,8 @@ return { name, overlapPercent, barColor };
               return hour >= startHour && hour < endHour;
             });
 
+
+
             const liveHourCount = sessionsInHour.filter(
               (sessionItem) => getCleanSessionStatus(sessionItem) === 'live'
             ).length;
@@ -8746,7 +8748,13 @@ return { name, overlapPercent, barColor };
             };
           });
 
+          const bestForecastHour = [...forecastHours]
+            .sort((a, b) => b.totalHourCount - a.totalHourCount)[0];
 
+          const bestWindowLabel =
+            bestForecastHour && bestForecastHour.totalHourCount > 0
+              ? `${String(bestForecastHour.hour).padStart(2, '0')}:00–${String(Math.min(22, bestForecastHour.hour + 2)).padStart(2, '0')}:00`
+              : null;
 
           return (
             <Pressable
