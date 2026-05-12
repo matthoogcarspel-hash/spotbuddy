@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
-import * as Notifications from 'expo-notifications';
+import * as Buzz from 'expo-notifications';
 import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
@@ -1614,7 +1614,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
                 marginLeft: -8,
                 width: 44,
                 height: 44,
-                borderRadius: 999,
+                borderRadius: 14,
                 backgroundColor: 'rgba(255,255,255,0.16)',
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.22)',
@@ -1703,7 +1703,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
             style={{
               width: 72,
               height: 18,
-              borderRadius: 999,
+              borderRadius: 14,
               backgroundColor: 'rgba(255,255,255,0.88)',
               justifyContent: 'center',
               alignItems: 'center',
@@ -1885,7 +1885,7 @@ function SessionTimeline({
                 style={{
                   width: 9,
                   height: 9,
-                  borderRadius: 999,
+                  borderRadius: 14,
                   backgroundColor: '#e6f6ff',
                   shadowColor: '#d8eeff',
                   shadowOpacity: 0.14,
@@ -2296,7 +2296,7 @@ export default function App() {
   const activeProfile = profile ?? null;
   const activeAppUserId = activeProfile?.id ?? null;
   const activeAppUserEmail = authenticatedUserEmail;
-  const refreshUnreadNotificationsState = async () => {
+  const refreshUnreadBuzzState = async () => {
     if (!activeAppUserId) {
       setNotificationRows([]);
       setUnreadCount(0);
@@ -2341,9 +2341,9 @@ export default function App() {
     setUnreadCount(count ?? 0);
   };
   useEffect(() => {
-    void refreshUnreadNotificationsState();
+    void refreshUnreadBuzzState();
   }, [activeAppUserId]);
-  const markAllNotificationsAsRead = async () => {
+  const markAllBuzzAsRead = async () => {
     if (!activeAppUserId) return;
 
     const { error } = await supabase
@@ -2357,7 +2357,7 @@ export default function App() {
       return;
     }
 
-    await refreshUnreadNotificationsState();
+    await refreshUnreadBuzzState();
   };
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
@@ -2746,7 +2746,7 @@ export default function App() {
           return;
         }
 
-        const { status } = await Notifications.requestPermissionsAsync();
+        const { status } = await Buzz.requestPermissionsAsync();
         console.log('PUSH_PERMISSION_STATUS', status);
 
         const projectId =
@@ -2756,7 +2756,7 @@ export default function App() {
 
         console.log('PUSH_PROJECT_ID', projectId);
 
-        const token = await Notifications.getExpoPushTokenAsync({
+        const token = await Buzz.getExpoPushTokenAsync({
           projectId,
         });
 
@@ -4717,7 +4717,7 @@ setMessagesBySpot((previous) => previous);
     void fetchSharedData();
   }, [activeDay]);
 
-  const areAnySpotNotificationsEnabled =
+  const areAnySpotBuzzEnabled =
     spotNotificationPreferences.session_planning_notification_mode !== 'off'
     || spotNotificationPreferences.checkin_notification_mode !== 'off'
     || spotNotificationPreferences.chat_notification_mode !== 'off'
@@ -6117,7 +6117,7 @@ setMessagesBySpot((previous) => previous);
               borderRadius: 12,
               paddingVertical: 14,
               alignItems: 'center',
-              marginTop: 8,
+              marginTop: 6,
             }}
           >
             <Text style={{ color: 'white', fontSize: 16, fontWeight: '600' }}>
@@ -6309,7 +6309,7 @@ setMessagesBySpot((previous) => previous);
                   borderColor: theme.border,
                   paddingHorizontal: 14,
                   paddingVertical: 10,
-                  fontSize: 14,
+                  fontSize: 12,
                 }}
               />
 
@@ -6339,7 +6339,7 @@ setMessagesBySpot((previous) => previous);
                 return (
                   <View
                     key={`your-spots-page-search-${spotItem.country}-${spotItem.name}-${spotItem.longitude}-${spotItem.latitude}`}
-                    style={{ paddingVertical: 9, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+                    style={{ paddingVertical: 5, borderTopWidth: 1, borderTopColor: theme.border, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
                   >
                     <Pressable
                       onPressIn={() => handleSearchResultPress(spotItem)}
@@ -6660,7 +6660,7 @@ setMessagesBySpot((previous) => previous);
                             flex: 1,
                             backgroundColor: '#166534',
                             borderRadius: 8,
-                            paddingVertical: 7,
+                            paddingVertical: 4,
                             opacity: isRequestInFlight ? 0.5 : 1,
                           }}
                         >
@@ -6675,7 +6675,7 @@ setMessagesBySpot((previous) => previous);
                             flex: 1,
                             backgroundColor: '#991b1b',
                             borderRadius: 8,
-                            paddingVertical: 7,
+                            paddingVertical: 4,
                             opacity: isRequestInFlight ? 0.5 : 1,
                           }}
                         >
@@ -6728,7 +6728,7 @@ setMessagesBySpot((previous) => previous);
                 borderColor: theme.border,
                 borderRadius: 10,
                 paddingHorizontal: 12,
-                paddingVertical: 9,
+                paddingVertical: 4,
                 color: theme.text,
                 backgroundColor: theme.bgElevated,
               }}
@@ -7658,8 +7658,8 @@ const handleSave = async () => {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Notifications${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
-              <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotNotificationsEnabled ? theme.primary : theme.textMuted }} />
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Buzz${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
+              <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
           <View style={{ marginTop: 10 }}>
@@ -7678,7 +7678,7 @@ const handleSave = async () => {
           {isNotificationPanelExpanded ? (
             <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: '#081827', paddingHorizontal: 14, paddingVertical: 12 }}>
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
-                Notifications for this spot
+                Buzz for this spot
               </Text>
             </View>
           ) : null}
@@ -7703,7 +7703,7 @@ const handleSave = async () => {
               }}
               style={{ ...primaryButtonStyle, backgroundColor: '#22c55e', marginBottom: 10 }}
             >
-              <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>
+              <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>
                 Check in now · {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'nearby'}
               </Text>
             </Pressable>
@@ -7719,7 +7719,7 @@ const handleSave = async () => {
               }}
               style={{ ...primaryButtonStyle, opacity: 1 }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Plan session</Text>
+              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Plan session</Text>
             </Pressable>
           ) : null}
           {topCtaMode === 'edit' ? (
@@ -8373,39 +8373,106 @@ return { name, overlapPercent, barColor };
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 22 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 8,
+            paddingTop: 0,
+          }}
+        >
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              flex: 1,
+              justifyContent: 'flex-start',
+              marginLeft: -10,
+            }}
+          >
+            <View
+              style={{
+                width: 120,
+                height: 120,
+                overflow: 'hidden',
+                marginRight: -12,
+                marginLeft: 6,
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
+              <Image
+                source={require('./assets/logo.png')}
+                style={{
+                  width: 210,
+                  height: 210,
+                  marginLeft: 8,
+                }}
+                resizeMode="contain"
+              />
+            </View>
+
             <Image
-              source={require('./assets/logo.png')}
-              style={{ width: 58, height: 58, borderRadius: 16, marginRight: 14 }}
+              source={require('./assets/wordmark.png')}
+              style={{
+                width: 470,
+                height: 110,
+                marginTop: 2,
+                marginLeft: -125,
+              }}
               resizeMode="contain"
             />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', lineHeight: 30 }}>
-                Where are we riding?
-              </Text>
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginTop: 3 }}>
-                See who’s going. Ride together.
-              </Text>
-            </View>
           </View>
 
-          <Pressable
-            key={headerProfile?.userId ?? 'header-profile-empty'}
-            onPress={() => setShowProfile(true)}
-            style={{ backgroundColor: theme.card, borderRadius: 999, paddingVertical: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' }}
+          <View
+            style={{
+              position: 'absolute',
+              left: 54,
+              top: 132,
+              alignItems: 'center',
+              zIndex: 20,
+            }}
           >
-            <Avatar uri={headerProfile?.avatarUrl ?? null} size={26} />
-            <Text style={{ color: theme.text, fontWeight: '700', marginLeft: 8, fontSize: 13 }}>
-              {headerProfile?.displayName ?? 'Profile'}
-            </Text>
-          </Pressable>
+            <Pressable
+              key={headerProfile?.userId ?? 'header-profile-empty'}
+              onPress={() => setShowProfile(true)}
+            >
+              <View>
+                <Avatar uri={headerProfile?.avatarUrl ?? null} size={78} />
+                <View
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0,0,0,0.45)',
+                    paddingVertical: 2,
+                    alignItems: 'center',
+                    borderBottomLeftRadius: 36,
+                    borderBottomRightRadius: 36,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: theme.text,
+                      fontWeight: '900',
+                      fontSize: 12,
+                    }}
+                  >
+                    You
+                  </Text>
+                </View>
+              </View>
+            </Pressable>
+          </View>
         </View>
 
+        <View style={{ marginLeft: 158, marginTop: 34 }}>
         {plannedSession ? (
           <Pressable
             onPress={() => setSelectedSpot(plannedSession.spot)}
-            style={{ backgroundColor: 'rgba(255,255,255,0.035)', borderRadius: 16, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+            style={{ backgroundColor: 'transparent', borderRadius: 0, padding: 0, marginBottom: 12, borderWidth: 0 }}
           >
             <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
               Planned session
@@ -8418,20 +8485,37 @@ return { name, overlapPercent, barColor };
             </Text>
           </Pressable>
         ) : null}
+        </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16 }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16, justifyContent: 'flex-start' }}>
           <Pressable
             onPress={() => setShowYourSpotsPage(true)}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+            style={{
+              width: 170,
+              backgroundColor: 'rgba(255,255,255,0.075)',
+              borderRadius: 999,
+              paddingVertical: 7,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
           >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your spots</Text>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Spots</Text>
           </Pressable>
 
           <Pressable
             onPress={() => setShowBuddies(true)}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+            style={{
+              width: 170,
+              backgroundColor: 'rgba(255,255,255,0.075)',
+              borderRadius: 999,
+              paddingVertical: 7,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
           >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>Your buddies</Text>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Buddies</Text>
             {hasPendingRequests && pendingRequestsCount !== null ? (
               <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{pendingRequestsCount}</Text>
@@ -8443,13 +8527,21 @@ return { name, overlapPercent, barColor };
             onPress={() => {
               setIsNotificationInboxExpanded((prev) => {
                 const nextExpanded = !prev;
-                if (nextExpanded) void markAllNotificationsAsRead();
+                if (nextExpanded) void markAllBuzzAsRead();
                 return nextExpanded;
               });
             }}
-            style={{ flex: 1, backgroundColor: theme.card, borderRadius: 14, paddingVertical: 12, alignItems: 'center' }}
+            style={{
+              width: 170,
+              backgroundColor: 'rgba(255,255,255,0.075)',
+              borderRadius: 999,
+              paddingVertical: 5,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
           >
-            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{`Notifications (${unreadCount})`}</Text>
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{`Buzz (${unreadCount})`}</Text>
           </Pressable>
         </View>
 
