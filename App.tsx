@@ -1334,7 +1334,8 @@ const groupTimelineSessions = ({
       timelineSession.item.sourceSessionId
       ?? timelineSession.item.id;
 
-    const groupKey = `source:${groupRootId}`;
+    const groupSpotKey = normalizeSpotName(timelineSession.item.spot);
+    const groupKey = `spot:${groupSpotKey}:source:${groupRootId}`;
     const entry: SessionGroupEntry = {
       item: timelineSession.item,
       state: timelineSession.state,
@@ -3570,6 +3571,14 @@ export default function App() {
     }
 
     
+    console.log('SPOT_DEFINITIONS_DEBUG', mappedSpots.map((spot) => ({
+      spot: spot.spot,
+      canonicalName: spot.canonicalName,
+      latitude: spot.latitude,
+      longitude: spot.longitude,
+      coordinateStatus: spot.coordinateStatus,
+    })));
+
     setSpotDefinitions(mappedSpots);
   };
 
@@ -3681,6 +3690,18 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
+    console.log('RAW_SCHEVENINGEN_SESSION_ROWS', sessionsData
+      .filter((row) => String(row.spot_name ?? '').toLowerCase().includes('scheveningen'))
+      .map((row) => ({
+        id: row.id,
+        spot_name: row.spot_name,
+        status: row.status,
+        start_time: row.start_time,
+        end_time: row.end_time,
+        session_day: row.session_day,
+        user_id: row.user_id,
+      }))
+    );
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -3826,6 +3847,20 @@ export default function App() {
         activeDay: selectedDayKey,
         matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
       });
+      console.log('SPOT_SESSION_BUCKET_DEBUG_DETAILED', Object.fromEntries(
+        Object.entries(nextSessionsBySpot).map(([spotName, spotSessions]) => [
+          spotName,
+          (spotSessions ?? []).map((sessionItem) => ({
+            id: sessionItem.id,
+            spot: sessionItem.spot,
+            userName: sessionItem.userName,
+            start: sessionItem.start,
+            end: sessionItem.end,
+            status: sessionItem.status,
+          })),
+        ])
+      ));
+
       setSessionsBySpot(nextSessionsBySpot);
     }
 
@@ -4591,6 +4626,18 @@ setMessagesBySpot((previous) => previous);
   const sessions = selectedSpot && Array.isArray(sessionsBySpot[selectedSpot])
     ? sessionsBySpot[selectedSpot]
     : [];
+
+  console.log('SELECTED_SPOT_SESSION_DEBUG', {
+    selectedSpot,
+    sessionCount: sessions.length,
+    sessions: sessions.map((s) => ({
+      id: s.id,
+      spot: s.spot,
+      status: s.status,
+      start: s.start,
+      end: s.end,
+    })),
+  });
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const timelineSessions = useMemo(() => {
     const safeTimelineSessions = Array.isArray(sessions) ? sessions : [];
