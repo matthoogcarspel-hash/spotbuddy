@@ -553,25 +553,25 @@ const getSpotMomentumLabelForDay = ({
   let label: SpotMomentumLabel | null = null;
   if (activeDay === 'today') {
     if (checkedInCount > 5) {
-      label = 'Let’s go now';
+      label = 'Busy now';
     } else if (checkedInCount >= 1) {
-      label = 'Happening now';
+      label = 'Live now';
     } else if (strongIntent) {
-      label = 'Looks on today';
+      label = 'Good later';
     } else if (mediumIntent) {
-      label = 'Session forming today';
+      label = 'Session planned';
     } else if (weakIntent) {
-      label = 'Maybe forming today';
+      label = 'Maybe later';
     }
   } else {
     if (plannedOverlapTomorrow > 5) {
       label = 'Let’s go big tomorrow';
     } else if (strongIntent) {
-      label = 'Looks on tomorrow';
+      label = 'Good tomorrow';
     } else if (mediumIntent) {
-      label = 'Session forming tomorrow';
+      label = 'Session tomorrow';
     } else if (weakIntent) {
-      label = 'Maybe forming tomorrow';
+      label = 'Maybe tomorrow';
     }
   }
 
@@ -814,21 +814,21 @@ const getSessionDisplayState = (
 
   if (isToday) {
     if (isHappeningNow) {
-      label = 'Happening now';
+      label = 'Live now';
     } else if (sessionItem.intent === 'definitely') {
-      label = 'Looks on today';
+      label = 'Good later';
     } else if (sessionItem.intent === 'likely') {
-      label = 'Session forming today';
+      label = 'Session planned';
     } else {
-      label = 'Maybe forming today';
+      label = 'Maybe later';
     }
   } else if (isTomorrow) {
     if (sessionItem.intent === 'definitely') {
-      label = 'Looks on tomorrow';
+      label = 'Good tomorrow';
     } else if (sessionItem.intent === 'likely') {
-      label = 'Session forming tomorrow';
+      label = 'Session tomorrow';
     } else {
-      label = 'Maybe forming tomorrow';
+      label = 'Maybe tomorrow';
     }
   }
 
@@ -8703,94 +8703,208 @@ return { name, overlapPercent, barColor };
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
               style={({ pressed }) => ({
-                backgroundColor: '#061421',
-                borderRadius: 22,
-                padding: 16,
-                marginBottom: 14,
+                backgroundColor: '#071421',
+                borderRadius: 24,
+                padding: 22,
+                marginBottom: 18,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.07)',
-                opacity: pressed ? 0.85 : 1,
+                opacity: pressed ? 0.88 : 1,
               })}
             >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <Text style={{ color: theme.text, fontSize: 19, fontWeight: '900', letterSpacing: 0.2 }}>
-                    {spot.name}
-                  </Text>
-                  {statusLabel ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 7 }}>
-                      <View style={{ width: 8, height: 8, borderRadius: 999, backgroundColor: isLiveSpot ? theme.live : theme.warm, marginRight: 7 }} />
-                      <Text style={{ color: isLiveSpot ? theme.live : theme.warm, fontSize: 10, fontWeight: '600', letterSpacing: 0.4 }}>
-                        {statusLabel}
-                      </Text>
-                    </View>
-                  ) : null}
-                  <Text style={{ color: 'rgba(255,255,255,0.5)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
+                    <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', letterSpacing: 0.2 }}>
+                      {spot.name}
+                    </Text>
+
+                    <Text
+                      style={{
+                        color: 'rgba(255,255,255,0.36)',
+                        fontSize: 11,
+                        fontWeight: '800',
+                        letterSpacing: 1,
+                      }}
+                    >
+                      SESSION FORECAST — TODAY
+                    </Text>
+                  </View>
+
+                  <Text style={{ color: 'rgba(255,255,255,0.52)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
                     {spot.distanceMeters === null ? 'DISTANCE UNKNOWN' : `${formatDistance(spot.distanceMeters)} AWAY`}
                   </Text>
                 </View>
 
-                {liveRiders.length > 0 ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 2 }}>
-                    {liveRiders.map((sessionItem, index) => (
+                <View style={{ alignItems: 'flex-end', minWidth: 150 }}>
+                  {statusLabel ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View
-                      key={`home-live-avatar-${spot.name}-${sessionItem.id}`}
+                        style={{
+                          width: 8,
+                          height: 8,
+                          borderRadius: 999,
+                          backgroundColor: isLiveSpot ? '#8FD6C4' : '#78C7D8',
+                          marginRight: 7,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          color: isLiveSpot ? '#8FD6C4' : '#78C7D8',
+                          fontSize: 12,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {statusLabel}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  <Text
+                    style={{
+                      color: 'rgba(255,255,255,0.48)',
+                      fontSize: 11,
+                      fontWeight: '600',
+                      marginTop: 5,
+                    }}
+                  >
+                    Best window 14:00–16:00
+                  </Text>
+                </View>
+              </View>
+
+              <View style={{ marginTop: 26 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    marginBottom: 8,
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  {Array.from({ length: 16 }).map((_, hourIndex) => {
+                    const hour = 7 + hourIndex;
+                    return (
+                      <Text
+                        key={`hour-${spot.name}-${hour}`}
+                        style={{
+                          color: 'rgba(255,255,255,0.46)',
+                          fontSize: 10,
+                          fontWeight: '800',
+                        }}
+                      >
+                        {String(hour).padStart(2, '0')}
+                      </Text>
+                    );
+                  })}
+                </View>
+
+                <View
+                  style={{
+                    position: 'relative',
+                    height: 96,
+                    flexDirection: 'row',
+                    alignItems: 'flex-end',
+                    justifyContent: 'space-between',
+                    borderBottomWidth: 1,
+                    borderBottomColor: 'rgba(255,255,255,0.12)',
+                    paddingHorizontal: 2,
+                  }}
+                >
+                  {Array.from({ length: 16 }).map((_, index) => {
+                    const bars = [
+                      { h: 8, c: 'rgba(255,255,255,0.10)' },
+                      { h: 8, c: 'rgba(255,255,255,0.10)' },
+                      { h: 12, c: 'rgba(124,132,150,0.46)' },
+                      { h: 16, c: 'rgba(124,132,150,0.54)' },
+                      { h: 22, c: 'rgba(120,150,170,0.62)' },
+                      { h: 30, c: 'rgba(110,165,185,0.70)' },
+                      { h: 40, c: 'rgba(100,178,190,0.78)' },
+                      { h: 52, c: 'rgba(95,190,185,0.86)' },
+                      { h: 66, c: 'rgba(95,190,185,0.92)' },
+                      { h: 72, c: 'rgba(95,190,185,0.95)' },
+                      { h: 58, c: 'rgba(100,178,190,0.86)' },
+                      { h: 46, c: 'rgba(110,165,185,0.76)' },
+                      { h: 32, c: 'rgba(120,150,170,0.62)' },
+                      { h: 20, c: 'rgba(124,132,150,0.48)' },
+                      { h: 10, c: 'rgba(255,255,255,0.10)' },
+                      { h: 8, c: 'rgba(255,255,255,0.10)' },
+                    ];
+
+                    const item = bars[index];
+
+                    return (
+                      <View
+                        key={`forecast-bar-${spot.name}-${index}`}
+                        style={{
+                          width: 16,
+                          height: item.h,
+                          borderRadius: 6,
+                          backgroundColor: item.c,
+                        }}
+                      />
+                    );
+                  })}
+
+                  <View
+                    pointerEvents="none"
+                    style={{
+                      position: 'absolute',
+                      left: `${Math.max(0, Math.min(100, (((new Date().getHours() + new Date().getMinutes() / 60) - 7) / 15) * 100))}%`,
+                      bottom: -31,
+                      alignItems: 'center',
+                      transform: [{ translateX: -24 }],
+                    }}
+                  >
+                    <View
                       style={{
-                        marginLeft: index === 0 ? 0 : -12,
-                        borderWidth: 2,
-                        borderColor: '#061421',
+                        width: 0,
+                        height: 0,
+                        borderLeftWidth: 7,
+                        borderRightWidth: 7,
+                        borderBottomWidth: 10,
+                        borderLeftColor: 'transparent',
+                        borderRightColor: 'transparent',
+                        borderBottomColor: 'rgba(255,255,255,0.9)',
+                        marginBottom: 4,
+                      }}
+                    />
+
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.95)',
+                        paddingHorizontal: 9,
+                        paddingVertical: 3,
                         borderRadius: 999,
                       }}
                     >
-                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={38} />
-                      </View>
-                    ))}
+                      <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>
+                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    </View>
                   </View>
-                ) : null}
-              </View>
-
-              {totalActiveRiders > 0 ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 14 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 10 }}>
-                    {activeRiderSessions.map((sessionItem, index) => (
-                      <View key={`home-active-avatar-${spot.name}-${sessionItem.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-                        <Avatar uri={sessionItem.userAvatarUrl ?? null} size={28} />
-                      </View>
-                    ))}
-                  </View>
-                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>
-                    {`${totalActiveRiders} rider${totalActiveRiders === 1 ? '' : 's'} active today`}
-                  </Text>
-                </View>
-              ) : null}
-
-              <View style={{ marginTop: 14, gap: 10 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800' }}>
-                    Activity today
-                  </Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>
-                    {activeCount + goingCount + maybeCount} riders
-                  </Text>
                 </View>
 
-                <View style={{ height: 8, borderRadius: 999, overflow: 'hidden', flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.055)' }}>
-                  <View style={{ flex: Math.max(activeCount, 0), backgroundColor: activeCount > 0 ? theme.live : 'transparent' }} />
-                  <View style={{ flex: Math.max(goingCount, 0), backgroundColor: goingCount > 0 ? 'rgba(59,130,246,0.75)' : 'transparent' }} />
-                  <View style={{ flex: Math.max(maybeCount, 0), backgroundColor: maybeCount > 0 ? 'rgba(168,85,247,0.75)' : 'transparent' }} />
-                  {activeCount + goingCount + maybeCount === 0 ? (
-                    <View style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.055)' }} />
-                  ) : null}
-                </View>
-
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text style={{ color: activeCount > 0 ? theme.live : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 26,
+                    marginTop: 42,
+                    paddingTop: 14,
+                    borderTopWidth: 1,
+                    borderTopColor: 'rgba(255,255,255,0.06)',
+                  }}
+                >
+                  <Text style={{ color: activeCount > 0 ? '#8FD6C4' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {activeCount} live
                   </Text>
-                  <Text style={{ color: goingCount > 0 ? '#60a5fa' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+
+                  <Text style={{ color: goingCount > 0 ? '#78C7D8' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {goingCount} going
                   </Text>
-                  <Text style={{ color: maybeCount > 0 ? '#c084fc' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+
+                  <Text style={{ color: maybeCount > 0 ? '#A99BE8' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {maybeCount} maybe
                   </Text>
                 </View>
