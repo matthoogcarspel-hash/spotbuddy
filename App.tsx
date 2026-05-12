@@ -1616,7 +1616,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
                 height: 44,
                 borderRadius: 14,
                 backgroundColor: 'rgba(255,255,255,0.16)',
-                borderWidth: 1,
+                borderWidth: 0,
                 borderColor: 'rgba(255,255,255,0.22)',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -1744,10 +1744,10 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
             style={{
               flex: 1,
               minHeight: 128,
-              backgroundColor: 'rgba(255,255,255,0.025)',
+              backgroundColor: 'transparent',
               borderRadius: 16,
               padding: 16,
-              borderWidth: 1,
+              borderWidth: 0,
               borderColor: 'rgba(255,255,255,0.045)',
               borderLeftWidth: 1,
               borderLeftColor: 'rgba(255,255,255,0.045)',
@@ -1925,7 +1925,7 @@ function SessionTimeline({
                   position: 'relative',
                   overflow: 'hidden',
                   backgroundColor: 'rgba(255,255,255,0.018)',
-                  borderWidth: 1,
+                  borderWidth: 0,
                   borderLeftWidth: 1,
                   borderLeftColor: 'rgba(255,255,255,0.05)',
                   borderColor: 'rgba(255,255,255,0.045)'
@@ -4705,6 +4705,14 @@ setMessagesBySpot((previous) => previous);
     const resolvedIntent = resolveSessionIntent(plannedSession.intent);
     return getIntentGoingLabel(resolvedIntent);
   }, [plannedSession]);
+
+  const plannedSessionTimeLabel = useMemo(() => {
+    if (!plannedSession?.start || !plannedSession?.end) {
+      return null;
+    }
+
+    return `${plannedSession.start} - ${plannedSession.end}`;
+  }, [plannedSession]);
   const messages = selectedSpot ? messagesBySpot[`${selectedSpot}-${selectedDayKey}`] || [] : [];
   useEffect(() => {
     if (!selectedSpot) return;
@@ -6305,7 +6313,7 @@ setMessagesBySpot((previous) => previous);
                   backgroundColor: theme.card,
                   color: theme.text,
                   borderRadius: 999,
-                  borderWidth: 1,
+                  borderWidth: 0,
                   borderColor: theme.border,
                   paddingHorizontal: 14,
                   paddingVertical: 10,
@@ -8159,7 +8167,7 @@ return { name, overlapPercent, barColor };
         ) : null}
 
         {activeGroupChatKey ? (
-          <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                 <Text style={{ fontSize: 16 }}>💬</Text>
@@ -8263,7 +8271,7 @@ return { name, overlapPercent, barColor };
           </View>
         ) : null}
 
-        <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+        <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
             <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
               <Text style={{ fontSize: 16 }}>💬</Text>
@@ -8373,118 +8381,103 @@ return { name, overlapPercent, barColor };
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
 
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 8,
-            paddingTop: 0,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              flex: 1,
-              justifyContent: 'flex-start',
-              marginLeft: -10,
-            }}
-          >
+        <View style={{ marginBottom: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
             <View
               style={{
                 width: 120,
                 height: 120,
                 overflow: 'hidden',
                 marginRight: -12,
-                marginLeft: 6,
+                marginLeft: -4,
                 justifyContent: 'center',
                 alignItems: 'center',
               }}
             >
               <Image
                 source={require('./assets/logo.png')}
-                style={{
-                  width: 210,
-                  height: 210,
-                  marginLeft: 8,
-                }}
+                style={{ width: 210, height: 210, marginLeft: 8 }}
                 resizeMode="contain"
               />
             </View>
 
             <Image
               source={require('./assets/wordmark.png')}
-              style={{
-                width: 470,
-                height: 110,
-                marginTop: 2,
-                marginLeft: -125,
-              }}
+              style={{ width: 470, height: 110, marginLeft: -125 }}
               resizeMode="contain"
             />
           </View>
 
-          <View
-            style={{
-              position: 'absolute',
-              left: 54,
-              top: 132,
-              alignItems: 'center',
-              zIndex: 20,
-            }}
-          >
+          {plannedSession ? (
             <Pressable
-              key={headerProfile?.userId ?? 'header-profile-empty'}
-              onPress={() => setShowProfile(true)}
+              onPress={() => setSelectedSpot(plannedSession.spot)}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                width: 620,
+                minHeight: 104,
+                marginLeft: 54,
+                marginBottom: 16,
+                backgroundColor: 'transparent',
+                borderRadius: 24,
+                borderWidth: 0,
+
+                paddingVertical: 12,
+                paddingLeft: 0,
+                paddingRight: 22,
+              }}
             >
-              <View>
-                <Avatar uri={headerProfile?.avatarUrl ?? null} size={78} />
-                <View
-                  style={{
-                    position: 'absolute',
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.45)',
-                    paddingVertical: 2,
-                    alignItems: 'center',
-                    borderBottomLeftRadius: 36,
-                    borderBottomRightRadius: 36,
-                  }}
-                >
-                  <Text
+              <Pressable
+                key={headerProfile?.userId ?? 'header-profile-empty'}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  setShowProfile(true);
+                }}
+                style={{ marginLeft: -44, marginRight: 24 }}
+              >
+                <View>
+                  <Avatar uri={headerProfile?.avatarUrl ?? null} size={88} />
+                  <View
                     style={{
-                      color: theme.text,
-                      fontWeight: '900',
-                      fontSize: 12,
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      backgroundColor: 'transparent',
+                      paddingVertical: 3,
+                      alignItems: 'center',
+                      borderBottomLeftRadius: 44,
+                      borderBottomRightRadius: 44,
                     }}
                   >
-                    You
-                  </Text>
+                    <Text style={{ color: theme.text, fontWeight: '900', fontSize: 12 }}>
+                      You
+                    </Text>
+                  </View>
                 </View>
+              </Pressable>
+
+              <View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' }}>
+                    Planned session
+                  </Text>
+
+                  {plannedSessionTimeLabel ? (
+                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
+                      {plannedSessionTimeLabel}
+                    </Text>
+                  ) : null}
+                </View>
+                <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', marginTop: 4 }}>
+                  {plannedSession.spot}
+                </Text>
+                <Text style={{ color: theme.textSoft, fontSize: 18, fontWeight: '600', marginTop: 2 }}>
+                  {plannedSessionIntentLabel}
+                </Text>
               </View>
             </Pressable>
-          </View>
-        </View>
-
-        <View style={{ marginLeft: 158, marginTop: 34 }}>
-        {plannedSession ? (
-          <Pressable
-            onPress={() => setSelectedSpot(plannedSession.spot)}
-            style={{ backgroundColor: 'transparent', borderRadius: 0, padding: 0, marginBottom: 12, borderWidth: 0 }}
-          >
-            <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' }}>
-              Planned session
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', marginTop: 4 }}>
-              {plannedSession.spot}
-            </Text>
-            <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
-              {plannedSessionIntentLabel}
-            </Text>
-          </Pressable>
-        ) : null}
+          ) : null}
         </View>
 
         <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16, justifyContent: 'flex-start' }}>
@@ -8492,7 +8485,7 @@ return { name, overlapPercent, barColor };
             onPress={() => setShowYourSpotsPage(true)}
             style={{
               width: 170,
-              backgroundColor: 'rgba(255,255,255,0.075)',
+              backgroundColor: 'transparent',
               borderRadius: 999,
               paddingVertical: 7,
               alignItems: 'center',
