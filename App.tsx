@@ -8698,6 +8698,56 @@ return { name, overlapPercent, barColor };
           const activeRiderSessions = [...liveSessions, ...goingSessions, ...maybeSessions].slice(0, 5);
           const totalActiveRiders = activeCount + goingCount + maybeCount;
 
+          const forecastHours = Array.from({ length: 16 }).map((_, hourIndex) => {
+            const hour = 7 + hourIndex;
+
+            const sessionsInHour = cleanDaySpotSessions.filter((sessionItem) => {
+              const startHour = Number(String(sessionItem.start || '0').split(':')[0] || 0);
+              const endHour = Number(String(sessionItem.end || '0').split(':')[0] || 0);
+
+              return hour >= startHour && hour < endHour;
+            });
+
+            const liveHourCount = sessionsInHour.filter(
+              (sessionItem) => getCleanSessionStatus(sessionItem) === 'live'
+            ).length;
+
+            const goingHourCount = sessionsInHour.filter(
+              (sessionItem) => getCleanSessionStatus(sessionItem) === 'going'
+            ).length;
+
+            const maybeHourCount = sessionsInHour.filter(
+              (sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe'
+            ).length;
+
+            const totalHourCount =
+              (liveHourCount * 1.4) +
+              (goingHourCount * 1) +
+              (maybeHourCount * 0.6);
+
+            let color = 'rgba(255,255,255,0.10)';
+
+            if (liveHourCount > 0) {
+              color = 'rgba(127,230,210,0.95)';
+            } else if (goingHourCount > 0) {
+              color = 'rgba(99,179,237,0.85)';
+            } else if (maybeHourCount > 0) {
+              color = 'rgba(75,107,136,0.82)';
+            }
+
+            return {
+              hour,
+              liveHourCount,
+              goingHourCount,
+              maybeHourCount,
+              totalHourCount,
+              color,
+              height: Math.max(8, Math.min(76, totalHourCount * 14)),
+            };
+          });
+
+
+
           return (
             <Pressable
               key={spot.name}
@@ -8812,24 +8862,10 @@ return { name, overlapPercent, barColor };
                   }}
                 >
                   {Array.from({ length: 16 }).map((_, index) => {
-                    const bars = [
-                      { h: 8, c: 'rgba(255,255,255,0.10)' },
-                      { h: 8, c: 'rgba(255,255,255,0.10)' },
-                      { h: 12, c: 'rgba(124,132,150,0.46)' },
-                      { h: 16, c: 'rgba(124,132,150,0.54)' },
-                      { h: 22, c: 'rgba(120,150,170,0.62)' },
-                      { h: 30, c: 'rgba(110,165,185,0.70)' },
-                      { h: 40, c: 'rgba(100,178,190,0.78)' },
-                      { h: 52, c: 'rgba(95,190,185,0.86)' },
-                      { h: 66, c: 'rgba(95,190,185,0.92)' },
-                      { h: 72, c: 'rgba(95,190,185,0.95)' },
-                      { h: 58, c: 'rgba(100,178,190,0.86)' },
-                      { h: 46, c: 'rgba(110,165,185,0.76)' },
-                      { h: 32, c: 'rgba(120,150,170,0.62)' },
-                      { h: 20, c: 'rgba(124,132,150,0.48)' },
-                      { h: 10, c: 'rgba(255,255,255,0.10)' },
-                      { h: 8, c: 'rgba(255,255,255,0.10)' },
-                    ];
+                    const bars = forecastHours.map((forecastHour) => ({
+                          h: forecastHour.height,
+                          c: forecastHour.color,
+                        }));
 
                     const item = bars[index];
 
