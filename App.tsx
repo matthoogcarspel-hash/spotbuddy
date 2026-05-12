@@ -8744,13 +8744,13 @@ return { name, overlapPercent, barColor };
                           width: 8,
                           height: 8,
                           borderRadius: 999,
-                          backgroundColor: isLiveSpot ? '#8FD6C4' : '#78C7D8',
+                          backgroundColor: isLiveSpot ? '#7FE6D2' : '#63B3ED',
                           marginRight: 7,
                         }}
                       />
                       <Text
                         style={{
-                          color: isLiveSpot ? '#8FD6C4' : '#78C7D8',
+                          color: isLiveSpot ? '#7FE6D2' : '#63B3ED',
                           fontSize: 12,
                           fontWeight: '800',
                         }}
@@ -8896,15 +8896,15 @@ return { name, overlapPercent, barColor };
                     borderTopColor: 'rgba(255,255,255,0.06)',
                   }}
                 >
-                  <Text style={{ color: activeCount > 0 ? '#8FD6C4' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: activeCount > 0 ? '#7FE6D2' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {activeCount} live
                   </Text>
 
-                  <Text style={{ color: goingCount > 0 ? '#78C7D8' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: goingCount > 0 ? '#63B3ED' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {goingCount} going
                   </Text>
 
-                  <Text style={{ color: maybeCount > 0 ? '#A99BE8' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
+                  <Text style={{ color: maybeCount > 0 ? '#4B6B88' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>
                     ● {maybeCount} maybe
                   </Text>
                 </View>
