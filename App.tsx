@@ -1731,7 +1731,7 @@ type SpotSummaryMetric = {
 
 function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; theme: any }) {
   return (
-    <View style={{ flexDirection: 'row', gap: 12, backgroundColor: 'transparent', paddingHorizontal: 0, paddingBottom: 0, marginTop: 0, marginBottom: 16, borderWidth: 0 }}>
+    <View style={{ flexDirection: 'row', gap: 12, backgroundColor: 'transparent', paddingHorizontal: 0, paddingBottom: 0, marginTop: 0, marginBottom: 8, borderWidth: 0 }}>
       {metrics.map((metric) => {
         const isLive = metric.label === 'LIVE';
         const isGoing = metric.label === 'GOING';
@@ -7601,7 +7601,7 @@ const handleSave = async () => {
 
     return (
       <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
-        <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
+        <Pressable onPress={() => setShowDiscoverSpotsPage(true)} style={{ marginBottom: 18 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
 
@@ -8381,7 +8381,7 @@ return { name, overlapPercent, barColor };
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
 
-        <View style={{ marginBottom: 18 }}>
+        <View style={{ marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
             <View
               style={{
@@ -8417,7 +8417,7 @@ return { name, overlapPercent, barColor };
                 width: 620,
                 minHeight: 104,
                 marginLeft: 54,
-                marginBottom: 16,
+                marginBottom: 4,
                 backgroundColor: 'transparent',
                 borderRadius: 24,
                 borderWidth: 0,
@@ -8480,12 +8480,12 @@ return { name, overlapPercent, barColor };
           ) : null}
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 16, justifyContent: 'flex-start' }}>
+        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12, justifyContent: 'flex-start' }}>
           <Pressable
             onPress={() => setShowYourSpotsPage(true)}
             style={{
               width: 170,
-              backgroundColor: 'transparent',
+              backgroundColor: 'rgba(255,255,255,0.075)',
               borderRadius: 999,
               paddingVertical: 7,
               alignItems: 'center',
@@ -8494,6 +8494,23 @@ return { name, overlapPercent, barColor };
             }}
           >
             <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Spots</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowDiscoverSpotsPage(true)}
+            style={{
+              width: 170,
+              backgroundColor: 'rgba(255,255,255,0.075)',
+              borderRadius: 999,
+              paddingVertical: 7,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
+              Discover
+            </Text>
           </Pressable>
 
           <Pressable
