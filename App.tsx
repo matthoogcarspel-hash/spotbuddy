@@ -8546,7 +8546,11 @@ const handleSave = async () => {
                   const scrollNode =
                     (spotChatScrollRef.current as any)?.getScrollableNode?.();
 
-                  if (scrollNode) {
+                  if (
+                    scrollNode &&
+                    typeof scrollNode === 'object' &&
+                    'scrollHeight' in scrollNode
+                  ) {
                     scrollNode.scrollTop = scrollNode.scrollHeight;
                   }
                 }, 0);
@@ -8990,64 +8994,6 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        {!isWebPlatform ? (
-          <View
-            style={{
-              position: 'absolute',
-              left: 14,
-              right: 14,
-              bottom: 18,
-              height: 68,
-              borderRadius: 999,
-              backgroundColor: 'rgba(10,22,35,0.96)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.10)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-around',
-              paddingHorizontal: 8,
-              shadowColor: '#000',
-              shadowOpacity: 0.28,
-              shadowRadius: 18,
-              shadowOffset: { width: 0, height: 8 },
-            }}
-          >
-            {[
-              { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null },
-              { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null },
-              { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
-              { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
-                setIsNotificationInboxExpanded((prev) => {
-                  const nextExpanded = !prev;
-                  if (nextExpanded) void markAllBuzzAsRead();
-                  return nextExpanded;
-                });
-              }, badge: unreadCount > 0 ? unreadCount : null },
-            ].map((item) => (
-              <Pressable
-                key={`native-bottom-nav-${item.key}`}
-                onPress={item.onPress}
-                style={{
-                  minWidth: 68,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
-                  {item.label}
-                </Text>
-                {item.badge ? (
-                  <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-        ) : null}
-
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
           const status = getSpotStatus({
@@ -9343,6 +9289,64 @@ const handleSave = async () => {
           );
         })}
       </ScrollView>
+      {!isWebPlatform ? (
+        <View
+            style={{
+              position: 'absolute',
+              left: 14,
+              right: 14,
+              bottom: 18,
+              height: 68,
+              borderRadius: 999,
+              backgroundColor: 'rgba(10,22,35,0.96)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.10)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-around',
+              paddingHorizontal: 8,
+              shadowColor: '#000',
+              shadowOpacity: 0.28,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 8 },
+            }}
+          >
+            {[
+              { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null },
+              { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null },
+              { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
+              { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
+                setIsNotificationInboxExpanded((prev) => {
+                  const nextExpanded = !prev;
+                  if (nextExpanded) void markAllBuzzAsRead();
+                  return nextExpanded;
+                });
+              }, badge: unreadCount > 0 ? unreadCount : null },
+            ].map((item) => (
+              <Pressable
+                key={`native-bottom-nav-${item.key}`}
+                onPress={item.onPress}
+                style={{
+                  minWidth: 68,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+                  {item.label}
+                </Text>
+                {item.badge ? (
+                  <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+      ) : null}
+
     </SafeAreaView>
   );
 }
