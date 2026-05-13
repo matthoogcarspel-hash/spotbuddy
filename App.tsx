@@ -856,6 +856,9 @@ const formatMinutesAsHourMinute = (totalMinutes: number) => {
 
   return `${formatTimePart(hours)}:${formatTimePart(minutes)}`;
 };
+
+const formatMinutesAsHourMinuteFull = (totalMinutes: number) =>
+  `${formatTimePart(Math.floor(totalMinutes / 60))}:${formatTimePart(totalMinutes % 60)}`;
 const getTimelineLabelsForRange = (windowStartMinutes: number, windowEndMinutes: number) => {
   if (windowEndMinutes <= windowStartMinutes) {
     return [formatMinutesAsHourMinute(windowStartMinutes)];
@@ -1292,8 +1295,8 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   return {
     startMinutes: roundedStartMinutes,
     endMinutes: roundedEndMinutes,
-    startTime: formatMinutesAsHourMinute(roundedStartMinutes),
-    endTime: formatMinutesAsHourMinute(roundedEndMinutes),
+    startTime: formatMinutesAsHourMinuteFull(roundedStartMinutes),
+    endTime: formatMinutesAsHourMinuteFull(roundedEndMinutes),
   };
 };
 
@@ -8181,7 +8184,9 @@ const handleSave = async () => {
                       }}
                       style={{
                         minWidth: 120,
-                        backgroundColor: isActive ? theme.primary : 'rgba(255,255,255,0.045)',
+                        backgroundColor: isActive
+                          ? (option.value === 'definitely' ? '#4DB8FF' : '#5F83A6')
+                          : 'rgba(255,255,255,0.045)',
                         borderRadius: 10,
                         
                         borderColor: theme.border,
