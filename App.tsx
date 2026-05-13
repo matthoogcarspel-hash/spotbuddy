@@ -2326,14 +2326,29 @@ export default function App() {
       return;
     }
 
+    const startOfToday = new Date();
+    startOfToday.setHours(0, 0, 0, 0);
+
     setNotificationRows(
-  (data ?? []).map((row) => ({
-    ...row,
-    actor_profile: Array.isArray(row.actor_profile)
-      ? row.actor_profile[0] ?? null
-      : row.actor_profile ?? null,
-  }))
-);
+      (data ?? [])
+        .filter((row) => {
+          if (row.read !== true) {
+            return true;
+          }
+
+          if (!row.created_at) {
+            return false;
+          }
+
+          return new Date(row.created_at) >= startOfToday;
+        })
+        .map((row) => ({
+          ...row,
+          actor_profile: Array.isArray(row.actor_profile)
+            ? row.actor_profile[0] ?? null
+            : row.actor_profile ?? null,
+        }))
+    );
 
     const { count, error: unreadCountError } = await supabase
       .from('notifications')
@@ -8698,19 +8713,68 @@ return { name, overlapPercent, barColor };
         </View>
 
         {isNotificationInboxExpanded ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 14, marginBottom: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 10 }}>Recent notifications</Text>
+          <View
+            style={{
+              marginBottom: 14,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255,255,255,0.06)',
+              paddingTop: 10,
+              gap: 2,
+            }}
+          >
+            <Text
+              style={{
+                color: theme.textMuted,
+                fontSize: 11,
+                fontWeight: '800',
+                textTransform: 'uppercase',
+                letterSpacing: 0.6,
+                marginBottom: 6,
+              }}
+            >
+              Activity
+            </Text>
+
             {notificationRows.length === 0 ? (
-              <Text style={{ color: theme.textMuted, fontSize: 13 }}>No notifications yet.</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+                No notifications yet.
+              </Text>
             ) : (
-              notificationRows.map((notificationRow, index) => (
-                <View key={notificationRow.id} style={{ paddingTop: index === 0 ? 0 : 10, marginTop: index === 0 ? 0 : 10, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: theme.border }}>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: notificationRow.read === false ? '800' : '600' }}>
+              notificationRows.map((notificationRow) => (
+                <View
+                  key={notificationRow.id}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                    paddingVertical: 8,
+                  }}
+                >
+                  <Text
+                    numberOfLines={1}
+                    style={{
+                      flex: 1,
+                      color: notificationRow.read === false ? theme.text : theme.textSoft,
+                      fontSize: 12,
+                      fontWeight: notificationRow.read === false ? '700' : '500',
+                    }}
+                  >
                     {getNotificationInboxSummary(notificationRow)}
                   </Text>
+
                   {notificationRow.created_at ? (
-                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 3 }}>
-                      {new Date(notificationRow.created_at).toLocaleString()}
+                    <Text
+                      style={{
+                        color: theme.textMuted,
+                        fontSize: 10,
+                        fontWeight: '600',
+                      }}
+                    >
+                      {new Date(notificationRow.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </Text>
                   ) : null}
                 </View>
