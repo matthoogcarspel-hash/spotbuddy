@@ -5218,6 +5218,30 @@ setMessagesBySpot((previous) => previous);
     : 'No live riders yet.';  useEffect(() => {
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
+
+  const goHomeFromNativeSwipe = () => {
+    if (isWebPlatform) return;
+
+    setSelectedSpot(null);
+    setShowYourSpotsPage(false);
+    setShowDiscoverSpotsPage(false);
+    setShowBuddies(false);
+    setShowProfile(false);
+    setIsNotificationInboxExpanded(false);
+  };
+
+  const nativeBackSwipeResponder = !isWebPlatform ? PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gestureState) => {
+      const isHorizontalSwipe = Math.abs(gestureState.dx) > 42 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.6;
+      const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || isNotificationInboxExpanded);
+      return isHorizontalSwipe && isNotHome;
+    },
+    onPanResponderRelease: (_, gestureState) => {
+      if (Math.abs(gestureState.dx) > 70) {
+        goHomeFromNativeSwipe();
+      }
+    },
+  }) : null;
   useEffect(() => {
     setShowManageSessions(false);
   }, [selectedSpot, activeDayKey]);
@@ -7715,7 +7739,8 @@ const handleSave = async () => {
     ) : null;
 
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 34 }}>
+      <View style={{ flex: 1, backgroundColor: theme.bg }} {...(nativeBackSwipeResponder?.panHandlers ?? {})}>
+        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 18, paddingTop: isWebPlatform ? 10 : 56, paddingBottom: 120 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
@@ -8625,7 +8650,8 @@ const handleSave = async () => {
         </View>
 
 
-      </ScrollView>
+        </ScrollView>
+      </View>
     );
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
@@ -8652,7 +8678,8 @@ const handleSave = async () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
+      <View style={{ flex: 1 }} {...(nativeBackSwipeResponder?.panHandlers ?? {})}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
@@ -9288,7 +9315,8 @@ const handleSave = async () => {
             </Pressable>
           );
         })}
-      </ScrollView>
+        </ScrollView>
+      </View>
       {!isWebPlatform ? (
         <View
             style={{
