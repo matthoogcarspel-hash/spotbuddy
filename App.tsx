@@ -8891,7 +8891,7 @@ return { name, overlapPercent, barColor };
                       marginTop: 5,
                     }}
                   >
-                    Best window 14:00–16:00
+                    {bestWindowLabel ? `Best window ${bestWindowLabel}` : 'No sessions planned'}
                   </Text>
                 </View>
               </View>
