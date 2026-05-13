@@ -2199,6 +2199,7 @@ export default function App() {
   const [searchUsersInput, setSearchUsersInput] = useState('');
   const [outgoingFollowStatusesByUserId, setOutgoingFollowStatusesByUserId] = useState<Record<string, FollowStatus>>({});
   const [followingUserIds, setFollowingUserIds] = useState<string[]>([]);
+  const [recommendedViaBuddyNameByUserId, setRecommendedViaBuddyNameByUserId] = useState<Record<string, string>>({});
   const [incomingFollowRequests, setIncomingFollowRequests] = useState<FollowRequestItem[]>([]);
   const [followerUsers, setFollowerUsers] = useState<BuddyUser[]>([]);
   const [loadingBuddies, setLoadingBuddies] = useState(false);
@@ -3097,6 +3098,7 @@ export default function App() {
     setSearchUsersInput('');
     setOutgoingFollowStatusesByUserId({});
     setFollowingUserIds([]);
+    setRecommendedViaBuddyNameByUserId({});
     setIncomingFollowRequests([]);
     setFollowerUsers([]);
     setLoadingBuddies(false);
@@ -3113,6 +3115,7 @@ export default function App() {
       setBuddyUsers([]);
       setOutgoingFollowStatusesByUserId({});
       setFollowingUserIds([]);
+      setRecommendedViaBuddyNameByUserId({});
       setIncomingFollowRequests([]);
       setFollowerUsers([]);
       return;
@@ -3171,6 +3174,40 @@ export default function App() {
       
       
       setFollowingUserIds(acceptedFollowingUserIds);
+
+      const loadedBuddyUsers = ((usersResponse.data ?? []) as BuddyUser[]);
+      const usersById = loadedBuddyUsers.reduce<Record<string, BuddyUser>>((acc, userItem) => {
+        acc[userItem.id] = userItem;
+        return acc;
+      }, {});
+
+      if (acceptedFollowingUserIds.length === 0) {
+        setRecommendedViaBuddyNameByUserId({});
+      } else {
+        const secondDegreeResponse = await supabase
+          .from('user_follows')
+          .select('follower_id, following_id, status')
+          .in('follower_id', acceptedFollowingUserIds)
+          .eq('status', 'accepted');
+
+        if (secondDegreeResponse.error) {
+          console.error('BUDDIES_SECOND_DEGREE_LOAD_ERROR', secondDegreeResponse.error);
+          setRecommendedViaBuddyNameByUserId({});
+        } else {
+          const nextRecommendations = (secondDegreeResponse.data ?? []).reduce<Record<string, string>>((acc, relation) => {
+            const recommendedUserId = relation.following_id;
+            const viaBuddy = usersById[relation.follower_id];
+            if (!viaBuddy || recommendedUserId === activeProfileId || acceptedFollowingUserIds.includes(recommendedUserId)) {
+              return acc;
+            }
+            if (!acc[recommendedUserId]) {
+              acc[recommendedUserId] = viaBuddy.display_name;
+            }
+            return acc;
+          }, {});
+          setRecommendedViaBuddyNameByUserId(nextRecommendations);
+        }
+      }
     }
 
     if (incomingRequestsResponse.error || incomingAcceptedResponse.error) {
@@ -6760,6 +6797,7 @@ setMessagesBySpot((previous) => previous);
                   const followStatus = outgoingFollowStatusesByUserId[userItem.id];
                   const isPending = followStatus === 'pending';
                   const isActionInFlight = buddyActionUserId === userItem.id;
+                  const recommendedViaBuddyName = recommendedViaBuddyNameByUserId[userItem.id];
 
                   return (
                     <View
@@ -6775,9 +6813,16 @@ setMessagesBySpot((previous) => previous);
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
                         <Avatar uri={userItem.avatar_url} size={32} />
-                        <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
-                          {userItem.display_name}
-                        </Text>
+                        <View style={{ marginLeft: 10, flex: 1 }}>
+                          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
+                            {userItem.display_name}
+                          </Text>
+                          {recommendedViaBuddyName ? (
+                            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                              via {recommendedViaBuddyName}
+                            </Text>
+                          ) : null}
+                        </View>
                       </View>
 
                       <Pressable
