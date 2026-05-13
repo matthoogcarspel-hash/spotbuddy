@@ -6304,7 +6304,7 @@ setMessagesBySpot((previous) => previous);
       : 'Locating…';
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: buddyScreenPadding, paddingTop: isWebPlatform ? 20 : 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>
             Discover
@@ -6752,6 +6752,10 @@ setMessagesBySpot((previous) => previous);
     });
     
     const followedUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => followingUserIds.includes(userItem.id));
+    const buddyCardWidth = isWebPlatform ? 210 : '100%';
+    const buddyAvatarSize = isWebPlatform ? 88 : 64;
+    const buddyGridGap = isWebPlatform ? 14 : 10;
+    const buddyScreenPadding = isWebPlatform ? 20 : 14;
 
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
@@ -6793,7 +6797,7 @@ setMessagesBySpot((previous) => previous);
               {loadingBuddies ? <Text style={{ color: theme.textSoft, marginBottom: 8 }}>Loading...</Text> : null}
               {buddiesError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{buddiesError}</Text> : null}
 
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: buddyGridGap }}>
                 {filteredBuddyUsers
                   .filter((userItem) => outgoingFollowStatusesByUserId[userItem.id] !== 'accepted')
                   .map((userItem) => {
@@ -6806,8 +6810,8 @@ setMessagesBySpot((previous) => previous);
                       <View
                         key={`buddy-user-${userItem.id}`}
                         style={{
-                          width: 210,
-                          maxWidth: 210,
+                          width: buddyCardWidth,
+                          maxWidth: buddyCardWidth,
                           backgroundColor: 'rgba(20,42,76,0.72)',
                           borderRadius: 16,
                           borderWidth: 1,
@@ -6820,7 +6824,7 @@ setMessagesBySpot((previous) => previous);
                         }}
                       >
                         <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                          <Avatar uri={userItem.avatar_url} size={88} />
+                          <Avatar uri={userItem.avatar_url} size={buddyAvatarSize} />
                           <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
                             <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
                               {userItem.display_name}
@@ -6874,13 +6878,13 @@ setMessagesBySpot((previous) => previous);
               {followedUsers.length === 0 ? (
                 <Text style={{ color: theme.textSoft, marginTop: 8 }}>No buddies yet</Text>
               ) : (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: buddyGridGap }}>
                   {followedUsers.map((userItem) => (
                     <View
                       key={`following-${userItem.id}`}
                       style={{
-                        width: 210,
-                        maxWidth: 210,
+                        width: buddyCardWidth,
+                        maxWidth: buddyCardWidth,
                         backgroundColor: 'rgba(20,42,76,0.62)',
                         borderRadius: 16,
                         borderWidth: 1,
@@ -6889,7 +6893,7 @@ setMessagesBySpot((previous) => previous);
                       }}
                     >
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                        <Avatar uri={userItem.avatar_url} size={88} />
+                        <Avatar uri={userItem.avatar_url} size={buddyAvatarSize} />
                         <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
                           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
                             {userItem.display_name}
