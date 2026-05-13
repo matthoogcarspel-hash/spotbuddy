@@ -846,14 +846,23 @@ const minuteValueToHourMinute = (totalMinutes: number) => ({
   hour: Math.floor(totalMinutes / 60),
   minute: totalMinutes % 60,
 });
-const formatMinutesAsHourMinute = (totalMinutes: number) => `${formatTimePart(Math.floor(totalMinutes / 60))}:${formatTimePart(totalMinutes % 60)}`;
+const formatMinutesAsHourMinute = (totalMinutes: number) => {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (minutes === 0) {
+    return String(hours);
+  }
+
+  return `${formatTimePart(hours)}:${formatTimePart(minutes)}`;
+};
 const getTimelineLabelsForRange = (windowStartMinutes: number, windowEndMinutes: number) => {
   if (windowEndMinutes <= windowStartMinutes) {
     return [formatMinutesAsHourMinute(windowStartMinutes)];
   }
 
   const labels: string[] = [formatMinutesAsHourMinute(windowStartMinutes)];
-  const stepMinutes = 120;
+  const stepMinutes = 60;
   let nextMinutes = Math.ceil(windowStartMinutes / stepMinutes) * stepMinutes;
   if (nextMinutes <= windowStartMinutes) {
     nextMinutes += stepMinutes;
