@@ -6737,38 +6737,7 @@ setMessagesBySpot((previous) => previous);
                       <Text style={{ color: theme.text, fontSize: 15, marginBottom: 8 }}>
                         {requestItem.requester?.display_name ?? 'Unknown user'}
                       </Text>
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
-                        <Pressable
-                          disabled={isRequestInFlight}
-                          onPress={() => {
-                            void handleAcceptFollowRequest(requestItem);
-                          }}
-                          style={{
-                            flex: 1,
-                            backgroundColor: '#166534',
-                            borderRadius: 8,
-                            paddingVertical: 4,
-                            opacity: isRequestInFlight ? 0.5 : 1,
-                          }}
-                        >
-                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Accept</Text>
-                        </Pressable>
-                        <Pressable
-                          disabled={isRequestInFlight}
-                          onPress={() => {
-                            void handleRejectFollowRequest(requestItem);
-                          }}
-                          style={{
-                            flex: 1,
-                            backgroundColor: '#991b1b',
-                            borderRadius: 8,
-                            paddingVertical: 4,
-                            opacity: isRequestInFlight ? 0.5 : 1,
-                          }}
-                        >
-                          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '700' }}>Decline</Text>
-                        </Pressable>
-                      </View>
+    
                     </View>
                   );
                 })}
@@ -7663,13 +7632,15 @@ const handleSave = async () => {
       justifyContent: 'center',
     } as const;
     const sessionActionButtonBaseStyle = {
-      flex: 1,
-      borderRadius: 8,
-      minHeight: 38,
-      paddingVertical: 8,
-      paddingHorizontal: 12,
+      flex: 0,
+      alignSelf: 'flex-start',
+      borderRadius: 999,
+      minHeight: 0,
+      paddingVertical: 6,
+      paddingHorizontal: 11,
       justifyContent: 'center',
       alignItems: 'center',
+      borderWidth: 1,
     } as const;
     const autoCheckoutBanner = autoCheckoutNotice ? (
       <View style={{ backgroundColor: '#16324d',  borderColor: '#2f5f86', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 12 }}>
@@ -7787,7 +7758,7 @@ const handleSave = async () => {
                       {preference.label}
                     </Text>
 
-                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' }}>
                       {notificationModeOptions.map((option) => {
                         const selected = currentValue === option.value;
 
@@ -7924,9 +7895,17 @@ const handleSave = async () => {
                   setFormError('');
                   setSaveError(null);
                 }}
-                style={{ paddingVertical: 6, paddingHorizontal: 0, opacity: 1 }}
+                style={{
+                  backgroundColor: 'rgba(255,255,255,0.045)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.06)',
+                  borderRadius: 999,
+                  paddingVertical: 6,
+                  paddingHorizontal: 10,
+                  alignSelf: 'flex-start',
+                }}
               >
-                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '800' }}>☰ Manage sessions</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>☰ Manage sessions</Text>
               </Pressable>
               {ownSessionCount === 1 ? (
                 <Pressable
@@ -7937,9 +7916,18 @@ const handleSave = async () => {
                     }
                     void handleCancelPlannedSession();
                   }}
-                  style={{ paddingVertical: 6, paddingHorizontal: 0, opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35 }}
+                  style={{
+                    backgroundColor: 'rgba(255,95,125,0.10)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,95,125,0.18)',
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 10,
+                    alignSelf: 'flex-start',
+                    opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35,
+                  }}
                 >
-                  <Text style={{ color: '#ff8fa3', fontSize: 13, fontWeight: '800' }}>× Cancel session</Text>
+                  <Text style={{ color: '#ffb8c4', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
                 </Pressable>
               ) : null}
               <Pressable
@@ -7970,96 +7958,111 @@ const handleSave = async () => {
               <Text style={{ color: theme.textSoft, fontSize: 12 }}>
                 Count: {(spotState.ownSessionForSpotDay?.ownSessions ?? []).length}
               </Text>
-              {ownActiveSessions.map((sessionItem) => (
-                <View key={sessionItem.id} style={{  borderColor: theme.border, borderRadius: 14, padding: 10, gap: 8 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
-                    {sessionItem.start} - {sessionItem.end}
-                  {(() => {
-                    const toMinutes = (value?: string | null) => {
-                      if (!value) return null;
-                      const [h, m] = value.split(':').map(Number);
-                      if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-                      return h * 60 + m;
-                    };
+              {ownActiveSessions.map((sessionItem) => {
+                const toMinutes = (value?: string | null) => {
+                  if (!value) return null;
+                  const [h, m] = value.split(':').map(Number);
+                  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+                  return h * 60 + m;
+                };
 
-                    const myStart = toMinutes(sessionItem.start);
-                    const myEnd = toMinutes(sessionItem.end);
-                    if (myStart === null || myEnd === null || myEnd <= myStart) return null;
+                const myStart = toMinutes(sessionItem.start);
+                const myEnd = toMinutes(sessionItem.end);
+                const overlaps = myStart !== null && myEnd !== null && myEnd > myStart
+                  ? (spotState.sessionsForSpot ?? [])
+                    .filter((otherSession) => otherSession.id !== sessionItem.id)
+                    .map((otherSession) => {
+                      const otherStart = toMinutes(otherSession.start);
+                      const otherEnd = toMinutes(otherSession.end);
+                      if (otherStart === null || otherEnd === null || otherEnd <= otherStart) return null;
 
-                    const overlaps = (spotState.sessionsForSpot ?? [])
-                      .filter((otherSession) => otherSession.id !== sessionItem.id)
-                      .map((otherSession) => {
-                        const otherStart = toMinutes(otherSession.start);
-                        const otherEnd = toMinutes(otherSession.end);
-                        if (otherStart === null || otherEnd === null || otherEnd <= otherStart) return null;
+                      const overlapMinutes = Math.max(0, Math.min(myEnd, otherEnd) - Math.max(myStart, otherStart));
+                      if (overlapMinutes <= 0) return null;
 
-                        const overlapMinutes = Math.max(0, Math.min(myEnd, otherEnd) - Math.max(myStart, otherStart));
-                        if (overlapMinutes <= 0) return null;
+                      const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
+                      if (overlapPercent < 25) return null;
 
-                        const overlapPercent = Math.round((overlapMinutes / (myEnd - myStart)) * 100);
-                        const name = otherSession.userName || 'Someone';
-if (overlapPercent < 25) return null;
-const barColor = overlapPercent >= 75 ? '#5EF0D0' : overlapPercent >= 50 ? '#eab308' : '#f97316';
-return { name, overlapPercent, barColor };
-                      })
-                      .filter(Boolean)
-                      .slice(0, 3);
+                      return {
+                        name: otherSession.userName || 'Someone',
+                        overlapPercent,
+                      };
+                    })
+                    .filter(Boolean)
+                    .slice(0, 1)
+                  : [];
 
-                    if (overlaps.length === 0) return <Text style={{ color: '#64748b', fontSize: 12, marginTop: 4 }}>Overlap: none</Text>;
+                const primaryOverlap = overlaps[0];
 
-                    console.log('BUDDY_OVERLAP_RESULT', { sessionId: sessionItem.id, overlaps });
+                return (
+                  <View key={sessionItem.id} style={{ borderColor: theme.border, borderRadius: 14, paddingVertical: 8, gap: 6 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>
+                        {sessionItem.start} - {sessionItem.end}
+                      </Text>
 
-                    return (
-                      <View style={{ marginTop: 6, gap: 5 }}>
-                        {overlaps.map((overlapItem, index) => (
-                          <View key={`${sessionItem.id}-overlap-${index}`}>
-                            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
-                              <Text style={{ color: theme.textSoft, fontSize: 12 }}>Overlap with {overlapItem.name}</Text>
-                              <Text style={{ color: theme.textSoft, fontSize: 12 }}>{overlapItem.overlapPercent}%</Text>
-                            </View>
-                            <View style={{ height: 6, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.12)', overflow: 'hidden' }}>
-                              <View style={{ width: `${overlapItem.overlapPercent}%`, height: '100%', backgroundColor: overlapItem.barColor, borderRadius: 999 }} />
-                            </View>
-                          </View>
-                        ))}
-                      </View>
-                    );
-                  })()}
-                  </Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable
-                      onPress={() => {
-                        setEditingSessionId(sessionItem.id);
-                        const parsedStart = parseHourMinuteParts(sessionItem.start);
-                        const parsedEnd = parseHourMinuteParts(sessionItem.end);
-                        setStartHour(parsedStart.hour);
-                        setStartMinute(parsedStart.minute);
-                        setEndHour(parsedEnd.hour);
-                        setEndMinute(parsedEnd.minute);
-                        setIntent(resolveSessionIntent(sessionItem.intent));
-                        setShowForm(true);
-                        setShowManageSessions(false);
-                        setActivePicker(null);
-                        setSessionActionError('');
-                        setFormError('');
-                        setSaveError(null);
-                      }}
-                      style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#1e3a8a' }}
-                    >
-                      <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>Edit</Text>
-                    </Pressable>
-                    <Pressable
-                      onPress={() => {
-                        void handleCancelPlannedSession(sessionItem);
-                        setShowManageSessions(false);
-                      }}
-                      style={{ ...sessionActionButtonBaseStyle, backgroundColor: '#8b1f38' }}
-                    >
-                      <Text style={{ color: '#ffd7de', fontSize: 14, fontWeight: '700' }}>Cancel session</Text>
-                    </Pressable>
+                      <Pressable
+                        onPress={() => {
+                          setEditingSessionId(sessionItem.id);
+                          const parsedStart = parseHourMinuteParts(sessionItem.start);
+                          const parsedEnd = parseHourMinuteParts(sessionItem.end);
+                          setStartHour(parsedStart.hour);
+                          setStartMinute(parsedStart.minute);
+                          setEndHour(parsedEnd.hour);
+                          setEndMinute(parsedEnd.minute);
+                          setIntent(resolveSessionIntent(sessionItem.intent));
+                          setShowForm(true);
+                          setShowManageSessions(false);
+                          setActivePicker(null);
+                          setSessionActionError('');
+                          setFormError('');
+                          setSaveError(null);
+                        }}
+                        style={{
+                          minWidth: 78,
+                          borderRadius: 999,
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          backgroundColor: 'rgba(255,255,255,0.045)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,255,255,0.06)',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Edit</Text>
+                      </Pressable>
+
+                      <Pressable
+                        onPress={() => {
+                          void handleCancelPlannedSession(sessionItem);
+                          setShowManageSessions(false);
+                        }}
+                        style={{
+                          minWidth: 78,
+                          borderRadius: 999,
+                          paddingVertical: 8,
+                          paddingHorizontal: 14,
+                          backgroundColor: 'rgba(255,95,125,0.10)',
+                          borderWidth: 1,
+                          borderColor: 'rgba(255,95,125,0.18)',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <Text style={{ color: '#ffb8c4', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
+                      </Pressable>
+
+                      {primaryOverlap ? (
+                        <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '600' }}>
+                          {primaryOverlap.overlapPercent}% overlap with {primaryOverlap.name}
+                        </Text>
+                      ) : (
+                        <Text style={{ color: '#64748b', fontSize: 12 }}>
+                          no overlap
+                        </Text>
+                      )}
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           ) : null}
           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 6 }}>{headerHelperText}</Text>
@@ -8191,7 +8194,7 @@ return { name, overlapPercent, barColor };
                 </Text>
               ) : null}
 
-              <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Pressable
                   onPress={() => {
                     console.log("PLAN_BUTTON_CLICK", {
