@@ -6584,7 +6584,7 @@ setMessagesBySpot((previous) => previous);
                         opacity: draggingManualSpot === spot ? 0.7 : 1,
                       }}
                     >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 14 }}>
                         <View style={{ flex: 1, marginRight: 10 }}>
                           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 15, fontWeight: '600' }}>{spot}</Text>
                           <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 2 }}>
@@ -7660,8 +7660,8 @@ const handleSave = async () => {
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
 
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 14 }}>
-          {!isSelectedSpotSaved && canAddSelectedSpotToMySpots ? (
+        {!isSelectedSpotSaved && canAddSelectedSpotToMySpots ? (
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
             <Pressable
               onPress={() => {
                 if (selectedSpot) {
@@ -7681,30 +7681,18 @@ const handleSave = async () => {
                 Add to my spots
               </Text>
             </Pressable>
-          ) : null}
-
-          {isSelectedSpotSaved ? (
-            <View
-              style={{
-                backgroundColor: theme.card,
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                paddingVertical: 7,
-                borderWidth: 1,
-                borderColor: theme.border,
-              }}
-            >
-              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800' }}>
-                In your spots
-              </Text>
-            </View>
-          ) : null}
-        </View>
+          </View>
+        ) : null}
         {autoCheckoutBanner}
 
         <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 4, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-            <View />
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.4 }}>{selectedSpot}</Text>
+              <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
+                {liveCount > 0 ? 'Live now' : 'No one live now'}
+              </Text>
+            </View>
             <Pressable
               onPress={() => {
                 setIsNotificationPanelExpanded((prev) => !prev);
@@ -7724,12 +7712,6 @@ const handleSave = async () => {
               <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Spot alerts${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
               <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
-          </View>
-          <View style={{ marginTop: 10 }}>
-            <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.4 }}>{selectedSpot}</Text>
-            <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
-              {liveCount > 0 ? 'Live now' : 'No one live now'}
-            </Text>
           </View>
           
           {false && selectedSpotMomentumLabel ? (
