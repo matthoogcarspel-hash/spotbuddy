@@ -7758,7 +7758,7 @@ const handleSave = async () => {
                       {preference.label}
                     </Text>
 
-                    <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap', alignSelf: 'flex-start', paddingTop: 2 }}>
                       {notificationModeOptions.map((option) => {
                         const selected = currentValue === option.value;
 
@@ -8069,15 +8069,29 @@ const handleSave = async () => {
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
-            <View style={{ marginTop: 14 }}>
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Start time</Text>
+            <View
+              style={{
+                marginTop: 12,
+                maxWidth: 640,
+                alignSelf: 'flex-start',
+                backgroundColor: 'rgba(8,24,39,0.52)',
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.06)',
+                borderRadius: 18,
+                padding: 12,
+                gap: 10,
+              }}
+            >
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
+                Start time
+              </Text>
 
-              <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
+              <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Hour: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(startMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Minute: {formatTimePart(startMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'startHour' ? (
@@ -8094,7 +8108,7 @@ const handleSave = async () => {
                           }
                         }
                       }}
-                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}
+                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}
                     >
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
@@ -8115,26 +8129,29 @@ const handleSave = async () => {
                       return selectedStartMinutes <= planningNowReference.latestPlanningStartMinutes;
                     })
                     .map((minute) => (
-                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                     ))}
                 </View>
               ) : null}
 
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>End time</Text>
-              <View style={{ flexDirection: 'row', marginBottom: 6, gap: 8 }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Hour: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
+                End time
+              </Text>
+
+              <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Hour: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: theme.bgElevated, borderRadius: 14,  borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 10 }}>
-                  <Text style={{ color: theme.text, fontSize: 15 }}>Minute: {formatTimePart(endMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Minute: {formatTimePart(endMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'endHour' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {(Array.isArray(hours) ? hours : []).filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
-                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
                     </Pressable>
                   ))}
@@ -8143,14 +8160,16 @@ const handleSave = async () => {
               {activePicker === 'endMinute' ? (
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
                   {minuteOptions.map((minute) => (
-                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, padding: 16, marginRight: 8, marginBottom: 8 }}>
+                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
                       <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
                     </Pressable>
                   ))}
                 </View>
               ) : null}
-              <Text style={{ color: theme.textSoft, fontSize: 14, marginBottom: 6 }}>Intent</Text>
-              <View style={{ flexDirection: 'row', marginBottom: 10, gap: 8 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
+                Intent
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'flex-start' }}>
                 {sessionIntentOptions.map((option) => {
                   const isActive = intent === option.value;
                   return (
@@ -8161,12 +8180,12 @@ const handleSave = async () => {
                         
                       }}
                       style={{
-                        flex: 1,
-                        backgroundColor: isActive ? theme.primary : theme.bgElevated,
+                        minWidth: 120,
+                        backgroundColor: isActive ? theme.primary : 'rgba(255,255,255,0.045)',
                         borderRadius: 10,
                         
                         borderColor: theme.border,
-                        paddingVertical: 8,
+                        paddingVertical: 6,
                         paddingHorizontal: 8,
                         alignItems: 'center',
                       }}
@@ -8208,12 +8227,12 @@ const handleSave = async () => {
                     });
                     void handleSave();
                   }}
-                  style={{ ...primaryButtonStyle, flex: 1 }}
+                  style={{ ...primaryButtonStyle, width: 120, paddingVertical: 8, minHeight: 0, borderRadius: 14 }}
                 >
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{editingSessionId ? 'Update' : 'Save'}</Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{editingSessionId ? 'Update' : 'Save'}</Text>
                 </Pressable>
-                <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, flex: 1, backgroundColor: theme.bgElevated }}>
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Cancel</Text>
+                <Pressable onPress={resetForm} style={{ ...primaryButtonStyle, width: 120, backgroundColor: 'rgba(255,255,255,0.045)', paddingVertical: 8, minHeight: 0, borderRadius: 14 }}>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>Cancel</Text>
                 </Pressable>
               </View>
             </View>
