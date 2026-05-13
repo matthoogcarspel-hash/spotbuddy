@@ -2,3 +2,12 @@ node_modules
 .expo
 .DS_Store
 npm-debug.log*
+
+# local backups
+*.before-*
+*.backup
+*.header-backup
+
+# expo/web build output
+dist/
+
