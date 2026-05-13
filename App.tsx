@@ -1757,7 +1757,8 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
               flex: 1,
               minHeight: 128,
               backgroundColor: 'transparent',
-              borderRadius: 16,
+              borderRadius: 18,
+                          minHeight: 138,
               padding: 16,
               borderWidth: 0,
               borderColor: 'rgba(255,255,255,0.045)',
@@ -6191,7 +6192,8 @@ setMessagesBySpot((previous) => previous);
             width: '100%',
             maxWidth: 420,
             backgroundColor: '#111827',
-            borderRadius: 16,
+            borderRadius: 18,
+                        minHeight: 138,
             padding: 24,
             gap: 12,
           }}
@@ -6394,7 +6396,7 @@ setMessagesBySpot((previous) => previous);
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-          <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
@@ -6756,15 +6758,15 @@ setMessagesBySpot((previous) => previous);
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Search Buddies</Text>
               <Pressable
                 onPress={() => {
                   setShowBuddies(false);
                   setBuddiesError('');
                 }}
-                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 12, paddingVertical: 7 }}
               >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>⌂ Back home</Text>
               </Pressable>
             </View>
 
@@ -6782,108 +6784,137 @@ setMessagesBySpot((previous) => previous);
                 paddingHorizontal: 14,
                 paddingVertical: 10,
                 fontSize: 12,
-                marginBottom: 16,
+                marginBottom: 18,
               }}
             />
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Search buddies</Text>
-            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Pending Buddies</Text>
+            <ScrollView style={{ maxHeight: 390 }} showsVerticalScrollIndicator={false}>
               {loadingBuddies ? <Text style={{ color: theme.textSoft, marginBottom: 8 }}>Loading...</Text> : null}
               {buddiesError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{buddiesError}</Text> : null}
 
-              {filteredBuddyUsers
-                .filter((userItem) => outgoingFollowStatusesByUserId[userItem.id] !== 'accepted')
-                .map((userItem, index) => {
-                  const followStatus = outgoingFollowStatusesByUserId[userItem.id];
-                  const isPending = followStatus === 'pending';
-                  const isActionInFlight = buddyActionUserId === userItem.id;
-                  const recommendedViaBuddyName = recommendedViaBuddyNameByUserId[userItem.id];
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+                {filteredBuddyUsers
+                  .filter((userItem) => outgoingFollowStatusesByUserId[userItem.id] !== 'accepted')
+                  .map((userItem) => {
+                    const followStatus = outgoingFollowStatusesByUserId[userItem.id];
+                    const isPending = followStatus === 'pending';
+                    const isActionInFlight = buddyActionUserId === userItem.id;
+                    const recommendedViaBuddyName = recommendedViaBuddyNameByUserId[userItem.id];
 
-                  return (
-                    <View
-                      key={`buddy-user-${userItem.id}`}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingVertical: 10,
-                        borderTopWidth: index === 0 ? 0 : 1,
-                        borderTopColor: theme.border,
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                        <Avatar uri={userItem.avatar_url} size={32} />
-                        <View style={{ marginLeft: 10, flex: 1 }}>
-                          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
-                            {userItem.display_name}
-                          </Text>
-                          {recommendedViaBuddyName ? (
-                            <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                              via {recommendedViaBuddyName}
-                            </Text>
-                          ) : null}
-                        </View>
-                      </View>
-
-                      <Pressable
-                        disabled={isActionInFlight || isPending}
-                        onPress={() => {
-                          void handleFollowUser(userItem.id);
-                        }}
+                    return (
+                      <View
+                        key={`buddy-user-${userItem.id}`}
                         style={{
-                          backgroundColor: isPending ? '#334155' : '#1d4ed8',
-                          borderRadius: 8,
-                          paddingHorizontal: 10,
-                          paddingVertical: 7,
-                          opacity: isActionInFlight ? 0.5 : 1,
+                          width: 210,
+                          maxWidth: 210,
+                          backgroundColor: 'rgba(20,42,76,0.72)',
+                          borderRadius: 16,
+                          borderWidth: 1,
+                          borderColor: 'rgba(120,165,235,0.22)',
+                          padding: 16,
+                          shadowColor: '#000',
+                          shadowOpacity: 0.18,
+                          shadowRadius: 10,
+                          shadowOffset: { width: 0, height: 6 },
                         }}
                       >
-                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>
-                          {isActionInFlight ? '...' : isPending ? 'Requested' : 'Add buddy'}
-                        </Text>
-                      </Pressable>
-                    </View>
-                  );
-                })}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                          <Avatar uri={userItem.avatar_url} size={88} />
+                          <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
+                            <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
+                              {userItem.display_name}
+                            </Text>
+                            {recommendedViaBuddyName ? (
+                              <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                                via {recommendedViaBuddyName}
+                              </Text>
+                            ) : (
+                              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                                SpotBuddy
+                              </Text>
+                            )}
+                          </View>
+                        </View>
+
+                        <Pressable
+                          disabled={isActionInFlight || isPending}
+                          onPress={() => {
+                            void handleFollowUser(userItem.id);
+                          }}
+                          style={{
+                            alignItems: 'center',
+                            backgroundColor: isPending ? 'rgba(77,116,180,0.32)' : 'rgba(29,114,255,0.78)',
+                            borderRadius: 999,
+                            paddingHorizontal: 18,
+                            paddingVertical: 6,
+                            alignSelf: 'center',
+                            minWidth: 118,
+                            opacity: isActionInFlight ? 0.5 : 1,
+                          }}
+                        >
+                          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 11 }}>
+                            {isActionInFlight ? '...' : isPending ? 'Requested' : 'Add buddy'}
+                          </Text>
+                        </Pressable>
+                      </View>
+                    );
+                  })}
+              </View>
             </ScrollView>
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18, marginBottom: 8 }}>My buddies</Text>
+            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 22, marginBottom: 20 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>My buddies</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>
+               
+              </Text>
+            </View>
             <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
               {followedUsers.length === 0 ? (
                 <Text style={{ color: theme.textSoft, marginTop: 8 }}>No buddies yet</Text>
               ) : (
-                followedUsers.map((userItem, index) => (
-                  <View
-                    key={`following-${userItem.id}`}
-                    style={{
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingVertical: 10,
-                      borderTopWidth: index === 0 ? 0 : 1,
-                      borderTopColor: theme.border,
-                    }}
-                  >
-                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                      <Avatar uri={userItem.avatar_url} size={32} />
-                      <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
-                        {userItem.display_name}
-                      </Text>
-                    </View>
-
-                    <Pressable
-                      disabled={buddyActionUserId === userItem.id}
-                      onPress={() => {
-                        void handleUnfollowUser(userItem.id);
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 14 }}>
+                  {followedUsers.map((userItem) => (
+                    <View
+                      key={`following-${userItem.id}`}
+                      style={{
+                        width: 210,
+                        maxWidth: 210,
+                        backgroundColor: 'rgba(20,42,76,0.62)',
+                        borderRadius: 16,
+                        borderWidth: 1,
+                        borderColor: 'rgba(120,165,235,0.18)',
+                        padding: 16,
                       }}
-                      style={{ paddingHorizontal: 6, paddingVertical: 4, opacity: buddyActionUserId === userItem.id ? 0.5 : 1 }}
                     >
-                      <Text style={{ color: '#ff9f9f', fontSize: 12, fontWeight: '700' }}>Remove</Text>
-                    </Pressable>
-                  </View>
-                ))
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                        <Avatar uri={userItem.avatar_url} size={88} />
+                        <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
+                          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
+                            {userItem.display_name}
+                          </Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
+                            Buddy
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Pressable
+                        disabled={buddyActionUserId === userItem.id}
+                        onPress={() => {
+                          void handleUnfollowUser(userItem.id);
+                        }}
+                        style={{ position: 'absolute', right: 12, top: 12, opacity: buddyActionUserId === userItem.id ? 0.5 : 1 }}
+                      >
+                        <Text style={{ color: '#ffb4b4', fontSize: 11, fontWeight: '700' }}>Remove</Text>
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
               )}
             </ScrollView>
+
           </View>
         </ScrollView>
       </SafeAreaView>
