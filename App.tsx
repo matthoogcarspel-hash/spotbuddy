@@ -6130,7 +6130,9 @@ setMessagesBySpot((previous) => previous);
 
   if (loadingSession || loadingProfile || loadingData) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center' }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)',
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ color: theme.text }}>Loading...</Text>
       </SafeAreaView>
     );
@@ -6367,6 +6369,7 @@ setMessagesBySpot((previous) => previous);
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 10 }}>
               <TextInput
+                placeholderTextColor="rgba(255,255,255,0.38)"
                 value={homeSpotSearchQuery}
                 onChangeText={(value) => {
                   setHomeSpotSearchQuery(value);
@@ -6392,11 +6395,11 @@ setMessagesBySpot((previous) => previous);
                 placeholderTextColor={theme.textMuted}
                 style={{
                   flex: 1,
-                  backgroundColor: theme.card,
+                  backgroundColor: 'rgba(255,255,255,0.06)',
                   color: theme.text,
                   borderRadius: 999,
-                  borderWidth: 0,
-                  borderColor: theme.border,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.08)',
                   paddingHorizontal: 14,
                   paddingVertical: 10,
                   fontSize: 12,
