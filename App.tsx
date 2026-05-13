@@ -2779,12 +2779,12 @@ export default function App() {
           .from('push_tokens')
           .upsert(
             {
-              user_id: activeAppUserId,
+              profile_id: activeAppUserId,
               expo_push_token: token.data,
               platform: Platform.OS,
               updated_at: new Date().toISOString(),
             },
-            { onConflict: 'user_id,expo_push_token' }
+            { onConflict: 'profile_id,expo_push_token' }
           );
 
         if (pushTokenSaveError) {
@@ -6694,7 +6694,7 @@ setMessagesBySpot((previous) => previous);
             {incomingFollowRequests.length === 0 ? (
               <Text style={{ color: theme.textSoft, marginTop: 8 }}>No open follow requests</Text>
             ) : (
-              <View style={{ marginTop: 10 }}>
+              <View style={{ marginTop: 2 }}>
                 {incomingFollowRequests.map((requestItem) => {
                   const isRequestInFlight = followRequestActionId === requestItem.id;
                   return (
@@ -7232,7 +7232,7 @@ setMessagesBySpot((previous) => previous);
                       >
                         <Avatar uri={account.avatar_url ?? null} size={34} />
                         <View style={{ flex: 1 }}>
-                          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>{account.display_name}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '800' }}>{account.display_name}</Text>
                           <Text style={{ color: theme.textSoft, fontSize: 12 }}>
                             {account.id}
                           </Text>
@@ -7655,8 +7655,8 @@ const handleSave = async () => {
     ) : null;
 
     return (
-      <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 34 }}>
-        <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 18 }}>
+      <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 10, paddingBottom: 34 }}>
+        <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
 
@@ -7702,7 +7702,7 @@ const handleSave = async () => {
         </View>
         {autoCheckoutBanner}
 
-        <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 10, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
+        <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 4, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
             <View />
             <Pressable
@@ -7721,7 +7721,7 @@ const handleSave = async () => {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Buzz${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Spot alerts${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
               <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
@@ -7739,10 +7739,115 @@ const handleSave = async () => {
 </View>
           ) : null}
           {isNotificationPanelExpanded ? (
-            <View style={{ marginTop: 10, borderRadius: 14, borderColor: theme.border, backgroundColor: '#081827', paddingHorizontal: 14, paddingVertical: 12 }}>
+            <View
+              style={{
+                alignSelf: 'flex-end',
+                width: 360,
+                maxWidth: '100%',
+                marginTop: 8,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.07)',
+                backgroundColor: 'rgba(8,24,39,0.72)',
+                paddingHorizontal: 10,
+                paddingVertical: 10,
+                gap: 8,
+              }}
+            >
               <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
-                Buzz for this spot
+                Alerts for this spot
               </Text>
+
+              {spotNotificationPreferencesModel.map((preference) => {
+                const currentValue = spotNotificationPreferences[preference.dbField];
+
+                return (
+                  <View
+                    key={preference.key}
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: 'rgba(255,255,255,0.045)',
+                      paddingTop: 8,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        color: theme.textSoft,
+                        fontSize: 11,
+                        fontWeight: '700',
+                        marginBottom: 7,
+                      }}
+                    >
+                      {preference.label}
+                    </Text>
+
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      {notificationModeOptions.map((option) => {
+                        const selected = currentValue === option.value;
+
+                        return (
+                          <Pressable
+                            key={option.value}
+                            onPress={async () => {
+                              const nextPreferences = {
+                                ...spotNotificationPreferences,
+                                [preference.dbField]: option.value,
+                              };
+
+                              setSpotNotificationPreferences(nextPreferences);
+
+                              const ok = await saveSpotNotificationPreferences(
+                                nextPreferences,
+                                preference.key
+                              );
+
+                              if (!ok) {
+                                setSpotNotificationPreferences(
+                                  spotNotificationPreferences
+                                );
+                              }
+                            }}
+                            style={{
+                              paddingHorizontal: 9,
+                              paddingVertical: 6,
+                              borderRadius: 999,
+                              backgroundColor: selected
+                                ? 'rgba(77,184,255,0.22)'
+                                : 'rgba(255,255,255,0.055)',
+                              borderWidth: 1,
+                              borderColor: selected
+                                ? 'rgba(77,184,255,0.42)'
+                                : 'rgba(255,255,255,0.05)',
+                            }}
+                          >
+                            <Text
+                              style={{
+                                color: selected ? '#AEE8FF' : theme.textMuted,
+                                fontSize: 11,
+                                fontWeight: '800',
+                              }}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+
+              {notificationPreferencesError ? (
+                <Text
+                  style={{
+                    color: '#FF7B7B',
+                    fontSize: 12,
+                    fontWeight: '600',
+                  }}
+                >
+                  {notificationPreferencesError}
+                </Text>
+              ) : null}
             </View>
           ) : null}
         </View>

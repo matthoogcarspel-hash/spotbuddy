@@ -576,7 +576,7 @@ const writeResult = await supabase
       const { data: pushTokenRows, error: pushTokenFetchError } = await supabase
         .from('push_tokens')
         .select('expo_push_token')
-        .or(`user_id.eq.${sessionOwnerId},user_id.eq.${ownerProfileById?.owner_uid ?? sessionOwnerId}`);
+        .or(`profile_id.eq.${sessionOwnerId}`);
 
       if (pushTokenFetchError) {
         console.error('PUSH_TOKEN_FETCH_ERROR', pushTokenFetchError);
