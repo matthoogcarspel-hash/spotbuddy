@@ -6718,148 +6718,127 @@ setMessagesBySpot((previous) => previous);
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Buddies</Text>
+              <Pressable
+                onPress={() => {
+                  setShowBuddies(false);
+                  setBuddiesError('');
+                }}
+                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+              </Pressable>
+            </View>
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Follow requests</Text>
-            {incomingFollowRequests.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>No open follow requests</Text>
-            ) : (
-              <View style={{ marginTop: 2 }}>
-                {incomingFollowRequests.map((requestItem) => {
-                  const isRequestInFlight = followRequestActionId === requestItem.id;
-                  return (
-                    <View
-                      key={`incoming-follow-request-${requestItem.id}`}
-                      style={{
-                        backgroundColor: theme.bgElevated,
-                        borderRadius: 10,
-                        
-                        borderColor: theme.border,
-                        paddingHorizontal: 12,
-                        paddingVertical: 10,
-                        marginBottom: 18,
-                      }}
-                    >
-                      <Text style={{ color: theme.text, fontSize: 15, marginBottom: 8 }}>
-                        {requestItem.requester?.display_name ?? 'Unknown user'}
-                      </Text>
-    
-                    </View>
-                  );
-                })}
-              </View>
-            )}
-
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Buddies</Text>
-            {followedUsers.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>You are not following anyone yet</Text>
-            ) : (
-              <View style={{ marginTop: 10 }}>
-                {followedUsers.map((userItem) => (
-                  <View key={`following-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Avatar uri={userItem.avatar_url} size={28} />
-                    <Text style={{ color: theme.text, marginLeft: 2, fontSize: 15 }}>{userItem.display_name}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 16 }}>Followers</Text>
-            {followerUsers.length === 0 ? (
-              <Text style={{ color: theme.textSoft, marginTop: 8 }}>You do not have followers yet</Text>
-            ) : (
-              <View style={{ marginTop: 10 }}>
-                {followerUsers.map((userItem) => (
-                  <View key={`follower-${userItem.id}`} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                    <Avatar uri={userItem.avatar_url} size={28} />
-                    <Text style={{ color: theme.text, marginLeft: 8, fontSize: 15 }}>{userItem.display_name}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18 }}>All users</Text>
             <TextInput
               value={searchUsersInput}
               onChangeText={setSearchUsersInput}
-              placeholder="Search users"
+              placeholder="Search buddies"
               placeholderTextColor={theme.textMuted}
               style={{
-                marginTop: 10,
-                
-                borderColor: theme.border,
-                borderRadius: 10,
-                paddingHorizontal: 12,
-                paddingVertical: 4,
+                backgroundColor: 'rgba(255,255,255,0.06)',
                 color: theme.text,
-                backgroundColor: theme.bgElevated,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.08)',
+                paddingHorizontal: 14,
+                paddingVertical: 10,
+                fontSize: 12,
+                marginBottom: 16,
               }}
             />
-            {loadingBuddies ? <Text style={{ color: theme.textSoft, marginTop: 8 }}>Loading...</Text> : null}
-            {buddiesError ? <Text style={{ color: '#ff7e7e', marginTop: 8 }}>{buddiesError}</Text> : null}
-            <View style={{ marginTop: 10 }}>
-              {filteredBuddyUsers.map((userItem) => {
-                const followStatus = outgoingFollowStatusesByUserId[userItem.id];
-                const isFollowed = followStatus === 'accepted';
-                const isPending = followStatus === 'pending';
-                const isActionInFlight = buddyActionUserId === userItem.id;
-                const actionLabel = isPending ? 'Requested' : isFollowed ? 'Unfollow' : 'Send follow request';
 
-                return (
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Search buddies</Text>
+            <ScrollView style={{ maxHeight: 220 }} showsVerticalScrollIndicator={false}>
+              {loadingBuddies ? <Text style={{ color: theme.textSoft, marginBottom: 8 }}>Loading...</Text> : null}
+              {buddiesError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{buddiesError}</Text> : null}
+
+              {filteredBuddyUsers
+                .filter((userItem) => outgoingFollowStatusesByUserId[userItem.id] !== 'accepted')
+                .map((userItem, index) => {
+                  const followStatus = outgoingFollowStatusesByUserId[userItem.id];
+                  const isPending = followStatus === 'pending';
+                  const isActionInFlight = buddyActionUserId === userItem.id;
+
+                  return (
+                    <View
+                      key={`buddy-user-${userItem.id}`}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingVertical: 10,
+                        borderTopWidth: index === 0 ? 0 : 1,
+                        borderTopColor: theme.border,
+                      }}
+                    >
+                      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
+                        <Avatar uri={userItem.avatar_url} size={32} />
+                        <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
+                          {userItem.display_name}
+                        </Text>
+                      </View>
+
+                      <Pressable
+                        disabled={isActionInFlight || isPending}
+                        onPress={() => {
+                          void handleFollowUser(userItem.id);
+                        }}
+                        style={{
+                          backgroundColor: isPending ? '#334155' : '#1d4ed8',
+                          borderRadius: 8,
+                          paddingHorizontal: 10,
+                          paddingVertical: 7,
+                          opacity: isActionInFlight ? 0.5 : 1,
+                        }}
+                      >
+                        <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 12 }}>
+                          {isActionInFlight ? '...' : isPending ? 'Requested' : 'Add buddy'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })}
+            </ScrollView>
+
+            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginTop: 18, marginBottom: 8 }}>My buddies</Text>
+            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+              {followedUsers.length === 0 ? (
+                <Text style={{ color: theme.textSoft, marginTop: 8 }}>No buddies yet</Text>
+              ) : (
+                followedUsers.map((userItem, index) => (
                   <View
-                    key={`buddy-user-${userItem.id}`}
+                    key={`following-${userItem.id}`}
                     style={{
-                      backgroundColor: theme.bgElevated,
-                      borderRadius: 10,
-                      
-                      borderColor: theme.border,
-                      paddingHorizontal: 12,
-                      paddingVertical: 10,
-                      marginBottom: 10,
                       flexDirection: 'row',
                       alignItems: 'center',
                       justifyContent: 'space-between',
+                      paddingVertical: 10,
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      borderTopColor: theme.border,
                     }}
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 12 }}>
-                      <Avatar uri={userItem.avatar_url} size={30} />
-                      <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, flexShrink: 1 }}>{userItem.display_name}</Text>
-                    </View>
-                    <Pressable
-                      disabled={isActionInFlight || isPending}
-                      onPress={() => {
-                        if (isFollowed) {
-                          void handleUnfollowUser(userItem.id);
-                          return;
-                        }
-                        void handleFollowUser(userItem.id);
-                      }}
-                      style={{
-                        backgroundColor: isPending ? '#334155' : isFollowed ? '#7c2d12' : '#1d4ed8',
-                        borderRadius: 8,
-                        paddingHorizontal: 10,
-                        paddingVertical: 7,
-                        opacity: isActionInFlight ? 0.5 : 1,
-                      }}
-                    >
-                      <Text style={{ color: '#ffffff', fontWeight: '700' }}>
-                        {isActionInFlight ? '...' : actionLabel}
+                      <Avatar uri={userItem.avatar_url} size={32} />
+                      <Text style={{ color: theme.text, marginLeft: 10, fontSize: 15, fontWeight: '700', flexShrink: 1 }}>
+                        {userItem.display_name}
                       </Text>
+                    </View>
+
+                    <Pressable
+                      disabled={buddyActionUserId === userItem.id}
+                      onPress={() => {
+                        void handleUnfollowUser(userItem.id);
+                      }}
+                      style={{ paddingHorizontal: 6, paddingVertical: 4, opacity: buddyActionUserId === userItem.id ? 0.5 : 1 }}
+                    >
+                      <Text style={{ color: '#ff9f9f', fontSize: 12, fontWeight: '700' }}>Remove</Text>
                     </Pressable>
                   </View>
-                );
-              })}
-            </View>
-
-            <Pressable
-              onPress={() => {
-                setShowBuddies(false);
-                setBuddiesError('');
-              }}
-              style={{ marginTop: 6, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
-            >
-              <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Back</Text>
-            </Pressable>
+                ))
+              )}
+            </ScrollView>
           </View>
         </ScrollView>
       </SafeAreaView>
