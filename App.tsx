@@ -8632,16 +8632,30 @@ const handleSave = async () => {
   
   
   
+  const homeHorizontalPadding = isWebPlatform ? 20 : 14;
+  const homeTopPadding = isWebPlatform ? 18 : 8;
+  const homeLogoBoxSize = isWebPlatform ? 120 : 72;
+  const homeLogoImageSize = isWebPlatform ? 210 : 126;
+  const homeWordmarkWidth = isWebPlatform ? 470 : 250;
+  const homeWordmarkHeight = isWebPlatform ? 110 : 58;
+  const homeWordmarkMarginLeft = isWebPlatform ? -125 : -70;
+  const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
+  const homeSpotCardPadding = isWebPlatform ? 22 : 16;
+  const homeSpotCardRadius = isWebPlatform ? 24 : 18;
+  const homeForecastBarWidth = isWebPlatform ? 18 : 10;
+  const homeForecastHeight = isWebPlatform ? 96 : 72;
+  const homeBottomPadding = isWebPlatform ? 32 : 118;
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 32 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 8 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
             <View
               style={{
-                width: 120,
-                height: 120,
+                width: homeLogoBoxSize,
+                height: homeLogoBoxSize,
                 overflow: 'hidden',
                 marginRight: -12,
                 marginLeft: -4,
@@ -8651,14 +8665,14 @@ const handleSave = async () => {
             >
               <Image
                 source={require('./assets/logo.png')}
-                style={{ width: 210, height: 210, marginLeft: 8 }}
+                style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }}
                 resizeMode="contain"
               />
             </View>
 
             <Image
               source={require('./assets/wordmark.png')}
-              style={{ width: 470, height: 110, marginLeft: -125 }}
+              style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }}
               resizeMode="contain"
             />
           </View>
@@ -8735,11 +8749,11 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 10, marginBottom: 12, justifyContent: 'flex-start' }}>
+        <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12, justifyContent: 'flex-start' }}>
           <Pressable
             onPress={() => setShowYourSpotsPage(true)}
             style={{
-              width: 170,
+              width: homeActionButtonWidth,
               backgroundColor: 'rgba(255,255,255,0.075)',
               borderRadius: 999,
               paddingVertical: 7,
@@ -8754,7 +8768,7 @@ const handleSave = async () => {
           <Pressable
             onPress={() => setShowDiscoverSpotsPage(true)}
             style={{
-              width: 170,
+              width: homeActionButtonWidth,
               backgroundColor: 'rgba(255,255,255,0.075)',
               borderRadius: 999,
               paddingVertical: 7,
@@ -8771,7 +8785,7 @@ const handleSave = async () => {
           <Pressable
             onPress={() => setShowBuddies(true)}
             style={{
-              width: 170,
+              width: homeActionButtonWidth,
               backgroundColor: 'rgba(255,255,255,0.075)',
               borderRadius: 999,
               paddingVertical: 7,
@@ -8797,7 +8811,7 @@ const handleSave = async () => {
               });
             }}
             style={{
-              width: 170,
+              width: homeActionButtonWidth,
               backgroundColor: 'rgba(255,255,255,0.075)',
               borderRadius: 999,
               paddingVertical: 5,
@@ -8976,6 +8990,64 @@ const handleSave = async () => {
           </View>
         ) : null}
 
+        {!isWebPlatform ? (
+          <View
+            style={{
+              position: 'absolute',
+              left: 14,
+              right: 14,
+              bottom: 18,
+              height: 68,
+              borderRadius: 999,
+              backgroundColor: 'rgba(10,22,35,0.96)',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.10)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-around',
+              paddingHorizontal: 8,
+              shadowColor: '#000',
+              shadowOpacity: 0.28,
+              shadowRadius: 18,
+              shadowOffset: { width: 0, height: 8 },
+            }}
+          >
+            {[
+              { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null },
+              { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null },
+              { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
+              { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
+                setIsNotificationInboxExpanded((prev) => {
+                  const nextExpanded = !prev;
+                  if (nextExpanded) void markAllBuzzAsRead();
+                  return nextExpanded;
+                });
+              }, badge: unreadCount > 0 ? unreadCount : null },
+            ].map((item) => (
+              <Pressable
+                key={`native-bottom-nav-${item.key}`}
+                onPress={item.onPress}
+                style={{
+                  minWidth: 68,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  paddingVertical: 10,
+                  borderRadius: 999,
+                }}
+              >
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+                  {item.label}
+                </Text>
+                {item.badge ? (
+                  <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
         {visibleSpots.map((spot) => {
           const daySpotSessions = daySessionsBySpot[spot.name] ?? [];
           const status = getSpotStatus({
@@ -9076,15 +9148,15 @@ const handleSave = async () => {
               onPress={() => setSelectedSpot(spot.name)}
               style={({ pressed }) => ({
                 backgroundColor: '#071421',
-                borderRadius: 24,
-                padding: 22,
+                borderRadius: homeSpotCardRadius,
+                padding: homeSpotCardPadding,
                 marginBottom: 18,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.07)',
                 opacity: pressed ? 0.88 : 1,
               })}
             >
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 18 }}>
+              <View style={{ flexDirection: isWebPlatform ? 'row' : 'column', justifyContent: 'space-between', alignItems: isWebPlatform ? 'flex-start' : 'stretch', gap: isWebPlatform ? 18 : 10 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
                     <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', letterSpacing: 0.2 }}>
@@ -9108,7 +9180,7 @@ const handleSave = async () => {
                   </Text>
                 </View>
 
-                <View style={{ alignItems: 'flex-end', minWidth: 150 }}>
+                <View style={{ alignItems: isWebPlatform ? 'flex-end' : 'flex-start', minWidth: isWebPlatform ? 150 : 0 }}>
                   {statusLabel ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                       <View
@@ -9174,7 +9246,7 @@ const handleSave = async () => {
                 <View
                   style={{
                     position: 'relative',
-                    height: 96,
+                    height: homeForecastHeight,
                     flexDirection: 'row',
                     alignItems: 'flex-end',
                     justifyContent: 'space-between',
@@ -9195,8 +9267,8 @@ const handleSave = async () => {
                       <View
                         key={`forecast-bar-${spot.name}-${index}`}
                         style={{
-                          width: 18,
-                          height: item.h,
+                          width: homeForecastBarWidth,
+                          height: isWebPlatform ? item.h : Math.min(item.h, 60),
                           borderRadius: 6,
                           backgroundColor: item.c,
                         }}
