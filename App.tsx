@@ -5219,6 +5219,94 @@ setMessagesBySpot((previous) => previous);
     
   }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
 
+  const nativeSwipeStartXRef = useRef<number | null>(null);
+
+  const handleNativeSwipeStart = (event: any) => {
+    if (isWebPlatform) return;
+    nativeSwipeStartXRef.current = event?.nativeEvent?.pageX ?? null;
+  };
+
+  const handleNativeSwipeEnd = (event: any) => {
+    if (isWebPlatform) return;
+    const startX = nativeSwipeStartXRef.current;
+    nativeSwipeStartXRef.current = null;
+    const endX = event?.nativeEvent?.pageX ?? null;
+    if (typeof startX !== 'number' || typeof endX !== 'number') return;
+
+    const deltaX = endX - startX;
+    const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || isNotificationInboxExpanded);
+
+    if (Math.abs(deltaX) > 70 && isNotHome) {
+      goHomeFromNativeSwipe();
+    }
+  };
+
+  const renderNativeBottomNav = () => {
+    if (isWebPlatform) return null;
+
+    const items = [
+      { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null as number | null },
+      { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null as number | null },
+      { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
+      { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
+        setIsNotificationInboxExpanded((prev) => {
+          const nextExpanded = !prev;
+          if (nextExpanded) void markAllBuzzAsRead();
+          return nextExpanded;
+        });
+      }, badge: unreadCount > 0 ? unreadCount : null },
+    ];
+
+    return (
+      <View
+        style={{
+          position: 'absolute',
+          left: 14,
+          right: 14,
+          bottom: 18,
+          height: 68,
+          borderRadius: 999,
+          backgroundColor: 'rgba(10,22,35,0.98)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.10)',
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-around',
+          paddingHorizontal: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.28,
+          shadowRadius: 18,
+          shadowOffset: { width: 0, height: 8 },
+          zIndex: 50,
+          elevation: 50,
+        }}
+      >
+        {items.map((item) => (
+          <Pressable
+            key={`native-bottom-nav-${item.key}`}
+            onPress={item.onPress}
+            style={{
+              minWidth: 68,
+              alignItems: 'center',
+              justifyContent: 'center',
+              paddingVertical: 10,
+              borderRadius: 999,
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+              {item.label}
+            </Text>
+            {item.badge ? (
+              <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+        ))}
+      </View>
+    );
+  };
+
   const goHomeFromNativeSwipe = () => {
     if (isWebPlatform) return;
 
@@ -6321,13 +6409,30 @@ setMessagesBySpot((previous) => previous);
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
+  const withNativeShell = (screen: React.ReactNode) => {
+    if (isWebPlatform) return screen;
+
+    return (
+      <View
+        style={{ flex: 1, backgroundColor: theme.bgElevated }}
+        onTouchStart={handleNativeSwipeStart}
+        onTouchEnd={handleNativeSwipeEnd}
+      >
+        <View style={{ flex: 1, paddingBottom: 96 }}>
+          {screen}
+        </View>
+        {renderNativeBottomNav()}
+      </View>
+    );
+  };
+
   if (showDiscoverSpotsPage) {
 
     const discoverCenterLabel = discoverMapCenter
       ? `${discoverMapCenter.latitude.toFixed(3)}, ${discoverMapCenter.longitude.toFixed(3)}`
       : 'Locating…';
 
-    return (
+    return withNativeShell(
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: buddyScreenPadding, paddingTop: isWebPlatform ? 20 : 12 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>
@@ -6417,7 +6522,7 @@ setMessagesBySpot((previous) => previous);
     const selectedSpotCards = orderMode === 'manual' ? manualOrderCards : homeSpotCards;
     const rowHeight = 56;
 
-    return (
+    return withNativeShell(
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -6781,7 +6886,7 @@ setMessagesBySpot((previous) => previous);
     const buddyGridGap = isWebPlatform ? 14 : 10;
     const buddyScreenPadding = isWebPlatform ? 20 : 14;
 
-    return (
+    return withNativeShell(
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
@@ -7739,7 +7844,7 @@ const handleSave = async () => {
     ) : null;
 
     return (
-      <View style={{ flex: 1, backgroundColor: theme.bg }} {...(nativeBackSwipeResponder?.panHandlers ?? {})}>
+      <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 18, paddingTop: isWebPlatform ? 10 : 56, paddingBottom: 120 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
@@ -8651,6 +8756,7 @@ const handleSave = async () => {
 
 
         </ScrollView>
+        {renderNativeBottomNav()}
       </View>
     );
   }
@@ -8678,7 +8784,7 @@ const handleSave = async () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <View style={{ flex: 1 }} {...(nativeBackSwipeResponder?.panHandlers ?? {})}>
+      <View style={{ flex: 1 }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 8 }}>
@@ -9317,63 +9423,7 @@ const handleSave = async () => {
         })}
         </ScrollView>
       </View>
-      {!isWebPlatform ? (
-        <View
-            style={{
-              position: 'absolute',
-              left: 14,
-              right: 14,
-              bottom: 18,
-              height: 68,
-              borderRadius: 999,
-              backgroundColor: 'rgba(10,22,35,0.96)',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.10)',
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'space-around',
-              paddingHorizontal: 8,
-              shadowColor: '#000',
-              shadowOpacity: 0.28,
-              shadowRadius: 18,
-              shadowOffset: { width: 0, height: 8 },
-            }}
-          >
-            {[
-              { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null },
-              { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null },
-              { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
-              { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
-                setIsNotificationInboxExpanded((prev) => {
-                  const nextExpanded = !prev;
-                  if (nextExpanded) void markAllBuzzAsRead();
-                  return nextExpanded;
-                });
-              }, badge: unreadCount > 0 ? unreadCount : null },
-            ].map((item) => (
-              <Pressable
-                key={`native-bottom-nav-${item.key}`}
-                onPress={item.onPress}
-                style={{
-                  minWidth: 68,
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  paddingVertical: 10,
-                  borderRadius: 999,
-                }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
-                  {item.label}
-                </Text>
-                {item.badge ? (
-                  <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
-                  </View>
-                ) : null}
-              </Pressable>
-            ))}
-          </View>
-      ) : null}
+      {renderNativeBottomNav()}
 
     </SafeAreaView>
   );
