@@ -5241,42 +5241,81 @@ setMessagesBySpot((previous) => previous);
     }
   };
 
+  const renderNativeTopBar = () => {
+    if (isWebPlatform) return null;
+
+    return (
+      <View
+        style={{
+          height: 88,
+          backgroundColor: theme.bg,
+          borderBottomWidth: 1,
+          borderBottomColor: 'rgba(255,255,255,0.08)',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Image
+          source={require('./assets/wordmark.png')}
+          resizeMode="contain"
+          style={{
+            width: 260,
+            height: 62,
+          }}
+        />
+
+        <Pressable
+          onPress={() => {
+            navigateNative('home');
+            setIsNotificationInboxExpanded(true);
+            void markAllBuzzAsRead();
+          }}
+          style={{
+            position: 'absolute',
+            right: 18,
+            top: 27,
+            width: 34,
+            height: 34,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <View style={{ width: 22, height: 22, position: 'relative' }}>
+            <View style={{ position: 'absolute', left: 5, top: 3, width: 12, height: 13, borderTopLeftRadius: 8, borderTopRightRadius: 8, borderWidth: 2, borderColor: '#ffffff', borderBottomWidth: 0 }} />
+            <View style={{ position: 'absolute', left: 3, top: 16, width: 16, height: 2, borderRadius: 2, backgroundColor: '#ffffff' }} />
+            <View style={{ position: 'absolute', left: 9, top: 19, width: 4, height: 4, borderRadius: 3, backgroundColor: '#ffffff' }} />
+          </View>
+        </Pressable>
+      </View>
+    );
+  };
+
   const renderNativeBottomNav = () => {
     if (isWebPlatform) return null;
 
     const items = [
-      { key: 'spots', label: 'Spots', onPress: () => setShowYourSpotsPage(true), badge: null as number | null },
-      { key: 'discover', label: 'Discover', onPress: () => setShowDiscoverSpotsPage(true), badge: null as number | null },
-      { key: 'buddies', label: 'Buddies', onPress: () => setShowBuddies(true), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
-      { key: 'buzz', label: `Buzz${unreadCount ? ` (${unreadCount})` : ''}`, onPress: () => {
-        setIsNotificationInboxExpanded((prev) => {
-          const nextExpanded = !prev;
-          if (nextExpanded) void markAllBuzzAsRead();
-          return nextExpanded;
-        });
-      }, badge: unreadCount > 0 ? unreadCount : null },
+      { key: 'home', icon: '⌂', label: 'Home', onPress: () => navigateNative('home'), badge: null as number | null },
+      { key: 'spots', icon: '◎', label: 'Spots', onPress: () => navigateNative('spots'), badge: null as number | null },
+      { key: 'discover', icon: '⌕', label: 'Discover', onPress: () => navigateNative('discover'), badge: null as number | null },
+      { key: 'buddies', icon: '≡', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
     ];
 
     return (
       <View
         style={{
           position: 'absolute',
-          left: 14,
-          right: 14,
-          bottom: 18,
-          height: 68,
-          borderRadius: 999,
-          backgroundColor: 'rgba(10,22,35,0.98)',
-          borderWidth: 1,
-          borderColor: 'rgba(255,255,255,0.10)',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: 84,
+          backgroundColor: theme.bg,
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255,255,255,0.10)',
           flexDirection: 'row',
-          alignItems: 'center',
+          alignItems: 'flex-start',
           justifyContent: 'space-around',
-          paddingHorizontal: 8,
-          shadowColor: '#000',
-          shadowOpacity: 0.28,
-          shadowRadius: 18,
-          shadowOffset: { width: 0, height: 8 },
+          paddingHorizontal: 10,
+          paddingTop: 10,
           zIndex: 50,
           elevation: 50,
         }}
@@ -5293,7 +5332,10 @@ setMessagesBySpot((previous) => previous);
               borderRadius: 999,
             }}
           >
-            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '900' }}>
+            <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', lineHeight: 26 }}>
+              {item.icon}
+            </Text>
+            <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800', marginTop: 2 }}>
               {item.label}
             </Text>
             {item.badge ? (
@@ -5317,6 +5359,30 @@ setMessagesBySpot((previous) => previous);
     setShowProfile(false);
     setIsNotificationInboxExpanded(false);
   };
+
+  const navigateNative = (
+    destination: 'home' | 'spots' | 'discover' | 'buddies' | 'buzz'
+  ) => {
+    goHomeFromNativeSwipe();
+
+    if (destination === 'spots') {
+      setShowYourSpotsPage(true);
+    }
+
+    if (destination === 'discover') {
+      setShowDiscoverSpotsPage(true);
+    }
+
+    if (destination === 'buddies') {
+      setShowBuddies(true);
+    }
+
+    if (destination === 'buzz') {
+      setIsNotificationInboxExpanded(true);
+      void markAllBuzzAsRead();
+    }
+  };
+
 
   const nativeBackSwipeResponder = !isWebPlatform ? PanResponder.create({
     onMoveShouldSetPanResponder: (_, gestureState) => {
@@ -6413,16 +6479,17 @@ setMessagesBySpot((previous) => previous);
     if (isWebPlatform) return screen;
 
     return (
-      <View
-        style={{ flex: 1, backgroundColor: theme.bgElevated }}
+      <SafeAreaView
+        style={{ flex: 1, backgroundColor: theme.bg }}
         onTouchStart={handleNativeSwipeStart}
         onTouchEnd={handleNativeSwipeEnd}
       >
+        {renderNativeTopBar()}
         <View style={{ flex: 1, paddingBottom: 96 }}>
           {screen}
         </View>
         {renderNativeBottomNav()}
-      </View>
+      </SafeAreaView>
     );
   };
 
@@ -6433,7 +6500,7 @@ setMessagesBySpot((previous) => previous);
       : 'Locating…';
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: buddyScreenPadding, paddingTop: isWebPlatform ? 20 : 12 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 20 : 0 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
           <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>
             Discover
@@ -6523,7 +6590,7 @@ setMessagesBySpot((previous) => previous);
     const rowHeight = 56;
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
@@ -6887,7 +6954,7 @@ setMessagesBySpot((previous) => previous);
     const buddyScreenPadding = isWebPlatform ? 20 : 14;
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
@@ -7223,7 +7290,7 @@ setMessagesBySpot((previous) => previous);
     };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: 20 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
         <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
@@ -7845,7 +7912,8 @@ const handleSave = async () => {
 
     return (
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
-        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 18, paddingTop: isWebPlatform ? 10 : 56, paddingBottom: 120 }}>
+        {renderNativeTopBar()}
+        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 18, paddingTop: isWebPlatform ? 10 : 18, paddingBottom: 120 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
@@ -8785,10 +8853,11 @@ const handleSave = async () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
       <View style={{ flex: 1 }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
+        {renderNativeTopBar()}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 8 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
             <View
               style={{
                 width: homeLogoBoxSize,
