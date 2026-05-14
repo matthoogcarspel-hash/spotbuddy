@@ -7913,7 +7913,7 @@ const handleSave = async () => {
     return (
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
-        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 18, paddingTop: isWebPlatform ? 10 : 18, paddingBottom: 120 }}>
+        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 170 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
@@ -7944,9 +7944,9 @@ const handleSave = async () => {
         {autoCheckoutBanner}
 
         <View style={{ backgroundColor: 'transparent', borderTopLeftRadius: 0, borderTopRightRadius: 0, paddingHorizontal: 0, paddingTop: 0, paddingBottom: 4, marginBottom: 0, borderWidth: 0, borderBottomWidth: 0, borderColor: 'transparent' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', letterSpacing: -0.4 }}>{selectedSpot}</Text>
+              <Text style={{ color: theme.text, fontSize: isWebPlatform ? 28 : 25, fontWeight: '900', letterSpacing: -0.4, paddingRight: 8 }} numberOfLines={2}>{selectedSpot}</Text>
               <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
                 {liveCount > 0 ? 'Live now' : 'No one live now'}
               </Text>
@@ -7960,14 +7960,14 @@ const handleSave = async () => {
                 
                 borderColor: theme.border,
                 backgroundColor: theme.bgElevated,
-                paddingHorizontal: 10,
-                paddingVertical: 6,
+                paddingHorizontal: isWebPlatform ? 10 : 8,
+                paddingVertical: isWebPlatform ? 6 : 5,
                 flexDirection: 'row',
                 alignItems: 'center',
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>{`Spot alerts${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
+              <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>{`Spot alerts${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
               <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
@@ -8093,13 +8093,46 @@ const handleSave = async () => {
         </View>
 
         
-<TargetSpotSummaryCards
-          metrics={[
-            { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
-            { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
-            { icon: '◌', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
-          ]}
-        />
+{isWebPlatform ? (
+          <TargetSpotSummaryCards
+            metrics={[
+              { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
+              { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
+              { icon: '◌', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
+            ]}
+          />
+        ) : (
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12, marginBottom: 14 }}>
+            {[
+              { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
+              { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
+              { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
+            ].map((metric) => (
+              <View
+                key={`mobile-summary-${metric.label}`}
+                style={{
+                  width: '48.5%',
+                  minHeight: 118,
+                  borderRadius: 18,
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.075)',
+                  backgroundColor: 'rgba(8,24,39,0.52)',
+                  padding: 13,
+                  justifyContent: 'space-between',
+                }}
+              >
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: metric.color, fontSize: 26, fontWeight: '900' }}>{metric.icon}</Text>
+                  <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
+                </View>
+                <View>
+                  <Text style={{ color: metric.color, fontSize: 12, fontWeight: '900' }}>{metric.label}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 4 }}>{metric.helper}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
         
 <View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
@@ -8131,7 +8164,7 @@ const handleSave = async () => {
             </Pressable>
           ) : null}
           {topCtaMode === 'edit' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 18, flexWrap: 'wrap' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: isWebPlatform ? 18 : 8, flexWrap: 'wrap' }}>
               {canCheckOut ? (
                 <Pressable
                   onPress={() => {
@@ -8504,7 +8537,7 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: 14 }}>
+        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
             <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -8530,8 +8563,8 @@ const handleSave = async () => {
               })}
             </View>
           </View>
-          <View style={{ marginBottom: 14 }}>
-            <View style={{ marginLeft: 252, marginRight: 104, height: 16, position: 'relative' }}>
+          <View style={{ marginBottom: isWebPlatform ? 14 : 8 }}>
+            <View style={{ marginLeft: isWebPlatform ? 252 : 58, marginRight: isWebPlatform ? 104 : 22, height: 16, position: 'relative' }}>
               {timelineLabels.map((item) => {
                 const totalMinutes = Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1);
                 const leftPercent = clamp(((item.minutes - timelineWindow.startMinutes) / totalMinutes) * 100, 0, 100);
@@ -8620,7 +8653,7 @@ const handleSave = async () => {
         ) : null}
 
         {activeGroupChatKey ? (
-          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: isWebPlatform ? 14 : 90, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                 <Text style={{ fontSize: 16 }}>💬</Text>
