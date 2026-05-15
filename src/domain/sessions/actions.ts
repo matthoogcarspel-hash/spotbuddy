@@ -43,7 +43,6 @@ const withLoggedResult = <T extends ServiceSuccess<{ id: string }> | ServiceSucc
   label: 'SCHEMA_ALIGNMENT_PLAN_RESULT' | 'SCHEMA_ALIGNMENT_JOIN_RESULT',
   result: T,
 ) => {
-  console.log(label, result);
   return result;
 };
 
@@ -65,41 +64,14 @@ const readOwnSessionsForSpotDay = async (input: {
   activeDay: string;
   selectedSpot: string | null;
 }) => {
-  console.log('REAL_SESSION_SCHEMA_FIELDS', {
-    userField: REAL_SESSION_SCHEMA_FIELDS.userField,
-    spotField: REAL_SESSION_SCHEMA_FIELDS.spotField,
-    dayDerivedFromField: REAL_SESSION_SCHEMA_FIELDS.dayDerivedFromField,
-    startField: REAL_SESSION_SCHEMA_FIELDS.startField,
-    endField: REAL_SESSION_SCHEMA_FIELDS.endField,
-  });
-  console.log('SCHEMA_ALIGNMENT_READ_QUERY', {
-    selectedSpot: input.selectedSpot,
-    activeDay: input.activeDay,
-    usingDayField: true,
-    dayDerivedFromField: REAL_SESSION_SCHEMA_FIELDS.dayDerivedFromField,
-  });
 
   const selectedSpot = input.selectedSpot as { name?: string | null } | string | null;
   const activeDay = input.activeDay;
-  console.log("NO_SESSION_DAY_RUNTIME_PATH", {
-    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
-    activeDay,
-    dayStrategy: "derived-from-real-schema"
-  });
 
-  console.log("OWN_SESSIONS_QUERY_INPUT", {
-    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
-    activeDay
-  });
 
   const dayBounds = getDayBoundsForDayKey(input.activeDay);
   if (!dayBounds) {
     const invalidDayError = { message: 'INVALID_DAY_KEY' };
-    console.log("OWN_SESSIONS_QUERY_RESULT", {
-      ok: false,
-      count: 0,
-      error: invalidDayError.message,
-    });
     return { sessions: [], error: invalidDayError };
   }
 
@@ -111,11 +83,6 @@ const readOwnSessionsForSpotDay = async (input: {
     .gte('created_at', dayBounds.start)
     .lt('created_at', dayBounds.endExclusive);
 
-  console.log("OWN_SESSIONS_QUERY_RESULT", {
-    ok: !error,
-    count: sessionRecords?.length ?? 0,
-    error: error?.message ?? null,
-  });
 
   if (error) {
     return { sessions: [], error };
@@ -134,7 +101,6 @@ export async function planSession(input: {
   intent: SessionIntent;
   editingSessionId?: string | null;
 }): Promise<ServiceSuccess<{ id: string }> | ServiceFailure> {
-  console.log('SCHEMA_ALIGNMENT_PLAN_INPUT', input);
   if (!input.activeProfileId) {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'MISSING_ACTIVE_PROFILE' });
   }
@@ -162,15 +128,6 @@ export async function planSession(input: {
   const conflictSessions = (Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [])
     .filter((session) => session?.id !== input.editingSessionId)
     .filter((session) => isSessionBlockingOwnSession(session));
-  console.log("SESSION_DUPLICATE_DB_CHECK", {
-    userId: sessionIdentity.user_id,
-    spot: sessionIdentity.spot_name,
-    dayKey: sessionIdentity.day_key,
-    existingSessions: ownSessionsFresh,
-  });
-  console.log("SESSION_DUPLICATE_FILTERED", {
-    blockingSessions: conflictSessions,
-  });
 
   const toMinutes = (value?: string | null) => {
     if (!value) return null;
@@ -190,15 +147,37 @@ export async function planSession(input: {
     return newStart < existingEnd && newEnd > existingStart;
   });
 
-  console.log("SESSION_OVERLAP_CHECK", {
-    newStart,
-    newEnd,
-    hasOverlap,
-    conflictSessions,
-  });
 
   if (hasOverlap) {
     return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: alreadyHasSessionReason });
+  }
+
+  // Cross-spot overlap: check all other spots for this day
+  if (newStart !== null && newEnd !== null) {
+    const crossSpotBounds = getDayBoundsForDayKey(input.selectedPlanningDateKey);
+    if (crossSpotBounds) {
+      const { data: otherSpotSessions } = await supabase
+        .from('sessions')
+        .select('id, start_time, end_time, status, checked_out_at')
+        .eq('user_id', sessionIdentity.user_id)
+        .neq('spot_name', sessionIdentity.spot_name)
+        .gte('created_at', crossSpotBounds.start)
+        .lt('created_at', crossSpotBounds.endExclusive);
+
+      const hasCrossSpotOverlap = (otherSpotSessions ?? [])
+        .filter((s) => s?.id !== input.editingSessionId)
+        .filter((s) => !s?.checked_out_at && s?.status !== 'finished' && s?.status !== 'Uitchecken')
+        .some((s) => {
+          const existingStart = toMinutes(s.start_time);
+          const existingEnd = toMinutes(s.end_time);
+          if (existingStart === null || existingEnd === null) return false;
+          return newStart < existingEnd && newEnd > existingStart;
+        });
+
+      if (hasCrossSpotOverlap) {
+        return withLoggedResult('SCHEMA_ALIGNMENT_PLAN_RESULT', { ok: false, reason: 'USER_ALREADY_HAS_SESSION_SAME_TIME_OTHER_SPOT' });
+      }
+    }
   }
 
   const payload = {
@@ -261,34 +240,15 @@ export async function joinSession(input: {
   targetGroupHasVisibleRows: boolean;
   alreadyJoinedGroup: boolean;
 }): Promise<ServiceSuccess | ServiceFailure> {
-  console.log('SCHEMA_ALIGNMENT_JOIN_INPUT', input);
-  console.log('WEB_NOTIFICATION_FLOW_START', {
-    sessionId: input.sessionId,
-    selectedSpot: input.selectedSpot,
-  });
   if (!input.activeProfileId) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NO_ACTIVE_PROFILE' });
   }
 
   const isSameDayAsActiveDay = input.sessionDay === input.dayKey;
-  console.log("JOIN_DAY_CHECK", {
-    sessionId: input.sessionId,
-    sessionDay: input.sessionDay,
-    activeDayKey: input.dayKey,
-    matches: isSameDayAsActiveDay,
-  });
   if (!isSameDayAsActiveDay) {
-    console.log("JOIN_PRECHECK_RESULT", {
-      allowed: false,
-      reason: 'NON_JOINABLE_DAY',
-    });
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'NON_JOINABLE_DAY' });
   }
   if (input.sessionStatus === 'finished') {
-    console.log("JOIN_PRECHECK_RESULT", {
-      allowed: false,
-      reason: 'SESSION_FINISHED',
-    });
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'SESSION_FINISHED' });
   }
 
@@ -317,12 +277,6 @@ export async function joinSession(input: {
 
   const existingOwnSessionsForSpotDay = Array.isArray(ownSessionsFresh) ? ownSessionsFresh : [];
   const hasOwnSession = existingOwnSessionsForSpotDay.some((session) => session.id === input.sessionId);
-  console.log("JOIN_ELIGIBILITY_CONTEXT", {
-    hasOwnSession,
-    sessionDay: input.sessionDay,
-    activeDayKey: input.dayKey,
-    isVisibleOnTimeline: true,
-  });
 
   const joinEligibility = getJoinState({
     session: {
@@ -332,10 +286,6 @@ export async function joinSession(input: {
     },
     ownSessionForSpotDay: { hasOwnSession },
     activeDayKey: input.dayKey,
-  });
-  console.log("JOIN_PRECHECK_RESULT", {
-    allowed: joinEligibility.allowed,
-    reason: joinEligibility.reason ?? null,
   });
 
   if (!joinEligibility.allowed && joinEligibility.reason !== 'ALREADY_HAS_SESSION') {
@@ -389,12 +339,6 @@ export async function joinSession(input: {
     }
   }
 
-  console.log("JOIN_DEBUG_EXISTING_ROWS", {
-    activeProfileId: sessionIdentity.user_id,
-    spotName: sessionIdentity.spot_name,
-    dayKey: sessionIdentity.day_key,
-    ownSessionsForDay,
-  });
 
   const { data: sourceSessionForJoin, error: sourceSessionForJoinError } = await supabase
     .from('sessions')
@@ -454,10 +398,6 @@ const writeResult = await supabase
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 
-  console.log("JOIN_EVENT_TRIGGERED", {
-    sessionId: input.sessionId,
-    joinedUserId: sessionIdentity.user_id,
-  });
 
   const { data: sourceSession } = await supabase
     .from('sessions')
@@ -531,28 +471,9 @@ const writeResult = await supabase
   }
   const shouldSend = resolvedMode !== 'off';
   const spotName = querySpotName;
-  console.log('WEB_NOTIFICATION_FETCH_RESULT', {
-    sessionId: input.sessionId,
-    ownerId: sessionOwnerId,
-    attempts: preferenceFetchAttempts,
-    resolvedMode,
-    shouldSend,
-  });
 
-  console.log("JOIN_NOTIFICATION_DECISION", {
-    resolvedMode,
-    shouldSend,
-    sessionOwnerId,
-    joinedUserId,
-  });
 
   if (shouldSend) {
-    console.log("NOTIFICATION_RPC_INPUT", {
-      recipientProfileId: sessionOwnerId,
-      actorProfileId: joinedUserId,
-      sessionId: input.sessionId,
-      spotName
-    });
 
     const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
       recipient_profile_id: sessionOwnerId,
@@ -560,18 +481,7 @@ const writeResult = await supabase
       session_id: input.sessionId,
       spot_name: spotName,
     });
-    console.log('WEB_NOTIFICATION_CREATED', {
-      sessionId: input.sessionId,
-      recipientProfileId: sessionOwnerId,
-      actorProfileId: joinedUserId,
-      ok: !notificationRpcError,
-      error: notificationRpcError?.message ?? null,
-    });
     if (!notificationRpcError) {
-      console.log('WEB_NOTIFICATION_RENDERED', {
-        sessionId: input.sessionId,
-        recipientProfileId: sessionOwnerId,
-      });
 
       const { data: pushTokenRows, error: pushTokenFetchError } = await supabase
         .from('push_tokens')
@@ -585,11 +495,6 @@ const writeResult = await supabase
           new Set((pushTokenRows ?? []).map((row) => row.expo_push_token).filter(Boolean))
         );
 
-        console.log('PUSH_SEND_TARGETS', {
-          sessionId: input.sessionId,
-          recipientProfileId: sessionOwnerId,
-          count: uniqueTokens.length,
-        });
 
         for (const expoPushToken of uniqueTokens) {
           const pushResult = await sendExpoPushNotification({
@@ -603,20 +508,10 @@ const writeResult = await supabase
             },
           });
 
-          console.log('PUSH_SEND_RESULT', {
-            sessionId: input.sessionId,
-            recipientProfileId: sessionOwnerId,
-            ok: pushResult.ok,
-            status: pushResult.status,
-          });
         }
       }
     }
 
-    console.log("NOTIFICATION_RPC_RESULT", {
-      ok: !notificationRpcError,
-      error: notificationRpcError ?? null
-    });
 
   }
 

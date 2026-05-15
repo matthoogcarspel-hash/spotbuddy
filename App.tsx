@@ -7,9 +7,12 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Image, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
 import { uploadAvatar } from './src/lib/avatar';
+import { sendExpoPushNotification } from './src/lib/pushNotifications';
 import { spots } from './src/data/spots';
 import { cancelSession as cancelSessionAction, joinSession as joinSessionAction, planSession as planSessionAction } from './src/domain/sessions/actions';
 import { getCancelErrorMessage, getJoinErrorMessageByReason, logSessionUiActionResult, logSessionUiActionStart } from './src/domain/sessions/actionUi';
@@ -836,7 +839,7 @@ const getSessionDisplayState = (
 
   return label;
 };
-const timelineStartMinutes = 8 * 60;
+const timelineStartMinutes = 7 * 60;
 const planningEndMinutes = 22 * 60;
 const timelineEndMinutes = planningEndMinutes;
 const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
@@ -1325,14 +1328,10 @@ const groupTimelineSessions = ({
   buddiesMode: TimelineFilter;
   followingUserIds: string[];
 }) => {
-  console.log("TIMELINE_GROUP_ADAPTER_INPUT", {
-    totalSessions: sessions?.length ?? 0,
-    activeDayKey,
-    selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null
-  });
 
   const safeSessions = Array.isArray(sessions) ? sessions : [];
   const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
+  const followingUserIdSet = new Set(safeFollowingUserIds);
   const groups = new Map<string, SessionGroup>();
 
   for (const timelineSession of safeSessions) {
@@ -1384,10 +1383,6 @@ const groupTimelineSessions = ({
 
     return a.endMinutes - b.endMinutes;
   });
-  console.log('SESSION_VISIBILITY_RESTORED', {
-    rawSessionsCount: safeSessions.length,
-    groupedCount: orderedGroups.length,
-  });
 
   const groupedSessions: TimelineGroupedSession[] = orderedGroups
     .map((group) => {
@@ -1397,18 +1392,8 @@ const groupTimelineSessions = ({
           const visible =
             item.userId === normalizedActiveProfileId
               ? !isSessionExpired(item)
-              : buddiesMode === 'everyone' || safeFollowingUserIds.includes(item.userId);
+              : buddiesMode === 'everyone' || followingUserIdSet.has(item.userId);
 
-          console.log('GROUP_VISIBILITY_DEBUG', {
-            userName: item.userName,
-            userId: item.userId,
-            activeProfileId: normalizedActiveProfileId,
-            buddiesMode,
-            isSelf: item.userId === normalizedActiveProfileId,
-            isFollowing: safeFollowingUserIds.includes(item.userId),
-            state: getSessionViewState(item) === 'live' ? 'live' : 'planned',
-            visible,
-          });
 
           return visible;
         }),
@@ -1421,10 +1406,6 @@ const groupTimelineSessions = ({
     })
     .filter((group) => group.visibleSessions.length > 0);
 
-  console.log("TIMELINE_GROUP_ADAPTER_OUTPUT", {
-    totalGroups: groupedSessions?.length ?? 0,
-    firstGroup: groupedSessions?.[0] ?? null
-  });
 
   return groupedSessions;
 };
@@ -1456,25 +1437,6 @@ const buildSpotDetailState = ({
   const blockingOwnSessions = (ownSessionForSpotDay?.ownSessions ?? []).filter((session) => isSessionBlockingOwnSession(session));
   const blockingOwnSession = blockingOwnSessions[0] ?? null;
   const hasBlockingOwnSession = blockingOwnSessions.length > 0;
-  console.log("OWN_SESSION_BLOCKING_EVALUATION", {
-    selectedSpot: typeof selectedSpot === 'string' ? selectedSpot : selectedSpot ?? null,
-    activeDayKey,
-    ownSessionIds: ownSessionForSpotDay?.ownSessions?.map((s) => s?.id ?? null) ?? [],
-    blockingSessionIds: blockingOwnSessions?.map((s) => s?.id ?? null) ?? []
-  });
-  console.log("OWN_SESSION_STATE_TRACE", {
-    sessions: (ownSessionForSpotDay?.ownSessions ?? []).map((session) => ({
-      id: session?.id ?? null,
-      start: session?.start ?? null,
-      end: session?.end ?? null,
-      status: session?.status ?? null,
-      state: getCanonicalSessionState(session)
-    }))
-  });
-  console.log("PLAN_BLOCKING_RESULT", {
-    hasBlockingOwnSession,
-    blockingSessionId: blockingOwnSession?.id ?? null
-  });
   const ownSessionStateForBlocking: OwnSessionForSpotDayState = {
     ...ownSessionForSpotDay,
     ownSession: blockingOwnSession,
@@ -1581,22 +1543,15 @@ function SessionRow({
     })
     : { allowed: false, reason: null };
   const isAlreadyInGroup = safeGroupSessions.some(
-  (entry) => entry.item?.userId === currentProfileId
-);
-
-const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+    (entry) => entry.item?.userId === currentProfileId
+  );
+  const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
   const isLiveRow = rowStatus === 'live';
-  console.log("JOIN_REGRESSION_COMPARE", {
-    sessionId: session?.id ?? null,
-    sessionDay: session?.sessionDay ?? null,
-    activeDayKey,
-    hasOwnSession: ownSessionForSpotDay?.hasOwnSession ?? false,
-    joinStateAllowed: joinState?.allowed ?? null,
-    joinStateReason: joinState?.reason ?? null
-  });  return (
+
+  return (
     <Pressable
       onPress={() => onSelect(group.key)}
       style={({ pressed }) => ({
@@ -1629,8 +1584,6 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
                 height: 44,
                 borderRadius: 14,
                 backgroundColor: 'rgba(255,255,255,0.16)',
-                borderWidth: 0,
-                borderColor: 'rgba(255,255,255,0.22)',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}>
@@ -1668,14 +1621,7 @@ const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
           ) : null}
         </View>
 
-        <View
-          style={{
-            position: 'absolute',
-            left: 104,
-            right: 104,
-            height: 24,
-          }}
-        >
+        <View style={{ position: 'absolute', left: 104, right: 104, height: 24 }}>
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
@@ -1772,7 +1718,7 @@ function SpotSummaryCards({ metrics, theme }: { metrics: SpotSummaryMetric[]; th
                 fontSize: 38,
                 lineHeight: 38,
                 fontWeight: '900',
-                marginBottom: 14,
+                marginBottom: 10,
               }}
             >
               {metric.icon}
@@ -1850,6 +1796,7 @@ function SessionTimeline({
   activeGroupChatKey,
   onClearSelection,
 }: SessionTimelineProps) {
+  const isWebPlatform = Platform.OS === 'web';
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
   const totalRange = Math.max(timelineWindowEndMinutes - timelineWindowStartMinutes, 1);
   const isCurrentTimeMarkerVisible = showNowMarker && currentLocalMinutes >= timelineWindowStartMinutes && currentLocalMinutes <= timelineWindowEndMinutes;
@@ -1874,9 +1821,185 @@ function SessionTimeline({
     { length: Math.floor(timelineWindowEndMinutes / 60) - Math.ceil(timelineWindowStartMinutes / 60) + 1 },
     (_, i) => (Math.ceil(timelineWindowStartMinutes / 60) + i) * 60
   );
-  useEffect(() => {
-    
-  }, [renderRange]);
+
+
+  if (!isWebPlatform) {
+    const mobileSections = [
+      { key: 'live', title: 'LIVE NOW', groups: liveGroups, color: '#5EF0D0' },
+      { key: 'going', title: 'GOING', groups: goingGroups, color: '#4DB8FF' },
+      { key: 'maybe', title: 'MAYBE', groups: maybeGroups, color: '#5F83A6' },
+    ].filter((section) => section.groups.length > 0);
+
+    return (
+      <Pressable onPress={onClearSelection}>
+        <View style={{ gap: 8 }}>
+          {mobileSections.length === 0 ? (
+            <Text style={{ color: theme.textSoft, fontSize: 14 }}>
+              {timelineFilter === 'buddies'
+                ? 'No buddy sessions on the timeline yet'
+                : 'No sessions on the timeline yet'}
+            </Text>
+          ) : null}
+
+          {mobileSections.map((section, sectionIndex) => (
+            <View
+              key={`mobile-timeline-section-${sectionIndex}-${section.key}`}
+              style={{
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: 'rgba(255,255,255,0.06)',
+                backgroundColor: 'rgba(8,24,39,0.34)',
+                padding: 10,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: section.color, marginRight: 8 }} />
+                  <Text style={{ color: section.color, fontSize: 13, fontWeight: '900', letterSpacing: 0.4 }}>
+                    {section.title}
+                  </Text>
+                </View>
+                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>
+                  {section.groups.length} {section.groups.length === 1 ? 'session' : 'sessions'}
+                </Text>
+              </View>
+
+              {section.groups.map((group, rowIndex) => {
+                const sessionEntry = group.visibleSessions?.[0] ?? group.sessions?.[0] ?? null;
+                const sessionItem = sessionEntry?.item ?? null;
+                const riderName = sessionItem?.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider';
+
+                const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
+                const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
+                const leftPercent = clamp(((clampedStartMinutes - timelineWindowStartMinutes) / totalRange) * 100, 0, 100);
+                const widthPercent = clamp(((clampedEndMinutes - clampedStartMinutes) / totalRange) * 100, 2, 100 - leftPercent);
+                const mobileWidthPercent = widthPercent;
+                const mobileLeftPercent = clamp(leftPercent, 0, 100 - mobileWidthPercent);
+                const isSelected = selectedTimelineSessionId === group.key;
+
+                return (
+                  <Pressable
+                    key={`mobile-timeline-row-${sectionIndex}-${section.key}-${rowIndex}`}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      onSelectSession(group.key);
+                    }}
+                    style={{
+                      borderTopWidth: 1,
+                      borderTopColor: 'rgba(255,255,255,0.055)',
+                      paddingTop: 10,
+                      marginTop: 8,
+                    }}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
+                      {/* Avatars: stacked for groups */}
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
+                          <View key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }}>
+                            <Avatar uri={item.userAvatarUrl ?? null} size={38} />
+                          </View>
+                        ))}
+                        {(group.visibleSessions?.length ?? 0) > 3 ? (
+                          <View style={{ marginLeft: -12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', zIndex: 0 }}>
+                            <Text style={{ color: theme.text, fontSize: 11, fontWeight: '900' }}>+{(group.visibleSessions?.length ?? 0) - 3}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+
+                      <View style={{ flex: 1 }}>
+                        {(group.visibleSessions?.length ?? 0) > 1 ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <View style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}>
+                              <Text style={{ color: '#9EDBFF', fontSize: 10, fontWeight: '900' }}>👥 GROUP · {group.visibleSessions?.length} riders</Text>
+                            </View>
+                          </View>
+                        ) : null}
+                        <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }} numberOfLines={1}>
+                          {(group.visibleSessions ?? []).map(({ item }) => item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim()).filter(Boolean).join(' · ')}
+                        </Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 1 }}>
+                          {group.startTime} – {group.endTime}
+                        </Text>
+                      </View>
+
+                      {(group.visibleSessions?.length ?? 0) > 1 ? (
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            onOpenGroupChat(group.key);
+                          }}
+                          style={{
+                            borderRadius: 999,
+                            backgroundColor: activeGroupChatKey === group.key ? 'rgba(77,184,255,0.20)' : 'rgba(255,255,255,0.055)',
+                            paddingHorizontal: 10,
+                            paddingVertical: 6,
+                          }}
+                        >
+                          <Text style={{ color: activeGroupChatKey === group.key ? '#9EDBFF' : theme.textSoft, fontSize: 10, fontWeight: '900' }}>
+                            💬 Chat
+                          </Text>
+                        </Pressable>
+                      ) : null}
+                    </View>
+
+                    <View style={{ height: 16, position: 'relative', marginTop: 6 }}>
+                      <View style={{ position: 'absolute', left: 0, right: 0, top: 7, height: 2, backgroundColor: 'rgba(255,255,255,0.10)' }} />
+                      <View
+                        pointerEvents="none"
+                        style={{
+                          position: 'absolute',
+                          left: `${mobileLeftPercent}%`,
+                          width: `${mobileWidthPercent}%`,
+                          minWidth: 6,
+                          top: 5,
+                          height: 6,
+                          borderRadius: 3,
+                          backgroundColor: section.color,
+                          opacity: isSelected ? 1 : 0.85,
+                        }}
+                      />
+                      {isCurrentTimeMarkerVisible ? (
+                        <View
+                          pointerEvents="none"
+                          style={{
+                            position: 'absolute',
+                            left: `${nowPosition}%`,
+                            top: 0,
+                            width: 2,
+                            height: 16,
+                            borderRadius: 1,
+                            backgroundColor: 'rgba(255,255,255,0.35)',
+                            marginLeft: -1,
+                          }}
+                        />
+                      ) : null}
+                    </View>
+
+                    {/* Ledenlijst — zichtbaar als geselecteerd en groep */}
+                    {isSelected && (group.visibleSessions?.length ?? 0) > 1 ? (
+                      <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10, gap: 8 }}>
+                        <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                          Riders in this group
+                        </Text>
+                        {(group.visibleSessions ?? []).map(({ item }) => (
+                          <View key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <Avatar uri={item.userAvatarUrl ?? null} size={30} />
+                            <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
+                              {item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider'}
+                            </Text>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
+        </View>
+      </Pressable>
+    );
+  }
 
   return (
     <Pressable onPress={onClearSelection}>
@@ -1886,7 +2009,7 @@ function SessionTimeline({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 104,
+              left: 0,
               right: 0,
               top: 0,
               bottom: 0,
@@ -1964,7 +2087,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 104, right: 104, top: 42, bottom: 10 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 42, bottom: 10 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -2067,7 +2190,6 @@ export default function App() {
         return;
       }
 
-      console.log('RESET_SESSION_READY', true);
     });
   }, []);
 
@@ -2089,10 +2211,13 @@ export default function App() {
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showBuddies, setShowBuddies] = useState(false);
+  const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
+  const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
   const [profileEditError, setProfileEditError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isEditingProfileName, setIsEditingProfileName] = useState(false);
   const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
@@ -2154,6 +2279,7 @@ export default function App() {
   const dragSpotNameRef = useRef<SpotName | null>(null);
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
+  const spotDetailScrollRef = useRef<ScrollView | null>(null);
   const spotChatScrollRef = useRef<ScrollView | null>(null);
   const groupChatScrollRef = useRef<ScrollView | null>(null);
   const realtimeRefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2166,6 +2292,9 @@ export default function App() {
       realtimeRefetchTimeoutRef.current = null;
       void fetchSharedData({ skipLoadingState: true }).then(() => {
         setGroupMessagesRefreshKey((value) => value + 1);
+        void refreshUnreadBuzzState();
+        // Delayed refresh to catch async notification inserts (race condition)
+        setTimeout(() => void refreshUnreadBuzzState(), 3000);
       });
     }, 250);
   };
@@ -2249,11 +2378,8 @@ export default function App() {
   const filteredSpots = useMemo(() => {
     const safeSpots = Array.isArray(allSpots) ? allSpots : [];
     const normalizedQuery = normalizeSearch(query);
-    console.log('SPOT_SEARCH_QUERY_NORMALIZED', normalizedQuery);
 
     if (!normalizedQuery) {
-      console.log('SPOT_SEARCH_RESULT_COUNT', 0);
-      console.log('SPOT_SEARCH_TOP_RESULTS', []);
       return [];
     }
 
@@ -2308,8 +2434,6 @@ export default function App() {
       .slice(0, 20)
       .map((item) => item.spot);
 
-    console.log('SPOT_SEARCH_RESULT_COUNT', ranked.length);
-    console.log('SPOT_SEARCH_TOP_RESULTS', ranked.slice(0, 5));
     return ranked;
   }, [allSpots, query, COUNTRY_ALIASES]);
   if (!Array.isArray(spots)) {
@@ -2381,6 +2505,32 @@ export default function App() {
   useEffect(() => {
     void refreshUnreadBuzzState();
   }, [activeAppUserId]);
+
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    const interval = setInterval(() => {
+      void refreshUnreadBuzzState();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [activeAppUserId]);
+
+  const sendPushToRecipients = async (
+    recipientIds: string[],
+    title: string,
+    body: string,
+    data: Record<string, unknown>,
+  ) => {
+    if (recipientIds.length === 0) return;
+    const { data: tokenRows } = await supabase
+      .from('push_tokens')
+      .select('expo_push_token')
+      .in('profile_id', recipientIds);
+    const tokens = [...new Set((tokenRows ?? []).map((r) => r.expo_push_token).filter(Boolean))];
+    for (const token of tokens) {
+      void sendExpoPushNotification({ to: token, title, body, data });
+    }
+  };
+
   const markAllBuzzAsRead = async () => {
     if (!activeAppUserId) return;
 
@@ -2402,26 +2552,34 @@ export default function App() {
   }, [activeAppUserId]);
   const getNotificationInboxSummary = (notificationRow: NotificationRow) => {
     const data = notificationRow.data;
-    if (notificationRow.type === 'session_joined') {
-      const actorNameFromData = data && typeof data === 'object'
-        ? [data.actorName, data.actorDisplayName, data.actor_name, data.display_name]
-          .find((value): value is string => typeof value === 'string' && value.trim().length > 0)
-        : null;
-      const actorNameFromProfile = typeof notificationRow.actor_profile?.display_name === 'string' && notificationRow.actor_profile.display_name.trim()
+    const actorName = (() => {
+      const fromProfile = typeof notificationRow.actor_profile?.display_name === 'string' && notificationRow.actor_profile.display_name.trim()
         ? notificationRow.actor_profile.display_name.trim()
         : null;
-      const actorName = actorNameFromData?.trim() || actorNameFromProfile;
-      return actorName ? `${actorName} joined your session` : 'Someone joined your session';
+      const fromData = data && typeof data === 'object'
+        ? [data.actorName, data.actorDisplayName, data.actor_name, data.display_name]
+          .find((v): v is string => typeof v === 'string' && v.trim().length > 0) ?? null
+        : null;
+      return fromProfile || fromData || 'Someone';
+    })();
+    const spotName = data && typeof data === 'object' && typeof data.spot_name === 'string' ? data.spot_name.trim() : null;
+
+    if (notificationRow.type === 'session_joined') {
+      return spotName
+        ? `${actorName} joined your session at ${spotName}`
+        : `${actorName} joined your session`;
     }
-    if (data && typeof data === 'object') {
-      const message = data.message;
-      if (typeof message === 'string' && message.trim()) {
-        return message.trim();
-      }
-      const spotName = data.spotName;
-      if (typeof spotName === 'string' && spotName.trim() && notificationRow.type) {
-        return `${notificationRow.type}: ${spotName.trim()}`;
-      }
+    if (notificationRow.type === 'chat_message') {
+      const preview = data && typeof data === 'object' && typeof data.message_preview === 'string' ? data.message_preview.trim() : null;
+      return spotName
+        ? `${actorName} at ${spotName}: ${preview || 'sent a message'}`
+        : `${actorName}: ${preview || 'sent a message'}`;
+    }
+    if (notificationRow.type === 'checkin') {
+      return spotName ? `${actorName} checked in at ${spotName}` : `${actorName} checked in`;
+    }
+    if (notificationRow.type === 'session_planned') {
+      return spotName ? `${actorName} is going to ${spotName}` : `${actorName} planned a session`;
     }
     return notificationRow.type || 'Notification';
   };
@@ -2758,47 +2916,30 @@ export default function App() {
     
   };
 
-  useEffect(() => {
-    
-  }, [visibleProfiles]);
+
+
 
   useEffect(() => {
-    
-  }, []);
-
-  useEffect(() => {
-    
-  }, [favoriteSpots]);
-  useEffect(() => {
-    
-  }, [favoriteSpots]);
-
-  useEffect(() => {
-    console.log('PUSH_INIT');
     const FALLBACK_EAS_PROJECT_ID = "6420f442-2be4-4803-9620-f769bc5def4f";
 
     const register = async () => {
       try {
         if (Platform.OS === 'web') {
-          console.log('PUSH_SKIP_WEB');
           return;
         }
 
         const { status } = await Buzz.requestPermissionsAsync();
-        console.log('PUSH_PERMISSION_STATUS', status);
 
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ??
           Constants?.easConfig?.projectId ??
           FALLBACK_EAS_PROJECT_ID;
 
-        console.log('PUSH_PROJECT_ID', projectId);
 
         const token = await Buzz.getExpoPushTokenAsync({
           projectId,
         });
 
-        console.log('PUSH_TOKEN', token.data);
 
         if (!activeAppUserId || !token.data) {
           return;
@@ -2819,10 +2960,8 @@ export default function App() {
         if (pushTokenSaveError) {
           console.error('PUSH_TOKEN_SAVE_ERROR', pushTokenSaveError);
         } else {
-          console.log('PUSH_TOKEN_SAVED');
         }
       } catch (e) {
-        console.log('PUSH_ERROR', e);
       }
     };
 
@@ -2886,6 +3025,13 @@ export default function App() {
         setFavoriteSpots(loadedFavoriteSpots);
         setOrderMode(loadedOrderMode);
         setManualOrder(normalizedManualOrder);
+        // Sync favoriteSpots naar DB zodat notificaties ook voor volgers werken
+        if (activeAppUserId && loadedFavoriteSpots.length > 0) {
+          void supabase.from('spot_followers').upsert(
+            loadedFavoriteSpots.map((spot) => ({ user_id: activeAppUserId, spot_name: spot })),
+            { onConflict: 'user_id,spot_name' }
+          );
+        }
         
         
       } catch (error) {
@@ -2942,9 +3088,13 @@ export default function App() {
       });
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
-      }).then(() => {
-        
       });
+      if (activeAppUserId) {
+        void supabase.from('spot_followers').upsert(
+          { user_id: activeAppUserId, spot_name: spotName },
+          { onConflict: 'user_id,spot_name' }
+        );
+      }
       setHomeSpotSearchQuery('');
       return nextSelectedSpots;
     });
@@ -2968,12 +3118,14 @@ export default function App() {
   };
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
+    if (activeAppUserId) {
+      void supabase.from('spot_followers').delete().eq('user_id', activeAppUserId).eq('spot_name', spotName);
+    }
     setFavoriteSpots((previousFavoriteSpots) => {
       if (!previousFavoriteSpots.includes(spotName)) {
         return previousFavoriteSpots;
       }
       const nextSelectedSpots = (Array.isArray(previousFavoriteSpots) ? previousFavoriteSpots : []).filter((favoriteSpot) => favoriteSpot !== spotName);
-      
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
@@ -3636,13 +3788,6 @@ export default function App() {
     }
 
     
-    console.log('SPOT_DEFINITIONS_DEBUG', mappedSpots.map((spot) => ({
-      spot: spot.spot,
-      canonicalName: spot.canonicalName,
-      latitude: spot.latitude,
-      longitude: spot.longitude,
-      coordinateStatus: spot.coordinateStatus,
-    })));
 
     setSpotDefinitions(mappedSpots);
   };
@@ -3717,10 +3862,6 @@ export default function App() {
         };
       });
 
-      console.log('GROUP_CHAT_FETCH_RESULT', {
-        groupKey: activeGroupChatKey,
-        count: nextMessages.length,
-      });
 
       if (!isCancelled) setGroupMessages(nextMessages);
     };
@@ -3737,11 +3878,6 @@ export default function App() {
     if (!skipLoadingState) {
       setLoadingData(true);
     }
-    console.log('JOIN_MODEL_SELECTED', {
-      rootCause: 'E',
-      readTarget: 'sessions',
-      writeTarget: 'sessions',
-    });
     
     
     
@@ -3755,18 +3891,6 @@ export default function App() {
           .order('created_at', { ascending: true })
       : { data: [], error: { message: 'INVALID_DAY_KEY' } };
     const sessionsData = sessionsResponse.data ?? [];
-    console.log('RAW_SCHEVENINGEN_SESSION_ROWS', sessionsData
-      .filter((row) => String(row.spot_name ?? '').toLowerCase().includes('scheveningen'))
-      .map((row) => ({
-        id: row.id,
-        spot_name: row.spot_name,
-        status: row.status,
-        start_time: row.start_time,
-        end_time: row.end_time,
-        session_day: row.session_day,
-        user_id: row.user_id,
-      }))
-    );
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -3781,12 +3905,6 @@ export default function App() {
       ? conversationResponse.data[0]?.id ?? null
       : null;
 
-    console.log("CHAT_CONVERSATION_FETCH", {
-      selectedSpot,
-      selectedDayKey,
-      conversationId,
-      error: conversationResponse.error?.message ?? null,
-    });
 
     const messagesResponse = conversationId
       ? await supabase
@@ -3874,14 +3992,7 @@ export default function App() {
         const normalizedSpotName = normalizeSpotName(row?.spot_name ?? '');
         const resolvedSpotName = canonicalSpotNameByNormalizedSpotName.get(normalizedSpotName) ?? null;
         const droppedRow = !resolvedSpotName;
-        console.log("CANONICAL_SPOT_RESOLUTION", {
-          rawSpotName: row?.spot_name ?? null,
-          normalizedSpotName: normalizedSpotName ?? null,
-          resolvedSpotName: resolvedSpotName ?? null,
-          dropped: droppedRow === true
-        });
         if (droppedRow) {
-          console.warn("FALLBACK_SPOT_USED", row?.spot_name);
           // fallback: use raw spot name instead of dropping
           const fallbackSpotName = row?.spot_name;
           if (!fallbackSpotName || !nextSessionsBySpot[fallbackSpotName]) {
@@ -3893,38 +4004,10 @@ export default function App() {
         }
 
         const mappedSession = toSpotSession(row, resolvedSpotName);
-        console.log("CANONICAL_SESSION_ROW", {
-          id: mappedSession?.id ?? null,
-          spot: mappedSession?.spot ?? null,
-          sessionDay: mappedSession?.sessionDay ?? null,
-          userId: mappedSession?.userId ?? null,
-          start: mappedSession?.start ?? null,
-          end: mappedSession?.end ?? null
-        });
         nextSessionsBySpot[resolvedSpotName].push(mappedSession);
       }
-      console.log("SESSION_ADAPTER_BOUNDARY_ACTIVE", {
-        totalCanonicalSessions: Object.values(nextSessionsBySpot ?? {}).flat().length
-      });
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      console.log('OWN_SESSION_MATCH', {
-        activeDay: selectedDayKey,
-        matches: loadedSessions.filter((sessionItem) => sessionItem.sessionDay === selectedDayKey).map((sessionItem) => sessionItem.id),
-      });
-      console.log('SPOT_SESSION_BUCKET_DEBUG_DETAILED', Object.fromEntries(
-        Object.entries(nextSessionsBySpot).map(([spotName, spotSessions]) => [
-          spotName,
-          (spotSessions ?? []).map((sessionItem) => ({
-            id: sessionItem.id,
-            spot: sessionItem.spot,
-            userName: sessionItem.userName,
-            start: sessionItem.start,
-            end: sessionItem.end,
-            status: sessionItem.status,
-          })),
-        ])
-      ));
 
       setSessionsBySpot(nextSessionsBySpot);
     }
@@ -4061,9 +4144,6 @@ export default function App() {
     }
     : null;
 
-  useEffect(() => {
-    
-  }, [authenticatedUserId, headerProfile?.avatarUrl, headerProfile?.displayName, headerProfile?.userId]);
 
   useEffect(() => {
     return () => {
@@ -4137,8 +4217,6 @@ export default function App() {
       }
       return next;
     });
-    // FIX: do not reset messagesBySpot (we use spot+day keys now)
-setMessagesBySpot((previous) => previous);
   }, [spotNames]);
 
   useEffect(() => {
@@ -4185,11 +4263,6 @@ setMessagesBySpot((previous) => previous);
           const newRecord = payload?.new as { id?: string; spot_name?: string } | null;
           const oldRecord = payload?.old as { id?: string; spot_name?: string } | null;
 
-          console.log('SESSIONS_REALTIME_EVENT', {
-            eventType: payload?.eventType ?? null,
-            table: payload?.table ?? null,
-            recordId: newRecord?.id ?? oldRecord?.id ?? null,
-          });
 
           const payloadSpot = newRecord?.spot_name
             ?? oldRecord?.spot_name
@@ -4206,15 +4279,10 @@ setMessagesBySpot((previous) => previous);
           return;
         }
 
-        console.log('SESSIONS_REALTIME_SUBSCRIBED', {
-          selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-          activeDay,
-        });
       });
 
     return () => {
       void supabase.removeChannel(realtimeChannel);
-      console.log('SESSIONS_REALTIME_UNSUBSCRIBED');
     };
   }, [activeAppUserId, activeDay, selectedSpot, selectedDayKey, spotNames]);
 
@@ -4238,29 +4306,37 @@ setMessagesBySpot((previous) => previous);
             return;
           }
 
-          console.log('MESSAGES_REALTIME_EVENT', {
-            eventType: payload?.eventType ?? null,
-            selectedSpot,
-            selectedDayKey,
-          });
 
           scheduleRealtimeRefetch();
         },
       )
       .subscribe((status) => {
         if (status === 'SUBSCRIBED') {
-          console.log('MESSAGES_REALTIME_SUBSCRIBED', {
-            selectedSpot,
-            selectedDayKey,
-          });
         }
       });
 
     return () => {
       void supabase.removeChannel(realtimeChannel);
-      console.log('MESSAGES_REALTIME_UNSUBSCRIBED');
     };
   }, [activeAppUserId, selectedSpot, selectedDayKey]);
+
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    const channel = supabase
+      .channel(`notifications-realtime-${activeAppUserId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'notifications' },
+        (payload) => {
+          const row = payload?.new as { user_id?: string } | null;
+          if (row?.user_id === activeAppUserId) {
+            void refreshUnreadBuzzState();
+          }
+        },
+      )
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [activeAppUserId]);
 
   useEffect(() => {
     setHomeQuickCheckInError('');
@@ -4272,19 +4348,12 @@ setMessagesBySpot((previous) => previous);
     }
   }, [selectedSpot]);
 
-  useEffect(() => {
-    
-  }, [showForm]);
 
   useEffect(() => {
     if (!selectedSpot) {
       return;
     }
 
-    console.log("CHAT_LOAD_TRIGGER", {
-      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-      triggered: true
-    });
 
     let isCancelled = false;
 
@@ -4301,10 +4370,6 @@ setMessagesBySpot((previous) => previous);
       }
 
       const rows = data ?? [];
-      console.log("CHAT_FETCH_RESULT", {
-        selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-        count: rows?.length ?? 0
-      });
 
       const messageUserIds = [...new Set(rows.map((message) => message.user_id).filter(Boolean))];
       const { data: messageProfilesData, error: messageProfilesError } = messageUserIds.length
@@ -4360,11 +4425,6 @@ setMessagesBySpot((previous) => previous);
         userId: activeProfile?.id ?? null,
         spotName: getSelectedSpotName(selectedSpot),
       });
-      console.log("SESSION_JOINED_PREF_LOAD_INPUT", {
-        userId: persistedUserId ?? null,
-        selectedSpot: selectedSpot ?? null,
-        normalizedSpotName: normalizedSpotName ?? null
-      });
       if (!normalizedSpotName || !persistedUserId) {
         setSpotNotificationPreferences(defaultSpotNotificationPreferences);
         setNotificationPreferencesError('');
@@ -4401,13 +4461,7 @@ setMessagesBySpot((previous) => previous);
       }
 
       const preferenceRow = data;
-      console.log("SESSION_JOINED_PREF_LOAD_RAW", {
-        row: preferenceRow ?? null
-      });
       const normalizedPreferences = normalizeSpotNotificationPreferences(data);
-      console.log("SESSION_JOINED_PREF_LOAD_NORMALIZED", {
-        session_joined_notification_mode: normalizedPreferences.session_joined_notification_mode
-      });
       setSpotNotificationPreferences(normalizedPreferences);
       
       setLoadingSpotNotificationPreferences(false);
@@ -4534,9 +4588,6 @@ setMessagesBySpot((previous) => previous);
       && (gpsActiveCheckedInSession.status === 'live' || gpsActiveCheckedInSession.status === 'Is er al'),
     );
     if (!shouldRunGpsWatcher || !gpsActiveCheckedInSession) {
-      
-      setCurrentCoordinates(null);
-      setNearestSpotResult(null);
       setIsResolvingNearestSpot(false);
       stopWatcher('NO_ACTIVE_SESSION');
       return () => {
@@ -4643,8 +4694,36 @@ setMessagesBySpot((previous) => previous);
   }, [gpsActiveCheckedInSession, isNativePlatform, verifiedSpotDefinitions]);
 
   useEffect(() => {
-    
-  }, [nearestSpotResult]);
+    if (!isNativePlatform) return;
+    let active = true;
+    let subscription: Location.LocationSubscription | null = null;
+    const startBackgroundWatch = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (!active || status !== 'granted') return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        if (!active) return;
+        const coords = { latitude: pos.coords.latitude, longitude: pos.coords.longitude };
+        setCurrentCoordinates(coords);
+        setNearestSpotResult(getNearestSpot(coords, verifiedSpotDefinitions));
+        subscription = await Location.watchPositionAsync(
+          { accuracy: Location.Accuracy.Balanced, distanceInterval: 100 },
+          (position) => {
+            if (!active) return;
+            const c = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+            setCurrentCoordinates(c);
+            setNearestSpotResult(getNearestSpot(c, verifiedSpotDefinitions));
+          },
+        );
+      } catch {}
+    };
+    void startBackgroundWatch();
+    return () => {
+      active = false;
+      subscription?.remove();
+    };
+  }, [isNativePlatform, verifiedSpotDefinitions]);
+
 
   const activeDayContext = useMemo(() => {
     const base = new Date();
@@ -4692,37 +4771,14 @@ setMessagesBySpot((previous) => previous);
     ? sessionsBySpot[selectedSpot]
     : [];
 
-  console.log('SELECTED_SPOT_SESSION_DEBUG', {
-    selectedSpot,
-    sessionCount: sessions.length,
-    sessions: sessions.map((s) => ({
-      id: s.id,
-      spot: s.spot,
-      status: s.status,
-      start: s.start,
-      end: s.end,
-    })),
-  });
   const safeSessions = Array.isArray(sessions) ? sessions : [];
+  const followingUserIdsSet = useMemo(() => new Set(followingUserIds), [followingUserIds]);
   const timelineSessions = useMemo(() => {
     const safeTimelineSessions = Array.isArray(sessions) ? sessions : [];
     const dedupedSessions = Array.from(new Map(safeTimelineSessions.map((item) => [item.id, item])).values());
     const filteredSessions = (Array.isArray(dedupedSessions) ? dedupedSessions : []).filter((item) => {
       const sameDay = item.sessionDay === activeDayKey;
       const state = getSessionViewState(item);
-      console.log('TIMELINE_FILTER_REASON', {
-        id: item.id,
-        userId: item.userId,
-        userName: item.userName,
-        sessionDay: item.sessionDay,
-        activeDayKey,
-        start: item.start,
-        end: item.end,
-        status: item.status,
-        sameDay,
-        state,
-        kept: sameDay && state !== 'finished',
-      });
 
       if (!sameDay) {
         return false;
@@ -4745,7 +4801,7 @@ setMessagesBySpot((previous) => previous);
         return {
           item,
           state,
-          isBuddy: followingUserIds.includes(item.userId),
+          isBuddy: followingUserIdsSet.has(item.userId),
           sortMinutes,
         };
       })
@@ -4779,15 +4835,6 @@ setMessagesBySpot((previous) => previous);
       }),
     [safeSessions, selectedSpot, activeDayKey, activeProfile, timelineSessions, timelineFilter, followingUserIds],
   );
-  useEffect(() => {
-    
-  }, [activeDay]);
-  useEffect(() => {
-    
-  }, [activeCheckedInSession, activeDay, hasActiveCheckedInSession, selectedSpot, activeAppUserId]);
-  useEffect(() => {
-    
-  }, [activeDay]);
   const plannedSession = useMemo(() => {
     const currentUserId = activeAppUserId;
     if (!currentUserId) {
@@ -4815,9 +4862,6 @@ setMessagesBySpot((previous) => previous);
       })[0] ?? null;
   }, [activeAppUserId, activeDateEnd, activeDateStart, activeDay, sessionsBySpot]);
   const activeBannerSession = activeCheckedInSession ?? plannedSession;
-  useEffect(() => {
-    
-  }, [activeBannerSession]);
   const plannedSessionIntentLabel = useMemo(() => {
     if (!plannedSession) {
       return null;
@@ -4836,12 +4880,10 @@ setMessagesBySpot((previous) => previous);
   const messages = selectedSpot ? messagesBySpot[`${selectedSpot}-${selectedDayKey}`] || [] : [];
   useEffect(() => {
     if (!selectedSpot) return;
-    console.log("INITIAL_CHAT_FETCH", { selectedSpot, activeDay });
     void fetchSharedData();
   }, [selectedSpot]);
 
   useEffect(() => {
-    console.log("DAY_CHANGE_FETCH_TRIGGER", { activeDay });
     void fetchSharedData();
   }, [activeDay]);
 
@@ -5020,8 +5062,8 @@ setMessagesBySpot((previous) => previous);
     };
   }, [currentLocalMinutes, selectedPlanningDateKey]);
   const windowInfo = useMemo(() => {
-    const twoHoursBack = currentLocalMinutes - 120;
-    const roundedStart = Math.floor(twoHoursBack / 60) * 60;
+    const oneHourBack = currentLocalMinutes - 60;
+    const roundedStart = Math.floor(oneHourBack / 60) * 60;
     const dynamicTodayStart = clamp(roundedStart, timelineStartMinutes, timelineEndMinutes - 60);
 
     return {
@@ -5031,9 +5073,6 @@ setMessagesBySpot((previous) => previous);
     };
   }, [activeDay, currentLocalMinutes]);
   const timelineMode = windowInfo.mode;
-  useEffect(() => {
-    
-  }, [activeDay, timelineMode]);
   const timelineWindow = useMemo(
     () => ({
       startMinutes: windowInfo.startMinutes,
@@ -5052,17 +5091,6 @@ setMessagesBySpot((previous) => previous);
       }),
     [timelineWindow.endMinutes, timelineWindow.startMinutes],
   );
-  useEffect(() => {
-    
-  }, [timelineWindow.endMinutes, timelineWindow.startMinutes]);
-  useEffect(() => {
-  }, [timelineLabels, timelineWindow]);
-  useEffect(() => {
-    
-  }, [nowReference]);
-  useEffect(() => {
-    
-  }, [windowInfo]);
   const startHourOptions = useMemo(
     () =>
       hours
@@ -5077,9 +5105,6 @@ setMessagesBySpot((previous) => previous);
         }),
     [planningNowReference.earliestStartMinutes, planningNowReference.isToday, planningNowReference.latestPlanningStartMinutes],
   );
-  useEffect(() => {
-    
-  }, [planningNowReference]);
   useEffect(() => {
     if (!showForm || !planningNowReference.isToday || startHour === null) {
       return;
@@ -5177,13 +5202,7 @@ setMessagesBySpot((previous) => previous);
   const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
   const canCheckIn = shouldShowSpotCheckIn && withinRange;
   const checkInCtaVisible = canCheckIn;
-  useEffect(() => {
-    
-  }, [activeDay, withinRange, hasActiveCheckedInSession, checkInCtaVisible]);
   const canCheckOut = shouldShowSpotCheckOut;
-  useEffect(() => {
-    
-  }, [activeDay, selectedSpot, shouldShowSpotCheckOut]);
   const topCta = spotState.topCtaState;
   const hasOwnSessionOnSelectedSpotDay = spotState.ownSessionForSpotDay?.hasBlockingOwnSession ?? false;
   const ownActiveSessions = (spotState.sessionsForSpot ?? [])
@@ -5206,7 +5225,6 @@ setMessagesBySpot((previous) => previous);
     ? 'plan' as const
     : 'edit' as const;
   const mode = spotState?.topCtaState?.mode ?? null;
-  console.log("MODE_SAFE", { mode });
   const headerStateLabel = hasOwnSessionOnSelectedSpotDay ? 'You have a session today' : null;
   const headerHelperText = hasOwnSessionOnSelectedSpotDay
     ? 'You’re going today. Others can join you.'
@@ -5215,10 +5233,7 @@ setMessagesBySpot((previous) => previous);
   }).length;
   const nowSummaryLabel = liveCount > 0
     ? `${liveCount} rider${liveCount === 1 ? '' : 's'} live now.`
-    : 'No live riders yet.';  useEffect(() => {
-    
-  }, [activeDay, hasOwnSessionOnSelectedSpotDay, topCtaMode]);
-
+    : 'No live riders yet.';
   const nativeSwipeStartXRef = useRef<number | null>(null);
 
   const handleNativeSwipeStart = (event: any) => {
@@ -5233,10 +5248,14 @@ setMessagesBySpot((previous) => previous);
     const endX = event?.nativeEvent?.pageX ?? null;
     if (typeof startX !== 'number' || typeof endX !== 'number') return;
 
+    // Only trigger back-swipe when gesture starts from the left edge (< 40pt)
+    // This prevents map pinch/zoom gestures from triggering navigation
+    if (startX > 40) return;
+
     const deltaX = endX - startX;
     const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || isNotificationInboxExpanded);
 
-    if (Math.abs(deltaX) > 70 && isNotHome) {
+    if (deltaX > 70 && isNotHome) {
       goHomeFromNativeSwipe();
     }
   };
@@ -5251,39 +5270,54 @@ setMessagesBySpot((previous) => previous);
           backgroundColor: theme.bg,
           borderBottomWidth: 1,
           borderBottomColor: 'rgba(255,255,255,0.08)',
+          flexDirection: 'row',
           alignItems: 'center',
-          justifyContent: 'center',
         }}
       >
-        <Image
-          source={require('./assets/wordmark.png')}
-          resizeMode="contain"
-          style={{
-            width: 260,
-            height: 62,
-          }}
-        />
-
+        <View style={{ width: 88, height: 88, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginLeft: 24 }}>
+          <Image
+            source={require('./assets/logo.png')}
+            resizeMode="contain"
+            style={{ width: 160, height: 160 }}
+          />
+        </View>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+          <Image
+            source={require('./assets/wordmark.png')}
+            resizeMode="contain"
+            style={{ width: 220, height: 58 }}
+          />
+        </View>
         <Pressable
           onPress={() => {
             navigateNative('home');
-            setIsNotificationInboxExpanded(true);
-            void markAllBuzzAsRead();
+            setIsNotificationInboxExpanded((prev) => {
+              if (!prev) void markAllBuzzAsRead();
+              return !prev;
+            });
           }}
           style={{
-            position: 'absolute',
-            right: 18,
-            top: 27,
-            width: 34,
-            height: 34,
+            width: 88,
+            height: 88,
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <View style={{ width: 22, height: 22, position: 'relative' }}>
-            <View style={{ position: 'absolute', left: 5, top: 3, width: 12, height: 13, borderTopLeftRadius: 8, borderTopRightRadius: 8, borderWidth: 2, borderColor: '#ffffff', borderBottomWidth: 0 }} />
-            <View style={{ position: 'absolute', left: 3, top: 16, width: 16, height: 2, borderRadius: 2, backgroundColor: '#ffffff' }} />
-            <View style={{ position: 'absolute', left: 9, top: 19, width: 4, height: 4, borderRadius: 3, backgroundColor: '#ffffff' }} />
+          <View style={{ position: 'relative' }}>
+            <Ionicons name="notifications-outline" size={26} color="#ffffff" />
+            {unreadCount > 0 ? (
+              <View style={{
+                position: 'absolute', top: -4, right: -6,
+                minWidth: 16, height: 16, borderRadius: 8,
+                backgroundColor: '#ff3b30',
+                alignItems: 'center', justifyContent: 'center',
+                paddingHorizontal: 3,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </View>
         </Pressable>
       </View>
@@ -5293,11 +5327,17 @@ setMessagesBySpot((previous) => previous);
   const renderNativeBottomNav = () => {
     if (isWebPlatform) return null;
 
-    const items = [
-      { key: 'home', icon: '⌂', label: 'Home', onPress: () => navigateNative('home'), badge: null as number | null },
-      { key: 'spots', icon: '◎', label: 'Spots', onPress: () => navigateNative('spots'), badge: null as number | null },
-      { key: 'discover', icon: '⌕', label: 'Discover', onPress: () => navigateNative('discover'), badge: null as number | null },
-      { key: 'buddies', icon: '≡', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null },
+    const isHome = !selectedSpot && !showYourSpotsPage && !showDiscoverSpotsPage && !showBuddies && !showProfile;
+    const isSpots = showYourSpotsPage;
+    const isDiscover = showDiscoverSpotsPage;
+    const isBuddies = showBuddies;
+
+    type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+    const items: { key: string; icon: IoniconsName; iconActive: IoniconsName; label: string; onPress: () => void; badge: number | null; isActive: boolean }[] = [
+      { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: null, isActive: isHome },
+      { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
+      { key: 'discover', icon: 'compass-outline', iconActive: 'compass', label: 'Discover', onPress: () => navigateNative('discover'), badge: null, isActive: isDiscover },
+      { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
     ];
 
     return (
@@ -5328,18 +5368,20 @@ setMessagesBySpot((previous) => previous);
               minWidth: 68,
               alignItems: 'center',
               justifyContent: 'center',
-              paddingVertical: 10,
+              paddingVertical: 6,
               borderRadius: 999,
             }}
           >
-            <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', lineHeight: 26 }}>
-              {item.icon}
-            </Text>
-            <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800', marginTop: 2 }}>
+            <Ionicons
+              name={item.isActive ? item.iconActive : item.icon}
+              size={26}
+              color={item.isActive ? '#ffffff' : 'rgba(255,255,255,0.45)'}
+            />
+            <Text style={{ color: item.isActive ? '#ffffff' : 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: item.isActive ? '700' : '500', marginTop: 3 }}>
               {item.label}
             </Text>
             {item.badge ? (
-              <View style={{ position: 'absolute', top: 6, right: 5, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ position: 'absolute', top: 4, right: 8, minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: theme.bg, fontSize: 9, fontWeight: '900' }}>{item.badge}</Text>
               </View>
             ) : null}
@@ -5371,6 +5413,15 @@ setMessagesBySpot((previous) => previous);
 
     if (destination === 'discover') {
       setShowDiscoverSpotsPage(true);
+      void Location.requestForegroundPermissionsAsync()
+        .then(({ status }) => {
+          if (status !== 'granted') return null;
+          return Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        })
+        .then((pos) => {
+          if (pos) setDiscoverMapCenter({ latitude: pos.coords.latitude, longitude: pos.coords.longitude });
+        })
+        .catch(() => {});
     }
 
     if (destination === 'buddies') {
@@ -5418,10 +5469,7 @@ setMessagesBySpot((previous) => previous);
       selectedSpot,
       activeDay,
     });
-    console.log("CANCEL_INPUT_BUILT", input);
-    console.log("SESSION_ACTION_CANCEL_CALL", input);
     const result = await cancelSessionAction(input);
-    console.log("SESSION_ACTION_CANCEL_RESULT", result);
     logSessionUiActionResult('cancelSession', result);
     if (!result.ok) {
       setSessionActionError(getCancelErrorMessage());
@@ -5442,9 +5490,6 @@ setMessagesBySpot((previous) => previous);
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   const nearestSpotCanCheckIn = activeDay === 'today' && !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
   const isHomeCheckoutButtonVisible = Boolean(activeDay === 'today' && nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
-  useEffect(() => {
-    
-  }, [activeDay, isHomeCheckoutButtonVisible, nearestSpotName]);
   
   
   
@@ -5514,9 +5559,6 @@ setMessagesBySpot((previous) => previous);
     
     return orderedSpots;
   }, [currentCoordinates, favoriteSpots, manualOrder, orderMode, spotDefinitions]);
-  useEffect(() => {
-    
-  }, [orderMode]);
   const homeLiveCountBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
@@ -5539,15 +5581,6 @@ setMessagesBySpot((previous) => previous);
     };
     
   }, [sessionsBySpot]);
-  useEffect(() => {
-    
-  }, [homeLiveCountBySpot]);
-  useEffect(() => {
-    
-  }, [activeCheckedInSession, activeAppUserId]);
-  useEffect(() => {
-    
-  }, [activeCheckedInSession, hasOwnSessionOnSelectedSpotDay]);
   const filteredMessages = useMemo(
     () => (Array.isArray(messages) ? messages : []),
     [messages],
@@ -5568,21 +5601,9 @@ setMessagesBySpot((previous) => previous);
     },
     [filteredMessages],
   );
-  useEffect(() => {
-    console.log("CHAT_STATE_TRACE", (messages ?? []).slice(0, 5).map((message) => ({
-      id: message?.id ?? null,
-      created_at: message?.created_at ?? null,
-      createdAt: message?.createdAt ?? null,
-      timestamp: message?.timestamp ?? null,
-      time: message?.time ?? null
-    })));
-  }, [messages]);
   useEffect(() => {  }, [messages]);
   useEffect(() => {  }, [orderedMessages]);
   useEffect(() => {  }, [orderedMessages]);
-  useEffect(() => {
-    
-  }, [activeDay, filteredMessages]);
 
   useEffect(() => {  }, [spotState]);
   const selectedSpotForReadModelLogs = typeof selectedSpot === 'string'
@@ -5607,10 +5628,6 @@ setMessagesBySpot((previous) => previous);
         getSessionState,
       });
 
-      console.log('DETAIL_SPOT_STATUS_RESULT', {
-        spotName: selectedSpot,
-        label: status.label,
-      });
 
       return status.label;
     },
@@ -5704,9 +5721,6 @@ setMessagesBySpot((previous) => previous);
       setSelectedTimelineSessionId(null);
     }
   }, [selectedTimelineSessionId, spotState.groupedSessions]);
-  useEffect(() => {
-    
-  }, [selectedSpot, sessions, timelineSessions]);
   const checkedInUsers = useMemo(
     () => {
       const liveSessions = sessions
@@ -5744,9 +5758,6 @@ setMessagesBySpot((previous) => previous);
   const duplicatePlannedSessionMessage = 'You already have a session at this spot and time.';
   const liveKiterCountLabel = `${checkedInUsers.length} ${checkedInUsers.length === 1 ? 'kiter' : 'kiters'} now at the spot`;
   const shouldShowNowAtSpotPanel = activeDay === 'today' && checkedInUsers.length > 0;
-  useEffect(() => {
-    
-  }, [activeDay, checkedInUsers.length, shouldShowNowAtSpotPanel]);
   const getSessionPersistenceErrorMessage = (error: {
     code?: string;
     message?: string;
@@ -5812,12 +5823,6 @@ setMessagesBySpot((previous) => previous);
 
     const onConflictKeys = "user_id,spot_name";
     const nextValue = payload.session_joined_notification_mode;
-    console.log("PREF_KEY_SAVE", {
-      userId: persistedUserId ?? null,
-      selectedSpot: selectedSpot ?? null,
-      normalizedSpotName: normalizedSpotName ?? null,
-      nextValue
-    });
 
     const { data, error } = await supabase
       .from(tableName)
@@ -5855,16 +5860,6 @@ setMessagesBySpot((previous) => previous);
       .maybeSingle();
 
     const loadedPreferences = normalizeSpotNotificationPreferences(readbackData);
-    console.log("PREF_KEY_READBACK", {
-      userId: persistedUserId ?? null,
-      spotName: normalizedSpotName ?? null,
-    });
-    console.log("PREF_DB_ROW_SAVE_READBACK", {
-      ok: !readbackError,
-      error: readbackError ?? null,
-      row: readbackData ?? null,
-      normalized: loadedPreferences,
-    });
 
     setSavingNotificationPreferenceKey(null);
     return true;
@@ -6084,9 +6079,7 @@ setMessagesBySpot((previous) => previous);
     source: 'spot_page' | 'home_quick';
   }): Promise<{ errorMessage: string | null; checkedInSpot: SpotName | null }> => {
     
-    console.log('CHECKIN_SHARED_FLOW_START', { spot, source });
     const checkInResult = await runCheckInFlowForSpot({ spot, source });
-    console.log('CHECKIN_SHARED_FLOW_RESULT', checkInResult);
     if (!checkInResult.ok) {
       const failureResult = checkInResult as { ok: false; reason: string; error?: unknown };
       const failureReason = failureResult.reason;
@@ -6096,7 +6089,6 @@ setMessagesBySpot((previous) => previous);
     }
 
     
-    console.log('CHECKIN_FORCE_REFRESH_START');
 
     await fetchSharedData({ skipLoadingState: true });
 
@@ -6104,9 +6096,19 @@ setMessagesBySpot((previous) => previous);
       setSelectedSpot(checkInResult.spot);
     }
 
-    console.log('CHECKIN_FORCE_REFRESH_DONE', {
-      checkedInSpot: checkInResult.spot,
-    });
+    const checkedInActorId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (checkedInActorId && checkInResult.spot) {
+      const dayKey = selectedDayKey;
+      void supabase.rpc('create_checkin_notification', {
+        actor_profile_id: checkedInActorId,
+        spot_name_param: checkInResult.spot,
+        session_day_param: dayKey,
+      }).then(({ data: recipients }) => {
+        const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+        const actorName = activeProfile?.display_name?.trim() || 'Someone';
+        void sendPushToRecipients(ids, `${actorName} checked in`, `${actorName} checked in at ${checkInResult.spot}`, { type: 'checkin', spotName: checkInResult.spot });
+      });
+    }
 
     return { errorMessage: null, checkedInSpot: checkInResult.spot };
   };
@@ -6140,7 +6142,11 @@ setMessagesBySpot((previous) => previous);
         return;
       }
       if (!selectedSpotWithinCheckInRadius) {
-        setSessionActionError('You are too far from the spot (&gt;1 km)');
+        if (selectedSpotDistanceMeters === null) {
+          setSessionActionError('Location not available. Make sure GPS is on.');
+        } else {
+          setSessionActionError(`You are too far from the spot (${Math.round(selectedSpotDistanceMeters)} m, max 1 km)`);
+        }
         return;
       }
       const { errorMessage } = await handleCheckInWithSharedFlow({ spot: selectedSpot, source: 'spot_page' });
@@ -6214,14 +6220,19 @@ setMessagesBySpot((previous) => previous);
     if (!activeAppUserId || !profile) {
       return;
     }
-    const isPressedSpotWithinRange = Boolean(
-      nearestSpotResult
-      && normalizeSpotName(nearestSpotResult.spot) === normalizeSpotName(spot)
-      && nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS,
+    const pressedSpotDefinition = spotDefinitions.find(
+      (s) => normalizeSpotName(s.spot) === normalizeSpotName(spot)
     );
+    const pressedSpotDistanceMeters = currentCoordinates && pressedSpotDefinition
+      ? getDistanceMeters(currentCoordinates, { latitude: pressedSpotDefinition.latitude, longitude: pressedSpotDefinition.longitude })
+      : null;
+    const isPressedSpotWithinRange = pressedSpotDistanceMeters !== null && pressedSpotDistanceMeters <= CHECK_IN_RADIUS_METERS;
     if (!isPressedSpotWithinRange) {
-      setHomeQuickCheckInError('You are too far from the spot (&gt;1 km)');
-      
+      if (pressedSpotDistanceMeters === null) {
+        setHomeQuickCheckInError('Location not available. Make sure GPS is on.');
+      } else {
+        setHomeQuickCheckInError(`You are too far from the spot (${Math.round(pressedSpotDistanceMeters)} m, max 1 km)`);
+      }
       return;
     }
 
@@ -6332,17 +6343,9 @@ setMessagesBySpot((previous) => previous);
   };
 
   useEffect(() => {
-    if (!showDiscoverSpotsPage) {
-      return;
-    }
-
-    if (currentCoordinates) {
-      setDiscoverMapCenter(currentCoordinates);
-      return;
-    }
-
-    setDiscoverMapCenter({ latitude: 52.1326, longitude: 5.2913 });
-  }, [showDiscoverSpotsPage, currentCoordinates]);
+    if (!currentCoordinates) return;
+    setDiscoverMapCenter(currentCoordinates);
+  }, [currentCoordinates]);
 
   if (loadingSession || loadingProfile || loadingData) {
     return (
@@ -6454,7 +6457,7 @@ setMessagesBySpot((previous) => previous);
 
   if (profileHydrationError && session) {
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24 }}>
         <Text style={{ color: theme.text, textAlign: 'center' }}>{profileHydrationError}</Text>
         <Pressable
           onPress={() => {
@@ -6484,8 +6487,9 @@ setMessagesBySpot((previous) => previous);
         onTouchStart={handleNativeSwipeStart}
         onTouchEnd={handleNativeSwipeEnd}
       >
+        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
         {renderNativeTopBar()}
-        <View style={{ flex: 1, paddingBottom: 96 }}>
+        <View style={{ flex: 1, backgroundColor: theme.bg, paddingBottom: 96 }}>
           {screen}
         </View>
         {renderNativeBottomNav()}
@@ -6494,86 +6498,100 @@ setMessagesBySpot((previous) => previous);
   };
 
   if (showDiscoverSpotsPage) {
+    const discoverSpots = spotDefinitions
+      .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
+      .map((s) => {
+        const spotSessions = (daySessionsBySpot[s.spot] ?? []).filter((ss) => getCleanSessionStatus(ss) !== 'finished');
+        const liveCount = new Set(spotSessions.filter((ss) => getCleanSessionStatus(ss) === 'live').map((ss) => ss.userId).filter(Boolean)).size;
+        const goingCount = new Set(spotSessions.filter((ss) => getCleanSessionStatus(ss) === 'going').map((ss) => ss.userId).filter(Boolean)).size;
+        return {
+          name: s.spot,
+          latitude: s.latitude,
+          longitude: s.longitude,
+          isAdded: favoriteSpots.includes(s.spot),
+          coordinateStatus: s.coordinateStatus,
+          liveCount,
+          goingCount,
+        };
+      });
 
-    const discoverCenterLabel = discoverMapCenter
-      ? `${discoverMapCenter.latitude.toFixed(3)}, ${discoverMapCenter.longitude.toFixed(3)}`
-      : 'Locating…';
+    const discoverQuery = (homeSpotSearchQuery ?? '').trim().toLowerCase();
+    const discoverSuggestions = discoverQuery.length >= 1
+      ? spotDefinitions
+          .filter((s) => s.spot.toLowerCase().includes(discoverQuery))
+          .slice(0, 6)
+      : [];
 
-    return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 20 : 0 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
-          <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>
-            Discover
-          </Text>
+    const discoverFlyTarget = discoverSuggestions.length > 0 && discoverSuggestions[0]
+      ? { latitude: discoverSuggestions[0].latitude, longitude: discoverSuggestions[0].longitude }
+      : null;
 
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
+        {renderNativeTopBar()}
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10 }}>
+          <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900' }}>Discover</Text>
           <Pressable
-            onPress={() => setShowDiscoverSpotsPage(false)}
-            style={{
-              backgroundColor: theme.cardStrong,
-              borderRadius: 999,
-              borderWidth: 1,
-              borderColor: theme.border,
-              paddingHorizontal: 12,
-              paddingVertical: 8,
-            }}
+            onPress={() => { setShowDiscoverSpotsPage(false); setHomeSpotSearchQuery(''); }}
+            style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 6 }}
           >
-            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>
-              Back
-            </Text>
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
         </View>
 
-        <View
-          style={{
-            flex: 1,
-            overflow: 'hidden',
-            borderRadius: 18,
-            borderWidth: 1,
-            borderColor: theme.border,
-            backgroundColor: theme.card,
-          }}
-        >
+        <View style={{ paddingHorizontal: 14, paddingBottom: 8, zIndex: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 8 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 15, marginRight: 8 }}>🔍</Text>
+            <TextInput
+              value={homeSpotSearchQuery}
+              onChangeText={setHomeSpotSearchQuery}
+              placeholder="Search spots..."
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              clearButtonMode="while-editing"
+              returnKeyType="search"
+              style={{ flex: 1, color: '#ffffff', fontSize: 15, padding: 0 } as any}
+            />
+          </View>
+          {discoverSuggestions.length > 0 ? (
+            <View style={{ backgroundColor: theme.card, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginTop: 4, overflow: 'hidden' }}>
+              {discoverSuggestions.map((s) => (
+                <Pressable
+                  key={s.spot}
+                  onPress={() => {
+                    setHomeSpotSearchQuery(s.spot);
+                    Keyboard.dismiss();
+                  }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                >
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{s.spot}</Text>
+                </Pressable>
+              ))}
+            </View>
+          ) : null}
+        </View>
+
+        <View style={{ flex: 1 }}>
           <DiscoverMap
             center={{
               latitude: discoverMapCenter?.latitude ?? 52.3676,
               longitude: discoverMapCenter?.longitude ?? 4.9041,
             }}
-            spots={spotDefinitions
-              .filter((spotItem) =>
-                Number.isFinite(spotItem.latitude)
-                && Number.isFinite(spotItem.longitude)
-              )
-              .map((spotItem) => {
-                if (spotItem.canonicalName.includes('scheveningen')) {
-                  console.log('DISCOVER_RENDER_COORDS', {
-                    spot: spotItem.spot,
-                    canonicalName: spotItem.canonicalName,
-                    latitude: spotItem.latitude,
-                    longitude: spotItem.longitude,
-                    coordinateStatus: spotItem.coordinateStatus,
-                  });
-                }
-
-                return ({
-              name: spotItem.spot,
-              latitude: spotItem.latitude,
-              longitude: spotItem.longitude,
-              isAdded: favoriteSpots.includes(spotItem.spot),
-              coordinateStatus: spotItem.coordinateStatus,
-            });
-              })}
+            flyToTarget={discoverFlyTarget}
+            spots={discoverSpots}
+            userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
               setSelectedSpot(spotName);
               setShowDiscoverSpotsPage(false);
+              setHomeSpotSearchQuery('');
             }}
-            onAddSpot={(spotName) => {
-              addSelectedSpot(spotName);
-            }}
-            onMapClick={(latitude, longitude) => {
-              setCoordinateReviewPoint({ latitude, longitude });
-            }}
+            onAddSpot={(spotName) => addSelectedSpot(spotName)}
+            onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
           />
         </View>
+
+        {renderNativeBottomNav()}
       </SafeAreaView>
     );
   }
@@ -6590,8 +6608,8 @@ setMessagesBySpot((previous) => previous);
     const rowHeight = 56;
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
@@ -6937,185 +6955,219 @@ setMessagesBySpot((previous) => previous);
   }
 
   if (showBuddies) {
-    const trimmedSearch = searchUsersInput.trim().toLowerCase();
-    const filteredBuddyUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => {
-      if (!trimmedSearch) {
-        return true;
-      }
+    const normalizedBuddySearch = normalizeSearch(searchUsersInput);
+    const followingSet = new Set(followingUserIds);
+    const followedUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
+    const suggestions = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => !followingSet.has(u.id));
+    const filteredSuggestions = normalizedBuddySearch
+      ? suggestions.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
+      : suggestions;
+    const filteredBuddies = normalizedBuddySearch
+      ? followedUsers.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
+      : followedUsers;
 
-      const searchableName = userItem.display_name.toLowerCase();
-      return searchableName.includes(trimmedSearch);
-    });
-    
-    const followedUsers = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((userItem) => followingUserIds.includes(userItem.id));
-    const buddyCardWidth = isWebPlatform ? 210 : '100%';
-    const buddyAvatarSize = isWebPlatform ? 88 : 64;
-    const buddyGridGap = isWebPlatform ? 14 : 10;
-    const buddyScreenPadding = isWebPlatform ? 20 : 14;
+    const UserRow = ({ avatar, name, sub, right }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode }) => (
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
+        <Avatar uri={avatar} size={42} />
+        <View style={{ flex: 1 }}>
+          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{name}</Text>
+          {sub ? <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
+        </View>
+        {right}
+      </View>
+    );
+
+    const TabBtn = ({ label, tab, badge }: { label: string; tab: 'myBuddies' | 'find'; badge?: number }) => {
+      const active = buddiesTab === tab;
+      return (
+        <Pressable
+          onPress={() => { setBuddiesTab(tab); setSearchUsersInput(''); setShowAllSuggestions(false); }}
+          style={{
+            flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10,
+            backgroundColor: active ? 'rgba(255,255,255,0.12)' : 'transparent',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={{ color: active ? theme.text : theme.textMuted, fontSize: 14, fontWeight: active ? '900' : '700' }}>{label}</Text>
+            {badge ? (
+              <View style={{ backgroundColor: '#ff3b30', borderRadius: 999, minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{badge}</Text>
+              </View>
+            ) : null}
+          </View>
+        </Pressable>
+      );
+    };
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-          <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Search Buddies</Text>
-              <Pressable
-                onPress={() => {
-                  setShowBuddies(false);
-                  setBuddiesError('');
-                }}
-                style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 12, paddingVertical: 7 }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>⌂ Back home</Text>
-              </Pressable>
-            </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingTop: isWebPlatform ? 20 : 0 }}>
 
-            <TextInput
-              value={searchUsersInput}
-              onChangeText={setSearchUsersInput}
-              placeholder="Search buddies"
-              placeholderTextColor={theme.textMuted}
-              style={{
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                color: theme.text,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.08)',
-                paddingHorizontal: 14,
-                paddingVertical: 10,
-                fontSize: 12,
-                marginBottom: 18,
-              }}
-            />
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14 }}>
+          <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900' }}>Buddies</Text>
+          <Pressable
+            onPress={() => { setShowBuddies(false); setBuddiesError(''); }}
+            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
+          >
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+          </Pressable>
+        </View>
 
-            <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', marginBottom: 8 }}>Pending Buddies</Text>
-            <ScrollView style={{ maxHeight: 390 }} showsVerticalScrollIndicator={false}>
-              {loadingBuddies ? <Text style={{ color: theme.textSoft, marginBottom: 8 }}>Loading...</Text> : null}
-              {buddiesError ? <Text style={{ color: '#ff7e7e', marginBottom: 8 }}>{buddiesError}</Text> : null}
+        {/* Tab switcher */}
+        <View style={{ flexDirection: 'row', marginHorizontal: 20, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+          <TabBtn label={`My buddies${followedUsers.length > 0 ? ` (${followedUsers.length})` : ''}`} tab="myBuddies" />
+          <TabBtn label="Find" tab="find" badge={incomingFollowRequests.length > 0 ? incomingFollowRequests.length : undefined} />
+        </View>
 
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: buddyGridGap }}>
-                {filteredBuddyUsers
-                  .filter((userItem) => outgoingFollowStatusesByUserId[userItem.id] !== 'accepted')
-                  .map((userItem) => {
-                    const followStatus = outgoingFollowStatusesByUserId[userItem.id];
-                    const isPending = followStatus === 'pending';
-                    const isActionInFlight = buddyActionUserId === userItem.id;
-                    const recommendedViaBuddyName = recommendedViaBuddyNameByUserId[userItem.id];
+        {/* Search */}
+        <View style={{ paddingHorizontal: 20, marginBottom: 12 }}>
+          <TextInput
+            value={searchUsersInput}
+            onChangeText={setSearchUsersInput}
+            placeholder={buddiesTab === 'myBuddies' ? 'Search your buddies' : 'Search riders by name'}
+            placeholderTextColor={theme.textMuted}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              color: theme.text,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+              paddingHorizontal: 14,
+              paddingVertical: 10,
+              fontSize: 13,
+            }}
+          />
+        </View>
 
-                    return (
-                      <View
-                        key={`buddy-user-${userItem.id}`}
-                        style={{
-                          width: buddyCardWidth,
-                          maxWidth: buddyCardWidth,
-                          backgroundColor: 'rgba(20,42,76,0.72)',
-                          borderRadius: 16,
-                          borderWidth: 1,
-                          borderColor: 'rgba(120,165,235,0.22)',
-                          padding: 16,
-                          shadowColor: '#000',
-                          shadowOpacity: 0.18,
-                          shadowRadius: 10,
-                          shadowOffset: { width: 0, height: 6 },
-                        }}
-                      >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                          <Avatar uri={userItem.avatar_url} size={buddyAvatarSize} />
-                          <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
-                            <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
-                              {userItem.display_name}
-                            </Text>
-                            {recommendedViaBuddyName ? (
-                              <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                                via {recommendedViaBuddyName}
-                              </Text>
-                            ) : (
-                              <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                                SpotBuddy
-                              </Text>
-                            )}
-                          </View>
-                        </View>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
 
-                        <Pressable
-                          disabled={isActionInFlight || isPending}
-                          onPress={() => {
-                            void handleFollowUser(userItem.id);
-                          }}
-                          style={{
-                            alignItems: 'center',
-                            backgroundColor: isPending ? 'rgba(77,116,180,0.32)' : 'rgba(29,114,255,0.78)',
-                            borderRadius: 999,
-                            paddingHorizontal: 18,
-                            paddingVertical: 6,
-                            alignSelf: 'center',
-                            minWidth: 118,
-                            opacity: isActionInFlight ? 0.5 : 1,
-                          }}
-                        >
-                          <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 11 }}>
-                            {isActionInFlight ? '...' : isPending ? 'Requested' : 'Add buddy'}
-                          </Text>
-                        </Pressable>
-                      </View>
-                    );
-                  })}
-              </View>
-            </ScrollView>
-
-            <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginTop: 22, marginBottom: 20 }} />
-            <View style={{ flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
-              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700' }}>My buddies</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-               
-              </Text>
-            </View>
-            <ScrollView style={{ maxHeight: 320 }} showsVerticalScrollIndicator={false}>
+          {/* MY BUDDIES TAB */}
+          {buddiesTab === 'myBuddies' ? (
+            <>
               {followedUsers.length === 0 ? (
-                <Text style={{ color: theme.textSoft, marginTop: 8 }}>No buddies yet</Text>
+                <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 15 }}>No buddies yet</Text>
+                  <Pressable onPress={() => setBuddiesTab('find')}>
+                    <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Find riders →</Text>
+                  </Pressable>
+                </View>
+              ) : filteredBuddies.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>No buddies match "{normalizedBuddySearch}"</Text>
               ) : (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: buddyGridGap }}>
-                  {followedUsers.map((userItem) => (
-                    <View
-                      key={`following-${userItem.id}`}
-                      style={{
-                        width: buddyCardWidth,
-                        maxWidth: buddyCardWidth,
-                        backgroundColor: 'rgba(20,42,76,0.62)',
-                        borderRadius: 16,
-                        borderWidth: 1,
-                        borderColor: 'rgba(120,165,235,0.18)',
-                        padding: 16,
-                      }}
-                    >
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                        <Avatar uri={userItem.avatar_url} size={buddyAvatarSize} />
-                        <View style={{ marginLeft: 14, flex: 1, justifyContent: 'center' }}>
-                          <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
-                            {userItem.display_name}
-                          </Text>
-                          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>
-                            Buddy
-                          </Text>
-                        </View>
-                      </View>
-
+                <>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 8 }}>
+                    {filteredBuddies.map((u) => (
                       <Pressable
-                        disabled={buddyActionUserId === userItem.id}
-                        onPress={() => {
-                          void handleUnfollowUser(userItem.id);
-                        }}
-                        style={{ position: 'absolute', right: 12, top: 12, opacity: buddyActionUserId === userItem.id ? 0.5 : 1 }}
+                        key={`buddy-${u.id}`}
+                        onLongPress={() => void handleUnfollowUser(u.id)}
+                        disabled={buddyActionUserId === u.id}
+                        style={{ alignItems: 'center', width: 60, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}
                       >
-                        <Text style={{ color: '#ffb4b4', fontSize: 11, fontWeight: '700' }}>Remove</Text>
+                        <Avatar uri={u.avatar_url} size={50} />
+                        <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 10, fontWeight: '700', marginTop: 5, textAlign: 'center', width: 60 }}>
+                          {u.display_name.split(' ')[0]}
+                        </Text>
                       </Pressable>
-                    </View>
+                    ))}
+                  </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>Long press to remove</Text>
+                </>
+              )}
+            </>
+          ) : null}
+
+          {/* FIND TAB */}
+          {buddiesTab === 'find' ? (
+            <>
+              {/* Incoming requests */}
+              {incomingFollowRequests.length > 0 ? (
+                <View style={{ backgroundColor: 'rgba(77,184,255,0.07)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 14, marginBottom: 16 }}>
+                  <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
+                    REQUESTS · {incomingFollowRequests.length}
+                  </Text>
+                  {incomingFollowRequests.map((req) => (
+                    <UserRow
+                      key={`req-${req.id}`}
+                      avatar={req.requester?.avatar_url ?? null}
+                      name={req.requester?.display_name ?? 'Someone'}
+                      sub="wants to buddy up"
+                      right={
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Pressable
+                            onPress={() => void handleAcceptFollowRequest(req)}
+                            disabled={followRequestActionId === req.id}
+                            style={{ backgroundColor: '#4DB8FF', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, opacity: followRequestActionId === req.id ? 0.5 : 1 }}
+                          >
+                            <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Accept</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => void handleRejectFollowRequest(req)}
+                            disabled={followRequestActionId === req.id}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', opacity: followRequestActionId === req.id ? 0.5 : 1 }}
+                          >
+                            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Decline</Text>
+                          </Pressable>
+                        </View>
+                      }
+                    />
                   ))}
                 </View>
-              )}
-            </ScrollView>
+              ) : null}
 
-          </View>
+              {/* Suggestions */}
+              {loadingBuddies ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading...</Text>
+              ) : !normalizedBuddySearch && filteredSuggestions.length === 0 && incomingFollowRequests.length === 0 ? (
+                <View style={{ alignItems: 'center', paddingTop: 30, gap: 6 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 15 }}>Search for riders by name</Text>
+                </View>
+              ) : filteredSuggestions.length === 0 && normalizedBuddySearch ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>No riders found for "{normalizedBuddySearch}"</Text>
+              ) : (
+                <>
+                  {buddiesError ? <Text style={{ color: '#ff7e7e', fontSize: 13, marginBottom: 8 }}>{buddiesError}</Text> : null}
+                  {(showAllSuggestions || normalizedBuddySearch ? filteredSuggestions : filteredSuggestions.slice(0, 20)).map((u) => {
+                    const isPending = outgoingFollowStatusesByUserId[u.id] === 'pending';
+                    const inFlight = buddyActionUserId === u.id;
+                    const via = recommendedViaBuddyNameByUserId[u.id];
+                    return (
+                      <UserRow
+                        key={`sug-${u.id}`}
+                        avatar={u.avatar_url}
+                        name={u.display_name}
+                        sub={via ? `via ${via}` : undefined}
+                        right={
+                          <Pressable
+                            onPress={() => !isPending && !inFlight && void handleFollowUser(u.id)}
+                            disabled={isPending || inFlight}
+                            style={{
+                              backgroundColor: isPending ? 'rgba(255,255,255,0.06)' : 'rgba(77,184,255,0.15)',
+                              borderRadius: 999,
+                              paddingHorizontal: 14,
+                              paddingVertical: 7,
+                              borderWidth: 1,
+                              borderColor: isPending ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.35)',
+                              opacity: inFlight ? 0.5 : 1,
+                            }}
+                          >
+                            <Text style={{ color: isPending ? theme.textMuted : '#4DB8FF', fontSize: 12, fontWeight: '800' }}>
+                              {inFlight ? '...' : isPending ? 'Requested' : 'Add'}
+                            </Text>
+                          </Pressable>
+                        }
+                      />
+                    );
+                  })}
+                  {!showAllSuggestions && !normalizedBuddySearch && filteredSuggestions.length > 20 ? (
+                    <Pressable onPress={() => setShowAllSuggestions(true)} style={{ paddingVertical: 14, alignItems: 'center' }}>
+                      <Text style={{ color: '#4DB8FF', fontSize: 13, fontWeight: '800' }}>Show {filteredSuggestions.length - 20} more</Text>
+                    </Pressable>
+                  ) : null}
+                </>
+              )}
+            </>
+          ) : null}
+
         </ScrollView>
       </SafeAreaView>
     );
@@ -7126,7 +7178,7 @@ setMessagesBySpot((previous) => previous);
       setProfileEditError('');
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        setProfileEditError("Allow photo access to choose a profile photo");
+        setProfileEditError('Allow photo access to choose a profile photo');
         return;
       }
 
@@ -7137,9 +7189,37 @@ setMessagesBySpot((previous) => previous);
         quality: 0.7,
       });
 
-      if (!result.canceled) {
-        setProfileAvatarInputUri(result.assets[0].uri);
+      if (result.canceled) return;
+
+      const uri = result.assets[0].uri;
+      setProfileAvatarInputUri(uri);
+      setIsSavingProfile(true);
+
+      const avatarUploadId = activeProfile?.id ?? session.user.id;
+      const { error: uploadError, publicUrl } = await uploadAvatar(avatarUploadId, uri);
+
+      if (uploadError || !publicUrl) {
+        setIsSavingProfile(false);
+        setProfileEditError('Photo upload failed. Please try again.');
+        setProfileAvatarInputUri(null);
+        return;
       }
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ avatar_url: publicUrl })
+        .eq('id', avatarUploadId);
+
+      setIsSavingProfile(false);
+
+      if (updateError) {
+        setProfileEditError('Failed to update photo. Please try again.');
+        setProfileAvatarInputUri(null);
+        return;
+      }
+
+      setProfile((prev) => prev ? { ...prev, avatar_url: publicUrl } : prev);
+      setProfileAvatarInputUri(null);
     };
 
     const handleSaveProfile = async () => {
@@ -7289,236 +7369,68 @@ setMessagesBySpot((previous) => previous);
       setProfileEditError('');
     };
 
+    const goBack = () => {
+      setShowProfile(false);
+      setProfileAvatarInputUri(null);
+      setProfileEditError('');
+      setIsEditingProfileName(false);
+    };
+
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bgElevated, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
-        <View style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Avatar uri={profileAvatarInputUri ?? profile.avatar_url} size={42} />
-            <View style={{ marginLeft: 10 }}>
-              <Text style={{ color: theme.text, fontSize: 24, fontWeight: '700' }}>{profileNameInput || profile.display_name}</Text>
-              <Text style={{ color: theme.textSoft, marginTop: 4 }}>Logged in</Text>
-            </View>
-          </View>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
 
-          <View style={{ marginTop: 16 }}>
-            <TextInput
-              value={profileNameInput}
-              onChangeText={setProfileNameInput}
-              placeholder="Display name"
-              placeholderTextColor={theme.textMuted}
-              autoCapitalize="none"
-              style={{ backgroundColor: theme.bgElevated, color: theme.text, borderRadius: 10, padding: 10, marginBottom: 10 }}
-            />
-
-            {profileEditError ? <Text style={{ color: '#ff7e7e', marginBottom: 10 }}>{profileEditError}</Text> : null}
-          </View>
-
+        {/* Header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingVertical: 14 }}>
           <Pressable
-            onPress={() => {
-              void handlePickProfileAvatar();
-            }}
-            style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
+            onPress={goBack}
+            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
           >
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Change photo</Text>
+            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
+        </View>
 
+        {/* Avatar + naam */}
+        <View style={{ alignItems: 'center', marginVertical: 28 }}>
+          <Avatar uri={profile.avatar_url} size={90} />
+          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14 }}>{profile.display_name}</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
+        </View>
+
+        {/* Acties */}
+        <View style={{ gap: 10 }}>
           <Pressable
+            onPress={() => void handlePickProfileAvatar()}
             disabled={isSavingProfile}
-            onPress={() => {
-              void handleSaveProfile();
-            }}
             style={{
-              marginTop: 10,
-              backgroundColor: theme.bgElevated,
-              borderRadius: 10,
-              padding: 12,
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderRadius: 14,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.10)',
+              alignItems: 'center',
               opacity: isSavingProfile ? 0.6 : 1,
             }}
           >
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
-              {isSavingProfile ? 'Save...' : 'Save'}
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700' }}>
+              {isSavingProfile ? 'Uploading photo…' : 'Change photo'}
             </Text>
           </Pressable>
 
-          <Pressable onPress={() => {
-            setShowProfile(false);
-            setShowBuddies(true);
-          }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Buddies</Text>
-          </Pressable>
+          {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
-          {isAccountSwitcherVisible ? (
-            <View style={{ marginTop: 10 }}>
-              <Pressable
-                onPress={() => {
-                  const nextOpen = !showAccountSwitcher;
-                  setShowAccountSwitcher(nextOpen);
-                  if (nextOpen) {
-                    
-                    void loadOwnedProfiles();
-                  }
-                }}
-                style={{ backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
-              >
-                <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Switch account</Text>
-              </Pressable>
-              <Pressable
-                onPress={() => {
-                  const nextOpen = !showAdminCreateProfile;
-                  setShowAdminCreateProfile(nextOpen);
-                  if (!nextOpen) {
-                    setAdminCreateAvatarInputUri(null);
-                    setAdminCreateWarning('');
-                  }
-                  if (nextOpen) {
-                    
-                  }
-                }}
-                style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}
-              >
-                <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Create profile</Text>
-              </Pressable>
-              {showAdminCreateProfile ? (
-                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10,  borderColor: theme.border, padding: 10 }}>
-                  <TextInput
-                    value={adminCreateNameInput}
-                    onChangeText={setAdminCreateNameInput}
-                    placeholder="Profile name / username"
-                    placeholderTextColor={theme.textMuted}
-                    autoCapitalize="none"
-                    style={{ backgroundColor: theme.card, color: theme.text, borderRadius: 8, padding: 10, marginBottom: 8 }}
-                  />
-                  <Pressable
-                    onPress={async () => {
-                      setAdminCreateError('');
-                      setAdminCreateWarning('');
-                      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-                      if (status !== 'granted') {
-                        setAdminCreateError('Allow photo access to choose a profile photo');
-                        return;
-                      }
-
-                      const result = await ImagePicker.launchImageLibraryAsync({
-                        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                        allowsEditing: true,
-                        aspect: [1, 1],
-                        quality: 0.7,
-                      });
-
-                      if (!result.canceled) {
-                        setAdminCreateAvatarInputUri(result.assets[0].uri);
-                      }
-                    }}
-                    style={{ backgroundColor: theme.card, borderRadius: 8, padding: 10, marginBottom: 8 }}
-                  >
-                    <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
-                      {adminCreateAvatarInputUri ? 'Change avatar (optional)' : 'Pick avatar (optional)'}
-                    </Text>
-                  </Pressable>
-                  {adminCreateAvatarInputUri ? (
-                    <View style={{ marginBottom: 8, alignItems: 'center' }}>
-                      <Avatar uri={adminCreateAvatarInputUri} size={42} />
-                    </View>
-                  ) : null}
-                  {adminCreateError && (
-                    <Text style={{ color: 'red' }}>
-                      {typeof adminCreateError === 'string'
-                        ? adminCreateError
-                        : JSON.stringify(adminCreateError, null, 2)}
-                    </Text>
-                  )}
-                  {adminCreateWarning ? <Text style={{ color: '#f2c66d', marginBottom: 8, fontSize: 12 }}>{adminCreateWarning}</Text> : null}
-                  <Pressable
-                    disabled={isAdminCreatingProfile}
-                    onPress={() => {
-                      void handleAdminCreateProfile();
-                    }}
-                    style={{ backgroundColor: theme.card, borderRadius: 8, padding: 10, opacity: isAdminCreatingProfile ? 0.6 : 1 }}
-                  >
-                    <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>
-                      {isAdminCreatingProfile ? 'Creating...' : 'Create profile'}
-                    </Text>
-                  </Pressable>
-                </View>
-              ) : null}
-              {showAccountSwitcher ? (
-                <View style={{ marginTop: 8, backgroundColor: theme.bgElevated, borderRadius: 10,  borderColor: theme.border, padding: 8 }}>
-                  {(() => {
-                    const data = visibleProfiles;
-                    
-                    return null;
-                  })()}
-                  {switchAccountError ? (
-                    <Text style={{ color: '#ff7e7e', marginBottom: 8, fontSize: 12 }}>{switchAccountError}</Text>
-                  ) : null}
-                  <View style={{ marginBottom: 8 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                      Profiles found: {visibleProfiles.length}
-                    </Text>
-                    {visibleProfiles.map((profile) => (
-                      <Text key={`switch-account-debug-${profile.id}`} style={{ color: theme.textSoft, fontSize: 12 }}>
-                        - {profile.display_name ?? '(no display_name)'}
-                      </Text>
-                    ))}
-                  </View>
-                  {visibleProfiles.map((account) => {
-                    const profile = account;
-                    
-                    const isActive = account.id === activeAppUserId;
-                    return (
-                      <Pressable
-                        key={`switch-account-${account.id}`}
-                        onPress={() => {
-                          void handleSelectAccount(account);
-                        }}
-                        style={{
-                          borderRadius: 8,
-                          
-                          borderColor: theme.border,
-                          backgroundColor: isActive ? '#D8F5FF' : theme.cardStrong,
-                          paddingHorizontal: 10,
-                          paddingVertical: 8,
-                          marginBottom: 6,
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          gap: 10,
-                        }}
-                      >
-                        <Avatar uri={account.avatar_url ?? null} size={34} />
-                        <View style={{ flex: 1 }}>
-                          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '800' }}>{account.display_name}</Text>
-                          <Text style={{ color: theme.textSoft, fontSize: 12 }}>
-                            {account.id}
-                          </Text>
-                        </View>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              ) : null}
-            </View>
-          ) : null}
-
-          <Pressable onPress={() => {
-            resetFlow();
-            setShowAdminCreateProfile(false);
-            setAdminCreateAvatarInputUri(null);
-            void supabase.auth.signOut();
-          }} style={{ marginTop: 16, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Log out</Text>
-          </Pressable>
-
-          <Pressable onPress={() => {
-            setShowProfile(false);
-            setShowAccountSwitcher(false);
-            setShowAdminCreateProfile(false);
-            setProfileAvatarInputUri(null);
-            setAdminCreateAvatarInputUri(null);
-            setProfileEditError('');
-          }} style={{ marginTop: 10, backgroundColor: theme.bgElevated, borderRadius: 10, padding: 12 }}>
-            <Text style={{ color: theme.text, textAlign: 'center', fontWeight: '600' }}>Back</Text>
+          <Pressable
+            onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
+            style={{
+              marginTop: 8,
+              borderRadius: 14,
+              padding: 14,
+              alignItems: 'center',
+            }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>Log out</Text>
           </Pressable>
         </View>
+
       </SafeAreaView>
     );
   }
@@ -7530,9 +7442,9 @@ setMessagesBySpot((previous) => previous);
     const goingSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'going');
     const maybeSessions = spotSessions.filter((s) => !isSessionExpired(s) && getCleanSessionStatus(s) === 'maybe');
 
-    const liveCount = liveSessions.length;
-    const goingCount = goingSessions.length;
-    const maybeCount = maybeSessions.length;
+    const liveCount = new Set(liveSessions.map((s) => s.userId).filter(Boolean)).size;
+    const goingCount = new Set(goingSessions.map((s) => s.userId).filter(Boolean)).size;
+    const maybeCount = new Set(maybeSessions.map((s) => s.userId).filter(Boolean)).size;
     const totalSessions = spotSessions.length;
 
     const sendGroupChatMessage = async () => {
@@ -7588,6 +7500,21 @@ setMessagesBySpot((previous) => previous);
         return;
       }
 
+      const groupSenderId = activeProfile?.id ?? activeAppUserId ?? null;
+      if (groupSenderId && selectedSpot && selectedDayKey) {
+        void supabase.rpc('create_chat_notification', {
+          actor_profile_id: groupSenderId,
+          spot_name_param: selectedSpot,
+          session_day_param: selectedDayKey,
+          message_preview_param: messageText,
+        }).then(({ data: recipients, error: rpcError }) => {
+          console.log('GROUP_CHAT_NOTIF_RPC', { groupSenderId, selectedSpot, selectedDayKey, recipients, rpcError });
+          const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+          const actorName = activeProfile?.display_name?.trim() || 'Someone';
+          void sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
+        });
+      }
+
       setGroupMessageInput('');
       setGroupMessages((prev) => [...prev, {
         id: `${conversationId}-${Date.now()}`,
@@ -7604,10 +7531,15 @@ setMessagesBySpot((previous) => previous);
 
     const sendSpotChatMessage = async () => {
       const messageText = messageInput.trim();
-      if (!messageText || !selectedSpot) return;
+      const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+
+
+      if (!messageText || !selectedSpot || !senderId) {
+        return;
+      }
 
       const payload = {
-        user_id: activeAppUserId,
+        user_id: senderId,
         text: messageText,
         spot_name: selectedSpot,
         created_at: new Date().toISOString(),
@@ -7637,7 +7569,7 @@ setMessagesBySpot((previous) => previous);
           .single();
 
         if (createConversationResponse.error) {
-          console.error('CHAT_CONVERSATION_CREATE_ERROR', createConversationResponse.error);
+          console.error('SPOT_CHAT_CONVERSATION_CREATE_ERROR', createConversationResponse.error);
           return;
         }
 
@@ -7653,8 +7585,21 @@ setMessagesBySpot((previous) => previous);
         });
 
       if (error) {
-        console.error('FULL ERROR', error);
+        console.error('SPOT_CHAT_INSERT_ERROR', error);
         return;
+      }
+
+      if (senderId && selectedSpot && selectedDayKey) {
+        void supabase.rpc('create_chat_notification', {
+          actor_profile_id: senderId,
+          spot_name_param: selectedSpot,
+          session_day_param: selectedDayKey,
+          message_preview_param: messageText,
+        }).then(({ data: recipients, error: rpcError }) => {
+          console.log('CHAT_NOTIF_RPC', { senderId, selectedSpot, selectedDayKey, recipients, rpcError });
+          const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+          void sendPushToRecipients(ids, `New message at ${selectedSpot}`, messageText, { type: 'chat_message', spotName: selectedSpot });
+        });
       }
 
       setMessageInput('');
@@ -7687,7 +7632,6 @@ setMessagesBySpot((previous) => previous);
       }
 
       setJoinInFlightSessionId(sessionId);
-      console.log("JOIN_HANDLER_START");
       const joinState = spotState.joinStateBySession[sessionId]
         ?? getJoinState({
           session: {
@@ -7698,25 +7642,6 @@ setMessagesBySpot((previous) => previous);
           ownSessionForSpotDay: spotState.ownSessionForSpotDay,
           activeDayKey: activeDateKey,
         });
-      console.log("JOIN_HANDLER_PRECHECK", {
-        sessionId: sessionId ?? null,
-        allowed: joinState?.allowed ?? null,
-        reason: joinState?.reason ?? null
-      });
-      console.log("STABLE_JOIN_PRECHECK", {
-        activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: getSelectedSpotName(selectedSpot),
-        activeDay,
-        hasOwnSession: spotState.hasOwnSession ?? false,
-        ownSessionId: spotState.ownSession?.id ?? null
-      });
-      console.log("JOIN_HANDLER_INPUT", {
-        userId: activeProfile?.id ?? activeAppUserId ?? null,
-        spotName: getSelectedSpotName(selectedSpot),
-        sessionDay,
-        startTime: normalizedStart,
-        endTime: normalizedEnd
-      });
       const input = buildJoinActionInput({
         activeProfile,
         selectedSpot,
@@ -7731,8 +7656,6 @@ setMessagesBySpot((previous) => previous);
           normalizedEnd,
         },
       });
-      console.log("JOIN_INPUT_BUILT", input);
-      console.log("JOIN_SERVICE_CALL_INPUT", input);
       logSessionUiActionStart({
         type: 'joinSession',
         selectedSpot,
@@ -7740,12 +7663,7 @@ setMessagesBySpot((previous) => previous);
       });
       try {
         const result = await joinSessionAction(input);
-        console.log("JOIN_SERVICE_CALL_RESULT", result);
         const joinResultReason = 'reason' in result ? result.reason : null;
-        console.log("JOIN_HANDLER_RESULT_AFTER_CLICK", {
-          ok: result?.ok ?? false,
-          reason: joinResultReason
-        });
         logSessionUiActionResult('joinSession', result);
         if (!result.ok) {
           const joinReason = joinResultReason;
@@ -7764,7 +7682,6 @@ setMessagesBySpot((previous) => previous);
       }
     };
     const handleQuickLive = async () => {
-  console.log("QUICK_LIVE_START");
 
   if (!activeProfile?.id || !selectedSpot) return;
 
@@ -7773,15 +7690,9 @@ setMessagesBySpot((previous) => previous);
   const start = now;
   const end = new Date(now.getTime() + (2 * 60 * 60 * 1000));
 
-  console.log("QUICK_LIVE_DISABLED_PENDING_JOIN_HANDLER_REWIRE", {
-    selectedPlanningDateKey,
-    start: `${start.getHours()}:${String(start.getMinutes()).padStart(2,'0')}`,
-    end: `${end.getHours()}:${String(end.getMinutes()).padStart(2,'0')}`,
-  });
 };
 
 const handleSave = async () => {
-      console.log("PLAN_HANDLER_START");
       logSessionUiActionStart({
         type: 'planSession',
         selectedSpot,
@@ -7806,10 +7717,6 @@ const handleSave = async () => {
         return null;
       })();
       const isValid = validationReason === null;
-      console.log("PLAN_HANDLER_VALIDATION_RESULT", {
-        valid: isValid,
-        reason: validationReason ?? null
-      });
       if (!isValid) {
         if (validationReason === 'INVALID_TIME_FOR_TODAY') {
           setFormError('Start time cannot be in the past.');
@@ -7845,17 +7752,7 @@ const handleSave = async () => {
         activeProfile,
         activeDay,
       });
-      console.log("PLAN_INPUT_BUILT", input);
-      console.log("STABLE_PLAN_PRECHECK", {
-        activeProfileId: activeProfile?.id ?? null,
-        selectedSpot: getSelectedSpotName(selectedSpot),
-        activeDay,
-        hasOwnSession: spotState.hasOwnSession ?? false,
-        ownSessionId: spotState.ownSession?.id ?? null
-      });
-      console.log("PLAN_SERVICE_CALL_INPUT", input);
       const result = await planSessionAction(input);
-      console.log("PLAN_SERVICE_CALL_RESULT", result);
       logSessionUiActionResult('planSession', result);
       if (!result.ok) {
         const resultReason = 'reason' in result ? result.reason : null;
@@ -7866,7 +7763,15 @@ const handleSave = async () => {
           details?: string;
           hint?: string;
         } | null | undefined;
-        setFormError(getSessionPersistenceErrorMessage(persistenceError, 'Planning the session failed. Please try again.'));
+        let formErrorMessage: string;
+        if (resultReason === 'USER_ALREADY_HAS_SESSION_ON_SPOT_DAY') {
+          formErrorMessage = 'You already have a session at this spot during this time.';
+        } else if (resultReason === 'USER_ALREADY_HAS_SESSION_SAME_TIME_OTHER_SPOT') {
+          formErrorMessage = 'You already have a session at another spot during this time.';
+        } else {
+          formErrorMessage = getSessionPersistenceErrorMessage(persistenceError, 'Planning the session failed. Please try again.');
+        }
+        setFormError(formErrorMessage);
         setSaveError({
           message: persistenceError?.message,
           details: persistenceError?.details,
@@ -7877,10 +7782,24 @@ const handleSave = async () => {
         return;
       }
 
-      
       await fetchSharedData();
       resetForm();
       setSessionActionError('');
+
+      const planningActorId = activeProfile?.id ?? null;
+      const plannedSessionId = 'data' in result && result.data ? result.data.id : null;
+      if (planningActorId && selectedSpot && selectedPlanningDateKey && plannedSessionId && !editingSessionId) {
+        void supabase.rpc('create_session_planning_notification', {
+          actor_profile_id: planningActorId,
+          spot_name_param: selectedSpot,
+          session_day_param: selectedPlanningDateKey,
+          session_id_param: plannedSessionId,
+        }).then(({ data: recipients }) => {
+          const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+          const actorName = activeProfile?.display_name?.trim() || 'Someone';
+          void sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot });
+        });
+      }
     };
     const primaryButtonStyle = {
       backgroundColor: 'rgba(255,255,255,0.055)',
@@ -7911,9 +7830,18 @@ const handleSave = async () => {
     ) : null;
 
     return (
-      <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
+        <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
         {renderNativeTopBar()}
-        <ScrollView style={{ flex: 1, backgroundColor: theme.bg }} contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 170 }}>
+        <ScrollView
+          ref={spotDetailScrollRef}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
+          contentInset={Platform.OS === 'ios' ? { bottom: 90 } : undefined}
+          style={{ flex: 1, backgroundColor: theme.bg }}
+          contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 0 }}
+        >
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
@@ -7967,7 +7895,7 @@ const handleSave = async () => {
                 gap: 6,
               }}
             >
-              <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>{`Spot alerts${unreadCount ? ` (${unreadCount})` : ''}`}</Text>
+              <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>Alert settings</Text>
               <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
             </Pressable>
           </View>
@@ -7981,92 +7909,71 @@ const handleSave = async () => {
           {isNotificationPanelExpanded ? (
             <View
               style={{
-                alignSelf: 'flex-end',
-                width: 360,
-                maxWidth: '100%',
-                marginTop: 8,
-                borderRadius: 12,
+                marginTop: 10,
+                borderRadius: 16,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.07)',
-                backgroundColor: 'rgba(8,24,39,0.72)',
-                paddingHorizontal: 10,
-                paddingVertical: 10,
-                gap: 8,
+                backgroundColor: 'rgba(8,24,39,0.82)',
+                overflow: 'hidden',
               }}
             >
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
-                Alerts for this spot
-              </Text>
+              <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for this spot</Text>
+              </View>
 
-              {spotNotificationPreferencesModel.map((preference) => {
+              {spotNotificationPreferencesModel.map((preference, index) => {
                 const currentValue = spotNotificationPreferences[preference.dbField];
+                const icons: Record<string, string> = {
+                  sessionPlanning: '📅',
+                  checkin: '📍',
+                  chat: '💬',
+                  sessionJoined: '👥',
+                };
 
                 return (
                   <View
                     key={preference.key}
                     style={{
-                      borderTopWidth: 1,
-                      borderTopColor: 'rgba(255,255,255,0.045)',
-                      paddingTop: 8,
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderTopWidth: index === 0 ? 0 : 1,
+                      borderTopColor: 'rgba(255,255,255,0.05)',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 12,
                     }}
                   >
-                    <Text
-                      style={{
-                        color: theme.textSoft,
-                        fontSize: 11,
-                        fontWeight: '700',
-                        marginBottom: 7,
-                      }}
-                    >
-                      {preference.label}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <Text style={{ fontSize: 16 }}>{icons[preference.key] ?? '🔔'}</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>
+                        {preference.label}
+                      </Text>
+                    </View>
 
-                    <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap', alignSelf: 'flex-start', paddingTop: 2 }}>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
                       {notificationModeOptions.map((option) => {
                         const selected = currentValue === option.value;
-
                         return (
                           <Pressable
                             key={option.value}
                             onPress={async () => {
-                              const nextPreferences = {
-                                ...spotNotificationPreferences,
-                                [preference.dbField]: option.value,
-                              };
-
+                              const nextPreferences = { ...spotNotificationPreferences, [preference.dbField]: option.value };
                               setSpotNotificationPreferences(nextPreferences);
-
-                              const ok = await saveSpotNotificationPreferences(
-                                nextPreferences,
-                                preference.key
-                              );
-
-                              if (!ok) {
-                                setSpotNotificationPreferences(
-                                  spotNotificationPreferences
-                                );
-                              }
+                              const ok = await saveSpotNotificationPreferences(nextPreferences, preference.key);
+                              if (!ok) setSpotNotificationPreferences(spotNotificationPreferences);
                             }}
                             style={{
-                              paddingHorizontal: 9,
+                              paddingHorizontal: 10,
                               paddingVertical: 6,
-                              borderRadius: 999,
-                              backgroundColor: selected
-                                ? 'rgba(77,184,255,0.22)'
-                                : 'rgba(255,255,255,0.055)',
+                              borderRadius: 8,
+                              backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)',
                               borderWidth: 1,
-                              borderColor: selected
-                                ? 'rgba(77,184,255,0.42)'
-                                : 'rgba(255,255,255,0.05)',
+                              borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)',
                             }}
                           >
-                            <Text
-                              style={{
-                                color: selected ? '#AEE8FF' : theme.textMuted,
-                                fontSize: 11,
-                                fontWeight: '800',
-                              }}
-                            >
+                            <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
                               {option.label}
                             </Text>
                           </Pressable>
@@ -8078,15 +7985,9 @@ const handleSave = async () => {
               })}
 
               {notificationPreferencesError ? (
-                <Text
-                  style={{
-                    color: '#FF7B7B',
-                    fontSize: 12,
-                    fontWeight: '600',
-                  }}
-                >
-                  {notificationPreferencesError}
-                </Text>
+                <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
+                  <Text style={{ color: '#FF7B7B', fontSize: 12, fontWeight: '600' }}>{notificationPreferencesError}</Text>
+                </View>
               ) : null}
             </View>
           ) : null}
@@ -8096,154 +7997,183 @@ const handleSave = async () => {
 {isWebPlatform ? (
           <TargetSpotSummaryCards
             metrics={[
-              { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
-              { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
-              { icon: '◌', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
+              ...(activeDay === 'today' ? [{ icon: '⚡', label: 'LIVE' as const, helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions }] : []),
+              { icon: '👥', label: 'GOING' as const, helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
+              { icon: '◌', label: 'MAYBE' as const, helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
             ]}
           />
         ) : (
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12, marginBottom: 14 }}>
             {[
-              { icon: '⚡', label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions },
-              { icon: '👥', label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
-              { icon: '?', label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
+              ...(activeDay === 'today' ? [{ label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions }] : []),
+              { label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
+              { label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
             ].map((metric) => (
               <View
                 key={`mobile-summary-${metric.label}`}
                 style={{
                   width: '48.5%',
-                  minHeight: 118,
-                  borderRadius: 18,
+                  minHeight: 84,
+                  borderRadius: 16,
                   borderWidth: 1,
                   borderColor: 'rgba(255,255,255,0.075)',
                   backgroundColor: 'rgba(8,24,39,0.52)',
-                  padding: 13,
+                  padding: 10,
                   justifyContent: 'space-between',
                 }}
               >
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: metric.color, fontSize: 26, fontWeight: '900' }}>{metric.icon}</Text>
-                  <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900' }}>{metric.value}</Text>
+                  {metric.label === 'LIVE' ? <Zap size={22} color={metric.color} strokeWidth={2.5} /> : metric.label === 'GOING' ? <Users size={22} color={metric.color} strokeWidth={2.5} /> : <HelpCircle size={22} color={metric.color} strokeWidth={2.5} />}
+                  <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>{metric.value}</Text>
                 </View>
                 <View>
-                  <Text style={{ color: metric.color, fontSize: 12, fontWeight: '900' }}>{metric.label}</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700', marginTop: 4 }}>{metric.helper}</Text>
+                  <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900' }}>{metric.label}</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 3 }}>{metric.helper}</Text>
                 </View>
               </View>
             ))}
           </View>
         )}
 
-        
-<View style={{ backgroundColor: 'transparent', padding: 0, marginTop: 10, marginBottom: 18 }}>
-          
+
+<View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
+
+          {/* Check in CTA */}
           {checkInCtaVisible ? (
             <Pressable
-              onPress={() => {
-                void handleUpdateSessionStatus('Is er al');
+              onPress={() => void handleUpdateSessionStatus('Is er al')}
+              style={{
+                backgroundColor: '#5EF0D0',
+                borderRadius: 16,
+                paddingVertical: 16,
+                paddingHorizontal: 20,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
               }}
-              style={{ ...primaryButtonStyle, backgroundColor: '#5EF0D0', marginBottom: 10 }}
             >
-              <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>
-                Check in now · {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'nearby'}
-              </Text>
+              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#061421' }} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Check in now</Text>
+                <Text style={{ color: 'rgba(6,20,33,0.65)', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
+                  {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m from the spot` : 'You\'re at the spot'}
+                </Text>
+              </View>
             </Pressable>
           ) : null}
 
+          {/* Plan session */}
           {topCtaMode === 'plan' ? (
             <Pressable
-              onPress={() => {
-                if (hasOwnSessionOnSelectedSpotDay) {
-                return;
-              }
-                openEmptyPlanningForm();
+              onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
+              style={{
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: 'rgba(77,184,255,0.25)',
+                backgroundColor: 'rgba(77,184,255,0.07)',
+                paddingVertical: 14,
+                alignItems: 'center',
               }}
-              style={{ ...primaryButtonStyle, opacity: 1 }}
             >
-              <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>Plan session</Text>
+              <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Plan a session</Text>
             </Pressable>
           ) : null}
+
+          {/* Edit mode: checked in or session planned */}
           {topCtaMode === 'edit' ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: isWebPlatform ? 18 : 8, flexWrap: 'wrap' }}>
+            <View style={{ gap: 10 }}>
               {canCheckOut ? (
-                <Pressable
-                  onPress={() => {
-                    void handleUpdateSessionStatus('Uitchecken');
-                  }}
-                  style={{
-                    backgroundColor: '#8b1f38',
-                    borderRadius: 999,
-                    paddingHorizontal: 13,
-                    paddingVertical: 7,
-                  }}
-                >
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Check out</Text>
-                </Pressable>
+                <View style={{
+                  backgroundColor: 'rgba(8,24,39,0.72)',
+                  borderRadius: 16,
+                  borderWidth: 1,
+                  borderColor: 'rgba(94,240,208,0.18)',
+                  padding: 16,
+                  gap: 12,
+                }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#5EF0D0' }} />
+                    <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800' }}>You're live</Text>
+                    {activeCheckedInSession?.checkedInAt ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>
+                        since {formatToHourMinute(activeCheckedInSession.checkedInAt)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable
+                    onPress={() => void handleUpdateSessionStatus('Uitchecken')}
+                    style={{
+                      backgroundColor: 'rgba(139,31,56,0.85)',
+                      borderRadius: 12,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,95,125,0.25)',
+                      paddingVertical: 12,
+                      alignItems: 'center',
+                    }}
+                  >
+                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '900' }}>Check out</Text>
+                  </Pressable>
+                </View>
               ) : null}
 
-              <Pressable
-                onPress={() => {
-                  setShowManageSessions(true);
-                  setShowForm(false);
-                  setEditingSessionId(null);
-                  setActivePicker(null);
-                  setSessionActionError('');
-                  setFormError('');
-                  setSaveError(null);
-                }}
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.045)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.06)',
-                  borderRadius: 999,
-                  paddingVertical: 6,
-                  paddingHorizontal: 10,
-                  alignSelf: 'flex-start',
-                }}
-              >
-                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>☰ Manage sessions</Text>
-              </Pressable>
-              {ownSessionCount === 1 ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Pressable
-                  disabled={!joinedSession || !canCancelJoinedSession}
                   onPress={() => {
-                    if (!joinedSession || !canCancelJoinedSession) {
-                      return;
-                    }
-                    void handleCancelPlannedSession();
+                    setShowManageSessions(true);
+                    setShowForm(false);
+                    setEditingSessionId(null);
+                    setActivePicker(null);
+                    setSessionActionError('');
+                    setFormError('');
+                    setSaveError(null);
                   }}
                   style={{
-                    backgroundColor: 'rgba(255,95,125,0.10)',
+                    backgroundColor: 'rgba(255,255,255,0.045)',
                     borderWidth: 1,
-                    borderColor: 'rgba(255,95,125,0.18)',
+                    borderColor: 'rgba(255,255,255,0.06)',
                     borderRadius: 999,
                     paddingVertical: 6,
-                    paddingHorizontal: 10,
-                    alignSelf: 'flex-start',
-                    opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35,
+                    paddingHorizontal: 12,
                   }}
                 >
-                  <Text style={{ color: '#ffb8c4', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>☰ Manage</Text>
                 </Pressable>
-              ) : null}
-              <Pressable
-                onPress={() => {
-                  setShowManageSessions(false);
-                  setSessionActionError('');
-                  openEmptyPlanningForm();
-                }}
-                style={{ paddingVertical: 6, paddingHorizontal: 0 }}
-              >
-                <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '800' }}>＋ Add extra session</Text>
-              </Pressable>
-              {showManageSessions ? (
+                {ownSessionCount === 1 ? (
+                  <Pressable
+                    disabled={!joinedSession || !canCancelJoinedSession}
+                    onPress={() => { if (joinedSession && canCancelJoinedSession) void handleCancelPlannedSession(); }}
+                    style={{
+                      backgroundColor: 'rgba(255,95,125,0.10)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,95,125,0.18)',
+                      borderRadius: 999,
+                      paddingVertical: 6,
+                      paddingHorizontal: 12,
+                      opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35,
+                    }}
+                  >
+                    <Text style={{ color: '#ffb8c4', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
+                  </Pressable>
+                ) : null}
                 <Pressable
-                  onPress={() => setShowManageSessions(false)}
-                  style={{ paddingVertical: 6, paddingHorizontal: 0 }}
+                  onPress={() => { setShowManageSessions(false); setSessionActionError(''); openEmptyPlanningForm(); }}
+                  style={{
+                    borderRadius: 999,
+                    paddingVertical: 6,
+                    paddingHorizontal: 12,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.06)',
+                    backgroundColor: 'rgba(255,255,255,0.045)',
+                  }}
                 >
-                  <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '800' }}>Close</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>＋ Add session</Text>
                 </Pressable>
-              ) : null}
+                {showManageSessions ? (
+                  <Pressable onPress={() => setShowManageSessions(false)} style={{ paddingVertical: 6, paddingHorizontal: 8 }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Close</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           ) : null}
           {showManageSessions ? (
@@ -8361,7 +8291,7 @@ const handleSave = async () => {
               })}
             </View>
           ) : null}
-          <Text style={{ color: theme.textSoft, fontSize: 12, marginTop: 6 }}>{headerHelperText}</Text>
+          <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 12 : 13, marginTop: 8, lineHeight: 18 }}>{headerHelperText}</Text>
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
@@ -8514,15 +8444,6 @@ const handleSave = async () => {
               <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-start', alignItems: 'center', flexWrap: 'wrap' }}>
                 <Pressable
                   onPress={() => {
-                    console.log("PLAN_BUTTON_CLICK", {
-                      selectedSpot: (selectedSpot as { name?: string } | null)?.name ?? selectedSpot ?? null,
-                      activeDay,
-                      startHour,
-                      startMinute,
-                      endHour,
-                      endMinute,
-                      intent
-                    });
                     void handleSave();
                   }}
                   style={{ ...primaryButtonStyle, width: 120, paddingVertical: 8, minHeight: 0, borderRadius: 14 }}
@@ -8564,26 +8485,29 @@ const handleSave = async () => {
             </View>
           </View>
           <View style={{ marginBottom: isWebPlatform ? 14 : 8 }}>
-            <View style={{ marginLeft: isWebPlatform ? 252 : 58, marginRight: isWebPlatform ? 104 : 22, height: 16, position: 'relative' }}>
-              {timelineLabels.map((item) => {
+            <View style={{ height: 16, position: 'relative', overflow: 'hidden' }}>
+              {(() => {
                 const totalMinutes = Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1);
-                const leftPercent = clamp(((item.minutes - timelineWindow.startMinutes) / totalMinutes) * 100, 0, 100);
-
-                return (
-                  <Text
-                    key={item.label}
-                    style={{
-                      position: 'absolute',
-                      left: `${leftPercent}%`,
-                      transform: [{ translateX: -8 }],
-                      color: theme.textMuted,
-                      fontSize: 11,
-                    }}
-                  >
-                    {item.label}
-                  </Text>
-                );
-              })}
+                const useEveryTwoHours = !isWebPlatform && totalMinutes > 600;
+                return timelineLabels
+                  .filter((item) => !useEveryTwoHours || item.minutes % 120 === 0 || item.minutes === timelineWindow.startMinutes)
+                  .map((item) => {
+                    const leftPercent = clamp(((item.minutes - timelineWindow.startMinutes) / totalMinutes) * 100, 0, 100);
+                    return (
+                      <Text
+                        key={item.label}
+                        style={{
+                          position: 'absolute',
+                          left: `${leftPercent}%`,
+                          color: theme.textMuted,
+                          fontSize: 11,
+                        }}
+                      >
+                        {item.label}
+                      </Text>
+                    );
+                  });
+              })()}
             </View>
           </View>
           <SessionTimeline
@@ -8662,9 +8586,11 @@ const handleSave = async () => {
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>
                   {activeGroupChatContext?.title ?? 'Group Chat'}
                 </Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
-                  {activeGroupChatContext?.subtitle ?? 'Messages for this session'}
-                </Text>
+                {activeGroupChatContext?.subtitle ? (
+                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                    {activeGroupChatContext.subtitle}
+                  </Text>
+                ) : null}
               </View>
             </View>
 
@@ -8672,57 +8598,28 @@ const handleSave = async () => {
               <ScrollView
                 ref={groupChatScrollRef}
                 style={{ maxHeight: 250, marginTop: 12 }}
+                keyboardDismissMode="interactive"
                 onContentSizeChange={() => {
-                  setTimeout(() => {
-                    const node = groupChatScrollRef.current as any;
-                    console.log('GROUP_SCROLL_METRICS', {
-                      hasRef: Boolean(node),
-                      keys: node ? Object.keys(node).slice(0, 20) : [],
-                      hasScrollableNode: Boolean(node?.getScrollableNode),
-                      hasInnerViewNode: Boolean(node?.getInnerViewNode),
-                    });
-                    const scrollNode =
-                      (groupChatScrollRef.current as any)?.getScrollableNode?.();
-                    const innerNode =
-                      (groupChatScrollRef.current as any)?.getInnerViewNode?.();
-
-                    console.log('GROUP_SCROLL_NODE_NUMBERS_BEFORE', {
-                      scrollTop: scrollNode?.scrollTop,
-                      scrollHeight: scrollNode?.scrollHeight,
-                      clientHeight: scrollNode?.clientHeight,
-                      innerScrollHeight: innerNode?.scrollHeight,
-                      innerClientHeight: innerNode?.clientHeight,
-                    });
-
-                    if (scrollNode) {
-                      scrollNode.scrollTop = scrollNode.scrollHeight;
-                    }
-
-                    console.log('GROUP_SCROLL_NODE_NUMBERS_AFTER', {
-                      scrollTop: scrollNode?.scrollTop,
-                      scrollHeight: scrollNode?.scrollHeight,
-                      clientHeight: scrollNode?.clientHeight,
-                    });
-                  }, 0);
+                  groupChatScrollRef.current?.scrollToEnd({ animated: false });
                 }}
               >
                 {groupMessages.map((message) => {
                   const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
+                  const isOwn = message.userId === activeAppUserId;
                   return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)' }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
-                            {message.display_name}
-                          </Text>
-                          {renderedTime ? (
-                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
-                              {renderedTime}
+                    <View key={message.id} style={{ flexDirection: isOwn ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
+                      {!isOwn && <Avatar uri={message.avatar_url} size={24} />}
+                      <View style={{ marginLeft: isOwn ? 0 : 8, marginRight: isOwn ? 0 : 0, maxWidth: '84%', backgroundColor: isOwn ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwn ? 16 : 5, borderBottomRightRadius: isOwn ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwn ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
+                        {!isOwn && (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
+                              {message.display_name}
                             </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
+                            {renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700' }}>{renderedTime}</Text> : null}
+                          </View>
+                        )}
+                        <Text style={{ color: theme.text, fontSize: 15, marginTop: isOwn ? 0 : 3 }}>{message.text}</Text>
+                        {isOwn && renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', marginTop: 3, textAlign: 'right' }}>{renderedTime}</Text> : null}
                       </View>
                     </View>
                   );
@@ -8736,6 +8633,9 @@ const handleSave = async () => {
               <TextInput
                 value={groupMessageInput}
                 onChangeText={setGroupMessageInput}
+                onFocus={() => {
+                  spotDetailScrollRef.current?.scrollToEnd({ animated: true });
+                }}
                 onSubmitEditing={() => {
                   void sendGroupChatMessage();
                 }}
@@ -8764,7 +8664,6 @@ const handleSave = async () => {
             </View>
             <View>
               <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Spot Chat</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>Messages for this spot</Text>
             </View>
           </View>
 
@@ -8772,19 +8671,9 @@ const handleSave = async () => {
             <ScrollView
               ref={spotChatScrollRef}
               style={{ maxHeight: 250, marginBottom: 12 }}
+              keyboardDismissMode="interactive"
               onContentSizeChange={() => {
-                setTimeout(() => {
-                  const scrollNode =
-                    (spotChatScrollRef.current as any)?.getScrollableNode?.();
-
-                  if (
-                    scrollNode &&
-                    typeof scrollNode === 'object' &&
-                    'scrollHeight' in scrollNode
-                  ) {
-                    scrollNode.scrollTop = scrollNode.scrollHeight;
-                  }
-                }, 0);
+                spotChatScrollRef.current?.scrollToEnd({ animated: false });
               }}
             >
               {orderedMessages
@@ -8807,20 +8696,19 @@ const handleSave = async () => {
                   const isOwnMessage = message.userId === activeAppUserId;
 
                   return (
-                    <View key={message.id} style={{ flexDirection: 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      <Avatar uri={message.avatar_url} size={24} />
-                      <View style={{ marginLeft: 8, maxWidth: '84%', backgroundColor: isOwnMessage ? 'rgba(32,40,51,0.95)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: 5, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwnMessage ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.065)' }}>
-                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                          <Text style={{ color: isOwnMessage ? '#dbeafe' : theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
-                            {isOwnMessage ? 'You' : message.display_name}
-                          </Text>
-                          {renderedTime ? (
-                            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 10, fontWeight: '700' }}>
-                              {renderedTime}
+                    <View key={message.id} style={{ flexDirection: isOwnMessage ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
+                      {!isOwnMessage && <Avatar uri={message.avatar_url} size={24} />}
+                      <View style={{ marginLeft: isOwnMessage ? 0 : 8, maxWidth: '84%', backgroundColor: isOwnMessage ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwnMessage ? 16 : 5, borderBottomRightRadius: isOwnMessage ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwnMessage ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
+                        {!isOwnMessage && (
+                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
+                              {message.display_name}
                             </Text>
-                          ) : null}
-                        </View>
-                        <Text style={{ color: theme.text, fontSize: 15, marginTop: 3 }}>{message.text}</Text>
+                            {renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700' }}>{renderedTime}</Text> : null}
+                          </View>
+                        )}
+                        <Text style={{ color: theme.text, fontSize: 15, marginTop: isOwnMessage ? 0 : 3 }}>{message.text}</Text>
+                        {isOwnMessage && renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', marginTop: 3, textAlign: 'right' }}>{renderedTime}</Text> : null}
                       </View>
                     </View>
                   );
@@ -8835,20 +8723,36 @@ const handleSave = async () => {
             <TextInput
               value={messageInput}
               onChangeText={setMessageInput}
+              onFocus={() => {
+                spotDetailScrollRef.current?.scrollToEnd({ animated: true });
+              }}
               onSubmitEditing={() => {
                 void sendSpotChatMessage();
               }}
               blurOnSubmit={false}
+              returnKeyType="send"
               placeholder="Type a message"
               placeholderTextColor={theme.textMuted}
               style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
             />
           <Pressable
             data-spot-chat-send="true"
+            disabled={!messageInput.trim()}
+            hitSlop={10}
             onPress={() => {
               void sendSpotChatMessage();
             }}
-            style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
+            style={{
+              width: 44,
+              height: 44,
+              borderRadius: 22,
+              backgroundColor: messageInput.trim() ? '#05070a' : 'rgba(255,255,255,0.08)',
+              alignItems: 'center',
+              justifyContent: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.06)',
+              opacity: messageInput.trim() ? 1 : 0.55,
+            }}
           >
             <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
           </Pressable>
@@ -8858,7 +8762,7 @@ const handleSave = async () => {
 
         </ScrollView>
         {renderNativeBottomNav()}
-      </View>
+      </SafeAreaView>
     );
   }
   const visibleSpots = homeSpotCards.map(({ spot, distanceMeters }) => ({ name: spot, distanceMeters }));
@@ -8885,7 +8789,8 @@ const handleSave = async () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
-      <View style={{ flex: 1 }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
+      <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
+      <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
 
@@ -9051,15 +8956,30 @@ const handleSave = async () => {
             }}
             style={{
               width: homeActionButtonWidth,
-              backgroundColor: 'rgba(255,255,255,0.075)',
+              backgroundColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.075)',
               borderRadius: 999,
-              paddingVertical: 5,
+              paddingVertical: 7,
               alignItems: 'center',
+              justifyContent: 'center',
               borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.08)',
+              borderColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+              position: 'relative',
             }}
           >
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{`Buzz (${unreadCount})`}</Text>
+            <Ionicons name={isNotificationInboxExpanded ? 'notifications' : 'notifications-outline'} size={20} color="#ffffff" />
+            {unreadCount > 0 ? (
+              <View style={{
+                position: 'absolute', top: -4, right: -4,
+                minWidth: 16, height: 16, borderRadius: 8,
+                backgroundColor: '#ff3b30',
+                alignItems: 'center', justifyContent: 'center',
+                paddingHorizontal: 3,
+              }}>
+                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>
+                  {unreadCount > 99 ? '99+' : unreadCount}
+                </Text>
+              </View>
+            ) : null}
           </Pressable>
         </View>
 
@@ -9190,12 +9110,6 @@ const handleSave = async () => {
                   {false ? (
                     <Pressable
                       onPress={() => {
-                        console.log('HOME_NEAREST_CHECKIN_BUTTON_PRESSED', {
-                          nearestSpot: nearestSpotResult.spot,
-                          nearestSpotDistance: nearestSpotResult.distanceMeters,
-                          nearestSpotCanCheckIn,
-                          hasActiveCheckedInSession,
-                        });
                         void handleQuickCheckIn(nearestSpotResult.spot);
                       }}
                       style={{ backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 }}
@@ -9242,14 +9156,11 @@ const handleSave = async () => {
           const statusLabel = status.label;
           const cleanDaySpotSessions = daySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) !== 'finished');
           const liveSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'live');
-
-          if (normalizeSpotName(spot.name) === normalizeSpotName('Scheveningen KZVS')) {
-          }
           const goingSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'going');
           const maybeSessions = cleanDaySpotSessions.filter((sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe');
-          const activeCount = liveSessions.length;
-          const goingCount = goingSessions.length;
-          const maybeCount = maybeSessions.length;
+          const activeCount = new Set(liveSessions.map((s) => s.userId).filter(Boolean)).size;
+          const goingCount = new Set(goingSessions.map((s) => s.userId).filter(Boolean)).size;
+          const maybeCount = new Set(maybeSessions.map((s) => s.userId).filter(Boolean)).size;
           const isLiveSpot = activeCount > 0;
           const liveRiders = liveSessions.slice(0, 4);
           const activeRiderSessions = [...liveSessions, ...goingSessions, ...maybeSessions].slice(0, 5);

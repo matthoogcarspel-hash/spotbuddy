@@ -5,6 +5,13 @@
         "projectId": "6420f442-2be4-4803-9620-f769bc5def4f"
       }
     },
-    "owner": "matthoogcarspel"
+    "owner": "matthoogcarspel",
+    "backgroundColor": "#07111F",
+    "ios": {
+      "backgroundColor": "#07111F"
+    },
+    "android": {
+      "backgroundColor": "#07111F"
+    }
   }
 }
