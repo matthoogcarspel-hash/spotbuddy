@@ -28,6 +28,146 @@ import { theme as appTheme } from './src/theme/theme';
 import { SpotSummaryCards as TargetSpotSummaryCards } from './components/SpotSummaryCards';
 
 const fallbackSpots = spots;
+
+const COUNTRIES: { code: string; flag: string; name: string }[] = [
+  { code: 'AF', flag: '🇦🇫', name: 'Afghanistan' },
+  { code: 'AL', flag: '🇦🇱', name: 'Albania' },
+  { code: 'DZ', flag: '🇩🇿', name: 'Algeria' },
+  { code: 'AD', flag: '🇦🇩', name: 'Andorra' },
+  { code: 'AO', flag: '🇦🇴', name: 'Angola' },
+  { code: 'AR', flag: '🇦🇷', name: 'Argentina' },
+  { code: 'AM', flag: '🇦🇲', name: 'Armenia' },
+  { code: 'AU', flag: '🇦🇺', name: 'Australia' },
+  { code: 'AT', flag: '🇦🇹', name: 'Austria' },
+  { code: 'AZ', flag: '🇦🇿', name: 'Azerbaijan' },
+  { code: 'BS', flag: '🇧🇸', name: 'Bahamas' },
+  { code: 'BH', flag: '🇧🇭', name: 'Bahrain' },
+  { code: 'BD', flag: '🇧🇩', name: 'Bangladesh' },
+  { code: 'BY', flag: '🇧🇾', name: 'Belarus' },
+  { code: 'BE', flag: '🇧🇪', name: 'Belgium' },
+  { code: 'BZ', flag: '🇧🇿', name: 'Belize' },
+  { code: 'BJ', flag: '🇧🇯', name: 'Benin' },
+  { code: 'BO', flag: '🇧🇴', name: 'Bolivia' },
+  { code: 'BA', flag: '🇧🇦', name: 'Bosnia & Herzegovina' },
+  { code: 'BW', flag: '🇧🇼', name: 'Botswana' },
+  { code: 'BR', flag: '🇧🇷', name: 'Brazil' },
+  { code: 'BN', flag: '🇧🇳', name: 'Brunei' },
+  { code: 'BG', flag: '🇧🇬', name: 'Bulgaria' },
+  { code: 'BF', flag: '🇧🇫', name: 'Burkina Faso' },
+  { code: 'KH', flag: '🇰🇭', name: 'Cambodia' },
+  { code: 'CM', flag: '🇨🇲', name: 'Cameroon' },
+  { code: 'CA', flag: '🇨🇦', name: 'Canada' },
+  { code: 'CV', flag: '🇨🇻', name: 'Cape Verde' },
+  { code: 'CL', flag: '🇨🇱', name: 'Chile' },
+  { code: 'CN', flag: '🇨🇳', name: 'China' },
+  { code: 'CO', flag: '🇨🇴', name: 'Colombia' },
+  { code: 'CR', flag: '🇨🇷', name: 'Costa Rica' },
+  { code: 'HR', flag: '🇭🇷', name: 'Croatia' },
+  { code: 'CU', flag: '🇨🇺', name: 'Cuba' },
+  { code: 'CY', flag: '🇨🇾', name: 'Cyprus' },
+  { code: 'CZ', flag: '🇨🇿', name: 'Czech Republic' },
+  { code: 'DK', flag: '🇩🇰', name: 'Denmark' },
+  { code: 'DO', flag: '🇩🇴', name: 'Dominican Republic' },
+  { code: 'EC', flag: '🇪🇨', name: 'Ecuador' },
+  { code: 'EG', flag: '🇪🇬', name: 'Egypt' },
+  { code: 'SV', flag: '🇸🇻', name: 'El Salvador' },
+  { code: 'EE', flag: '🇪🇪', name: 'Estonia' },
+  { code: 'ET', flag: '🇪🇹', name: 'Ethiopia' },
+  { code: 'FJ', flag: '🇫🇯', name: 'Fiji' },
+  { code: 'FI', flag: '🇫🇮', name: 'Finland' },
+  { code: 'FR', flag: '🇫🇷', name: 'France' },
+  { code: 'GE', flag: '🇬🇪', name: 'Georgia' },
+  { code: 'DE', flag: '🇩🇪', name: 'Germany' },
+  { code: 'GH', flag: '🇬🇭', name: 'Ghana' },
+  { code: 'GR', flag: '🇬🇷', name: 'Greece' },
+  { code: 'GT', flag: '🇬🇹', name: 'Guatemala' },
+  { code: 'HN', flag: '🇭🇳', name: 'Honduras' },
+  { code: 'HK', flag: '🇭🇰', name: 'Hong Kong' },
+  { code: 'HU', flag: '🇭🇺', name: 'Hungary' },
+  { code: 'IS', flag: '🇮🇸', name: 'Iceland' },
+  { code: 'IN', flag: '🇮🇳', name: 'India' },
+  { code: 'ID', flag: '🇮🇩', name: 'Indonesia' },
+  { code: 'IR', flag: '🇮🇷', name: 'Iran' },
+  { code: 'IQ', flag: '🇮🇶', name: 'Iraq' },
+  { code: 'IE', flag: '🇮🇪', name: 'Ireland' },
+  { code: 'IL', flag: '🇮🇱', name: 'Israel' },
+  { code: 'IT', flag: '🇮🇹', name: 'Italy' },
+  { code: 'JM', flag: '🇯🇲', name: 'Jamaica' },
+  { code: 'JP', flag: '🇯🇵', name: 'Japan' },
+  { code: 'JO', flag: '🇯🇴', name: 'Jordan' },
+  { code: 'KZ', flag: '🇰🇿', name: 'Kazakhstan' },
+  { code: 'KE', flag: '🇰🇪', name: 'Kenya' },
+  { code: 'KR', flag: '🇰🇷', name: 'South Korea' },
+  { code: 'KW', flag: '🇰🇼', name: 'Kuwait' },
+  { code: 'LV', flag: '🇱🇻', name: 'Latvia' },
+  { code: 'LB', flag: '🇱🇧', name: 'Lebanon' },
+  { code: 'LY', flag: '🇱🇾', name: 'Libya' },
+  { code: 'LI', flag: '🇱🇮', name: 'Liechtenstein' },
+  { code: 'LT', flag: '🇱🇹', name: 'Lithuania' },
+  { code: 'LU', flag: '🇱🇺', name: 'Luxembourg' },
+  { code: 'MK', flag: '🇲🇰', name: 'North Macedonia' },
+  { code: 'MG', flag: '🇲🇬', name: 'Madagascar' },
+  { code: 'MY', flag: '🇲🇾', name: 'Malaysia' },
+  { code: 'MV', flag: '🇲🇻', name: 'Maldives' },
+  { code: 'MT', flag: '🇲🇹', name: 'Malta' },
+  { code: 'MU', flag: '🇲🇺', name: 'Mauritius' },
+  { code: 'MX', flag: '🇲🇽', name: 'Mexico' },
+  { code: 'MD', flag: '🇲🇩', name: 'Moldova' },
+  { code: 'MC', flag: '🇲🇨', name: 'Monaco' },
+  { code: 'MN', flag: '🇲🇳', name: 'Mongolia' },
+  { code: 'ME', flag: '🇲🇪', name: 'Montenegro' },
+  { code: 'MA', flag: '🇲🇦', name: 'Morocco' },
+  { code: 'MZ', flag: '🇲🇿', name: 'Mozambique' },
+  { code: 'NA', flag: '🇳🇦', name: 'Namibia' },
+  { code: 'NP', flag: '🇳🇵', name: 'Nepal' },
+  { code: 'NL', flag: '🇳🇱', name: 'Netherlands' },
+  { code: 'NZ', flag: '🇳🇿', name: 'New Zealand' },
+  { code: 'NI', flag: '🇳🇮', name: 'Nicaragua' },
+  { code: 'NG', flag: '🇳🇬', name: 'Nigeria' },
+  { code: 'NO', flag: '🇳🇴', name: 'Norway' },
+  { code: 'OM', flag: '🇴🇲', name: 'Oman' },
+  { code: 'PK', flag: '🇵🇰', name: 'Pakistan' },
+  { code: 'PA', flag: '🇵🇦', name: 'Panama' },
+  { code: 'PY', flag: '🇵🇾', name: 'Paraguay' },
+  { code: 'PE', flag: '🇵🇪', name: 'Peru' },
+  { code: 'PH', flag: '🇵🇭', name: 'Philippines' },
+  { code: 'PL', flag: '🇵🇱', name: 'Poland' },
+  { code: 'PT', flag: '🇵🇹', name: 'Portugal' },
+  { code: 'QA', flag: '🇶🇦', name: 'Qatar' },
+  { code: 'RO', flag: '🇷🇴', name: 'Romania' },
+  { code: 'RU', flag: '🇷🇺', name: 'Russia' },
+  { code: 'SA', flag: '🇸🇦', name: 'Saudi Arabia' },
+  { code: 'SN', flag: '🇸🇳', name: 'Senegal' },
+  { code: 'RS', flag: '🇷🇸', name: 'Serbia' },
+  { code: 'SG', flag: '🇸🇬', name: 'Singapore' },
+  { code: 'SK', flag: '🇸🇰', name: 'Slovakia' },
+  { code: 'SI', flag: '🇸🇮', name: 'Slovenia' },
+  { code: 'ZA', flag: '🇿🇦', name: 'South Africa' },
+  { code: 'ES', flag: '🇪🇸', name: 'Spain' },
+  { code: 'LK', flag: '🇱🇰', name: 'Sri Lanka' },
+  { code: 'SE', flag: '🇸🇪', name: 'Sweden' },
+  { code: 'CH', flag: '🇨🇭', name: 'Switzerland' },
+  { code: 'TW', flag: '🇹🇼', name: 'Taiwan' },
+  { code: 'TZ', flag: '🇹🇿', name: 'Tanzania' },
+  { code: 'TH', flag: '🇹🇭', name: 'Thailand' },
+  { code: 'TN', flag: '🇹🇳', name: 'Tunisia' },
+  { code: 'TR', flag: '🇹🇷', name: 'Turkey' },
+  { code: 'UG', flag: '🇺🇬', name: 'Uganda' },
+  { code: 'UA', flag: '🇺🇦', name: 'Ukraine' },
+  { code: 'AE', flag: '🇦🇪', name: 'United Arab Emirates' },
+  { code: 'GB', flag: '🇬🇧', name: 'United Kingdom' },
+  { code: 'US', flag: '🇺🇸', name: 'United States' },
+  { code: 'UY', flag: '🇺🇾', name: 'Uruguay' },
+  { code: 'UZ', flag: '🇺🇿', name: 'Uzbekistan' },
+  { code: 'VE', flag: '🇻🇪', name: 'Venezuela' },
+  { code: 'VN', flag: '🇻🇳', name: 'Vietnam' },
+  { code: 'ZM', flag: '🇿🇲', name: 'Zambia' },
+  { code: 'ZW', flag: '🇿🇼', name: 'Zimbabwe' },
+];
+
+const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c.code, c]));
+const getCountry = (code: string | null | undefined) =>
+  code ? (COUNTRY_MAP.get(code) ?? null) : null;
 type SpotName = string;
 type SpotDefinition = {
   spot: SpotName;
@@ -53,6 +193,7 @@ type SpotSession = {
   userId: string;
   userName: string;
   userAvatarUrl: string | null;
+  userNationality?: string | null;
   userOwnerUid?: string | null;
   resolvedActorProfileId?: string | null;
 };
@@ -1006,20 +1147,27 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: Sp
   };
 };
 
-function Avatar({ uri, size = 28 }: { uri: string | null; size?: number }) {
-  if (!uri) {
-    return (
-      <View
-        style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card,  borderColor: theme.border }}
-      />
-    );
-  }
+function Avatar({ uri, size = 28, nationality }: { uri: string | null; size?: number; nationality?: string | null }) {
+  const flagSize = Math.max(10, Math.round(size * 0.42));
+  const flag = getCountry(nationality)?.flag ?? null;
+  const inner = !uri
+    ? <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />
+    : <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
+
+  if (!flag) return inner;
 
   return (
-    <Image
-      source={{ uri }}
-      style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card,  borderColor: theme.border }}
-    />
+    <View style={{ width: size, height: size }}>
+      {inner}
+      <View style={{
+        position: 'absolute', bottom: -1, right: -1,
+        backgroundColor: theme.bg, borderRadius: 999,
+        width: flagSize + 4, height: flagSize + 4,
+        alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{ fontSize: flagSize - 2, lineHeight: flagSize }}>{flag}</Text>
+      </View>
+    </View>
   );
 }
 
@@ -1574,7 +1722,7 @@ function SessionRow({
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
               <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
-                <Avatar uri={item.userAvatarUrl ?? null} size={40} />
+                <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} />
               </View>
             ))}
             {sortedVisibleSessions.length > 3 ? (
@@ -1896,7 +2044,7 @@ function SessionTimeline({
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
                           <View key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={38} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} />
                           </View>
                         ))}
                         {(group.visibleSessions?.length ?? 0) > 3 ? (
@@ -1983,7 +2131,7 @@ function SessionTimeline({
                         </Text>
                         {(group.visibleSessions ?? []).map(({ item }) => (
                           <View key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={30} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} />
                             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                               {item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider'}
                             </Text>
@@ -2218,6 +2366,8 @@ export default function App() {
   const [profileEditError, setProfileEditError] = useState('');
   const [isSavingProfile, setIsSavingProfile] = useState(false);
   const [isEditingProfileName, setIsEditingProfileName] = useState(false);
+  const [showNationalityPicker, setShowNationalityPicker] = useState(false);
+  const [nationalitySearch, setNationalitySearch] = useState('');
   const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
@@ -2714,7 +2864,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, owner_uid, created_at')
+        .select('id, display_name, avatar_url, owner_uid, created_at, nationality')
         .eq('owner_uid', authUser.id)
         .order('created_at', { ascending: true });
       
@@ -3654,6 +3804,7 @@ export default function App() {
       userId: row.user_id ?? row.resolved_actor_profile_id ?? row.profile_id ?? row.created_by ?? '',
       userName: row.display_name?.trim() || 'Unknown rider',
       userAvatarUrl: row.avatar_url ?? null,
+      userNationality: row.nationality ?? null,
       userOwnerUid: row.owner_uid ?? null,
       resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
     };    return session;
@@ -3925,18 +4076,17 @@ export default function App() {
         .flatMap((sessionRow) => [sessionRow.user_id, sessionRow.profile_id, sessionRow.created_by, sessionRow.owner_uid])
         .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
     )];
-    const { data: profilesByIdData, error: profilesByIdError } = sessionIdentityValues.length
-      ? await supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, owner_uid')
-          .in('id', sessionIdentityValues)
-      : { data: [], error: null };
-    const { data: profilesByOwnerUidData, error: profilesByOwnerUidError } = sessionIdentityValues.length
-      ? await supabase
-          .from('profiles')
-          .select('id, display_name, avatar_url, owner_uid')
-          .in('owner_uid', sessionIdentityValues)
-      : { data: [], error: null };
+    const [
+      { data: profilesByIdData, error: profilesByIdError },
+      { data: profilesByOwnerUidData, error: profilesByOwnerUidError },
+    ] = await Promise.all([
+      sessionIdentityValues.length
+        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality').in('id', sessionIdentityValues)
+        : Promise.resolve({ data: [] as any[], error: null }),
+      sessionIdentityValues.length
+        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality').in('owner_uid', sessionIdentityValues)
+        : Promise.resolve({ data: [] as any[], error: null }),
+    ]);
     const profilesData = [...(profilesByIdData ?? []), ...(profilesByOwnerUidData ?? [])];
     
     if (profilesByIdError || profilesByOwnerUidError) {
@@ -7391,7 +7541,7 @@ export default function App() {
 
         {/* Avatar + naam */}
         <View style={{ alignItems: 'center', marginVertical: 28 }}>
-          <Avatar uri={profile.avatar_url} size={90} />
+          <Avatar uri={profile.avatar_url} size={90} nationality={profile.nationality} />
           <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14 }}>{profile.display_name}</Text>
           <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
         </View>
@@ -7416,16 +7566,102 @@ export default function App() {
             </Text>
           </Pressable>
 
+          {/* Nationaliteit */}
+          <Pressable
+            onPress={() => setShowNationalityPicker((v) => { if (v) setNationalitySearch(''); return !v; })}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.06)',
+              borderRadius: 14,
+              padding: 14,
+              borderWidth: 1,
+              borderColor: showNationalityPicker ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.10)',
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Nationality</Text>
+            <Text style={{ color: theme.text, fontSize: 14 }}>
+              {(() => { const c = getCountry(profile.nationality); return c ? `${c.flag}  ${c.name}` : 'Not set'; })()}
+            </Text>
+          </Pressable>
+
+          {showNationalityPicker ? (
+            <View style={{
+              backgroundColor: 'rgba(8,24,39,0.95)',
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+              maxHeight: 320,
+              overflow: 'hidden',
+            }}>
+              <View style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                <TextInput
+                  value={nationalitySearch}
+                  onChangeText={setNationalitySearch}
+                  placeholder="Search country…"
+                  placeholderTextColor={theme.textMuted}
+                  autoFocus
+                  style={{
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    color: theme.text,
+                    borderRadius: 10,
+                    paddingHorizontal: 12,
+                    paddingVertical: 8,
+                    fontSize: 14,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.08)',
+                  }}
+                />
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled">
+                {(() => {
+                  const q = nationalitySearch.trim().toLowerCase();
+                  return COUNTRIES.filter((c) => !q || c.name.toLowerCase().includes(q));
+                })().map((country) => {
+                  const isSelected = profile.nationality === country.code;
+                  return (
+                    <Pressable
+                      key={country.code}
+                      onPress={async () => {
+                        setShowNationalityPicker(false);
+                        setNationalitySearch('');
+                        const { error } = await supabase
+                          .from('profiles')
+                          .update({ nationality: country.code })
+                          .eq('id', activeAppUserId);
+                        if (!error) {
+                          setProfile((prev) => prev ? { ...prev, nationality: country.code } : prev);
+                        }
+                      }}
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        paddingHorizontal: 16,
+                        paddingVertical: 12,
+                        backgroundColor: isSelected ? 'rgba(77,184,255,0.12)' : 'transparent',
+                        borderBottomWidth: 1,
+                        borderBottomColor: 'rgba(255,255,255,0.05)',
+                        gap: 12,
+                      }}
+                    >
+                      <Text style={{ fontSize: 22 }}>{country.flag}</Text>
+                      <Text style={{ color: isSelected ? '#4DB8FF' : theme.text, fontSize: 14, fontWeight: isSelected ? '800' : '600', flex: 1 }}>
+                        {country.name}
+                      </Text>
+                      {isSelected ? <Text style={{ color: '#4DB8FF', fontSize: 16 }}>✓</Text> : null}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
+
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
           <Pressable
             onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
-            style={{
-              marginTop: 8,
-              borderRadius: 14,
-              padding: 14,
-              alignItems: 'center',
-            }}
+            style={{ marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' }}
           >
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>Log out</Text>
           </Pressable>
@@ -8819,6 +9055,12 @@ const handleSave = async () => {
               style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }}
               resizeMode="contain"
             />
+
+            <View style={{ flex: 1, alignItems: 'flex-end' }}>
+              <Pressable onPress={() => setShowProfile(true)}>
+                <Avatar uri={profile?.avatar_url ?? null} size={38} nationality={profile?.nationality} />
+              </Pressable>
+            </View>
           </View>
 
           {plannedSession ? (
@@ -8893,7 +9135,7 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 12, justifyContent: 'flex-start' }}>
+        <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', gap: 10, marginBottom: 12, alignItems: 'center' }}>
           <Pressable
             onPress={() => setShowYourSpotsPage(true)}
             style={{
@@ -8946,41 +9188,43 @@ const handleSave = async () => {
             ) : null}
           </Pressable>
 
-          <Pressable
-            onPress={() => {
-              setIsNotificationInboxExpanded((prev) => {
-                const nextExpanded = !prev;
-                if (nextExpanded) void markAllBuzzAsRead();
-                return nextExpanded;
-              });
-            }}
-            style={{
-              width: homeActionButtonWidth,
-              backgroundColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.075)',
-              borderRadius: 999,
-              paddingVertical: 7,
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
-              position: 'relative',
-            }}
-          >
-            <Ionicons name={isNotificationInboxExpanded ? 'notifications' : 'notifications-outline'} size={20} color="#ffffff" />
-            {unreadCount > 0 ? (
-              <View style={{
-                position: 'absolute', top: -4, right: -4,
-                minWidth: 16, height: 16, borderRadius: 8,
-                backgroundColor: '#ff3b30',
-                alignItems: 'center', justifyContent: 'center',
-                paddingHorizontal: 3,
-              }}>
-                <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </Text>
-              </View>
-            ) : null}
-          </Pressable>
+          {/* Bell — compact, rechts uitgelijnd */}
+          <View style={{ flex: 1, alignItems: 'flex-end' }}>
+            <Pressable
+              onPress={() => {
+                setIsNotificationInboxExpanded((prev) => {
+                  const nextExpanded = !prev;
+                  if (nextExpanded) void markAllBuzzAsRead();
+                  return nextExpanded;
+                });
+              }}
+              style={{
+                width: 36, height: 36,
+                backgroundColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.07)',
+                borderRadius: 999,
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: isNotificationInboxExpanded ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.08)',
+                position: 'relative',
+              }}
+            >
+              <Ionicons name={isNotificationInboxExpanded ? 'notifications' : 'notifications-outline'} size={18} color="#ffffff" />
+              {unreadCount > 0 ? (
+                <View style={{
+                  position: 'absolute', top: -3, right: -3,
+                  minWidth: 15, height: 15, borderRadius: 8,
+                  backgroundColor: '#ff3b30',
+                  alignItems: 'center', justifyContent: 'center',
+                  paddingHorizontal: 3,
+                }}>
+                  <Text style={{ color: '#fff', fontSize: 8, fontWeight: '900' }}>
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+          </View>
         </View>
 
         {isNotificationInboxExpanded ? (

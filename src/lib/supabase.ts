@@ -22,6 +22,7 @@ export type Profile = {
   owner_uid?: string | null;
   email?: string | null;
   created_at?: string;
+  nationality?: string | null;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
