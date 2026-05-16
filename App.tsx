@@ -4465,65 +4465,7 @@ export default function App() {
     }
   }, [activeChatSpot, showChat]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Realtime: berichten ontvangen voor open spot chat
-  useEffect(() => {
-    if (!expandedChatSpot) return;
-    const convId = chatSpotMessages[expandedChatSpot]?.conversationId;
-    if (!convId) return;
-    const channel = supabase.channel(`chat-spot-${convId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
-        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
-        if (!row?.id || row.user_id === (activeProfile?.id ?? activeAppUserId)) return;
-        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
-        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
-        setChatSpotMessages((prev) => {
-          const existing = prev[expandedChatSpot]?.messages ?? [];
-          if (existing.some((m) => m.id === row.id)) return prev;
-          return { ...prev, [expandedChatSpot]: { ...prev[expandedChatSpot], messages: [...existing, newMsg] } };
-        });
-        if (!showChat) setChatUnreadCount((n) => n + 1);
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [expandedChatSpot, chatSpotMessages[expandedChatSpot]?.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Realtime: berichten ontvangen voor open DM
-  useEffect(() => {
-    if (!expandedDmId) return;
-    const channel = supabase.channel(`chat-dm-${expandedDmId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${expandedDmId}` }, async (payload) => {
-        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
-        if (!row?.id || row.user_id === (activeProfile?.id ?? activeAppUserId)) return;
-        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
-        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
-        setDmMessages((prev) => {
-          const existing = prev[expandedDmId] ?? [];
-          if (existing.some((m: any) => m.id === row.id)) return prev;
-          return { ...prev, [expandedDmId]: [...existing, newMsg] };
-        });
-        if (!showChat) setChatUnreadCount((n) => n + 1);
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [expandedDmId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Realtime: berichten ontvangen voor open sessie chat
-  useEffect(() => {
-    if (!expandedChatSession) return;
-    const convId = chatSessionMessages[expandedChatSession]?.conversationId;
-    if (!convId) return;
-    const channel = supabase.channel(`chat-session-${convId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
-        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
-        if (!row?.id) return;
-        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
-        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
-        setChatSessionMessages((prev) => {
-          const existing = prev[expandedChatSession]?.messages ?? [];
-          if (existing.some((m) => m.id === row.id)) return prev;
-          return { ...prev, [expandedChatSession]: { ...prev[expandedChatSession], messages: [...existing, newMsg] } };
-        });
-      }).subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [expandedChatSession, chatSessionMessages[expandedChatSession]?.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Per-conversation subscriptions verwijderd — de globale subscription (hieronder) verwerkt alles
 
   useEffect(() => {
     if (!activeAppUserId) {
@@ -4703,21 +4645,62 @@ export default function App() {
     for (const [, val] of Object.entries(chatSpotMessages)) {
       if (val.conversationId) ids.add(val.conversationId);
     }
+    for (const [, val] of Object.entries(chatSessionMessages)) {
+      if (val.conversationId) ids.add(val.conversationId);
+    }
     myConvIdsRef.current = ids;
-  }, [dmConversations, chatSpotMessages]);
+  }, [dmConversations, chatSpotMessages, chatSessionMessages]);
 
-  // Globale realtime subscription: berichten ontvangen ook als Messages tab gesloten is
+  // Globale realtime subscription — zonder server-side filter (werkt bij RLS)
   useEffect(() => {
     if (!activeAppUserId) return;
     const channel = supabase.channel(`global-messages-${activeAppUserId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        const row = payload.new as { id?: string; user_id?: string; conversation_id?: string };
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+        const row = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string };
         if (!row?.id || !row.user_id || row.user_id === activeAppUserId) return;
-        if (myConvIdsRef.current.has(row.conversation_id ?? '')) {
-          if (!showChatRef.current) {
-            setChatUnreadCount((n) => n + 1);
-          }
+
+        const convId = row.conversation_id ?? '';
+        if (!convId || !myConvIdsRef.current.has(convId)) return;
+
+        // Badge bijwerken als chat niet open is
+        if (!showChatRef.current) {
+          setChatUnreadCount((n) => n + 1);
         }
+
+        // Profiel ophalen voor de afzender
+        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+        const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
+
+        // Spot chat bijwerken
+        setChatSpotMessages((prev) => {
+          for (const [spotName, data] of Object.entries(prev)) {
+            if (data.conversationId === convId && data.loaded) {
+              if (data.messages.some((m) => m.id === row.id)) return prev;
+              return { ...prev, [spotName]: { ...data, messages: [...data.messages, newMsg] } };
+            }
+          }
+          return prev;
+        });
+
+        // Sessie chat bijwerken
+        setChatSessionMessages((prev) => {
+          for (const [gk, data] of Object.entries(prev)) {
+            if (data.conversationId === convId && data.loaded) {
+              if (data.messages.some((m) => m.id === row.id)) return prev;
+              return { ...prev, [gk]: { ...data, messages: [...data.messages, newMsg] } };
+            }
+          }
+          return prev;
+        });
+
+        // DM bijwerken
+        setDmMessages((prev) => {
+          if (prev[convId]) {
+            if ((prev[convId] as any[]).some((m) => m.id === row.id)) return prev;
+            return { ...prev, [convId]: [...prev[convId], newMsg] };
+          }
+          return prev;
+        });
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
