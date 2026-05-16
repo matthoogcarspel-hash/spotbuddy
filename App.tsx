@@ -5482,7 +5482,7 @@ export default function App() {
             });
           }}
           style={{
-            width: 88,
+            width: 60,
             height: 88,
             alignItems: 'center',
             justifyContent: 'center',
@@ -5504,6 +5504,12 @@ export default function App() {
               </View>
             ) : null}
           </View>
+        </Pressable>
+        <Pressable
+          onPress={() => setShowProfile(true)}
+          style={{ width: 60, height: 88, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+        >
+          <Avatar uri={profile?.avatar_url ?? null} size={32} nationality={profile?.nationality} />
         </Pressable>
       </View>
     );

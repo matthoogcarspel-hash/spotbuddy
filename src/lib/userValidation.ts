@@ -46,6 +46,10 @@ export const hasRestrictedWord = (username: string) => {
   return blockedWords.some((word) => normalizedUsername.includes(word));
 };
 
+export const hasEmoji = (username: string): boolean => {
+  return /\p{Extended_Pictographic}/u.test(username);
+};
+
 export const hasBlockedSpotbuddyName = (username: string, email: string) => {
   if (isAdminEmailException(email)) {
     return false;
