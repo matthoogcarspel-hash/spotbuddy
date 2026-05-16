@@ -2489,6 +2489,7 @@ export default function App() {
   const activeProfileIdRef = useRef<string | null>(null);
   const showChatRef = useRef(false);
   const myConvIdsRef = useRef<Set<string>>(new Set());
+  const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -4678,6 +4679,7 @@ export default function App() {
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
+  useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
   useEffect(() => {
     const ids = new Set<string>();
     for (const dm of dmConversations) ids.add(dm.id);
@@ -4701,26 +4703,26 @@ export default function App() {
         const convId = row.conversation_id ?? '';
         if (!convId || !myConvIdsRef.current.has(convId)) return;
 
-        // Type-specifieke teller wordt bijgewerkt in de state-setters hieronder
-
         // Profiel ophalen voor de afzender
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
-        // Spot chat bijwerken + in-app toast tonen
-        setChatSpotMessages((prev) => {
-          for (const [spotName, data] of Object.entries(prev)) {
-            if (data.conversationId === convId) {  // loaded check verwijderd
-              if (data.messages.some((m) => m.id === row.id)) return prev;
-              // Badge op Messages icoon + ongelezen teller per spot
-              if (!showChatRef.current) {
-                setUnreadBySpot((prev2) => ({ ...prev2, [spotName]: (prev2[spotName] ?? 0) + 1 }));
-              }
-              return { ...prev, [spotName]: { ...data, messages: [...data.messages, newMsg] } };
-            }
+        // Spot chat: spotName opzoeken via ref (niet binnen setState callback)
+        const spotEntry = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId);
+        const matchedSpotName = spotEntry?.[0] ?? null;
+
+        if (matchedSpotName) {
+          // Unread teller apart updaten (NIET binnen setChatSpotMessages)
+          if (!showChatRef.current) {
+            setUnreadBySpot((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
           }
-          return prev;
-        });
+          // Bericht toevoegen
+          setChatSpotMessages((prev) => {
+            const data = prev[matchedSpotName];
+            if (!data || data.messages.some((m) => m.id === row.id)) return prev;
+            return { ...prev, [matchedSpotName]: { ...data, messages: [...data.messages, newMsg] } };
+          });
+        }
 
         // Sessie chat bijwerken
         setChatSessionMessages((prev) => {
