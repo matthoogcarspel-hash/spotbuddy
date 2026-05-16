@@ -6934,14 +6934,19 @@ export default function App() {
     if (!activeAppUserId) return;
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    // Query de eigen sessies van de user (niet gefilterd op gevolgde spots)
     const { data } = await supabase.from('sessions')
       .select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
       .eq('user_id', activeAppUserId)
       .in('session_day', [today, tomorrow])
       .order('session_day').order('start_time');
-    // Alleen overschrijven als er resultaten zijn, anders bestaande data behouden
-    if (data && data.length > 0) setChatMySessions(data);
+    if (data) {
+      // Merge: handmatig toegevoegde sessies (groupKey als ID) behouden
+      setChatMySessions((prev) => {
+        const dbIds = new Set((data).map((s) => s.id));
+        const manual = prev.filter((s) => !dbIds.has(s.id)); // handmatige sessies
+        return [...(data), ...manual];
+      });
+    }
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
@@ -7050,7 +7055,7 @@ export default function App() {
     const text = dmInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text || !conversationId || !senderId) return;
-    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, created_at: new Date().toISOString() });
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
     if (error) { console.error('DM_SEND_ERROR', error); return; }
     setDmInput('');
     Keyboard.dismiss();
@@ -7613,7 +7618,10 @@ export default function App() {
       if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot);
       else if (expandedChatSession) {
         const s = chatMySessions.find((x) => (x.group_key ?? x.id) === expandedChatSession);
-        if (s) void sendSessionMessageInChatTab(expandedChatSession, s.spot_name, s.session_day);
+        // Fallback: gebruik openConvName (spot naam) en openConvSub (datum) als sessie niet in lijst staat
+        const spotName = s?.spot_name ?? openConvName;
+        const sessionDay = s?.session_day ?? (openConvSub?.split(' ·')?.[0] ?? new Date().toISOString().split('T')[0]);
+        void sendSessionMessageInChatTab(expandedChatSession, spotName, sessionDay);
       }
       else if (expandedDmId) void sendDmMessage(expandedDmId);
     };
