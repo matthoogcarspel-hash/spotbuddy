@@ -7545,6 +7545,7 @@ export default function App() {
 
     const chatContent = (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
+        <KeyboardAvoidingView behavior={isWebPlatform ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
@@ -7849,6 +7850,7 @@ export default function App() {
             </View>
           )}
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
 
