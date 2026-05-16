@@ -8063,6 +8063,49 @@ export default function App() {
             </View>
           ) : null}
 
+          {/* Skill level */}
+          <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
+            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 12 }}>Skill level</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              {([
+                { level: 1, name: 'Grom' },
+                { level: 2, name: 'Ripper' },
+                { level: 3, name: 'Freerider' },
+                { level: 4, name: 'Shredder' },
+                { level: 5, name: 'Storm Chaser' },
+              ] as const).map(({ level, name }) => {
+                const isSelected = profile.skill_level === level;
+                return (
+                  <Pressable
+                    key={`skill-${level}`}
+                    onPress={async () => {
+                      const newLevel = isSelected ? null : level;
+                      const { error } = await supabase.from('profiles').update({ skill_level: newLevel }).eq('id', activeAppUserId);
+                      if (!error) setProfile((prev) => prev ? { ...prev, skill_level: newLevel } : prev);
+                    }}
+                    style={{
+                      flex: 1,
+                      alignItems: 'center',
+                      paddingVertical: 8,
+                      borderRadius: 10,
+                      backgroundColor: isSelected ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.04)',
+                      borderWidth: 1,
+                      borderColor: isSelected ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)',
+                    }}
+                  >
+                    <Text style={{ color: isSelected ? '#4DB8FF' : theme.textMuted, fontSize: 18, marginBottom: 2 }}>{'⬤'}</Text>
+                    <Text style={{ color: isSelected ? '#4DB8FF' : theme.textMuted, fontSize: 9, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{name}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            {profile.skill_level ? (
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10, textAlign: 'center' }}>
+                {['', 'Grom — just started', 'Ripper — first real rides', 'Freerider — comfortable riding', 'Shredder — big air & toeside', 'Storm Chaser — heavy conditions'][profile.skill_level]}
+              </Text>
+            ) : null}
+          </View>
+
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
           <Pressable

@@ -23,6 +23,7 @@ export type Profile = {
   email?: string | null;
   created_at?: string;
   nationality?: string | null;
+  skill_level?: number | null;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
