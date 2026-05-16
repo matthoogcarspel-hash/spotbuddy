@@ -2481,6 +2481,8 @@ export default function App() {
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
   const activeProfileIdRef = useRef<string | null>(null);
+  const showChatRef = useRef(false);
+  const myConvIdsRef = useRef<Set<string>>(new Set());
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -4678,6 +4680,33 @@ export default function App() {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [activeAppUserId]);
+
+  // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
+  useEffect(() => { showChatRef.current = showChat; }, [showChat]);
+  useEffect(() => {
+    const ids = new Set<string>();
+    for (const dm of dmConversations) ids.add(dm.id);
+    for (const [, val] of Object.entries(chatSpotMessages)) {
+      if (val.conversationId) ids.add(val.conversationId);
+    }
+    myConvIdsRef.current = ids;
+  }, [dmConversations, chatSpotMessages]);
+
+  // Globale realtime subscription: berichten ontvangen ook als Messages tab gesloten is
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    const channel = supabase.channel(`global-messages-${activeAppUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        const row = payload.new as { id?: string; user_id?: string; conversation_id?: string };
+        if (!row?.id || !row.user_id || row.user_id === activeAppUserId) return;
+        if (myConvIdsRef.current.has(row.conversation_id ?? '')) {
+          if (!showChatRef.current) {
+            setChatUnreadCount((n) => n + 1);
+          }
+        }
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setHomeQuickCheckInError('');
@@ -7522,9 +7551,10 @@ export default function App() {
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
               <Pressable
                 onPress={() => setShowMessagesAlertSettings((v) => !v)}
-                style={{ backgroundColor: showMessagesAlertSettings ? 'rgba(77,184,255,0.15)' : theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: showMessagesAlertSettings ? 'rgba(77,184,255,0.35)' : theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}
               >
-                <Text style={{ color: showMessagesAlertSettings ? '#4DB8FF' : theme.text, fontSize: 12, fontWeight: '700' }}>🔔 Alerts</Text>
+                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
+                <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: showMessagesAlertSettings ? theme.primary : theme.textMuted }} />
               </Pressable>
               <Pressable onPress={() => setShowChat(false)} style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
@@ -7961,23 +7991,40 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 13 }}>No buddies match "{normalizedBuddySearch}"</Text>
               ) : (
                 <>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16, marginBottom: 8 }}>
-                    {filteredBuddies.map((u) => (
-                      <Pressable
-                        key={`buddy-${u.id}`}
-                        onPress={() => setViewingOtherUserId(u.id)}
-                        onLongPress={() => void handleUnfollowUser(u.id)}
-                        disabled={buddyActionUserId === u.id}
-                        style={{ alignItems: 'center', width: 60, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}
-                      >
-                        <Avatar uri={u.avatar_url} size={50} />
-                        <Text numberOfLines={1} style={{ color: theme.textSoft, fontSize: 10, fontWeight: '700', marginTop: 5, textAlign: 'center', width: 60 }}>
-                          {u.display_name.split(' ')[0]}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 4 }}>Long press to remove</Text>
+                  {filteredBuddies.map((u) => (
+                    <UserRow
+                      key={`buddy-list-${u.id}`}
+                      avatar={u.avatar_url}
+                      name={u.display_name}
+                      right={
+                        <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
+                          <Pressable
+                            onPress={async () => {
+                              const convId = await openDmWithUser(u.id);
+                              setShowBuddies(false);
+                              if (convId) {
+                                setShowChat(true);
+                                setChatSubTab('dm');
+                                setExpandedDmId(convId);
+                                void loadDmMessages(convId);
+                                void loadDmConversations();
+                              }
+                            }}
+                            style={{ backgroundColor: 'rgba(77,184,255,0.12)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}
+                          >
+                            <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '800' }}>Message</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => setViewingOtherUserId(u.id)}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
+                          >
+                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Profile</Text>
+                          </Pressable>
+                        </View>
+                      }
+                    />
+                  ))}
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 8 }}>Tap "Profile" to view or remove a buddy</Text>
                 </>
               )}
             </>
