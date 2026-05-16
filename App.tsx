@@ -7868,6 +7868,9 @@ export default function App() {
 
     // Native: eigen shell renderen zodat KAV direct onder de topbar zit (geen paddingBottom: 96)
     if (!isWebPlatform) {
+      // inputBarBottom MOET voor fullScreenChat gedefinieerd zijn (anders undefined in JSX)
+      const inputBarBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : 90;
+
       const fullScreenChat = (
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
@@ -7910,8 +7913,6 @@ export default function App() {
           </View>
         </View>
       );
-
-      const inputBarBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : 90;
 
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
