@@ -1704,6 +1704,7 @@ type SessionRowProps = {
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onAvatarPress?: (userId: string) => void;
+  onEditSession?: (session: { id: string; start: string | null; end: string | null; intent: string | null }) => void;
 };
 
 function SessionRow({
@@ -1723,6 +1724,7 @@ function SessionRow({
   onOpenGroupChat,
   activeGroupChatKey,
   onAvatarPress,
+  onEditSession,
 }: SessionRowProps) {
   const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -1834,7 +1836,14 @@ function SessionRow({
             intent={rowIntent}
             isSelected={isSelected}
             showJoinButton={false}
-            onPress={() => onSelect(group.key)}
+            onPress={() => {
+              const isOwnBar = session?.userId === currentProfileId;
+              if (isOwnBar && onEditSession) {
+                onEditSession({ id: session.id, start: session.start ?? null, end: session.end ?? null, intent: session.intent ?? null });
+              } else {
+                onSelect(group.key);
+              }
+            }}
             label={`${group.startTime} – ${group.endTime}`}
             onJoin={() => {
               if (!joinTarget) return;
@@ -1975,6 +1984,7 @@ type SessionTimelineProps = {
   activeGroupChatKey: string | null;
   onClearSelection: () => void;
   onAvatarPress?: (userId: string) => void;
+  onEditSession?: (session: { id: string; start: string | null; end: string | null; intent: string | null }) => void;
 };
 
 const getGroupCleanStatus = (group: any): 'live' | 'going' | 'maybe' => {
@@ -2002,6 +2012,7 @@ function SessionTimeline({
   activeGroupChatKey,
   onClearSelection,
   onAvatarPress,
+  onEditSession,
 }: SessionTimelineProps) {
   const isWebPlatform = Platform.OS === 'web';
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
@@ -2330,6 +2341,7 @@ function SessionTimeline({
                       onOpenGroupChat={onOpenGroupChat}
                       activeGroupChatKey={activeGroupChatKey}
                       onAvatarPress={onAvatarPress}
+                      onEditSession={onEditSession}
                     />
                     </View>
                   ))}
@@ -9262,8 +9274,71 @@ const handleSave = async () => {
                 gap: 10,
               }}
             >
-              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start' }}>
-                <View style={{ flex: 1 }}>
+              {isWebPlatform ? (
+                /* Web: grid pickers */
+                <>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>Start time</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
+                      <Text style={{ color: startHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{startHour === null ? '--' : formatTimePart(startHour)}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
+                      <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(startMinute)}</Text>
+                    </Pressable>
+                  </View>
+                  {activePicker === 'startHour' && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                      {startHourOptions.map((hour) => (
+                        <Pressable key={`sh-${hour}`} onPress={() => { setStartHour(hour); if (planningNowReference.isToday) { const e = minuteOptions.find((m) => (hour * 60) + m >= planningNowReference.earliestStartMinutes); if (e !== undefined && startMinute < e) setStartMinute(e); } }} style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
+                          <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                  {activePicker === 'startMinute' && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                      {minuteOptions.filter((m) => startHour !== null && (!planningNowReference.isToday || (startHour * 60) + m >= planningNowReference.earliestStartMinutes) && (startHour * 60) + m <= planningNowReference.latestPlanningStartMinutes).map((m) => (
+                        <Pressable key={`sm-${m}`} onPress={() => setStartMinute(m)} style={{ backgroundColor: startMinute === m ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
+                          <Text style={{ color: theme.text }}>{formatTimePart(m)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>End time</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
+                      <Text style={{ color: endHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{endHour === null ? '--' : formatTimePart(endHour)}</Text>
+                    </Pressable>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
+                      <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(endMinute)}</Text>
+                    </Pressable>
+                  </View>
+                  {activePicker === 'endHour' && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                      {(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22).map((h) => (
+                        <Pressable key={`eh-${h}`} onPress={() => setEndHour(h)} style={{ backgroundColor: endHour === h ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
+                          <Text style={{ color: theme.text }}>{formatTimePart(h)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                  {activePicker === 'endMinute' && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                      {minuteOptions.map((m) => (
+                        <Pressable key={`em-${m}`} onPress={() => setEndMinute(m)} style={{ backgroundColor: endMinute === m ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
+                          <Text style={{ color: theme.text }}>{formatTimePart(m)}</Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : (
+                /* Native: wheel pickers */
+                <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 10 }}>
                   <WheelPicker
                     values={startHourOptions}
                     selected={startHour}
@@ -9274,41 +9349,23 @@ const handleSave = async () => {
                         if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest);
                       }
                     }}
-                    label="Start hour"
+                    label="Start"
                     formatVal={formatTimePart}
                   />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <WheelPicker
-                    values={minuteOptions}
-                    selected={startMinute}
-                    onSelect={setStartMinute}
-                    label="Start min"
-                    formatVal={formatTimePart}
-                  />
-                </View>
-                <View style={{ alignSelf: 'center', paddingTop: 20 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18, fontWeight: '300' }}>—</Text>
-                </View>
-                <View style={{ flex: 1 }}>
+                  <WheelPicker values={minuteOptions} selected={startMinute} onSelect={setStartMinute} label="Min" formatVal={formatTimePart} />
+                  <View style={{ alignSelf: 'center', paddingTop: 18, paddingHorizontal: 2 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 20 }}>–</Text>
+                  </View>
                   <WheelPicker
                     values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)}
                     selected={endHour}
                     onSelect={setEndHour}
-                    label="End hour"
+                    label="End"
                     formatVal={formatTimePart}
                   />
+                  <WheelPicker values={minuteOptions} selected={endMinute} onSelect={setEndMinute} label="Min" formatVal={formatTimePart} />
                 </View>
-                <View style={{ flex: 1 }}>
-                  <WheelPicker
-                    values={minuteOptions}
-                    selected={endMinute}
-                    onSelect={setEndMinute}
-                    label="End min"
-                    formatVal={formatTimePart}
-                  />
-                </View>
-              </View>
+              )}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                 Intent
               </Text>
@@ -9451,6 +9508,21 @@ const handleSave = async () => {
             activeGroupChatKey={activeGroupChatKey}
             onAvatarPress={(userId) => {
               if (userId !== activeAppUserId) setViewingOtherUserId(userId);
+            }}
+            onEditSession={(s) => {
+              const parsed = parseHourMinuteParts(s.start ?? '');
+              const parsedEnd = parseHourMinuteParts(s.end ?? '');
+              setEditingSessionId(s.id);
+              setStartHour(parsed.hour);
+              setStartMinute(parsed.minute);
+              setEndHour(parsedEnd.hour);
+              setEndMinute(parsedEnd.minute);
+              setIntent(resolveSessionIntent(s.intent));
+              setShowForm(true);
+              setShowManageSessions(false);
+              setActivePicker(null);
+              setFormError('');
+              setSaveError(null);
             }}
           />
 
