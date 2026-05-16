@@ -5732,31 +5732,33 @@ export default function App() {
 
     return (
       <>
-        {/* FAB */}
+        {/* FAB — Instagram-stijl: klein grijs afgerond vierkant */}
         <Pressable
           onPress={() => setShowPlanModal(true)}
           style={{
             position: 'absolute',
             bottom: 100,
-            right: 20,
+            right: 16,
             zIndex: 100,
             elevation: 100,
           }}
         >
           <View style={{
-            width: 56,
-            height: 56,
-            borderRadius: 28,
-            backgroundColor: theme.primary,
+            width: 44,
+            height: 44,
+            borderRadius: 14,
+            backgroundColor: 'rgba(255,255,255,0.14)',
             alignItems: 'center',
             justifyContent: 'center',
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.35,
-            shadowRadius: 8,
-            elevation: 10,
+            shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.18,
+            shadowRadius: 6,
+            elevation: 6,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.18)',
           }}>
-            <Ionicons name="add" size={28} color="#ffffff" />
+            <Ionicons name="add" size={22} color="rgba(255,255,255,0.85)" />
           </View>
         </Pressable>
 
@@ -7647,7 +7649,7 @@ export default function App() {
             </ScrollView>
 
             {/* Invoerbalk — pill style */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                 <TextInput
                   value={openInput}
@@ -7868,66 +7870,61 @@ export default function App() {
       </SafeAreaView>
     );
 
-    // Native: eigen shell renderen zodat KAV direct onder de topbar zit (geen paddingBottom: 96)
+    // Native: eigen shell renderen zodat KAV direct onder de topbar zit
     if (!isWebPlatform) {
-      // inputBarBottom MOET voor fullScreenChat gedefinieerd zijn (anders undefined in JSX)
-      const inputBarBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : 90;
-
-      // Invoerbalk absoluut gepositioneerd — bottom = keyboard hoogte of nav hoogte
-      const inputBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : inputBarBottom;
-
-      const fullScreenChat = (
-        <View style={{ flex: 1 }}>
-          {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
-            <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
-              <Ionicons name="chevron-back" size={22} color={theme.text} />
-            </Pressable>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-              {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
-            </View>
-          </View>
-
-          {/* Berichten — extra paddingBottom zodat laatste bericht niet achter invoerbalk verdwijnt */}
-          <ScrollView
-            ref={openScrollRef}
-            style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: inputBottom + 60 }}
-            keyboardDismissMode="on-drag"
-            keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
-            onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
-          >
-            {!openMessages.length
-              ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
-              : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
-            }
-          </ScrollView>
-
-          {/* Invoerbalk — absoluut boven toetsenbord of boven bottom nav */}
-          <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingLeft: 16, paddingRight: 84, paddingTop: 8, paddingBottom: 8, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
-              <TextInput
-                value={openInput}
-                onChangeText={setOpenInput}
-                onSubmitEditing={handleOpenSend}
-                blurOnSubmit={false}
-                autoFocus={false}
-                placeholder="Type a message…"
-                placeholderTextColor={theme.textMuted}
-                style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
-              />
-              <Pressable
-                onPress={handleOpenSend}
-                disabled={!openInput.trim()}
-                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}
-              >
-                <Ionicons name="arrow-up" size={17} color="#ffffff" />
+      const fullScreenChatNative = (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          <View style={{ flex: 1 }}>
+            {/* Header */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+              <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
+                <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
+              </View>
+            </View>
+
+            {/* Berichten */}
+            <ScrollView
+              ref={openScrollRef}
+              style={{ flex: 1 }}
+              contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+              onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {!openMessages.length
+                ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
+                : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
+              }
+            </ScrollView>
+
+            {/* Invoerbalk — in flex flow, geen absolute positioning */}
+            <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 96, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
+                <TextInput
+                  value={openInput}
+                  onChangeText={setOpenInput}
+                  onSubmitEditing={handleOpenSend}
+                  blurOnSubmit={false}
+                  placeholder="Type a message…"
+                  placeholderTextColor={theme.textMuted}
+                  style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
+                />
+                <Pressable
+                  onPress={handleOpenSend}
+                  disabled={!openInput.trim()}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}
+                >
+                  <Ionicons name="arrow-up" size={17} color="#ffffff" />
+                </Pressable>
+              </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       );
 
       return (
@@ -7935,7 +7932,7 @@ export default function App() {
           <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
           {renderNativeTopBar()}
           <View style={{ flex: 1, backgroundColor: theme.bg }}>
-            {isAnyConvOpen ? fullScreenChat : (
+            {isAnyConvOpen ? fullScreenChatNative : (
               <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
                   <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
