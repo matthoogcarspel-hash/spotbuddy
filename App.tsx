@@ -5732,33 +5732,31 @@ export default function App() {
 
     return (
       <>
-        {/* FAB — Instagram-stijl: klein grijs afgerond vierkant */}
+        {/* FAB — Instagram-stijl: grijs pill aan rechterrand, deels buiten beeld */}
         <Pressable
           onPress={() => setShowPlanModal(true)}
           style={{
             position: 'absolute',
-            bottom: 100,
-            right: 16,
+            bottom: 108,
+            right: -4,
             zIndex: 100,
             elevation: 100,
           }}
         >
           <View style={{
-            width: 44,
-            height: 44,
-            borderRadius: 14,
-            backgroundColor: 'rgba(255,255,255,0.14)',
+            width: 52,
+            height: 52,
+            borderRadius: 16,
+            backgroundColor: 'rgba(58,64,80,0.92)',
             alignItems: 'center',
             justifyContent: 'center',
             shadowColor: '#000',
-            shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.18,
-            shadowRadius: 6,
-            elevation: 6,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.18)',
+            shadowOffset: { width: -2, height: 2 },
+            shadowOpacity: 0.22,
+            shadowRadius: 8,
+            elevation: 8,
           }}>
-            <Ionicons name="add" size={22} color="rgba(255,255,255,0.85)" />
+            <Ionicons name="add" size={26} color="rgba(255,255,255,0.90)" />
           </View>
         </Pressable>
 
@@ -7599,6 +7597,7 @@ export default function App() {
       : setDmInput;
 
     const handleOpenSend = () => {
+      Keyboard.dismiss();
       if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot);
       else if (expandedChatSession) {
         const s = chatMySessions.find((x) => (x.group_key ?? x.id) === expandedChatSession);
@@ -7902,8 +7901,8 @@ export default function App() {
               }
             </ScrollView>
 
-            {/* Invoerbalk — in flex flow, geen absolute positioning */}
-            <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 96, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            {/* Invoerbalk — SafeAreaView zorgt voor veilige ruimte onderaan */}
+            <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                 <TextInput
                   value={openInput}
@@ -7933,6 +7932,7 @@ export default function App() {
           {renderNativeTopBar()}
           <View style={{ flex: 1, backgroundColor: theme.bg }}>
             {isAnyConvOpen ? fullScreenChatNative : (
+              /* Lijst-modus */
               <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
                   <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -7980,7 +7980,8 @@ export default function App() {
               </ScrollView>
             )}
           </View>
-          {renderNativeBottomNav()}
+          {/* Bottom nav alleen in lijst-modus — in chat-modus zorgt SafeAreaView voor de ruimte */}
+          {!isAnyConvOpen && renderNativeBottomNav()}
         </SafeAreaView>
       );
     }
