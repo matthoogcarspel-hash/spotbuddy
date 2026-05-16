@@ -4713,10 +4713,8 @@ export default function App() {
           for (const [spotName, data] of Object.entries(prev)) {
             if (data.conversationId === convId) {  // loaded check verwijderd
               if (data.messages.some((m) => m.id === row.id)) return prev;
-              // Toast + ongelezen badge per spot tonen als de gebruiker niet in deze chat zit
+              // Badge op Messages icoon + ongelezen teller per spot
               if (!showChatRef.current) {
-                setInAppChatToast({ spotName, text: row.text ?? '', senderName: p?.display_name ?? 'Someone' });
-                setTimeout(() => setInAppChatToast(null), 4500);
                 setUnreadBySpot((prev2) => ({ ...prev2, [spotName]: (prev2[spotName] ?? 0) + 1 }));
               }
               return { ...prev, [spotName]: { ...data, messages: [...data.messages, newMsg] } };
@@ -5754,7 +5752,7 @@ export default function App() {
       { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: unreadCount > 0 && !isHome ? unreadCount : null, isActive: isHome },
       { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
       { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
-      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: chatUnreadCount > 0 ? chatUnreadCount : null, isActive: isChat },
+      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: (() => { const total = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + chatUnreadCount; return total > 0 ? total : null; })(), isActive: isChat },
     ];
 
     return (
@@ -10720,37 +10718,6 @@ const handleSave = async () => {
         </ScrollView>
       </View>
       {renderNativeBottomNav()}
-
-      {/* In-app chat toast — verschijnt als een bericht binnenkomt terwijl je niet in Messages zit */}
-      {inAppChatToast && (
-        <Pressable
-          onPress={() => {
-            const sn = inAppChatToast.spotName;
-            setInAppChatToast(null);
-            setShowChat(true); setChatUnreadCount(0);
-            setChatSubTab('spot');
-            setExpandedChatSpot(sn);
-            setUnreadBySpot((p) => ({ ...p, [sn]: 0 }));
-            if (!chatSpotMessages[sn]?.loaded) void loadSpotChatForTab(sn);
-          }}
-          style={{ position: 'absolute', top: isWebPlatform ? 16 : 100, left: 16, right: 16, zIndex: 9999, elevation: 9999 }}
-        >
-          <View style={{ backgroundColor: '#0d1b2a', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}>
-            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(77,184,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="chatbubbles" size={18} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }} numberOfLines={1}>{inAppChatToast.spotName}</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
-                {inAppChatToast.senderName}: {inAppChatToast.text}
-              </Text>
-            </View>
-            <Pressable onPress={() => setInAppChatToast(null)} hitSlop={10}>
-              <Ionicons name="close" size={16} color={theme.textMuted} />
-            </Pressable>
-          </View>
-        </Pressable>
-      )}
 
       {/* Other user profile modal */}
       {viewingOtherUserId && (
