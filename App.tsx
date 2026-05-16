@@ -4707,21 +4707,25 @@ export default function App() {
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
-        // Spot chat: spotName opzoeken via ref (niet binnen setState callback)
-        const spotEntry = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId);
-        const matchedSpotName = spotEntry?.[0] ?? null;
+        // Spot naam: direct uit het bericht (spot_name kolom) of via ref
+        const rowFull = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string; spot_name?: string };
+        const spotNameFromMsg = rowFull.spot_name ?? null;
+        const spotNameFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
+        const matchedSpotName = spotNameFromMsg ?? spotNameFromRef;
 
         if (matchedSpotName) {
           // Unread teller apart updaten (NIET binnen setChatSpotMessages)
           if (!showChatRef.current) {
             setUnreadBySpot((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
           }
-          // Bericht toevoegen
+          // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
             const data = prev[matchedSpotName];
-            if (!data || data.messages.some((m) => m.id === row.id)) return prev;
-            return { ...prev, [matchedSpotName]: { ...data, messages: [...data.messages, newMsg] } };
+            if (data && data.messages.some((m) => m.id === row.id)) return prev;
+            const existing = data ?? { conversationId: convId, messages: [], loaded: false };
+            return { ...prev, [matchedSpotName]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
           });
+          return; // verwerkt als spot chat
         }
 
         // Sessie chat bijwerken
