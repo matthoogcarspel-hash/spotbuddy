@@ -7646,24 +7646,26 @@ export default function App() {
               )}
             </ScrollView>
 
-            {/* Invoerbalk */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.07)', paddingLeft: 16, paddingRight: 10, paddingVertical: 8 }}>
-              <TextInput
-                value={openInput}
-                onChangeText={setOpenInput}
-                onSubmitEditing={handleOpenSend}
-                blurOnSubmit={false}
-                placeholder="Type a message…"
-                placeholderTextColor={theme.textMuted}
-                style={({ flex: 1, color: theme.text, paddingVertical: 8, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
-              />
-              <Pressable
-                onPress={handleOpenSend}
-                disabled={!openInput.trim()}
-                style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Ionicons name="arrow-up" size={18} color="#ffffff" />
-              </Pressable>
+            {/* Invoerbalk — pill style */}
+            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
+                <TextInput
+                  value={openInput}
+                  onChangeText={setOpenInput}
+                  onSubmitEditing={handleOpenSend}
+                  blurOnSubmit={false}
+                  placeholder="Type a message…"
+                  placeholderTextColor={theme.textMuted}
+                  style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                />
+                <Pressable
+                  onPress={handleOpenSend}
+                  disabled={!openInput.trim()}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}
+                >
+                  <Ionicons name="arrow-up" size={17} color="#ffffff" />
+                </Pressable>
+              </View>
             </View>
           </View>
         ) : (
@@ -7896,20 +7898,27 @@ export default function App() {
               : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
             }
           </ScrollView>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, paddingRight: 10, paddingTop: 8, paddingBottom: 10, marginBottom: inputBarBottom }}>
-            <TextInput
-              value={openInput}
-              onChangeText={setOpenInput}
-              onSubmitEditing={handleOpenSend}
-              blurOnSubmit={false}
-              autoFocus={false}
-              placeholder="Type a message…"
-              placeholderTextColor={theme.textMuted}
-              style={{ flex: 1, color: theme.text, paddingVertical: 8, paddingRight: 8, fontSize: 15 }}
-            />
-            <Pressable onPress={handleOpenSend} disabled={!openInput.trim()} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="arrow-up" size={18} color="#ffffff" />
-            </Pressable>
+          {/* Invoerbalk — pill style, ruimte rechts voor FAB */}
+          <View style={{ paddingLeft: 16, paddingRight: 84, paddingTop: 10, paddingBottom: 10, marginBottom: inputBarBottom, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
+              <TextInput
+                value={openInput}
+                onChangeText={setOpenInput}
+                onSubmitEditing={handleOpenSend}
+                blurOnSubmit={false}
+                autoFocus={false}
+                placeholder="Type a message…"
+                placeholderTextColor={theme.textMuted}
+                style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
+              />
+              <Pressable
+                onPress={handleOpenSend}
+                disabled={!openInput.trim()}
+                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}
+              >
+                <Ionicons name="arrow-up" size={17} color="#ffffff" />
+              </Pressable>
+            </View>
           </View>
         </View>
       );
