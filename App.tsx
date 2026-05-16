@@ -8754,10 +8754,12 @@ const handleSave = async () => {
               style={{
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: 'rgba(77,184,255,0.25)',
-                backgroundColor: 'rgba(77,184,255,0.07)',
+                borderColor: 'rgba(77,184,255,0.40)',
+                backgroundColor: 'rgba(8,24,39,0.72)',
                 paddingVertical: 14,
+                paddingHorizontal: 20,
                 alignItems: 'center',
+                alignSelf: isWebPlatform ? 'flex-start' : 'stretch',
               }}
             >
               <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Plan a session</Text>
@@ -8998,11 +9000,13 @@ const handleSave = async () => {
               </Text>
 
               <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Hour: {startHour === null ? '--' : formatTimePart(startHour)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
+                  <Text style={{ color: startHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{startHour === null ? '--' : formatTimePart(startHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Minute: {formatTimePart(startMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(startMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'startHour' ? (
@@ -9052,11 +9056,13 @@ const handleSave = async () => {
               </Text>
 
               <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Hour: {endHour === null ? '--' : formatTimePart(endHour)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
+                  <Text style={{ color: endHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{endHour === null ? '--' : formatTimePart(endHour)}</Text>
                 </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>Minute: {formatTimePart(endMinute)}</Text>
+                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
+                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(endMinute)}</Text>
                 </Pressable>
               </View>
               {activePicker === 'endHour' ? (
@@ -9096,10 +9102,10 @@ const handleSave = async () => {
                           ? (option.value === 'definitely' ? '#4DB8FF' : '#5F83A6')
                           : 'rgba(255,255,255,0.045)',
                         borderRadius: 10,
-                        
-                        borderColor: theme.border,
-                        paddingVertical: 6,
-                        paddingHorizontal: 8,
+                        borderWidth: 1,
+                        borderColor: isActive ? 'transparent' : 'rgba(255,255,255,0.10)',
+                        paddingVertical: 8,
+                        paddingHorizontal: 12,
                         alignItems: 'center',
                       }}
                     >
