@@ -6954,17 +6954,23 @@ export default function App() {
     Keyboard.dismiss();
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
-    // Push notificatie naar andere deelnemers
-    void supabase.rpc('create_chat_notification', {
-      actor_profile_id: senderId,
-      spot_name_param: spotName,
-      session_day_param: today,
-      message_preview_param: text,
-    }).then(({ data: recipients }) => {
-      const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+    // Push naar spot-volgers — GEEN create_chat_notification (dat gaat naar bell, niet Messages)
+    void (async () => {
+      const { data: followers } = await supabase
+        .from('spot_followers')
+        .select('user_id')
+        .eq('spot_name', spotName)
+        .neq('user_id', activeAppUserId ?? '');
+      const followerUids = (followers ?? []).map((f) => f.user_id).filter(Boolean);
+      if (!followerUids.length) return;
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('owner_uid', followerUids);
+      const ids = (profiles ?? []).map((p) => p.id).filter(Boolean);
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
-      void sendPushToRecipients(ids, `${actorName} in ${spotName}`, text, { type: 'chat_message', spotName });
-    });
+      void sendPushToRecipients(ids, `${actorName} · ${spotName}`, text, { type: 'chat_message', spotName });
+    })();
   };
 
   const loadMySessionsForChatTab = async () => {
