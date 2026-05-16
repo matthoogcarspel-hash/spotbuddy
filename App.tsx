@@ -7902,14 +7902,25 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                const unread = unreadBySpot[spotName] ?? 0;
+                // Case-insensitive lookup zodat key-mismatch nooit een probleem is
+                const unread = Object.entries(unreadBySpot)
+                  .find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1] ?? 0;
                 return (
-                  <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setUnreadBySpot((p) => ({ ...p, [spotName]: 0 })); if (!chatData?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.07)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Pressable key={spotName} onPress={() => {
+                    setExpandedChatSpot(spotName);
+                    // Reset alle varianten van deze spot naam (case-insensitief)
+                    setUnreadBySpot((p) => {
+                      const next = { ...p };
+                      Object.keys(next).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) next[k] = 0; });
+                      return next;
+                    });
+                    if (!chatData?.loaded) void loadSpotChatForTab(spotName);
+                  }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="location" size={18} color={theme.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: unread > 0 ? theme.text : theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
+                      <Text style={{ color: theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
                       <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
                         {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
                       </Text>
