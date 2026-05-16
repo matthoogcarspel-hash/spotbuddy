@@ -6940,8 +6940,14 @@ export default function App() {
     if (!activeAppUserId) return;
     const today = new Date().toISOString().split('T')[0];
     const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-    const { data } = await supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time, group_key, user_id').in('spot_name', favoriteSpots.length ? favoriteSpots : ['']).in('session_day', [today, tomorrow]).order('session_day').order('start_time');
-    setChatMySessions(data ?? []);
+    // Query de eigen sessies van de user (niet gefilterd op gevolgde spots)
+    const { data } = await supabase.from('sessions')
+      .select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
+      .eq('user_id', activeAppUserId)
+      .in('session_day', [today, tomorrow])
+      .order('session_day').order('start_time');
+    // Alleen overschrijven als er resultaten zijn, anders bestaande data behouden
+    if (data && data.length > 0) setChatMySessions(data);
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
@@ -7549,21 +7555,28 @@ export default function App() {
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
         <KeyboardAvoidingView behavior={isWebPlatform ? undefined : 'padding'} style={{ flex: 1 }}>
         <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 28 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
-              <Pressable
-                onPress={() => setShowMessagesAlertSettings((v) => !v)}
-                style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}
-              >
+          {/* Header */}
+          {isWebPlatform ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+                <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
+                  <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: showMessagesAlertSettings ? theme.primary : theme.textMuted }} />
+                </Pressable>
+                <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+              <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
                 <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: showMessagesAlertSettings ? theme.primary : theme.textMuted }} />
               </Pressable>
-              <Pressable onPress={() => setShowChat(false)} style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
-              </Pressable>
             </View>
-          </View>
+          )}
 
           {/* Messages Alert Settings panel — zelfde opmaak als spot alert settings */}
           {showMessagesAlertSettings && (
