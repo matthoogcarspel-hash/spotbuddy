@@ -2378,6 +2378,10 @@ export default function App() {
   const [expandedChatSession, setExpandedChatSession] = useState<string | null>(null);
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
+  const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
+  const [expandedDmId, setExpandedDmId] = useState<string | null>(null);
+  const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
+  const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
@@ -4363,6 +4367,9 @@ export default function App() {
     }
     if (chatSubTab === 'session') {
       void loadMySessionsForChatTab();
+    }
+    if (chatSubTab === 'dm') {
+      void loadDmConversations();
     }
   }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -6815,6 +6822,64 @@ export default function App() {
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
   };
 
+  const loadDmConversations = async () => {
+    if (!activeAppUserId) return;
+    const { data: convs } = await supabase.from('conversations').select('id, participant_a_id, participant_b_id, created_at').eq('type', 'dm').or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
+    if (!convs?.length) { setDmConversations([]); return; }
+    const convIds = convs.map((c) => c.id);
+    const otherUserIds = [...new Set(convs.map((c) => c.participant_a_id === activeAppUserId ? c.participant_b_id : c.participant_a_id).filter(Boolean))];
+    const [profilesResp, lastMsgsResp] = await Promise.all([
+      otherUserIds.length ? supabase.from('profiles').select('id, display_name, avatar_url').in('id', otherUserIds) : Promise.resolve({ data: [] }),
+      convIds.length ? supabase.from('messages').select('conversation_id, text, created_at').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(convIds.length) : Promise.resolve({ data: [] }),
+    ]);
+    const profileMap = new Map((profilesResp.data ?? []).map((p) => [p.id, p]));
+    const lastMsgMap = new Map<string, { text: string; created_at: string }>();
+    for (const msg of (lastMsgsResp.data ?? [])) {
+      if (!lastMsgMap.has(msg.conversation_id)) lastMsgMap.set(msg.conversation_id, msg);
+    }
+    const result = convs.map((c) => {
+      const otherId = c.participant_a_id === activeAppUserId ? c.participant_b_id : c.participant_a_id;
+      const p = profileMap.get(otherId);
+      const lm = lastMsgMap.get(c.id);
+      return { id: c.id, otherUserId: otherId, otherName: p?.display_name ?? 'Unknown', otherAvatar: p?.avatar_url ?? null, lastMessage: lm?.text ?? null, lastMessageAt: lm?.created_at ?? null };
+    }).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
+    setDmConversations(result);
+  };
+
+  const loadDmMessages = async (conversationId: string) => {
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+    const rows = msgs ?? [];
+    const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
+    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null }));
+    setDmMessages((prev) => ({ ...prev, [conversationId]: enriched }));
+  };
+
+  const sendDmMessage = async (conversationId: string) => {
+    const text = dmInput.trim();
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!text || !conversationId || !senderId) return;
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, created_at: new Date().toISOString() });
+    if (error) { console.error('DM_SEND_ERROR', error); return; }
+    setDmInput('');
+    const newMsg = { id: `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
+    setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
+    setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
+  };
+
+  const openDmWithUser = async (otherUserId: string) => {
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!senderId || !otherUserId) return null;
+    const existing = await supabase.from('conversations').select('id').eq('type', 'dm').or(`and(participant_a_id.eq.${senderId},participant_b_id.eq.${otherUserId}),and(participant_a_id.eq.${otherUserId},participant_b_id.eq.${senderId})`).limit(1);
+    let convId = existing.data?.[0]?.id ?? null;
+    if (!convId) {
+      const created = await supabase.from('conversations').insert({ type: 'dm', participant_a_id: senderId, participant_b_id: otherUserId }).select('id').single();
+      convId = created.data?.id ?? null;
+    }
+    return convId;
+  };
+
   const withNativeShell = (screen: React.ReactNode) => {
     if (isWebPlatform) return screen;
 
@@ -7477,10 +7542,72 @@ export default function App() {
 
           {/* DMs */}
           {chatSubTab === 'dm' && (
-            <View style={{ alignItems: 'center', paddingTop: 40 }}>
-              <Text style={{ fontSize: 32, marginBottom: 12 }}>✉️</Text>
-              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Direct Messages</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>DMs with your buddies will appear here. Coming soon.</Text>
+            <View style={{ gap: 10 }}>
+              {dmConversations.length === 0 && (
+                <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                  <Text style={{ fontSize: 32 }}>✉️</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>
+                    No direct messages yet. Start one by tapping an avatar.
+                  </Text>
+                </View>
+              )}
+              {dmConversations.map((dm) => {
+                const isBuddy = followingUserIds.includes(dm.otherUserId);
+                const isExpanded = expandedDmId === dm.id;
+                const msgs = dmMessages[dm.id] ?? [];
+
+                return (
+                  <View key={dm.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', overflow: 'hidden' }}>
+                    <Pressable
+                      onPress={() => {
+                        const next = isExpanded ? null : dm.id;
+                        setExpandedDmId(next);
+                        if (next && !dmMessages[dm.id]) void loadDmMessages(dm.id);
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}
+                    >
+                      <Avatar uri={dm.otherAvatar} size={42} />
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
+                          {isBuddy && <View style={{ backgroundColor: 'rgba(77,184,255,0.2)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: '#4DB8FF', fontSize: 10, fontWeight: '800' }}>BUDDY</Text></View>}
+                          {!isBuddy && <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>REQUEST</Text></View>}
+                        </View>
+                        {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
+                      </View>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+                    </Pressable>
+
+                    {isExpanded && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 14, paddingBottom: 12, paddingTop: 10 }}>
+                        {!dmMessages[dm.id] ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading…</Text>
+                        ) : msgs.length === 0 ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet. Say something!</Text>
+                        ) : (
+                          <View style={{ marginBottom: 10 }}>
+                            {renderChatMessages(msgs, (uid) => uid === (activeProfile?.id ?? activeAppUserId))}
+                          </View>
+                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5 }}>
+                          <TextInput
+                            value={dmInput}
+                            onChangeText={setDmInput}
+                            onSubmitEditing={() => void sendDmMessage(dm.id)}
+                            blurOnSubmit={false}
+                            placeholder="Type a message…"
+                            placeholderTextColor={theme.textMuted}
+                            style={({ flex: 1, color: theme.text, paddingVertical: 6, paddingRight: 8, fontSize: 14, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                          />
+                          <Pressable onPress={() => void sendDmMessage(dm.id)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '900' }}>↑</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
             </View>
           )}
         </ScrollView>
@@ -10123,10 +10250,21 @@ const handleSave = async () => {
                     </Pressable>
                   )}
                   <Pressable
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', opacity: 0.5 }}
+                    onPress={async () => {
+                      const convId = await openDmWithUser(viewingOtherUserId);
+                      setViewingOtherUserId(null);
+                      if (convId) {
+                        setShowChat(true);
+                        setChatSubTab('dm');
+                        setExpandedDmId(convId);
+                        void loadDmMessages(convId);
+                        void loadDmConversations();
+                      }
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
                   >
-                    <Ionicons name="chatbubble-outline" size={16} color={theme.textMuted} />
-                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Send message (coming soon)</Text>
+                    <Ionicons name="chatbubble-outline" size={16} color={theme.textSoft} />
+                    <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Send message</Text>
                   </Pressable>
                 </View>
               </>
