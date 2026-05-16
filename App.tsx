@@ -2450,6 +2450,7 @@ export default function App() {
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
   const [inAppChatToast, setInAppChatToast] = useState<{ spotName: string; text: string; senderName: string } | null>(null);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // spotName → ongelezen count
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -4689,10 +4690,11 @@ export default function App() {
           for (const [spotName, data] of Object.entries(prev)) {
             if (data.conversationId === convId && data.loaded) {
               if (data.messages.some((m) => m.id === row.id)) return prev;
-              // Toast tonen als de gebruiker niet in deze chat zit
+              // Toast + ongelezen badge per spot tonen als de gebruiker niet in deze chat zit
               if (!showChatRef.current) {
                 setInAppChatToast({ spotName, text: row.text ?? '', senderName: p?.display_name ?? 'Someone' });
                 setTimeout(() => setInAppChatToast(null), 4500);
+                setUnreadBySpot((prev2) => ({ ...prev2, [spotName]: (prev2[spotName] ?? 0) + 1 }));
               }
               return { ...prev, [spotName]: { ...data, messages: [...data.messages, newMsg] } };
             }
@@ -5858,6 +5860,9 @@ export default function App() {
 
     if (destination === 'chat') {
       setShowChat(true); setChatUnreadCount(0);
+      // Ga naar Spot chats tab als er ongelezen spots zijn
+      const hasUnreadSpots = Object.values(unreadBySpot).some((n) => n > 0);
+      if (hasUnreadSpots) setChatSubTab('spot');
       setChatUnreadCount(0);
     }
   };
@@ -7845,18 +7850,22 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+                const unread = unreadBySpot[spotName] ?? 0;
                 return (
-                  <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); if (!chatData?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setUnreadBySpot((p) => ({ ...p, [spotName]: 0 })); if (!chatData?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.07)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="location" size={18} color={theme.primary} />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                      <Text style={{ color: unread > 0 ? theme.text : theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
+                      <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
                         {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    {unread > 0
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
+                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    }
                   </Pressable>
                 );
               })}
@@ -10687,10 +10696,13 @@ const handleSave = async () => {
       {inAppChatToast && (
         <Pressable
           onPress={() => {
+            const sn = inAppChatToast.spotName;
             setInAppChatToast(null);
             setShowChat(true); setChatUnreadCount(0);
             setChatSubTab('spot');
-            setActiveChatSpot(inAppChatToast.spotName);
+            setExpandedChatSpot(sn);
+            setUnreadBySpot((p) => ({ ...p, [sn]: 0 }));
+            if (!chatSpotMessages[sn]?.loaded) void loadSpotChatForTab(sn);
           }}
           style={{ position: 'absolute', top: isWebPlatform ? 16 : 100, left: 16, right: 16, zIndex: 9999, elevation: 9999 }}
         >
