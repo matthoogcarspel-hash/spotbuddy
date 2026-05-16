@@ -4450,9 +4450,8 @@ export default function App() {
     if (chatSubTab === 'session') {
       void loadMySessionsForChatTab();
     }
-    if (chatSubTab === 'dm') {
-      void loadDmConversations();
-    }
+    // DMs altijd laden als chat opent (niet alleen bij tab-switch)
+    void loadDmConversations();
   }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -6947,7 +6946,12 @@ export default function App() {
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
     const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).eq('group_key', groupKey).limit(1);
-    const convId = convResponse.data?.[0]?.id ?? null;
+    let convId = convResponse.data?.[0]?.id ?? null;
+    // Conversation meteen aanmaken zodat we er direct op kunnen subscriben
+    if (!convId) {
+      const created = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
+      convId = created.data?.id ?? null;
+    }
     if (!convId) {
       setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: null, messages: [], loaded: true } }));
       return;
@@ -7037,12 +7041,18 @@ export default function App() {
   const openDmWithUser = async (otherUserId: string) => {
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!senderId || !otherUserId) return null;
-    const existing = await supabase.from('conversations').select('id').eq('type', 'dm').or(`and(participant_a_id.eq.${senderId},participant_b_id.eq.${otherUserId}),and(participant_a_id.eq.${otherUserId},participant_b_id.eq.${senderId})`).limit(1);
-    let convId = existing.data?.[0]?.id ?? null;
+    // Twee losse queries want Supabase .or() met nested and() werkt niet betrouwbaar
+    const [q1, q2] = await Promise.all([
+      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', senderId).eq('participant_b_id', otherUserId).limit(1),
+      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', otherUserId).eq('participant_b_id', senderId).limit(1),
+    ]);
+    let convId = q1.data?.[0]?.id ?? q2.data?.[0]?.id ?? null;
     if (!convId) {
       const created = await supabase.from('conversations').insert({ type: 'dm', participant_a_id: senderId, participant_b_id: otherUserId }).select('id').single();
       convId = created.data?.id ?? null;
     }
+    // Voeg convId direct toe aan myConvIdsRef zodat realtime het pikt
+    if (convId) myConvIdsRef.current.add(convId);
     return convId;
   };
 
@@ -7821,11 +7831,21 @@ export default function App() {
           {chatSubTab === 'dm' && (
             <View style={{ gap: 8 }}>
               {dmConversations.length === 0 && (
-                <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
                   <Text style={{ fontSize: 32 }}>✉️</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>
-                    No direct messages yet. Start one by tapping an avatar.
+                    No direct messages yet.
                   </Text>
+                  <Pressable
+                    onPress={() => {
+                      setShowChat(false);
+                      setShowBuddies(true);
+                      setBuddiesTab('myBuddies');
+                    }}
+                    style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                  >
+                    <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text>
+                  </Pressable>
                 </View>
               )}
               {dmConversations.map((dm) => {
@@ -7948,7 +7968,7 @@ export default function App() {
                   {chatMySessions.map((session) => { const gk = session.group_key ?? session.id; const msgs = chatSessionMessages[gk]?.messages ?? []; const lastMsg = msgs[msgs.length - 1]; return <Pressable key={session.id} onPress={() => { setExpandedChatSession(gk); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="#FFB432" /></View><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>{lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.text}</Text> : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{session.session_day}{session.start_time ? ' · ' + session.start_time : ''}</Text>}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
-                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet. Tap an avatar to start one.</Text></View>}
+                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.map((dm) => { const isBuddy = followingUserIds.includes(dm.otherUserId); return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><Avatar uri={dm.otherAvatar} size={42} /><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>{dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
                 </View>}
               </ScrollView>
