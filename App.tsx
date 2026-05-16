@@ -2448,6 +2448,7 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
+  const [inAppChatToast, setInAppChatToast] = useState<{ spotName: string; text: string; senderName: string } | null>(null);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
@@ -3172,6 +3173,19 @@ export default function App() {
 
 
 
+
+  useEffect(() => {
+    // Push ook tonen als de app in de foreground is
+    if (Platform.OS !== 'web') {
+      Buzz.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: false,
+        }),
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const FALLBACK_EAS_PROJECT_ID = "6420f442-2be4-4803-9620-f769bc5def4f";
@@ -4670,11 +4684,16 @@ export default function App() {
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
-        // Spot chat bijwerken
+        // Spot chat bijwerken + in-app toast tonen
         setChatSpotMessages((prev) => {
           for (const [spotName, data] of Object.entries(prev)) {
             if (data.conversationId === convId && data.loaded) {
               if (data.messages.some((m) => m.id === row.id)) return prev;
+              // Toast tonen als de gebruiker niet in deze chat zit
+              if (!showChatRef.current) {
+                setInAppChatToast({ spotName, text: row.text ?? '', senderName: p?.display_name ?? 'Someone' });
+                setTimeout(() => setInAppChatToast(null), 4500);
+              }
               return { ...prev, [spotName]: { ...data, messages: [...data.messages, newMsg] } };
             }
           }
@@ -6930,6 +6949,17 @@ export default function App() {
     Keyboard.dismiss();
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
+    // Push notificatie naar andere deelnemers
+    void supabase.rpc('create_chat_notification', {
+      actor_profile_id: senderId,
+      spot_name_param: spotName,
+      session_day_param: today,
+      message_preview_param: text,
+    }).then(({ data: recipients }) => {
+      const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+      const actorName = activeProfile?.display_name?.trim() || 'Someone';
+      void sendPushToRecipients(ids, `${actorName} in ${spotName}`, text, { type: 'chat_message', spotName });
+    });
   };
 
   const loadMySessionsForChatTab = async () => {
@@ -10652,6 +10682,34 @@ const handleSave = async () => {
         </ScrollView>
       </View>
       {renderNativeBottomNav()}
+
+      {/* In-app chat toast — verschijnt als een bericht binnenkomt terwijl je niet in Messages zit */}
+      {inAppChatToast && (
+        <Pressable
+          onPress={() => {
+            setInAppChatToast(null);
+            setShowChat(true); setChatUnreadCount(0);
+            setChatSubTab('spot');
+            setActiveChatSpot(inAppChatToast.spotName);
+          }}
+          style={{ position: 'absolute', top: isWebPlatform ? 16 : 100, left: 16, right: 16, zIndex: 9999, elevation: 9999 }}
+        >
+          <View style={{ backgroundColor: '#0d1b2a', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 12 }}>
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(77,184,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="chatbubbles" size={18} color={theme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }} numberOfLines={1}>{inAppChatToast.spotName}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 1 }} numberOfLines={1}>
+                {inAppChatToast.senderName}: {inAppChatToast.text}
+              </Text>
+            </View>
+            <Pressable onPress={() => setInAppChatToast(null)} hitSlop={10}>
+              <Ionicons name="close" size={16} color={theme.textMuted} />
+            </Pressable>
+          </View>
+        </Pressable>
+      )}
 
       {/* Other user profile modal */}
       {viewingOtherUserId && (
