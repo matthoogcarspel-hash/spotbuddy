@@ -1820,8 +1820,8 @@ function SessionRow({
               }}
               style={{ marginTop: 4 }}
             >
-              <Text style={{ color: activeGroupChatKey === group.key ? theme.primary : theme.textMuted, fontSize: 10, fontWeight: '700' }}>
-                💬 Group chat
+              <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '700' }}>
+                💬 Group chat →
               </Text>
             </Pressable>
           ) : null}
@@ -2147,13 +2147,15 @@ function SessionTimeline({
                           }}
                           style={{
                             borderRadius: 999,
-                            backgroundColor: activeGroupChatKey === group.key ? 'rgba(77,184,255,0.20)' : 'rgba(255,255,255,0.055)',
+                            backgroundColor: 'rgba(77,184,255,0.15)',
                             paddingHorizontal: 10,
                             paddingVertical: 6,
+                            borderWidth: 1,
+                            borderColor: 'rgba(77,184,255,0.30)',
                           }}
                         >
-                          <Text style={{ color: activeGroupChatKey === group.key ? '#9EDBFF' : theme.textSoft, fontSize: 10, fontWeight: '900' }}>
-                            💬 Chat
+                          <Text style={{ color: '#4DB8FF', fontSize: 10, fontWeight: '900' }}>
+                            💬 Chat →
                           </Text>
                         </Pressable>
                       ) : null}
@@ -9628,7 +9630,18 @@ const handleSave = async () => {
               void joinSession(joinRequest);
             }}
             onOpenGroupChat={(groupKey) => {
-              setActiveGroupChatKey(groupKey);
+              // Navigate naar Messages tab > Session chats en open direct die groepschat
+              if (!selectedSpot || !selectedDayKey) return;
+              void loadSessionChatForTab(groupKey, selectedSpot, selectedDayKey);
+              setChatSubTab('session');
+              setExpandedChatSession(groupKey);
+              // Voeg de sessie ook toe aan chatMySessions als die er nog niet in zit
+              setChatMySessions((prev) => {
+                if (prev.some((s) => (s.group_key ?? s.id) === groupKey)) return prev;
+                return [...prev, { id: groupKey, group_key: groupKey, spot_name: selectedSpot, session_day: selectedDayKey, start_time: null, end_time: null, user_id: activeAppUserId }];
+              });
+              setShowChat(true);
+              setSelectedSpot(null);
             }}
             activeGroupChatKey={activeGroupChatKey}
             onAvatarPress={(userId) => {
