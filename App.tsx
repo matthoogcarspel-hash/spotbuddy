@@ -7857,7 +7857,110 @@ export default function App() {
       </SafeAreaView>
     );
 
-    return withNativeShell(chatContent);
+    // Native: eigen shell renderen zodat KAV direct onder de topbar zit (geen paddingBottom: 96)
+    if (!isWebPlatform) {
+      const fullScreenChat = (
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+            <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
+              <Ionicons name="chevron-back" size={22} color={theme.text} />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+              {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
+            </View>
+          </View>
+          <ScrollView
+            ref={openScrollRef}
+            style={{ flex: 1 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            keyboardDismissMode="on-drag"
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+            onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+          >
+            {!openMessages.length
+              ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
+              : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
+            }
+          </ScrollView>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, paddingRight: 10, paddingTop: 8, paddingBottom: 10 }}>
+            <TextInput
+              value={openInput}
+              onChangeText={setOpenInput}
+              onSubmitEditing={handleOpenSend}
+              blurOnSubmit={false}
+              autoFocus={false}
+              placeholder="Type a message…"
+              placeholderTextColor={theme.textMuted}
+              style={{ flex: 1, color: theme.text, paddingVertical: 8, paddingRight: 8, fontSize: 15 }}
+            />
+            <Pressable onPress={handleOpenSend} disabled={!openInput.trim()} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="arrow-up" size={18} color="#ffffff" />
+            </Pressable>
+          </View>
+        </View>
+      );
+
+      return (
+        <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
+          <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
+          {renderNativeTopBar()}
+          <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: theme.bg }}>
+            {isAnyConvOpen ? fullScreenChat : (
+              <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
+                  <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
+                    <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: showMessagesAlertSettings ? theme.primary : theme.textMuted }} />
+                  </Pressable>
+                </View>
+                {showMessagesAlertSettings && (
+                  <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
+                    <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for chat messages</Text>
+                    </View>
+                    {([{ key: 'spotChats' as const, label: 'Spot chats', icon: '📍' }, { key: 'sessionChats' as const, label: 'Session chats', icon: '👥' }]).map(({ key, label, icon }, index) => (
+                      <View key={key} style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                          <Text style={{ fontSize: 16 }}>{icon}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>{label}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', gap: 6 }}>
+                          {(['everyone', 'buddies', 'off'] as const).map((opt) => {
+                            const selected = messagesAlertSettings[key] === opt;
+                            return <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}><Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text></Pressable>;
+                          })}
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent' }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text></Pressable>; })}
+                </View>
+                {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
+                  {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
+                  {favoriteSpots.map((spotName) => { const msgs = chatSpotMessages[spotName]?.messages ?? []; const lastMsg = msgs[msgs.length - 1]; return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="location" size={18} color={theme.primary} /></View><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>{lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
+                </View>}
+                {chatSubTab === 'session' && <View style={{ gap: 8 }}>
+                  {chatMySessions.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>}
+                  {chatMySessions.map((session) => { const gk = session.group_key ?? session.id; const msgs = chatSessionMessages[gk]?.messages ?? []; const lastMsg = msgs[msgs.length - 1]; return <Pressable key={session.id} onPress={() => { setExpandedChatSession(gk); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="#FFB432" /></View><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>{lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.text}</Text> : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{session.session_day}{session.start_time ? ' · ' + session.start_time : ''}</Text>}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
+                </View>}
+                {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
+                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet. Tap an avatar to start one.</Text></View>}
+                  {dmConversations.map((dm) => { const isBuddy = followingUserIds.includes(dm.otherUserId); return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><Avatar uri={dm.otherAvatar} size={42} /><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>{dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
+                </View>}
+              </ScrollView>
+            )}
+          </KeyboardAvoidingView>
+          {renderNativeBottomNav()}
+        </SafeAreaView>
+      );
+    }
+
+    return chatContent;
   }
 
   if (showBuddies) {
