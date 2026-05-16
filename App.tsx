@@ -7871,67 +7871,58 @@ export default function App() {
 
     // Native: eigen shell renderen zodat KAV direct onder de topbar zit
     if (!isWebPlatform) {
-      const fullScreenChatNative = (
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-          <View style={{ flex: 1 }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
-              <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
-                <Ionicons name="chevron-back" size={22} color={theme.text} />
-              </Pressable>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-                {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
-              </View>
-            </View>
-
-            {/* Berichten */}
-            <ScrollView
-              ref={openScrollRef}
-              style={{ flex: 1 }}
-              contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
-              keyboardDismissMode="on-drag"
-              keyboardShouldPersistTaps="handled"
-              onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
-              onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
-            >
-              {!openMessages.length
-                ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
-                : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
-              }
-            </ScrollView>
-
-            {/* Invoerbalk — SafeAreaView zorgt voor veilige ruimte onderaan */}
-            <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
-                <TextInput
-                  value={openInput}
-                  onChangeText={setOpenInput}
-                  onSubmitEditing={handleOpenSend}
-                  blurOnSubmit={false}
-                  placeholder="Type a message…"
-                  placeholderTextColor={theme.textMuted}
-                  style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
-                />
-                <Pressable
-                  onPress={handleOpenSend}
-                  disabled={!openInput.trim()}
-                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}
-                >
-                  <Ionicons name="arrow-up" size={17} color="#ffffff" />
-                </Pressable>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      );
-
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
           <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
           {renderNativeTopBar()}
-          <View style={{ flex: 1, backgroundColor: theme.bg }}>
-            {isAnyConvOpen ? fullScreenChatNative : (
+          <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+            {isAnyConvOpen ? (
+              /* Volledig-scherm chat */
+              <View style={{ flex: 1 }}>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+                  <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
+                    <Ionicons name="chevron-back" size={22} color={theme.text} />
+                  </Pressable>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                    {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
+                  </View>
+                </View>
+                {/* Berichten */}
+                <ScrollView
+                  ref={openScrollRef}
+                  style={{ flex: 1 }}
+                  contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+                  keyboardDismissMode="on-drag"
+                  keyboardShouldPersistTaps="handled"
+                  onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+                  onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+                >
+                  {!openMessages.length
+                    ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
+                    : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
+                  }
+                </ScrollView>
+                {/* Invoerbalk */}
+                <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
+                    <TextInput
+                      value={openInput}
+                      onChangeText={setOpenInput}
+                      onSubmitEditing={handleOpenSend}
+                      blurOnSubmit={false}
+                      placeholder="Type a message…"
+                      placeholderTextColor={theme.textMuted}
+                      style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
+                    />
+                    <Pressable onPress={handleOpenSend} disabled={!openInput.trim()} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: openInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: openInput.trim() ? 1 : 0.4 }}>
+                      <Ionicons name="arrow-up" size={17} color="#ffffff" />
+                    </Pressable>
+                  </View>
+                </View>
+              </View>
+            ) : (
               /* Lijst-modus */
               <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -7979,8 +7970,8 @@ export default function App() {
                 </View>}
               </ScrollView>
             )}
-          </View>
-          {/* Bottom nav alleen in lijst-modus — in chat-modus zorgt SafeAreaView voor de ruimte */}
+          </KeyboardAvoidingView>
+          {/* Bottom nav alleen in lijst-modus */}
           {!isAnyConvOpen && renderNativeBottomNav()}
         </SafeAreaView>
       );
