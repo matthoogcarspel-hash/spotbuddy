@@ -2367,6 +2367,7 @@ export default function App() {
   const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
   const [showChat, setShowChat] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [followPromptSpot, setFollowPromptSpot] = useState<string | null>(null);
   const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
@@ -8613,6 +8614,11 @@ const handleSave = async () => {
       resetForm();
       setSessionActionError('');
 
+      // Smart follow prompt: als de spot nog niet gevolgd wordt
+      if (selectedSpot && !favoriteSpots.includes(selectedSpot) && !editingSessionId) {
+        setFollowPromptSpot(selectedSpot);
+      }
+
       const planningActorId = activeProfile?.id ?? null;
       const plannedSessionId = 'data' in result && result.data ? result.data.id : null;
       if (planningActorId && selectedSpot && selectedPlanningDateKey && plannedSessionId && !editingSessionId) {
@@ -10273,6 +10279,56 @@ const handleSave = async () => {
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>Loading…</Text>
               </View>
             )}
+          </Pressable>
+        </Pressable>
+      )}
+
+      {/* Follow spot prompt */}
+      {followPromptSpot && (
+        <Pressable
+          onPress={() => setFollowPromptSpot(null)}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.55)', zIndex: 200, justifyContent: 'flex-end' }}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="location" size={20} color={theme.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Follow {followPromptSpot}?</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>
+                  {favoriteSpots.length >= 5
+                    ? "You're following 5 spots. Remove one first in the Spots tab."
+                    : 'Get session alerts and spot chat for this spot.'}
+                </Text>
+              </View>
+            </View>
+            <View style={{ flexDirection: 'row', gap: 10 }}>
+              {favoriteSpots.length < 5 ? (
+                <Pressable
+                  onPress={() => {
+                    addSelectedSpot(followPromptSpot as any);
+                    setFollowPromptSpot(null);
+                  }}
+                  style={{ flex: 1, backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                >
+                  <Text style={{ color: '#4DB8FF', fontSize: 15, fontWeight: '800' }}>Yes, follow</Text>
+                </Pressable>
+              ) : (
+                <Pressable
+                  onPress={() => { setFollowPromptSpot(null); navigateNative('spots'); }}
+                  style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}
+                >
+                  <Text style={{ color: theme.textSoft, fontSize: 15, fontWeight: '700' }}>Manage spots</Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => setFollowPromptSpot(null)}
+                style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
+              >
+                <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '700' }}>Not now</Text>
+              </Pressable>
+            </View>
           </Pressable>
         </Pressable>
       )}
