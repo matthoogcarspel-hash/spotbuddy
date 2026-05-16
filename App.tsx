@@ -2448,9 +2448,11 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [inAppChatToast, setInAppChatToast] = useState<{ spotName: string; text: string; senderName: string } | null>(null);
-  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // spotName → ongelezen count
+  const [unreadSessionCount, setUnreadSessionCount] = useState(0);
+  const [unreadDmCount, setUnreadDmCount] = useState(0);
+  // chatUnreadCount = computed: som van alle ongelezen (voor badge)
+  const chatUnreadCount = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + unreadSessionCount + unreadDmCount;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -4699,10 +4701,7 @@ export default function App() {
         const convId = row.conversation_id ?? '';
         if (!convId || !myConvIdsRef.current.has(convId)) return;
 
-        // Badge bijwerken als chat niet open is
-        if (!showChatRef.current) {
-          setChatUnreadCount((n) => n + 1);
-        }
+        // Type-specifieke teller wordt bijgewerkt in de state-setters hieronder
 
         // Profiel ophalen voor de afzender
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
@@ -4729,6 +4728,7 @@ export default function App() {
             // Drop 'loaded' check — ook tijdens laden berichten toevoegen
             if (data.conversationId === convId) {
               if (data.messages.some((m) => m.id === row.id)) return prev;
+              if (!showChatRef.current) setUnreadSessionCount((n) => n + 1);
               return { ...prev, [gk]: { ...data, messages: [...data.messages, newMsg] } };
             }
           }
@@ -4739,6 +4739,7 @@ export default function App() {
         setDmMessages((prev) => {
           if (prev[convId]) {
             if ((prev[convId] as any[]).some((m) => m.id === row.id)) return prev;
+            if (!showChatRef.current) setUnreadDmCount((n) => n + 1);
             return { ...prev, [convId]: [...prev[convId], newMsg] };
           }
           return prev;
@@ -5880,11 +5881,11 @@ export default function App() {
     }
 
     if (destination === 'chat') {
-      setShowChat(true); setChatUnreadCount(0);
+      setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
       // Ga naar Spot chats tab als er ongelezen spots zijn
       const hasUnreadSpots = Object.values(unreadBySpot).some((n) => n > 0);
       if (hasUnreadSpots) setChatSubTab('spot');
-      setChatUnreadCount(0);
+      setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
     }
   };
 
@@ -7628,10 +7629,11 @@ export default function App() {
   }
 
   if (showChat) {
+    const spotUnreadTotal = Object.values(unreadBySpot).reduce((a, b) => a + b, 0);
     const chatTabs = [
-      { key: 'spot' as const, label: 'Spot chats' },
-      { key: 'session' as const, label: 'Session chats' },
-      { key: 'dm' as const, label: 'DMs' },
+      { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
+      { key: 'session' as const, label: 'Session chats', badge: unreadSessionCount },
+      { key: 'dm' as const, label: 'DMs', badge: unreadDmCount },
     ];
 
     const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean) =>
@@ -7859,8 +7861,23 @@ export default function App() {
             {chatTabs.map((tab) => {
               const active = chatSubTab === tab.key;
               return (
-                <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent' }}>
+                <Pressable
+                  key={tab.key}
+                  onPress={() => {
+                    setChatSubTab(tab.key);
+                    // Reset teller voor dit type bij openen
+                    if (tab.key === 'spot') setUnreadBySpot({});
+                    if (tab.key === 'session') setUnreadSessionCount(0);
+                    if (tab.key === 'dm') setUnreadDmCount(0);
+                  }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
+                >
                   <Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>
+                  {tab.badge > 0 && (
+                    <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text>
+                    </View>
+                  )}
                 </Pressable>
               );
             })}
@@ -8059,7 +8076,7 @@ export default function App() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent' }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text></Pressable>; })}
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setUnreadBySpot({}); if (tab.key === 'session') setUnreadSessionCount(0); if (tab.key === 'dm') setUnreadDmCount(0); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
@@ -8233,7 +8250,7 @@ export default function App() {
                               const convId = await openDmWithUser(u.id);
                               setShowBuddies(false);
                               if (convId) {
-                                setShowChat(true); setChatUnreadCount(0);
+                                setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
                                 setChatSubTab('dm');
                                 setExpandedDmId(convId);
                                 void loadDmMessages(convId);
@@ -9866,7 +9883,7 @@ const handleSave = async () => {
                 if (prev.some((s) => (s.group_key ?? s.id) === groupKey)) return prev;
                 return [...prev, { id: groupKey, group_key: groupKey, spot_name: selectedSpot, session_day: selectedDayKey, start_time: null, end_time: null, user_id: activeAppUserId }];
               });
-              setShowChat(true); setChatUnreadCount(0);
+              setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
               setSelectedSpot(null);
             }}
             activeGroupChatKey={activeGroupChatKey}
@@ -10017,7 +10034,7 @@ const handleSave = async () => {
           onPress={() => {
             if (selectedSpot) {
               setActiveChatSpot(selectedSpot);
-              setShowChat(true); setChatUnreadCount(0);
+              setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
               setChatSubTab('spot');
               setSelectedSpot(null);
             }
@@ -10774,7 +10791,7 @@ const handleSave = async () => {
                       const convId = await openDmWithUser(viewingOtherUserId);
                       setViewingOtherUserId(null);
                       if (convId) {
-                        setShowChat(true); setChatUnreadCount(0);
+                        setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
                         setChatSubTab('dm');
                         setExpandedDmId(convId);
                         void loadDmMessages(convId);
