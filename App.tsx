@@ -4457,6 +4457,64 @@ export default function App() {
     }
   }, [activeChatSpot, showChat]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Realtime: berichten ontvangen voor open spot chat
+  useEffect(() => {
+    if (!expandedChatSpot) return;
+    const convId = chatSpotMessages[expandedChatSpot]?.conversationId;
+    if (!convId) return;
+    const channel = supabase.channel(`chat-spot-${convId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
+        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
+        if (!row?.id) return;
+        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
+        setChatSpotMessages((prev) => {
+          const existing = prev[expandedChatSpot]?.messages ?? [];
+          if (existing.some((m) => m.id === row.id)) return prev;
+          return { ...prev, [expandedChatSpot]: { ...prev[expandedChatSpot], messages: [...existing, newMsg] } };
+        });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [expandedChatSpot, chatSpotMessages[expandedChatSpot]?.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime: berichten ontvangen voor open DM
+  useEffect(() => {
+    if (!expandedDmId) return;
+    const channel = supabase.channel(`chat-dm-${expandedDmId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${expandedDmId}` }, async (payload) => {
+        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
+        if (!row?.id) return;
+        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
+        setDmMessages((prev) => {
+          const existing = prev[expandedDmId] ?? [];
+          if (existing.some((m: any) => m.id === row.id)) return prev;
+          return { ...prev, [expandedDmId]: [...existing, newMsg] };
+        });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [expandedDmId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime: berichten ontvangen voor open sessie chat
+  useEffect(() => {
+    if (!expandedChatSession) return;
+    const convId = chatSessionMessages[expandedChatSession]?.conversationId;
+    if (!convId) return;
+    const channel = supabase.channel(`chat-session-${convId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
+        const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
+        if (!row?.id) return;
+        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+        const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
+        setChatSessionMessages((prev) => {
+          const existing = prev[expandedChatSession]?.messages ?? [];
+          if (existing.some((m) => m.id === row.id)) return prev;
+          return { ...prev, [expandedChatSession]: { ...prev[expandedChatSession], messages: [...existing, newMsg] } };
+        });
+      }).subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [expandedChatSession, chatSessionMessages[expandedChatSession]?.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   useEffect(() => {
     if (!activeAppUserId) {
       setFollowingUserIds([]);
@@ -6839,6 +6897,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: today, conversation_id: convId, created_at: new Date().toISOString() });
     if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
     setSpotChatInputInChat('');
+    Keyboard.dismiss();
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
   };
@@ -6888,6 +6947,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
     if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
     setSessionChatInput('');
+    Keyboard.dismiss();
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
   };
@@ -6933,6 +6993,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, created_at: new Date().toISOString() });
     if (error) { console.error('DM_SEND_ERROR', error); return; }
     setDmInput('');
+    Keyboard.dismiss();
     const newMsg = { id: `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
@@ -7452,7 +7513,7 @@ export default function App() {
 
     const chatContent = (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
             <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
@@ -7462,11 +7523,9 @@ export default function App() {
               >
                 <Text style={{ color: showMessagesAlertSettings ? '#4DB8FF' : theme.text, fontSize: 12, fontWeight: '700' }}>🔔 Alerts</Text>
               </Pressable>
-              {!isWebPlatform && (
-                <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
-                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back</Text>
-                </Pressable>
-              )}
+              <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
+              </Pressable>
             </View>
           </View>
 
