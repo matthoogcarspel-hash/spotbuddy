@@ -1648,6 +1648,7 @@ type SessionRowProps = {
   onJoin: (request: SessionJoinRequest) => void;
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
+  onAvatarPress?: (userId: string) => void;
 };
 
 function SessionRow({
@@ -1666,6 +1667,7 @@ function SessionRow({
   onJoin,
   onOpenGroupChat,
   activeGroupChatKey,
+  onAvatarPress,
 }: SessionRowProps) {
   const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
   const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -1721,9 +1723,9 @@ function SessionRow({
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
-              <View key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }}>
+              <Pressable key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }} onPress={() => item.userId && onAvatarPress?.(item.userId)}>
                 <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} />
-              </View>
+              </Pressable>
             ))}
             {sortedVisibleSessions.length > 3 ? (
               <View style={{
@@ -1917,6 +1919,7 @@ type SessionTimelineProps = {
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onClearSelection: () => void;
+  onAvatarPress?: (userId: string) => void;
 };
 
 const getGroupCleanStatus = (group: any): 'live' | 'going' | 'maybe' => {
@@ -1943,6 +1946,7 @@ function SessionTimeline({
   onOpenGroupChat,
   activeGroupChatKey,
   onClearSelection,
+  onAvatarPress,
 }: SessionTimelineProps) {
   const isWebPlatform = Platform.OS === 'web';
   const activeDayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
@@ -2270,6 +2274,7 @@ function SessionTimeline({
                       onJoin={onJoinSession}
                       onOpenGroupChat={onOpenGroupChat}
                       activeGroupChatKey={activeGroupChatKey}
+                      onAvatarPress={onAvatarPress}
                     />
                     </View>
                   ))}
@@ -2362,6 +2367,8 @@ export default function App() {
   const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
   const [showChat, setShowChat] = useState(false);
   const [showPlanModal, setShowPlanModal] = useState(false);
+  const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
+  const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
   const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
@@ -4336,6 +4343,14 @@ export default function App() {
 
     void fetchBuddiesData();
   }, [showBuddies, activeAppUserId]);
+
+  useEffect(() => {
+    if (!viewingOtherUserId) { setViewingOtherProfile(null); return; }
+    void (async () => {
+      const { data } = await supabase.from('profiles').select('id, display_name, avatar_url, nationality, skill_level').eq('id', viewingOtherUserId).maybeSingle();
+      if (data) setViewingOtherProfile(data);
+    })();
+  }, [viewingOtherUserId]);
 
   useEffect(() => {
     if (!showChat || !activeAppUserId) return;
@@ -9223,6 +9238,9 @@ const handleSave = async () => {
               setActiveGroupChatKey(groupKey);
             }}
             activeGroupChatKey={activeGroupChatKey}
+            onAvatarPress={(userId) => {
+              if (userId !== activeAppUserId) setViewingOtherUserId(userId);
+            }}
           />
 
         </View>
@@ -10053,6 +10071,73 @@ const handleSave = async () => {
         </ScrollView>
       </View>
       {renderNativeBottomNav()}
+
+      {/* Other user profile modal */}
+      {viewingOtherUserId && (
+        <Pressable
+          onPress={() => setViewingOtherUserId(null)}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 200, justifyContent: 'flex-end' }}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            {viewingOtherProfile ? (
+              <>
+                {/* Header */}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+                  <Avatar uri={viewingOtherProfile.avatar_url} size={60} nationality={viewingOtherProfile.nationality} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
+                    {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{c.flag}  {c.name}</Text> : null; })() : null}
+                    {viewingOtherProfile.skill_level ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
+                        {['', 'Grom', 'Ripper', 'Freerider', 'Shredder', 'Storm Chaser'][viewingOtherProfile.skill_level]}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <Pressable onPress={() => setViewingOtherUserId(null)}>
+                    <Ionicons name="close" size={22} color={theme.textMuted} />
+                  </Pressable>
+                </View>
+
+                {/* Actions */}
+                <View style={{ gap: 10 }}>
+                  {followingUserIds.includes(viewingOtherUserId) ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(77,184,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.18)' }}>
+                      <Ionicons name="people" size={16} color="#4DB8FF" />
+                      <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '700' }}>You're buddies</Text>
+                    </View>
+                  ) : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                      <Ionicons name="time-outline" size={16} color={theme.textMuted} />
+                      <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Buddy request sent</Text>
+                    </View>
+                  ) : (
+                    <Pressable
+                      onPress={async () => {
+                        await handleFollowUser(viewingOtherUserId);
+                        setViewingOtherUserId(null);
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                    >
+                      <Ionicons name="person-add-outline" size={16} color="#4DB8FF" />
+                      <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Add buddy</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', opacity: 0.5 }}
+                  >
+                    <Ionicons name="chatbubble-outline" size={16} color={theme.textMuted} />
+                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Send message (coming soon)</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : (
+              <View style={{ alignItems: 'center', paddingVertical: 20 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 14 }}>Loading…</Text>
+              </View>
+            )}
+          </Pressable>
+        </Pressable>
+      )}
 
       {/* Plan session modal */}
       {showPlanModal && (
