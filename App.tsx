@@ -2434,6 +2434,12 @@ export default function App() {
   const [expandedChatSession, setExpandedChatSession] = useState<string | null>(null);
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
+  const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
+  const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
+    spotChats: 'everyone' | 'buddies' | 'off';
+    sessionChats: 'everyone' | 'buddies' | 'off';
+    messageRequests: boolean;
+  }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
   const [expandedDmId, setExpandedDmId] = useState<string | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
@@ -7437,12 +7443,72 @@ export default function App() {
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
             <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
-            {!isWebPlatform && (
-              <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back</Text>
+            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+              <Pressable
+                onPress={() => setShowMessagesAlertSettings((v) => !v)}
+                style={{ backgroundColor: showMessagesAlertSettings ? 'rgba(77,184,255,0.15)' : theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: showMessagesAlertSettings ? 'rgba(77,184,255,0.35)' : theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+              >
+                <Text style={{ color: showMessagesAlertSettings ? '#4DB8FF' : theme.text, fontSize: 12, fontWeight: '700' }}>🔔 Alerts</Text>
               </Pressable>
-            )}
+              {!isWebPlatform && (
+                <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back</Text>
+                </Pressable>
+              )}
+            </View>
           </View>
+
+          {/* Messages Alert Settings panel */}
+          {showMessagesAlertSettings && (
+            <View style={{ backgroundColor: 'rgba(8,24,39,0.95)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 16, marginBottom: 16, gap: 14 }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>Messages Alert</Text>
+
+              {([
+                { key: 'spotChats' as const, label: 'Spot chats', options: ['everyone', 'buddies', 'off'] as const },
+                { key: 'sessionChats' as const, label: 'Session chats', options: ['everyone', 'buddies', 'off'] as const },
+              ]).map(({ key, label, options }) => (
+                <View key={key} style={{ gap: 6 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>{label}</Text>
+                  <View style={{ flexDirection: 'row', gap: 6 }}>
+                    {options.map((opt) => {
+                      const selected = messagesAlertSettings[key] === opt;
+                      return (
+                        <Pressable
+                          key={opt}
+                          onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))}
+                          style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}
+                        >
+                          <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'capitalize' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Message requests</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>DMs from non-buddies</Text>
+                </View>
+                <Pressable
+                  onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: !prev.messageRequests }))}
+                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: messagesAlertSettings.messageRequests ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: messagesAlertSettings.messageRequests ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}
+                >
+                  <Text style={{ color: messagesAlertSettings.messageRequests ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{messagesAlertSettings.messageRequests ? 'On' : 'Off'}</Text>
+                </Pressable>
+              </View>
+
+              <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>DMs (direct messages)</Text>
+                  <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700' }}>Always on</Text>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
 
           {/* Sub-tabs */}
           <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 20, alignSelf: 'flex-start' }}>
