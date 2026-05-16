@@ -6950,12 +6950,16 @@ export default function App() {
     // Conversation meteen aanmaken zodat we er direct op kunnen subscriben
     if (!convId) {
       const created = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
+      if (created.error) console.error('GROUP_CONV_CREATE_ERROR', created.error);
       convId = created.data?.id ?? null;
     }
     if (!convId) {
+      console.error('GROUP_CONV_NO_ID', { groupKey, spotName, sessionDay });
       setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: null, messages: [], loaded: true } }));
       return;
     }
+    // ConvId direct in ref zetten voor realtime
+    myConvIdsRef.current.add(convId);
     const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
@@ -6993,7 +6997,9 @@ export default function App() {
 
   const loadDmConversations = async () => {
     if (!activeAppUserId) return;
-    const { data: convs } = await supabase.from('conversations').select('id, participant_a_id, participant_b_id, created_at').eq('type', 'dm').or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
+    // Gebruik activeAppUserId (= auth.uid()) voor participant filters
+    const { data: convs, error: convErr } = await supabase.from('conversations').select('id, participant_a_id, participant_b_id, created_at').eq('type', 'dm').or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
+    if (convErr) console.error('DM_CONVS_LOAD_ERROR', convErr);
     if (!convs?.length) { setDmConversations([]); return; }
     const convIds = convs.map((c) => c.id);
     const otherUserIds = [...new Set(convs.map((c) => c.participant_a_id === activeAppUserId ? c.participant_b_id : c.participant_a_id).filter(Boolean))];
@@ -7039,19 +7045,19 @@ export default function App() {
   };
 
   const openDmWithUser = async (otherUserId: string) => {
-    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
-    if (!senderId || !otherUserId) return null;
-    // Twee losse queries want Supabase .or() met nested and() werkt niet betrouwbaar
+    // activeAppUserId = session.user.id = auth.uid() — matcht de RLS policy
+    const myId = activeAppUserId ?? null;
+    if (!myId || !otherUserId) return null;
     const [q1, q2] = await Promise.all([
-      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', senderId).eq('participant_b_id', otherUserId).limit(1),
-      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', otherUserId).eq('participant_b_id', senderId).limit(1),
+      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', myId).eq('participant_b_id', otherUserId).limit(1),
+      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', otherUserId).eq('participant_b_id', myId).limit(1),
     ]);
     let convId = q1.data?.[0]?.id ?? q2.data?.[0]?.id ?? null;
     if (!convId) {
-      const created = await supabase.from('conversations').insert({ type: 'dm', participant_a_id: senderId, participant_b_id: otherUserId }).select('id').single();
+      const created = await supabase.from('conversations').insert({ type: 'dm', participant_a_id: myId, participant_b_id: otherUserId }).select('id').single();
+      if (created.error) console.error('DM_CONV_CREATE_ERROR', created.error);
       convId = created.data?.id ?? null;
     }
-    // Voeg convId direct toe aan myConvIdsRef zodat realtime het pikt
     if (convId) myConvIdsRef.current.add(convId);
     return convId;
   };
