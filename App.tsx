@@ -2360,6 +2360,17 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [showBuddies, setShowBuddies] = useState(false);
   const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
+  const [showChat, setShowChat] = useState(false);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
+  const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
+  const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const [expandedChatSpot, setExpandedChatSpot] = useState<string | null>(null);
+  const [spotChatInputInChat, setSpotChatInputInChat] = useState('');
+  const [chatMySessions, setChatMySessions] = useState<any[]>([]);
+  const [expandedChatSession, setExpandedChatSession] = useState<string | null>(null);
+  const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const [sessionChatInput, setSessionChatInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
@@ -4327,6 +4338,30 @@ export default function App() {
   }, [showBuddies, activeAppUserId]);
 
   useEffect(() => {
+    if (!showChat || !activeAppUserId) return;
+    if (chatSubTab === 'spot') {
+      for (const spotName of favoriteSpots) {
+        if (!chatSpotMessages[spotName]?.loaded) {
+          void loadSpotChatForTab(spotName);
+        }
+      }
+    }
+    if (chatSubTab === 'session') {
+      void loadMySessionsForChatTab();
+    }
+  }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (activeChatSpot && showChat) {
+      setExpandedChatSpot(activeChatSpot);
+      setChatSubTab('spot');
+      if (!chatSpotMessages[activeChatSpot]?.loaded) {
+        void loadSpotChatForTab(activeChatSpot);
+      }
+    }
+  }, [activeChatSpot, showChat]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     if (!activeAppUserId) {
       setFollowingUserIds([]);
       return;
@@ -5403,7 +5438,7 @@ export default function App() {
     if (startX > 40) return;
 
     const deltaX = endX - startX;
-    const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || isNotificationInboxExpanded);
+    const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || showChat || isNotificationInboxExpanded);
 
     if (deltaX > 70 && isNotHome) {
       goHomeFromNativeSwipe();
@@ -5477,39 +5512,72 @@ export default function App() {
   const renderNativeBottomNav = () => {
     if (isWebPlatform) return null;
 
-    const isHome = !selectedSpot && !showYourSpotsPage && !showDiscoverSpotsPage && !showBuddies && !showProfile;
-    const isSpots = showYourSpotsPage;
-    const isDiscover = showDiscoverSpotsPage;
+    const isHome = !selectedSpot && !showYourSpotsPage && !showDiscoverSpotsPage && !showBuddies && !showProfile && !showChat;
+    const isSpots = showYourSpotsPage || showDiscoverSpotsPage;
     const isBuddies = showBuddies;
+    const isChat = showChat;
 
     type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
     const items: { key: string; icon: IoniconsName; iconActive: IoniconsName; label: string; onPress: () => void; badge: number | null; isActive: boolean }[] = [
       { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: null, isActive: isHome },
       { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
-      { key: 'discover', icon: 'compass-outline', iconActive: 'compass', label: 'Discover', onPress: () => navigateNative('discover'), badge: null, isActive: isDiscover },
       { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
+      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: null, isActive: isChat },
     ];
 
     return (
-      <View
-        style={{
-          position: 'absolute',
-          left: 0,
-          right: 0,
-          bottom: 0,
-          height: 84,
-          backgroundColor: theme.bg,
-          borderTopWidth: 1,
-          borderTopColor: 'rgba(255,255,255,0.10)',
-          flexDirection: 'row',
-          alignItems: 'flex-start',
-          justifyContent: 'space-around',
-          paddingHorizontal: 10,
-          paddingTop: 10,
-          zIndex: 50,
-          elevation: 50,
-        }}
-      >
+      <>
+        {/* FAB */}
+        <Pressable
+          onPress={() => setShowPlanModal(true)}
+          style={{
+            position: 'absolute',
+            bottom: 90,
+            alignSelf: 'center',
+            left: 0,
+            right: 0,
+            alignItems: 'center',
+            zIndex: 100,
+            elevation: 100,
+            pointerEvents: 'box-none',
+          }}
+        >
+          <View style={{
+            width: 56,
+            height: 56,
+            borderRadius: 28,
+            backgroundColor: theme.primary,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: '#000',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.35,
+            shadowRadius: 8,
+            elevation: 10,
+          }}>
+            <Ionicons name="add" size={28} color="#ffffff" />
+          </View>
+        </Pressable>
+
+        <View
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: 84,
+            backgroundColor: theme.bg,
+            borderTopWidth: 1,
+            borderTopColor: 'rgba(255,255,255,0.10)',
+            flexDirection: 'row',
+            alignItems: 'flex-start',
+            justifyContent: 'space-around',
+            paddingHorizontal: 10,
+            paddingTop: 10,
+            zIndex: 50,
+            elevation: 50,
+          }}
+        >
         {items.map((item) => (
           <Pressable
             key={`native-bottom-nav-${item.key}`}
@@ -5538,6 +5606,7 @@ export default function App() {
           </Pressable>
         ))}
       </View>
+      </>
     );
   };
 
@@ -5549,11 +5618,12 @@ export default function App() {
     setShowDiscoverSpotsPage(false);
     setShowBuddies(false);
     setShowProfile(false);
+    setShowChat(false);
     setIsNotificationInboxExpanded(false);
   };
 
   const navigateNative = (
-    destination: 'home' | 'spots' | 'discover' | 'buddies' | 'buzz'
+    destination: 'home' | 'spots' | 'discover' | 'buddies' | 'buzz' | 'chat'
   ) => {
     goHomeFromNativeSwipe();
 
@@ -5582,13 +5652,17 @@ export default function App() {
       setIsNotificationInboxExpanded(true);
       void markAllBuzzAsRead();
     }
+
+    if (destination === 'chat') {
+      setShowChat(true);
+    }
   };
 
 
   const nativeBackSwipeResponder = !isWebPlatform ? PanResponder.create({
     onMoveShouldSetPanResponder: (_, gestureState) => {
       const isHorizontalSwipe = Math.abs(gestureState.dx) > 42 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.6;
-      const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || isNotificationInboxExpanded);
+      const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || showChat || isNotificationInboxExpanded);
       return isHorizontalSwipe && isNotHome;
     },
     onPanResponderRelease: (_, gestureState) => {
@@ -6628,6 +6702,98 @@ export default function App() {
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
+  const loadSpotChatForTab = async (spotName: string) => {
+    const today = new Date().toISOString().split('T')[0];
+    const convResponse = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
+    const convId = convResponse.data?.[0]?.id ?? null;
+    if (!convId) {
+      setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: null, messages: [], loaded: true } }));
+      return;
+    }
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const rows = msgResponse.data ?? [];
+    const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
+    const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
+    const pmap = new Map((profilesResponse.data ?? []).map((p) => [p.id, p]));
+    const enriched = rows.map((m) => ({
+      id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id,
+      display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown',
+      avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
+    }));
+    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: enriched, loaded: true } }));
+  };
+
+  const sendSpotMessageInChatTab = async (spotName: string) => {
+    const text = spotChatInputInChat.trim();
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!text || !spotName || !senderId) return;
+    const today = new Date().toISOString().split('T')[0];
+    let convId = chatSpotMessages[spotName]?.conversationId ?? null;
+    if (!convId) {
+      const existing = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
+      convId = existing.data?.[0]?.id ?? null;
+      if (!convId) {
+        const created = await supabase.from('conversations').insert({ type: 'spot', spot_name: spotName, session_day: today }).select('id').single();
+        convId = created.data?.id ?? null;
+      }
+    }
+    if (!convId) return;
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: today, conversation_id: convId, created_at: new Date().toISOString() });
+    if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
+    setSpotChatInputInChat('');
+    const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
+    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
+  };
+
+  const loadMySessionsForChatTab = async () => {
+    if (!activeAppUserId) return;
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const { data } = await supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time, group_key, user_id').in('spot_name', favoriteSpots.length ? favoriteSpots : ['']).in('session_day', [today, tomorrow]).order('session_day').order('start_time');
+    setChatMySessions(data ?? []);
+  };
+
+  const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
+    const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).eq('group_key', groupKey).limit(1);
+    const convId = convResponse.data?.[0]?.id ?? null;
+    if (!convId) {
+      setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: null, messages: [], loaded: true } }));
+      return;
+    }
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const rows = msgResponse.data ?? [];
+    const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
+    const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
+    const pmap = new Map((profilesResponse.data ?? []).map((p) => [p.id, p]));
+    const enriched = rows.map((m) => ({
+      id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id,
+      display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown',
+      avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
+    }));
+    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: enriched, loaded: true } }));
+  };
+
+  const sendSessionMessageInChatTab = async (groupKey: string, spotName: string, sessionDay: string) => {
+    const text = sessionChatInput.trim();
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!text || !groupKey || !senderId) return;
+    let convId = chatSessionMessages[groupKey]?.conversationId ?? null;
+    if (!convId) {
+      const existing = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).eq('group_key', groupKey).limit(1);
+      convId = existing.data?.[0]?.id ?? null;
+      if (!convId) {
+        const created = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
+        convId = created.data?.id ?? null;
+      }
+    }
+    if (!convId) return;
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
+    if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
+    setSessionChatInput('');
+    const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
+    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
+  };
+
   const withNativeShell = (screen: React.ReactNode) => {
     if (isWebPlatform) return screen;
 
@@ -7104,6 +7270,205 @@ export default function App() {
     );
   }
 
+  if (showChat) {
+    const chatTabs = [
+      { key: 'spot' as const, label: 'Spot chats' },
+      { key: 'session' as const, label: 'Session chats' },
+      { key: 'dm' as const, label: 'DMs' },
+    ];
+
+    const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean) =>
+      messages.map((msg) => {
+        const own = isOwn(msg.userId ?? msg.user_id);
+        const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
+        return (
+          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8 }}>
+            {!own && <Avatar uri={msg.avatar_url} size={22} />}
+            <View style={{ marginLeft: own ? 0 : 6, marginRight: own ? 6 : 0, maxWidth: '82%', backgroundColor: own ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
+              {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }} numberOfLines={1}>{msg.display_name}</Text>}
+              <Text style={{ color: theme.text, fontSize: 14, marginTop: own ? 0 : 2 }}>{msg.text}</Text>
+              {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
+            </View>
+          </View>
+        );
+      });
+
+    const chatContent = (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+            <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
+            {!isWebPlatform && (
+              <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back</Text>
+              </Pressable>
+            )}
+          </View>
+
+          {/* Sub-tabs */}
+          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 20, alignSelf: 'flex-start' }}>
+            {chatTabs.map((tab) => {
+              const active = chatSubTab === tab.key;
+              return (
+                <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent' }}>
+                  <Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Spot chats */}
+          {chatSubTab === 'spot' && (
+            <View style={{ gap: 10 }}>
+              {favoriteSpots.length === 0 && (
+                <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
+              )}
+              {favoriteSpots.map((spotName) => {
+                const chatData = chatSpotMessages[spotName];
+                const isExpanded = expandedChatSpot === spotName;
+                const messages = chatData?.messages ?? [];
+                const lastMsg = messages[messages.length - 1];
+                const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+
+                return (
+                  <View key={spotName} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                    <Pressable
+                      onPress={() => {
+                        const next = isExpanded ? null : spotName;
+                        setExpandedChatSpot(next);
+                        if (next && !chatData?.loaded) void loadSpotChatForTab(spotName);
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="location" size={18} color={theme.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                          {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
+                        </Text>
+                      </View>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+                    </Pressable>
+
+                    {isExpanded && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 14, paddingBottom: 12, paddingTop: 10 }}>
+                        {!chatData?.loaded ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading…</Text>
+                        ) : messages.length === 0 ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet today. Say hi!</Text>
+                        ) : (
+                          <View style={{ marginBottom: 10 }}>
+                            {renderChatMessages(messages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))}
+                          </View>
+                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5 }}>
+                          <TextInput
+                            value={spotChatInputInChat}
+                            onChangeText={setSpotChatInputInChat}
+                            onSubmitEditing={() => void sendSpotMessageInChatTab(spotName)}
+                            blurOnSubmit={false}
+                            placeholder="Type a message…"
+                            placeholderTextColor={theme.textMuted}
+                            style={({ flex: 1, color: theme.text, paddingVertical: 6, paddingRight: 8, fontSize: 14, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                          />
+                          <Pressable onPress={() => void sendSpotMessageInChatTab(spotName)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '900' }}>↑</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Session chats */}
+          {chatSubTab === 'session' && (
+            <View style={{ gap: 10 }}>
+              {chatMySessions.length === 0 && (
+                <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow at your spots.</Text>
+              )}
+              {chatMySessions.map((session) => {
+                const groupKey = session.group_key ?? session.id;
+                const isExpanded = expandedChatSession === groupKey;
+                const chatData = chatSessionMessages[groupKey];
+                const messages = chatData?.messages ?? [];
+                const lastMsg = messages[messages.length - 1];
+
+                return (
+                  <View key={session.id} style={{ backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+                    <Pressable
+                      onPress={() => {
+                        const next = isExpanded ? null : groupKey;
+                        setExpandedChatSession(next);
+                        if (next && !chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day);
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}
+                    >
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people" size={18} color="#FFB432" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
+                          {session.start_time ? `${session.session_day} · ${session.start_time}–${session.end_time ?? '?'}` : session.session_day}
+                          {lastMsg ? ` · ${lastMsg.text}` : ''}
+                        </Text>
+                      </View>
+                      <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.textMuted} />
+                    </Pressable>
+
+                    {isExpanded && (
+                      <View style={{ borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingHorizontal: 14, paddingBottom: 12, paddingTop: 10 }}>
+                        {!chatData?.loaded ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading…</Text>
+                        ) : messages.length === 0 ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet. Start the conversation!</Text>
+                        ) : (
+                          <View style={{ marginBottom: 10 }}>
+                            {renderChatMessages(messages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))}
+                          </View>
+                        )}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5 }}>
+                          <TextInput
+                            value={sessionChatInput}
+                            onChangeText={setSessionChatInput}
+                            onSubmitEditing={() => void sendSessionMessageInChatTab(groupKey, session.spot_name, session.session_day)}
+                            blurOnSubmit={false}
+                            placeholder="Type a message…"
+                            placeholderTextColor={theme.textMuted}
+                            style={({ flex: 1, color: theme.text, paddingVertical: 6, paddingRight: 8, fontSize: 14, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                          />
+                          <Pressable onPress={() => void sendSessionMessageInChatTab(groupKey, session.spot_name, session.session_day)} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                            <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '900' }}>↑</Text>
+                          </Pressable>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* DMs */}
+          {chatSubTab === 'dm' && (
+            <View style={{ alignItems: 'center', paddingTop: 40 }}>
+              <Text style={{ fontSize: 32, marginBottom: 12 }}>✉️</Text>
+              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700', marginBottom: 8 }}>Direct Messages</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>DMs with your buddies will appear here. Coming soon.</Text>
+            </View>
+          )}
+        </ScrollView>
+      </SafeAreaView>
+    );
+
+    return withNativeShell(chatContent);
+  }
+
   if (showBuddies) {
     const normalizedBuddySearch = normalizeSearch(searchUsersInput);
     const followingSet = new Set(followingUserIds);
@@ -7194,6 +7559,41 @@ export default function App() {
           {/* MY BUDDIES TAB */}
           {buddiesTab === 'myBuddies' ? (
             <>
+              {/* Incoming requests — also visible in My Buddies */}
+              {incomingFollowRequests.length > 0 && (
+                <View style={{ backgroundColor: 'rgba(77,184,255,0.07)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 14, marginBottom: 16 }}>
+                  <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
+                    BUDDY REQUESTS · {incomingFollowRequests.length}
+                  </Text>
+                  {incomingFollowRequests.map((req) => (
+                    <UserRow
+                      key={`mybuddies-req-${req.id}`}
+                      avatar={req.requester?.avatar_url ?? null}
+                      name={req.requester?.display_name ?? 'Someone'}
+                      sub="wants to buddy up"
+                      right={
+                        <View style={{ flexDirection: 'row', gap: 8 }}>
+                          <Pressable
+                            onPress={() => void handleAcceptFollowRequest(req)}
+                            disabled={followRequestActionId === req.id}
+                            style={{ backgroundColor: '#4DB8FF', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, opacity: followRequestActionId === req.id ? 0.5 : 1 }}
+                          >
+                            <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Accept</Text>
+                          </Pressable>
+                          <Pressable
+                            onPress={() => void handleRejectFollowRequest(req)}
+                            disabled={followRequestActionId === req.id}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', opacity: followRequestActionId === req.id ? 0.5 : 1 }}
+                          >
+                            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Decline</Text>
+                          </Pressable>
+                        </View>
+                      }
+                    />
+                  ))}
+                </View>
+              )}
+
               {followedUsers.length === 0 ? (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
                   <Text style={{ color: theme.textMuted, fontSize: 15 }}>No buddies yet</Text>
@@ -8813,7 +9213,7 @@ const handleSave = async () => {
         ) : null}
 
         {activeGroupChatKey ? (
-          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: isWebPlatform ? 14 : 90, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: isWebPlatform ? 14 : 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
               <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
                 <Text style={{ fontSize: 16 }}>💬</Text>
@@ -8893,107 +9293,26 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-            <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-              <Text style={{ fontSize: 16 }}>💬</Text>
-            </View>
-            <View>
-              <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Spot Chat</Text>
-            </View>
+        <Pressable
+          onPress={() => {
+            if (selectedSpot) {
+              setActiveChatSpot(selectedSpot);
+              setShowChat(true);
+              setChatSubTab('spot');
+              setSelectedSpot(null);
+            }
+          }}
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: isWebPlatform ? 14 : 90 }}
+        >
+          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+            <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
           </View>
-
-          {orderedMessages.length > 0 ? (
-            <ScrollView
-              ref={spotChatScrollRef}
-              style={{ maxHeight: 250, marginBottom: 12 }}
-              keyboardDismissMode="interactive"
-              onContentSizeChange={() => {
-                spotChatScrollRef.current?.scrollToEnd({ animated: false });
-              }}
-            >
-              {orderedMessages
-                .slice()
-                .sort((a, b) => {
-                  const aTime = new Date(a.createdAt ?? a.created_at ?? a.timestamp ?? 0).getTime();
-                  const bTime = new Date(b.createdAt ?? b.created_at ?? b.timestamp ?? 0).getTime();
-                  return aTime - bTime;
-                })
-                .map((message) => (
-                (() => {
-                  const chosenTimestampValue =
-                    message?.createdAt ??
-                    message?.created_at ??
-                    message?.timestamp ??
-                    null;
-                  const renderedTime = chosenTimestampValue
-                    ? formatToHourMinute(chosenTimestampValue)
-                    : "";
-                  const isOwnMessage = message.userId === activeAppUserId;
-
-                  return (
-                    <View key={message.id} style={{ flexDirection: isOwnMessage ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      {!isOwnMessage && <Avatar uri={message.avatar_url} size={24} />}
-                      <View style={{ marginLeft: isOwnMessage ? 0 : 8, maxWidth: '84%', backgroundColor: isOwnMessage ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwnMessage ? 16 : 5, borderBottomRightRadius: isOwnMessage ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwnMessage ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
-                        {!isOwnMessage && (
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
-                              {message.display_name}
-                            </Text>
-                            {renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700' }}>{renderedTime}</Text> : null}
-                          </View>
-                        )}
-                        <Text style={{ color: theme.text, fontSize: 15, marginTop: isOwnMessage ? 0 : 3 }}>{message.text}</Text>
-                        {isOwnMessage && renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', marginTop: 3, textAlign: 'right' }}>{renderedTime}</Text> : null}
-                      </View>
-                    </View>
-                  );
-                })()
-              ))}
-            </ScrollView>
-          ) : (
-            <Text style={{ color: theme.textSoft, fontSize: 13, marginBottom: 12 }}>No messages yet</Text>
-          )}
-
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5 }}>
-            <TextInput
-              value={messageInput}
-              onChangeText={setMessageInput}
-              onFocus={() => {
-                spotDetailScrollRef.current?.scrollToEnd({ animated: true });
-              }}
-              onSubmitEditing={() => {
-                void sendSpotChatMessage();
-              }}
-              blurOnSubmit={false}
-              returnKeyType="send"
-              placeholder="Type a message"
-              placeholderTextColor={theme.textMuted}
-              style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
-            />
-          <Pressable
-            data-spot-chat-send="true"
-            disabled={!messageInput.trim()}
-            hitSlop={10}
-            onPress={() => {
-              void sendSpotChatMessage();
-            }}
-            style={{
-              width: 44,
-              height: 44,
-              borderRadius: 22,
-              backgroundColor: messageInput.trim() ? '#05070a' : 'rgba(255,255,255,0.08)',
-              alignItems: 'center',
-              justifyContent: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.06)',
-              opacity: messageInput.trim() ? 1 : 0.55,
-            }}
-          >
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
-          </Pressable>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Spot Chat</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Open in Messages tab</Text>
           </View>
-        </View>
+          <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+        </Pressable>
 
 
         </ScrollView>
@@ -9152,23 +9471,6 @@ const handleSave = async () => {
           </Pressable>
 
           <Pressable
-            onPress={() => setShowDiscoverSpotsPage(true)}
-            style={{
-              width: homeActionButtonWidth,
-              backgroundColor: 'rgba(255,255,255,0.075)',
-              borderRadius: 999,
-              paddingVertical: 7,
-              alignItems: 'center',
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.08)',
-            }}
-          >
-            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>
-              Discover
-            </Text>
-          </Pressable>
-
-          <Pressable
             onPress={() => setShowBuddies(true)}
             style={{
               width: homeActionButtonWidth,
@@ -9186,6 +9488,21 @@ const handleSave = async () => {
                 <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{pendingRequestsCount}</Text>
               </View>
             ) : null}
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowChat(true)}
+            style={{
+              width: homeActionButtonWidth,
+              backgroundColor: 'rgba(255,255,255,0.075)',
+              borderRadius: 999,
+              paddingVertical: 7,
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}
+          >
+            <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Messages</Text>
           </Pressable>
 
           {/* Bell — compact, rechts uitgelijnd */}
@@ -9681,6 +9998,55 @@ const handleSave = async () => {
         </ScrollView>
       </View>
       {renderNativeBottomNav()}
+
+      {/* Plan session modal */}
+      {showPlanModal && (
+        <Pressable
+          onPress={() => setShowPlanModal(false)}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200, justifyContent: 'flex-end' }}
+        >
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>Plan a session</Text>
+              <Pressable onPress={() => setShowPlanModal(false)}>
+                <Ionicons name="close" size={22} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>My spots</Text>
+            {favoriteSpots.length === 0 && (
+              <Text style={{ color: theme.textMuted, fontSize: 14, marginBottom: 12 }}>Add spots first in the Spots tab.</Text>
+            )}
+            {favoriteSpots.map((spotName) => (
+              <Pressable
+                key={`plan-modal-${spotName}`}
+                onPress={() => {
+                  setShowPlanModal(false);
+                  setSelectedSpot(spotName as SpotName);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+              >
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="location-outline" size={16} color={theme.primary} />
+                </View>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600', flex: 1 }}>{spotName}</Text>
+                <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+              </Pressable>
+            ))}
+            <Pressable
+              onPress={() => {
+                setShowPlanModal(false);
+                navigateNative('spots');
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, marginTop: 4 }}
+            >
+              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="search-outline" size={16} color={theme.textMuted} />
+              </View>
+              <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '600' }}>Search other spots</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      )}
 
     </SafeAreaView>
   );
