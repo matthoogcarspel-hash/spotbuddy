@@ -2488,6 +2488,7 @@ export default function App() {
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
+  const [chatKeyboardHeight, setChatKeyboardHeight] = useState(0);
 
   const [showForm, setShowForm] = useState(false);
   const [activePicker, setActivePicker] = useState<PickerKey>(null);
@@ -4685,6 +4686,14 @@ export default function App() {
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [activeAppUserId]);
+
+  // Keyboard hoogte bijhouden voor chat input bar (native only)
+  useEffect(() => {
+    if (isWebPlatform) return;
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) => setChatKeyboardHeight(e.endCoordinates.height));
+    const hideSub = Keyboard.addListener('keyboardWillHide', () => setChatKeyboardHeight(0));
+    return () => { showSub.remove(); hideSub.remove(); };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
@@ -7884,7 +7893,7 @@ export default function App() {
               : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
             }
           </ScrollView>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, paddingRight: 10, paddingTop: 8, paddingBottom: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.10)', paddingLeft: 16, paddingRight: 10, paddingTop: 8, paddingBottom: 10, marginBottom: inputBarBottom }}>
             <TextInput
               value={openInput}
               onChangeText={setOpenInput}
@@ -7902,11 +7911,13 @@ export default function App() {
         </View>
       );
 
+      const inputBarBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : 90;
+
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
           <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
           {renderNativeTopBar()}
-          <KeyboardAvoidingView behavior="padding" style={{ flex: 1, backgroundColor: theme.bg }}>
+          <View style={{ flex: 1, backgroundColor: theme.bg }}>
             {isAnyConvOpen ? fullScreenChat : (
               <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
@@ -7954,7 +7965,7 @@ export default function App() {
                 </View>}
               </ScrollView>
             )}
-          </KeyboardAvoidingView>
+          </View>
           {renderNativeBottomNav()}
         </SafeAreaView>
       );
