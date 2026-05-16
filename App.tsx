@@ -5753,7 +5753,7 @@ export default function App() {
       { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: unreadCount > 0 && !isHome ? unreadCount : null, isActive: isHome },
       { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
       { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
-      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: (() => { const total = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + chatUnreadCount; return total > 0 ? total : null; })(), isActive: isChat },
+      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: chatUnreadCount > 0 ? chatUnreadCount : null, isActive: isChat },
     ];
 
     return (
@@ -5881,12 +5881,11 @@ export default function App() {
     }
 
     if (destination === 'chat') {
-      setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
+      setShowChat(true);
       // Ga naar Spot chats tab als er ongelezen spots zijn
       const hasUnreadSpots = Object.values(unreadBySpot).some((n) => n > 0);
       if (hasUnreadSpots) setChatSubTab('spot');
-      setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
-    }
+          }
   };
 
 
@@ -7866,7 +7865,6 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
-                    if (tab.key === 'spot') setUnreadBySpot({});
                     if (tab.key === 'session') setUnreadSessionCount(0);
                     if (tab.key === 'dm') setUnreadDmCount(0);
                   }}
@@ -8250,7 +8248,7 @@ export default function App() {
                               const convId = await openDmWithUser(u.id);
                               setShowBuddies(false);
                               if (convId) {
-                                setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
+                                setShowChat(true);
                                 setChatSubTab('dm');
                                 setExpandedDmId(convId);
                                 void loadDmMessages(convId);
@@ -9883,7 +9881,7 @@ const handleSave = async () => {
                 if (prev.some((s) => (s.group_key ?? s.id) === groupKey)) return prev;
                 return [...prev, { id: groupKey, group_key: groupKey, spot_name: selectedSpot, session_day: selectedDayKey, start_time: null, end_time: null, user_id: activeAppUserId }];
               });
-              setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
+              setShowChat(true);
               setSelectedSpot(null);
             }}
             activeGroupChatKey={activeGroupChatKey}
@@ -10034,7 +10032,7 @@ const handleSave = async () => {
           onPress={() => {
             if (selectedSpot) {
               setActiveChatSpot(selectedSpot);
-              setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
+              setShowChat(true);
               setChatSubTab('spot');
               setSelectedSpot(null);
             }
@@ -10791,7 +10789,7 @@ const handleSave = async () => {
                       const convId = await openDmWithUser(viewingOtherUserId);
                       setViewingOtherUserId(null);
                       if (convId) {
-                        setShowChat(true); setUnreadBySpot({}); setUnreadSessionCount(0); setUnreadDmCount(0);
+                        setShowChat(true);
                         setChatSubTab('dm');
                         setExpandedDmId(convId);
                         void loadDmMessages(convId);
