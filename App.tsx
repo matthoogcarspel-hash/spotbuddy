@@ -6914,12 +6914,8 @@ export default function App() {
     const today = new Date().toISOString().split('T')[0];
     let convId = chatSpotMessages[spotName]?.conversationId ?? null;
     if (!convId) {
-      const existing = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
-      convId = existing.data?.[0]?.id ?? null;
-      if (!convId) {
-        const created = await supabase.from('conversations').insert({ type: 'spot', spot_name: spotName, session_day: today }).select('id').single();
-        convId = created.data?.id ?? null;
-      }
+      const { data } = await supabase.rpc('get_or_create_conversation', { p_type: 'spot', p_spot_name: spotName, p_session_day: today });
+      convId = data ?? null;
     }
     if (!convId) return;
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: today, conversation_id: convId, created_at: new Date().toISOString() });
@@ -6945,16 +6941,16 @@ export default function App() {
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
-    const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).eq('group_key', groupKey).limit(1);
-    let convId = convResponse.data?.[0]?.id ?? null;
-    // Conversation meteen aanmaken zodat we er direct op kunnen subscriben
+    // RPC bypast RLS — vindt of maakt conversation
+    const { data: rpcData, error: rpcError } = await supabase.rpc('get_or_create_conversation', {
+      p_type: 'group',
+      p_spot_name: spotName,
+      p_session_day: sessionDay,
+      p_group_key: groupKey,
+    });
+    if (rpcError) console.error('GROUP_CONV_RPC_ERROR', rpcError);
+    const convId = rpcData ?? null;
     if (!convId) {
-      const created = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
-      if (created.error) console.error('GROUP_CONV_CREATE_ERROR', created.error);
-      convId = created.data?.id ?? null;
-    }
-    if (!convId) {
-      console.error('GROUP_CONV_NO_ID', { groupKey, spotName, sessionDay });
       setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: null, messages: [], loaded: true } }));
       return;
     }
@@ -6979,12 +6975,9 @@ export default function App() {
     if (!text || !groupKey || !senderId) return;
     let convId = chatSessionMessages[groupKey]?.conversationId ?? null;
     if (!convId) {
-      const existing = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).eq('group_key', groupKey).limit(1);
-      convId = existing.data?.[0]?.id ?? null;
-      if (!convId) {
-        const created = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
-        convId = created.data?.id ?? null;
-      }
+      const { data } = await supabase.rpc('get_or_create_conversation', { p_type: 'group', p_spot_name: spotName, p_session_day: sessionDay, p_group_key: groupKey });
+      convId = data ?? null;
+      if (convId) myConvIdsRef.current.add(convId);
     }
     if (!convId) return;
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
@@ -7045,21 +7038,15 @@ export default function App() {
   };
 
   const openDmWithUser = async (otherUserId: string) => {
-    // activeAppUserId = session.user.id = auth.uid() — matcht de RLS policy
-    const myId = activeAppUserId ?? null;
-    if (!myId || !otherUserId) return null;
-    const [q1, q2] = await Promise.all([
-      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', myId).eq('participant_b_id', otherUserId).limit(1),
-      supabase.from('conversations').select('id').eq('type', 'dm').eq('participant_a_id', otherUserId).eq('participant_b_id', myId).limit(1),
-    ]);
-    let convId = q1.data?.[0]?.id ?? q2.data?.[0]?.id ?? null;
-    if (!convId) {
-      const created = await supabase.from('conversations').insert({ type: 'dm', participant_a_id: myId, participant_b_id: otherUserId }).select('id').single();
-      if (created.error) console.error('DM_CONV_CREATE_ERROR', created.error);
-      convId = created.data?.id ?? null;
-    }
+    if (!activeAppUserId || !otherUserId) return null;
+    // RPC bypast RLS volledig — werkt altijd
+    const { data: convId, error } = await supabase.rpc('get_or_create_conversation', {
+      p_type: 'dm',
+      p_other_user_id: otherUserId,
+    });
+    if (error) console.error('DM_CONV_RPC_ERROR', error);
     if (convId) myConvIdsRef.current.add(convId);
-    return convId;
+    return convId ?? null;
   };
 
   const withNativeShell = (screen: React.ReactNode) => {
