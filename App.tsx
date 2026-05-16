@@ -274,7 +274,6 @@ type SpotNotificationMode = 'off' | 'following' | 'everyone';
 const spotNotificationPreferencesModel = [
   { key: 'sessionPlanning', label: 'Session planned', dbField: 'session_planning_notification_mode' },
   { key: 'checkin', label: 'Check-ins', dbField: 'checkin_notification_mode' },
-  { key: 'chat', label: 'Chat messages', dbField: 'chat_notification_mode' },
   { key: 'sessionJoined', label: 'Someone joined my session', dbField: 'session_joined_notification_mode' },
 ] as const;
 type SpotNotificationPreferenceType = (typeof spotNotificationPreferencesModel)[number]['key'];
@@ -2447,6 +2446,7 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -4465,7 +4465,7 @@ export default function App() {
     const channel = supabase.channel(`chat-spot-${convId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${convId}` }, async (payload) => {
         const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
-        if (!row?.id) return;
+        if (!row?.id || row.user_id === (activeProfile?.id ?? activeAppUserId)) return;
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
         setChatSpotMessages((prev) => {
@@ -4473,6 +4473,7 @@ export default function App() {
           if (existing.some((m) => m.id === row.id)) return prev;
           return { ...prev, [expandedChatSpot]: { ...prev[expandedChatSpot], messages: [...existing, newMsg] } };
         });
+        if (!showChat) setChatUnreadCount((n) => n + 1);
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [expandedChatSpot, chatSpotMessages[expandedChatSpot]?.conversationId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4483,7 +4484,7 @@ export default function App() {
     const channel = supabase.channel(`chat-dm-${expandedDmId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${expandedDmId}` }, async (payload) => {
         const row = payload.new as { id: string; user_id: string; text: string; created_at: string };
-        if (!row?.id) return;
+        if (!row?.id || row.user_id === (activeProfile?.id ?? activeAppUserId)) return;
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text, createdAt: row.created_at, userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
         setDmMessages((prev) => {
@@ -4491,6 +4492,7 @@ export default function App() {
           if (existing.some((m: any) => m.id === row.id)) return prev;
           return { ...prev, [expandedDmId]: [...existing, newMsg] };
         });
+        if (!showChat) setChatUnreadCount((n) => n + 1);
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [expandedDmId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -5679,10 +5681,10 @@ export default function App() {
 
     type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
     const items: { key: string; icon: IoniconsName; iconActive: IoniconsName; label: string; onPress: () => void; badge: number | null; isActive: boolean }[] = [
-      { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: null, isActive: isHome },
+      { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: unreadCount > 0 && !isHome ? unreadCount : null, isActive: isHome },
       { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
       { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
-      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: null, isActive: isChat },
+      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: chatUnreadCount > 0 ? chatUnreadCount : null, isActive: isChat },
     ];
 
     return (
@@ -5811,6 +5813,7 @@ export default function App() {
 
     if (destination === 'chat') {
       setShowChat(true);
+      setChatUnreadCount(0);
     }
   };
 
@@ -7068,7 +7071,7 @@ export default function App() {
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900' }}>Discover</Text>
           <Pressable
             onPress={() => { setShowDiscoverSpotsPage(false); setHomeSpotSearchQuery(''); }}
-            style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 6 }}
+            style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 6 }}
           >
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
@@ -7148,7 +7151,7 @@ export default function App() {
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
-                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
@@ -7523,59 +7526,74 @@ export default function App() {
               >
                 <Text style={{ color: showMessagesAlertSettings ? '#4DB8FF' : theme.text, fontSize: 12, fontWeight: '700' }}>🔔 Alerts</Text>
               </Pressable>
-              <Pressable onPress={() => setShowChat(false)} style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
+              <Pressable onPress={() => setShowChat(false)} style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}>
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* Messages Alert Settings panel */}
+          {/* Messages Alert Settings panel — zelfde opmaak als spot alert settings */}
           {showMessagesAlertSettings && (
-            <View style={{ backgroundColor: 'rgba(8,24,39,0.95)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 16, marginBottom: 16, gap: 14 }}>
-              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>Messages Alert</Text>
-
-              {([
-                { key: 'spotChats' as const, label: 'Spot chats', options: ['everyone', 'buddies', 'off'] as const },
-                { key: 'sessionChats' as const, label: 'Session chats', options: ['everyone', 'buddies', 'off'] as const },
-              ]).map(({ key, label, options }) => (
-                <View key={key} style={{ gap: 6 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-                  <View style={{ flexDirection: 'row', gap: 6 }}>
-                    {options.map((opt) => {
-                      const selected = messagesAlertSettings[key] === opt;
-                      return (
-                        <Pressable
-                          key={opt}
-                          onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))}
-                          style={{ flex: 1, paddingVertical: 7, alignItems: 'center', borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}
-                        >
-                          <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'capitalize' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
-                        </Pressable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                <View>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Message requests</Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11 }}>DMs from non-buddies</Text>
-                </View>
-                <Pressable
-                  onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: !prev.messageRequests }))}
-                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 8, backgroundColor: messagesAlertSettings.messageRequests ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: messagesAlertSettings.messageRequests ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}
-                >
-                  <Text style={{ color: messagesAlertSettings.messageRequests ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{messagesAlertSettings.messageRequests ? 'On' : 'Off'}</Text>
-                </Pressable>
+            <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
+              <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for chat messages</Text>
               </View>
 
-              <View style={{ paddingTop: 8, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>DMs (direct messages)</Text>
-                  <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700' }}>Always on</Text>
+              {([
+                { key: 'spotChats' as const, label: 'Spot chats', icon: '📍' },
+                { key: 'sessionChats' as const, label: 'Session chats', icon: '👥' },
+              ]).map(({ key, label, icon }, index) => {
+                const currentValue = messagesAlertSettings[key];
+                return (
+                  <View key={key} style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                      <Text style={{ fontSize: 16 }}>{icon}</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>{label}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {(['everyone', 'buddies', 'off'] as const).map((opt) => {
+                        const selected = currentValue === opt;
+                        return (
+                          <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}>
+                            <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
+                          </Pressable>
+                        );
+                      })}
+                    </View>
                   </View>
+                );
+              })}
+
+              {/* Message requests */}
+              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <Text style={{ fontSize: 16 }}>✉️</Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Message requests</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11 }}>DMs from non-buddies</Text>
+                  </View>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['on', 'off'] as const).map((opt) => {
+                    const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
+                    return (
+                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}>
+                        <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* DMs always on */}
+              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <Text style={{ fontSize: 16 }}>💬</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct messages</Text>
+                </View>
+                <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700' }}>Always on</Text>
                 </View>
               </View>
             </View>
@@ -7860,7 +7878,7 @@ export default function App() {
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900' }}>Buddies</Text>
           <Pressable
             onPress={() => { setShowBuddies(false); setBuddiesError(''); }}
-            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
+            style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
           >
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
@@ -8272,7 +8290,7 @@ export default function App() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingVertical: 14 }}>
           <Pressable
             onPress={goBack}
-            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
+            style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
           >
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
@@ -8950,7 +8968,6 @@ const handleSave = async () => {
                 const icons: Record<string, string> = {
                   sessionPlanning: '📅',
                   checkin: '📍',
-                  chat: '💬',
                   sessionJoined: '👥',
                 };
 
