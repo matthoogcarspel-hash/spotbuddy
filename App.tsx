@@ -1147,6 +1147,61 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: Sp
   };
 };
 
+function WheelPicker({ values, selected, onSelect, label, formatVal }: { values: number[]; selected: number | null; onSelect: (v: number) => void; label: string; formatVal: (v: number) => string }) {
+  const ITEM_H = 44;
+  const VISIBLE = 3;
+  const HEIGHT = ITEM_H * VISIBLE;
+  const scrollRef = React.useRef<ScrollView>(null);
+  const isScrolling = React.useRef(false);
+
+  React.useEffect(() => {
+    if (selected === null) return;
+    const idx = values.indexOf(selected);
+    if (idx >= 0) {
+      setTimeout(() => scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false }), 30);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <View style={{ flex: 1, alignItems: 'center' }}>
+      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</Text>
+      <View style={{ height: HEIGHT, width: 80, overflow: 'hidden', position: 'relative' }}>
+        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(77,184,255,0.10)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', zIndex: 1 }} />
+        <ScrollView
+          ref={scrollRef}
+          showsVerticalScrollIndicator={false}
+          snapToInterval={ITEM_H}
+          decelerationRate="fast"
+          contentContainerStyle={{ paddingTop: ITEM_H, paddingBottom: ITEM_H }}
+          onScrollBeginDrag={() => { isScrolling.current = true; }}
+          onMomentumScrollEnd={(e) => {
+            isScrolling.current = false;
+            const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
+            const clamped = Math.max(0, Math.min(idx, values.length - 1));
+            onSelect(values[clamped]);
+          }}
+          scrollEventThrottle={16}
+        >
+          {values.map((v) => {
+            const isSelected = v === selected;
+            return (
+              <Pressable key={v} onPress={() => {
+                onSelect(v);
+                const idx = values.indexOf(v);
+                scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
+              }} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.35)', fontSize: isSelected ? 24 : 18, fontWeight: isSelected ? '800' : '400' }}>
+                  {formatVal(v)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+      </View>
+    </View>
+  );
+}
+
 function Avatar({ uri, size = 28, nationality }: { uri: string | null; size?: number; nationality?: string | null }) {
   const flagSize = Math.max(10, Math.round(size * 0.42));
   const flag = getCountry(nationality)?.flag ?? null;
@@ -5561,14 +5616,10 @@ export default function App() {
           onPress={() => setShowPlanModal(true)}
           style={{
             position: 'absolute',
-            bottom: 90,
-            alignSelf: 'center',
-            left: 0,
-            right: 0,
-            alignItems: 'center',
+            bottom: 100,
+            right: 20,
             zIndex: 100,
             elevation: 100,
-            pointerEvents: 'box-none',
           }}
         >
           <View style={{
@@ -9145,94 +9196,53 @@ const handleSave = async () => {
                 gap: 10,
               }}
             >
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                Start time
-              </Text>
-
-              <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
-                  <Text style={{ color: startHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{startHour === null ? '--' : formatTimePart(startHour)}</Text>
-                </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(startMinute)}</Text>
-                </Pressable>
-              </View>
-              {activePicker === 'startHour' ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {startHourOptions.map((hour) => (
-                    <Pressable
-                      key={`start-hour-${hour}`}
-                      onPress={() => {
-                        setStartHour(hour);
-                        if (planningNowReference.isToday) {
-                          const earliestMinuteForHour = minuteOptions.find((minute) => (hour * 60) + minute >= planningNowReference.earliestStartMinutes);
-                          if (earliestMinuteForHour !== undefined && startMinute < earliestMinuteForHour) {
-                            setStartMinute(earliestMinuteForHour);
-                          }
-                        }
-                      }}
-                      style={{ backgroundColor: startHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}
-                    >
-                      <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              {activePicker === 'startMinute' ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {minuteOptions
-                    .filter((minute) => {
-                      if (startHour === null) {
-                        return false;
+              <View style={{ flexDirection: 'row', gap: 16, alignItems: 'flex-start' }}>
+                <View style={{ flex: 1 }}>
+                  <WheelPicker
+                    values={startHourOptions}
+                    selected={startHour}
+                    onSelect={(h) => {
+                      setStartHour(h);
+                      if (planningNowReference.isToday) {
+                        const earliest = minuteOptions.find((m) => (h * 60) + m >= planningNowReference.earliestStartMinutes);
+                        if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest);
                       }
-                      const selectedStartMinutes = (startHour * 60) + minute;
-                      if (planningNowReference.isToday && selectedStartMinutes < planningNowReference.earliestStartMinutes) {
-                        return false;
-                      }
-                      return selectedStartMinutes <= planningNowReference.latestPlanningStartMinutes;
-                    })
-                    .map((minute) => (
-                    <Pressable key={`start-minute-${minute}`} onPress={() => setStartMinute(minute)} style={{ backgroundColor: startMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
-                      <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
-                    </Pressable>
-                    ))}
+                    }}
+                    label="Start hour"
+                    formatVal={formatTimePart}
+                  />
                 </View>
-              ) : null}
-
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
-                End time
-              </Text>
-
-              <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
-                  <Text style={{ color: endHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{endHour === null ? '--' : formatTimePart(endHour)}</Text>
-                </Pressable>
-                <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(endMinute)}</Text>
-                </Pressable>
+                <View style={{ flex: 1 }}>
+                  <WheelPicker
+                    values={minuteOptions}
+                    selected={startMinute}
+                    onSelect={setStartMinute}
+                    label="Start min"
+                    formatVal={formatTimePart}
+                  />
+                </View>
+                <View style={{ alignSelf: 'center', paddingTop: 20 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18, fontWeight: '300' }}>—</Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <WheelPicker
+                    values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)}
+                    selected={endHour}
+                    onSelect={setEndHour}
+                    label="End hour"
+                    formatVal={formatTimePart}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <WheelPicker
+                    values={minuteOptions}
+                    selected={endMinute}
+                    onSelect={setEndMinute}
+                    label="End min"
+                    formatVal={formatTimePart}
+                  />
+                </View>
               </View>
-              {activePicker === 'endHour' ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {(Array.isArray(hours) ? hours : []).filter((hour) => hour >= 8 && hour <= 22).map((hour) => (
-                    <Pressable key={`end-hour-${hour}`} onPress={() => setEndHour(hour)} style={{ backgroundColor: endHour === hour ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
-                      <Text style={{ color: theme.text }}>{formatTimePart(hour)}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              {activePicker === 'endMinute' ? (
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                  {minuteOptions.map((minute) => (
-                    <Pressable key={`end-minute-${minute}`} onPress={() => setEndMinute(minute)} style={{ backgroundColor: endMinute === minute ? theme.primary : theme.bgElevated,  borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
-                      <Text style={{ color: theme.text }}>{formatTimePart(minute)}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                 Intent
               </Text>
