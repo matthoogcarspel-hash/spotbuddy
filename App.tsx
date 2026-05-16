@@ -4651,6 +4651,29 @@ export default function App() {
     return () => { showSub.remove(); hideSub.remove(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Preload spot conversation IDs zodat realtime werkt ook als Messages tab nooit geopend is
+  useEffect(() => {
+    if (!activeAppUserId || !favoriteSpots.length) return;
+    const today = new Date().toISOString().split('T')[0];
+    void (async () => {
+      const { data } = await supabase
+        .from('conversations')
+        .select('id, spot_name')
+        .eq('type', 'spot')
+        .in('spot_name', favoriteSpots)
+        .eq('session_day', today);
+      for (const conv of (data ?? [])) {
+        myConvIdsRef.current.add(conv.id);
+        setChatSpotMessages((prev) => ({
+          ...prev,
+          [conv.spot_name]: prev[conv.spot_name]
+            ? { ...prev[conv.spot_name], conversationId: conv.id }
+            : { conversationId: conv.id, messages: [], loaded: false },
+        }));
+      }
+    })();
+  }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
   useEffect(() => {
@@ -4688,7 +4711,7 @@ export default function App() {
         // Spot chat bijwerken + in-app toast tonen
         setChatSpotMessages((prev) => {
           for (const [spotName, data] of Object.entries(prev)) {
-            if (data.conversationId === convId && data.loaded) {
+            if (data.conversationId === convId) {  // loaded check verwijderd
               if (data.messages.some((m) => m.id === row.id)) return prev;
               // Toast + ongelezen badge per spot tonen als de gebruiker niet in deze chat zit
               if (!showChatRef.current) {
