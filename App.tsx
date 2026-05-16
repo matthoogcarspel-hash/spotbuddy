@@ -1151,10 +1151,10 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
   const ITEM_H = 44;
   const VISIBLE = 3;
   const HEIGHT = ITEM_H * VISIBLE;
-  const scrollRef = React.useRef<ScrollView>(null);
-  const isScrolling = React.useRef(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const isScrolling = useRef(false);
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (selected === null) return;
     const idx = values.indexOf(selected);
     if (idx >= 0) {
