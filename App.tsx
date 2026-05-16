@@ -4684,7 +4684,8 @@ export default function App() {
         // Sessie chat bijwerken
         setChatSessionMessages((prev) => {
           for (const [gk, data] of Object.entries(prev)) {
-            if (data.conversationId === convId && data.loaded) {
+            // Drop 'loaded' check — ook tijdens laden berichten toevoegen
+            if (data.conversationId === convId) {
               if (data.messages.some((m) => m.id === row.id)) return prev;
               return { ...prev, [gk]: { ...data, messages: [...data.messages, newMsg] } };
             }
@@ -5837,7 +5838,7 @@ export default function App() {
     }
 
     if (destination === 'chat') {
-      setShowChat(true);
+      setShowChat(true); setChatUnreadCount(0);
       setChatUnreadCount(0);
     }
   };
@@ -6904,6 +6905,7 @@ export default function App() {
       display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown',
       avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
     }));
+    myConvIdsRef.current.add(convId);
     setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: enriched, loaded: true } }));
   };
 
@@ -6950,6 +6952,8 @@ export default function App() {
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
+    // Initialiseer entry direct zodat realtime berichten niet worden gedropped tijdens laden
+    setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false } });
     const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('group_key', groupKey).limit(1);
     let convId = convResponse.data?.[0]?.id ?? null;
     if (!convId) {
@@ -7071,8 +7075,13 @@ export default function App() {
     const { data: existing } = await supabase.from('conversations').select('id').eq('type', 'dm').eq('group_key', gk).limit(1);
     let convId = existing?.[0]?.id ?? null;
     if (!convId) {
-      // Maak nieuw DM gesprek — geen participant kolommen, gewoon group_key
-      const { data: created, error } = await supabase.from('conversations').insert({ type: 'dm', group_key: gk }).select('id').single();
+      // participant_a_id + participant_b_id zodat RLS SELECT de rij ziet
+      const { data: created, error } = await supabase.from('conversations').insert({
+        type: 'dm',
+        group_key: gk,
+        participant_a_id: activeAppUserId,
+        participant_b_id: otherUserId,
+      }).select('id').single();
       if (error) console.error('DM_CREATE_ERROR', error);
       convId = created?.id ?? null;
     }
@@ -8158,7 +8167,7 @@ export default function App() {
                               const convId = await openDmWithUser(u.id);
                               setShowBuddies(false);
                               if (convId) {
-                                setShowChat(true);
+                                setShowChat(true); setChatUnreadCount(0);
                                 setChatSubTab('dm');
                                 setExpandedDmId(convId);
                                 void loadDmMessages(convId);
@@ -9791,7 +9800,7 @@ const handleSave = async () => {
                 if (prev.some((s) => (s.group_key ?? s.id) === groupKey)) return prev;
                 return [...prev, { id: groupKey, group_key: groupKey, spot_name: selectedSpot, session_day: selectedDayKey, start_time: null, end_time: null, user_id: activeAppUserId }];
               });
-              setShowChat(true);
+              setShowChat(true); setChatUnreadCount(0);
               setSelectedSpot(null);
             }}
             activeGroupChatKey={activeGroupChatKey}
@@ -9942,7 +9951,7 @@ const handleSave = async () => {
           onPress={() => {
             if (selectedSpot) {
               setActiveChatSpot(selectedSpot);
-              setShowChat(true);
+              setShowChat(true); setChatUnreadCount(0);
               setChatSubTab('spot');
               setSelectedSpot(null);
             }
@@ -10699,7 +10708,7 @@ const handleSave = async () => {
                       const convId = await openDmWithUser(viewingOtherUserId);
                       setViewingOtherUserId(null);
                       if (convId) {
-                        setShowChat(true);
+                        setShowChat(true); setChatUnreadCount(0);
                         setChatSubTab('dm');
                         setExpandedDmId(convId);
                         void loadDmMessages(convId);
