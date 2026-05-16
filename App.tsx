@@ -4707,11 +4707,15 @@ export default function App() {
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
-        // Spot naam: direct uit het bericht (spot_name kolom) of via ref
+        // Spot naam: direct uit het bericht of via ref, genormaliseerd naar favoriteSpots case
         const rowFull = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string; spot_name?: string };
         const spotNameFromMsg = rowFull.spot_name ?? null;
         const spotNameFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
-        const matchedSpotName = spotNameFromMsg ?? spotNameFromRef;
+        const rawSpotName = spotNameFromMsg ?? spotNameFromRef;
+        // Normaliseer naar exacte favoriteSpots schrijfwijze (DB slaat soms lowercase op)
+        const matchedSpotName = rawSpotName
+          ? (favoriteSpots.find((s) => s.toLowerCase() === rawSpotName.toLowerCase()) ?? rawSpotName)
+          : null;
 
         if (matchedSpotName) {
           // Unread teller apart updaten (NIET binnen setChatSpotMessages)
