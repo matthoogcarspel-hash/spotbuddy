@@ -7873,8 +7873,12 @@ export default function App() {
       // inputBarBottom MOET voor fullScreenChat gedefinieerd zijn (anders undefined in JSX)
       const inputBarBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : 90;
 
+      // Invoerbalk absoluut gepositioneerd — bottom = keyboard hoogte of nav hoogte
+      const inputBottom = chatKeyboardHeight > 0 ? chatKeyboardHeight : inputBarBottom;
+
       const fullScreenChat = (
         <View style={{ flex: 1 }}>
+          {/* Header */}
           <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
             <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
               <Ionicons name="chevron-back" size={22} color={theme.text} />
@@ -7884,10 +7888,12 @@ export default function App() {
               {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
             </View>
           </View>
+
+          {/* Berichten — extra paddingBottom zodat laatste bericht niet achter invoerbalk verdwijnt */}
           <ScrollView
             ref={openScrollRef}
             style={{ flex: 1 }}
-            contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
+            contentContainerStyle={{ padding: 16, paddingBottom: inputBottom + 60 }}
             keyboardDismissMode="on-drag"
             keyboardShouldPersistTaps="handled"
             onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
@@ -7898,8 +7904,9 @@ export default function App() {
               : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
             }
           </ScrollView>
-          {/* Invoerbalk — pill style, ruimte rechts voor FAB */}
-          <View style={{ paddingLeft: 16, paddingRight: 84, paddingTop: 10, paddingBottom: 10, marginBottom: inputBarBottom, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+
+          {/* Invoerbalk — absoluut boven toetsenbord of boven bottom nav */}
+          <View style={{ position: 'absolute', left: 0, right: 0, bottom: inputBottom, paddingLeft: 16, paddingRight: 84, paddingTop: 8, paddingBottom: 8, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
               <TextInput
                 value={openInput}
