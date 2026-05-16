@@ -7368,9 +7368,10 @@ export default function App() {
       messages.map((msg) => {
         const own = isOwn(msg.userId ?? msg.user_id);
         const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
+        const msgUserId = msg.userId ?? msg.user_id;
         return (
           <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8 }}>
-            {!own && <Avatar uri={msg.avatar_url} size={22} />}
+            {!own && <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}><Avatar uri={msg.avatar_url} size={22} /></Pressable>}
             <View style={{ marginLeft: own ? 0 : 6, marginRight: own ? 6 : 0, maxWidth: '82%', backgroundColor: own ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
               {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }} numberOfLines={1}>{msg.display_name}</Text>}
               <Text style={{ color: theme.text, fontSize: 14, marginTop: own ? 0 : 2 }}>{msg.text}</Text>
@@ -7758,6 +7759,7 @@ export default function App() {
                     {filteredBuddies.map((u) => (
                       <Pressable
                         key={`buddy-${u.id}`}
+                        onPress={() => setViewingOtherUserId(u.id)}
                         onLongPress={() => void handleUnfollowUser(u.id)}
                         disabled={buddyActionUserId === u.id}
                         style={{ alignItems: 'center', width: 60, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}
