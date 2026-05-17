@@ -7965,7 +7965,7 @@ export default function App() {
                   ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0)
                 ) || (spotConvId2 ? (unreadBySpot[spotConvId2] ?? 0) : 0);
                 // DEBUG — verwijder later
-                const _dbg = spotName.includes('KZVS') ? `cid:${spotConvId2?.slice(-4)} u:${unread} bySpot:${spotConvId2?unreadBySpot[spotConvId2]:'?'} byName:${unreadBySpotName[spotName]} keys:${Object.keys(unreadBySpot).map(k=>k.slice(-4)).join(',')}` : null;
+                const _dbg = `${spotName.slice(0,12)}|cid:${spotConvId2?.slice(-4)??'nil'}|u:${unread}|bs:${spotConvId2?unreadBySpot[spotConvId2]??0:'?'}|keys:${Object.keys(unreadBySpot).length}`;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
