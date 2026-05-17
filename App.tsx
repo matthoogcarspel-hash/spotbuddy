@@ -8210,7 +8210,7 @@ export default function App() {
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
                       <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
                         {(() => { const d = String(session.session_day); const day = d === getTodayLocalDateKey() ? 'Today' : d === getTomorrowLocalDateKey() ? 'Tomorrow' : d; return session.start_time ? `${day} · ${session.start_time}–${session.end_time ?? '?'}` : day; })()}
-                        {lastMsg ? ` · ${lastMsg.text}` : ''}
+                        {lastMsg ? ` · ${lastMsg.display_name}: ${lastMsg.text}` : ''}
                       </Text>
                     </View>
                     {(unreadBySession[groupKey] ?? 0) > 0
@@ -8391,7 +8391,10 @@ export default function App() {
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" /></View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
-                        {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.text}</Text> : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{String(session.session_day) === getTodayLocalDateKey() ? 'Today' : String(session.session_day) === getTomorrowLocalDateKey() ? 'Tomorrow' : String(session.session_day)}{session.start_time ? ' · ' + session.start_time + (session.end_time ? '–' + session.end_time : '') : ''}</Text>}
+                        {lastMsg
+                          ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}><Text style={{ fontWeight: '600' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
+                          : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{String(session.session_day) === getTodayLocalDateKey() ? 'Today' : String(session.session_day) === getTomorrowLocalDateKey() ? 'Tomorrow' : String(session.session_day)}{session.start_time ? ' · ' + session.start_time + (session.end_time ? '–' + session.end_time : '') : ''}</Text>
+                        }
                       </View>
                       {sessionUnread > 0
                         ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
