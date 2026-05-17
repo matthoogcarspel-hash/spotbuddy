@@ -4835,7 +4835,10 @@ export default function App() {
         }
 
         // Sla spot check over als dit een bekende sessie convId is
-        if (matchedSpotName && !sessionConvIdsRef.current.has(convId)) {
+        // Ook chatSessionMessagesRef controleren voor de race condition window
+        const isKnownSessionConv = sessionConvIdsRef.current.has(convId) ||
+          Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
+        if (matchedSpotName && !isKnownSessionConv) {
           // Badge alleen voor berichten van anderen
           const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
           if (!isOwnMessage) {
