@@ -4794,13 +4794,13 @@ export default function App() {
     void run();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // DM convIds proactief in myConvIdsRef laden (inlined — loadDmConversations is nog niet gedeclareerd op dit punt)
+  // DM convIds proactief in myConvIdsRef laden via participant kolommen (werkt ook zonder group_key)
   useEffect(() => {
     if (!activeAppUserId) return;
     void supabase.from('conversations')
       .select('id')
       .eq('type', 'dm')
-      .like('group_key', `%${activeAppUserId}%`)
+      .or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`)
       .then(({ data }) => { for (const c of (data ?? [])) myConvIdsRef.current.add(c.id); });
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -7345,18 +7345,17 @@ export default function App() {
 
   const loadDmConversations = async () => {
     if (!activeAppUserId) return;
-    // Zoek alle DM conversations waar de gebruiker in zit via group_key
+    // Zoek alle DM conversations via participant kolommen (werkt ook zonder group_key)
     const { data: convs, error: convErr } = await supabase.from('conversations')
-      .select('id, group_key, created_at')
+      .select('id, participant_a_id, participant_b_id, created_at')
       .eq('type', 'dm')
-      .like('group_key', `%${activeAppUserId}%`);
+      .or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
     if (convErr) { console.error('DM_LOAD_ERROR', convErr); setDmConversations([]); return; }
     if (!convs?.length) { setDmConversations([]); return; }
 
-    // Haal otherUserId uit de group_key (dm_ID1_ID2)
+    // Haal otherUserId direct uit participant kolommen
     const withOtherId = convs.map((c) => {
-      const parts = (c.group_key ?? '').replace('dm_', '').split('_');
-      const otherId = parts.find((p) => p !== activeAppUserId) ?? parts[1] ?? null;
+      const otherId = c.participant_a_id === activeAppUserId ? c.participant_b_id : c.participant_a_id;
       return { ...c, otherUserId: otherId };
     }).filter((c) => c.otherUserId);
 
@@ -7406,32 +7405,14 @@ export default function App() {
 
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) return null;
-    const gk = getDmGroupKey(activeAppUserId, otherUserId);
-    // 1. Zoek via group_key
-    let convId: string | null = null;
-    const { data: byGk } = await supabase.from('conversations').select('id').eq('type', 'dm').eq('group_key', gk).limit(1);
-    convId = byGk?.[0]?.id ?? null;
-    // 2. Fallback: zoek via participant kolommen (oudere conversations zonder group_key)
-    if (!convId) {
-      const { data: byParticipant } = await supabase.from('conversations').select('id').eq('type', 'dm')
-        .or(`and(participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${otherUserId}),and(participant_a_id.eq.${otherUserId},participant_b_id.eq.${activeAppUserId})`)
-        .limit(1);
-      convId = byParticipant?.[0]?.id ?? null;
-      // Update group_key voor gevonden conv zodat volgende lookup sneller gaat
-      if (convId) void supabase.from('conversations').update({ group_key: gk }).eq('id', convId);
-    }
-    // 3. Aanmaken als nog niet bestaat
-    if (!convId) {
-      const { data: created, error } = await supabase.from('conversations').insert({
-        type: 'dm', group_key: gk,
-        participant_a_id: activeAppUserId,
-        participant_b_id: otherUserId,
-      }).select('id').single();
-      if (error) console.error('DM_CREATE_ERROR', error);
-      convId = created?.id ?? null;
-    }
+    // Gebruik de get_or_create_conversation RPC (SECURITY DEFINER, bypast RLS correct)
+    const { data: convId, error } = await supabase.rpc('get_or_create_conversation', {
+      p_type: 'dm',
+      p_other_user_id: otherUserId,
+    });
+    if (error) console.error('DM_OPEN_ERROR', error);
     if (convId) myConvIdsRef.current.add(convId);
-    return convId;
+    return convId ?? null;
   };
 
   const withNativeShell = (screen: React.ReactNode) => {
@@ -8594,12 +8575,13 @@ export default function App() {
                             onPress={async () => {
                               const convId = await openDmWithUser(u.id);
                               if (!convId) return;
-                              setShowBuddies(false);
-                              setChatSubTab('dm');
-                              setExpandedDmId(convId);
                               void loadDmMessages(convId);
                               void loadDmConversations();
-                              navigateNative('chat');
+                              // Stel DM state in vóór navigatie zodat navigateNative het niet reset
+                              setChatSubTab('dm');
+                              setExpandedDmId(convId);
+                              setShowBuddies(false);
+                              setShowChat(true);
                             }}
                             style={{ backgroundColor: 'rgba(77,184,255,0.12)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}
                           >
@@ -11170,12 +11152,12 @@ const handleSave = async () => {
                     onPress={async () => {
                       const convId = await openDmWithUser(viewingOtherUserId);
                       if (!convId) return;
+                      void loadDmMessages(convId);
+                      void loadDmConversations();
                       setViewingOtherUserId(null);
                       setChatSubTab('dm');
                       setExpandedDmId(convId);
-                      void loadDmMessages(convId);
-                      void loadDmConversations();
-                      navigateNative('chat');
+                      setShowChat(true);
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
                   >
