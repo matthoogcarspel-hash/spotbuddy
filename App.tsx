@@ -9560,6 +9560,7 @@ const handleSave = async () => {
             ]}
           />
         ) : (
+          <>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 12, marginBottom: 14 }}>
             {[
               ...(activeDay === 'today' ? [{ label: 'LIVE', helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions }] : []),
@@ -9605,6 +9606,7 @@ const handleSave = async () => {
             <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.55)" />
             <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '500' }}>Open Spot Chat</Text>
           </Pressable>
+          </>
         )}
 
 
