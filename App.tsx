@@ -9699,8 +9699,9 @@ const handleSave = async () => {
                     disabled={!joinedSession || !canCancelJoinedSession}
                     onPress={() => { if (joinedSession && canCancelJoinedSession) void handleCancelPlannedSession(); }}
                     style={{
-                      backgroundColor: 'transparent',
-                      borderWidth: 0,
+                      backgroundColor: 'rgba(255,255,255,0.045)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.06)',
                       borderRadius: 999,
                       paddingVertical: 6,
                       paddingHorizontal: 12,
