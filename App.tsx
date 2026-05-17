@@ -7407,14 +7407,23 @@ export default function App() {
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) return null;
     const gk = getDmGroupKey(activeAppUserId, otherUserId);
-    // Zoek bestaand DM gesprek
-    const { data: existing } = await supabase.from('conversations').select('id').eq('type', 'dm').eq('group_key', gk).limit(1);
-    let convId = existing?.[0]?.id ?? null;
+    // 1. Zoek via group_key
+    let convId: string | null = null;
+    const { data: byGk } = await supabase.from('conversations').select('id').eq('type', 'dm').eq('group_key', gk).limit(1);
+    convId = byGk?.[0]?.id ?? null;
+    // 2. Fallback: zoek via participant kolommen (oudere conversations zonder group_key)
     if (!convId) {
-      // participant_a_id + participant_b_id zodat RLS SELECT de rij ziet
+      const { data: byParticipant } = await supabase.from('conversations').select('id').eq('type', 'dm')
+        .or(`and(participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${otherUserId}),and(participant_a_id.eq.${otherUserId},participant_b_id.eq.${activeAppUserId})`)
+        .limit(1);
+      convId = byParticipant?.[0]?.id ?? null;
+      // Update group_key voor gevonden conv zodat volgende lookup sneller gaat
+      if (convId) void supabase.from('conversations').update({ group_key: gk }).eq('id', convId);
+    }
+    // 3. Aanmaken als nog niet bestaat
+    if (!convId) {
       const { data: created, error } = await supabase.from('conversations').insert({
-        type: 'dm',
-        group_key: gk,
+        type: 'dm', group_key: gk,
         participant_a_id: activeAppUserId,
         participant_b_id: otherUserId,
       }).select('id').single();
@@ -8584,14 +8593,13 @@ export default function App() {
                           <Pressable
                             onPress={async () => {
                               const convId = await openDmWithUser(u.id);
+                              if (!convId) return;
                               setShowBuddies(false);
-                              if (convId) {
-                                setShowChat(true);
-                                setChatSubTab('dm');
-                                setExpandedDmId(convId);
-                                void loadDmMessages(convId);
-                                void loadDmConversations();
-                              }
+                              setChatSubTab('dm');
+                              setExpandedDmId(convId);
+                              void loadDmMessages(convId);
+                              void loadDmConversations();
+                              navigateNative('chat');
                             }}
                             style={{ backgroundColor: 'rgba(77,184,255,0.12)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}
                           >
@@ -11161,14 +11169,13 @@ const handleSave = async () => {
                   <Pressable
                     onPress={async () => {
                       const convId = await openDmWithUser(viewingOtherUserId);
+                      if (!convId) return;
                       setViewingOtherUserId(null);
-                      if (convId) {
-                        setShowChat(true);
-                        setChatSubTab('dm');
-                        setExpandedDmId(convId);
-                        void loadDmMessages(convId);
-                        void loadDmConversations();
-                      }
+                      setChatSubTab('dm');
+                      setExpandedDmId(convId);
+                      void loadDmMessages(convId);
+                      void loadDmConversations();
+                      navigateNative('chat');
                     }}
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
                   >
