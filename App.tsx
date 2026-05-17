@@ -8115,6 +8115,7 @@ export default function App() {
                   </Pressable>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                    {openChatState ? <Text style={{ color: '#ff6666', fontSize: 9 }}>{openChatState.type}:{openChatState.id?.slice(-6)}</Text> : null}
                     {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
                   </View>
                 </View>
