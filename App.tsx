@@ -4843,10 +4843,18 @@ export default function App() {
             .eq('id', convId)
             .maybeSingle();
           if (convType?.type === 'group') {
-            // Het is een sessie chat — voeg toe aan ref zodat volgende berichten direct kloppen
+            // Het is een sessie chat — voeg toe aan ref en verwerk als sessie (NIET als spot)
             sessionConvIdsRef.current.add(convId);
-            myConvIdsRef.current.add(convId);
-            // Verwerk als sessie chat hieronder
+            // Voeg NIET toe aan myConvIdsRef hier — dat doet de sessie handler straks
+            if (!showChatRef.current) setUnreadBySession(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }));
+            setChatSessionMessages(prev => {
+              const existingEntry = Object.entries(prev).find(([, d]) => d.conversationId === convId);
+              const key = existingEntry?.[0] ?? convId;
+              const data = existingEntry?.[1] ?? { conversationId: convId, messages: [], loaded: false };
+              if (data.messages.some(m => m.id === row.id)) return prev;
+              return { ...prev, [key]: { ...data, messages: [...data.messages, newMsg] } };
+            });
+            return; // niet doorgaan naar DM check!
           }
         }
         const isActuallySessionConv = sessionConvIdsRef.current.has(convId) ||
