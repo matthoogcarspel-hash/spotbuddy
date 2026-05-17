@@ -1752,6 +1752,7 @@ function SessionRow({
     (entry) => entry.item?.userId === currentProfileId
   );
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+  const _d = { n: safeGroupSessions.length, uid: safeGroupSessions[0]?.item?.userId?.slice(-6) ?? '?', cp: currentProfileId?.slice(-6) ?? '?', jt: !!joinTarget, iAIG: isAlreadyInGroup, cJG: canJoinGroup };
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1769,7 +1770,9 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-
+      <Text style={{ color: '#ff4444', fontSize: 10, fontWeight: '800', paddingHorizontal: 4 }}>
+        {`n:${_d.n} uid:${_d.uid} cp:${_d.cp} jt:${_d.jt} iAIG:${_d.iAIG} cJG:${_d.cJG}`}
+      </Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
