@@ -4745,9 +4745,16 @@ export default function App() {
         const spotNameFromMsg = rowFull.spot_name ?? null;
         const spotNameFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
         const rawSpotName = spotNameFromMsg ?? spotNameFromRef;
-        const matchedSpotName = rawSpotName
+        // Als geen spot_name bekend: zoek via conversations tabel
+        let matchedSpotName: string | null = rawSpotName
           ? (favoriteSpotsRef.current.find((s) => s.toLowerCase() === rawSpotName.toLowerCase()) ?? rawSpotName)
           : null;
+        if (!matchedSpotName) {
+          const { data: convRow } = await supabase.from('conversations').select('spot_name').eq('id', convId).maybeSingle();
+          if (convRow?.spot_name) {
+            matchedSpotName = favoriteSpotsRef.current.find((s) => s.toLowerCase() === convRow.spot_name.toLowerCase()) ?? convRow.spot_name;
+          }
+        }
 
         if (matchedSpotName) {
           // Badge tonen tenzij gebruiker DEZE spot al open heeft
