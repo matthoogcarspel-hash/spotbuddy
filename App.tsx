@@ -1751,6 +1751,8 @@ function SessionRow({
   const isAlreadyInGroup = safeGroupSessions.some(
     (entry) => entry.item?.userId === currentProfileId
   );
+  // Tijdelijk debug — verwijder later
+  const _dbgJoin = `sgs:${safeGroupSessions.length} jt:${joinTarget?.id?.slice(-4)??'nil'} cJG:${canJoinGroup?'Y':'N'} cPId:${currentProfileId?.slice(-4)}`;
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
@@ -1769,6 +1771,8 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
+      {/* DEBUG */}
+      <Text style={{ color: '#ff6666', fontSize: 8 }}>{_dbgJoin}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
@@ -10022,7 +10026,7 @@ const handleSave = async () => {
             groupedSessions={spotState.groupedSessions}
             joinStateBySession={spotState.joinStateBySession}
             selectedTimelineSessionId={selectedTimelineSessionId}
-            currentProfileId={activeAppUserId}
+            currentProfileId={activeProfile?.id ?? activeAppUserId}
             selectedSpot={selectedSpot}
             ownSessionForSpotDay={spotState.ownSessionForSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
