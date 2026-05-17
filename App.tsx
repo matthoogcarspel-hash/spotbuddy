@@ -1752,7 +1752,6 @@ function SessionRow({
     (entry) => entry.item?.userId === currentProfileId
   );
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
-  const _d = { n: safeGroupSessions.length, uid: safeGroupSessions[0]?.item?.userId?.slice(-6) ?? '?', cp: currentProfileId?.slice(-6) ?? '?', jt: !!joinTarget, iAIG: isAlreadyInGroup, cJG: canJoinGroup };
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1770,9 +1769,7 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text style={{ color: '#ff4444', fontSize: 10, fontWeight: '800', paddingHorizontal: 4 }}>
-        {`n:${_d.n} uid:${_d.uid} cp:${_d.cp} jt:${_d.jt} iAIG:${_d.iAIG} cJG:${_d.cJG}`}
-      </Text>
+
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
@@ -1877,20 +1874,18 @@ function SessionRow({
               });
             }}
             style={{
-              width: 72,
-              height: 30,
+              paddingHorizontal: 14,
+              paddingVertical: 6,
               borderRadius: 999,
               backgroundColor: theme.primary,
               justifyContent: 'center',
               alignItems: 'center',
-              position: 'absolute',
-              right: 0,
             }}
           >
-            <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
+            <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>JOIN</Text>
           </Pressable>
         ) : (
-          <View style={{ width: 72 }} />
+          <View style={{ width: 8 }} />
         )}
       </View>
     </Pressable>
