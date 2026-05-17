@@ -2441,10 +2441,16 @@ export default function App() {
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
   const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
-  const [expandedChatSpot, setExpandedChatSpot] = useState<string | null>(null);
+  // Één state voor welke chat open is — voorkomt conflicten tussen de drie types
+  const [openChatState, setOpenChatState] = useState<{ type: 'spot' | 'session' | 'dm'; id: string } | null>(null);
+  const expandedChatSpot = openChatState?.type === 'spot' ? openChatState.id : null;
+  const expandedChatSession = openChatState?.type === 'session' ? openChatState.id : null;
+  const expandedDmId = openChatState?.type === 'dm' ? openChatState.id : null;
+  const setExpandedChatSpot = (v: string | null) => v ? setOpenChatState({ type: 'spot', id: v }) : setOpenChatState(null);
+  const setExpandedChatSession = (v: string | null) => v ? setOpenChatState({ type: 'session', id: v }) : setOpenChatState(null);
+  const setExpandedDmId = (v: string | null) => v ? setOpenChatState({ type: 'dm', id: v }) : setOpenChatState(null);
   const [spotChatInputInChat, setSpotChatInputInChat] = useState('');
   const [chatMySessions, setChatMySessions] = useState<any[]>([]);
-  const [expandedChatSession, setExpandedChatSession] = useState<string | null>(null);
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
@@ -2462,7 +2468,6 @@ export default function App() {
     messageRequests: boolean;
   }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
-  const [expandedDmId, setExpandedDmId] = useState<string | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
