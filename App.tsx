@@ -1883,13 +1883,15 @@ function SessionRow({
             marginTop: 6,
             marginLeft: 12,
             marginRight: 12,
-            backgroundColor: theme.primary,
-            borderRadius: 12,
-            paddingVertical: 8,
+            backgroundColor: 'rgba(255,255,255,0.07)',
+            borderRadius: 999,
+            borderWidth: 1,
+            borderColor: 'rgba(255,255,255,0.12)',
+            paddingVertical: 7,
             alignItems: 'center',
           }}
         >
-          <Text style={{ color: '#061421', fontSize: 13, fontWeight: '900' }}>JOIN SESSION</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '600' }}>Join session</Text>
         </Pressable>
       ) : null}
     </Pressable>
@@ -2240,9 +2242,9 @@ function SessionTimeline({
                               normalizedEnd: group.endTime,
                             });
                           }}
-                          style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
+                          style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingVertical: 7, alignItems: 'center' }}
                         >
-                          <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>JOIN SESSION</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '600' }}>Join session</Text>
                         </Pressable>
                       );
                     })() : null}
@@ -9584,29 +9586,28 @@ const handleSave = async () => {
                 <View>
                   <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900' }}>{metric.label}</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 3 }}>{metric.helper}</Text>
+                  {metric.label === 'GOING' ? (
+                    <Pressable
+                      onPress={() => {
+                        if (selectedSpot) {
+                          setActiveChatSpot(selectedSpot);
+                          setShowChat(true);
+                          setChatSubTab('spot');
+                          setSelectedSpot(null);
+                        }
+                      }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}
+                    >
+                      <Ionicons name="chatbubble-outline" size={11} color="rgba(255,255,255,0.45)" />
+                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '600' }}>Open Spot Chat</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               </View>
             ))}
           </View>
         )}
 
-        {/* Native: Spot Chat knop direct onder de summary cards */}
-        {!isWebPlatform ? (
-          <Pressable
-            onPress={() => {
-              if (selectedSpot) {
-                setActiveChatSpot(selectedSpot);
-                setShowChat(true);
-                setChatSubTab('spot');
-                setSelectedSpot(null);
-              }
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, marginBottom: 4 }}
-          >
-            <Ionicons name="chatbubble-outline" size={16} color="#ffffff" />
-            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>Open Spot Chat</Text>
-          </Pressable>
-        ) : null}
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
