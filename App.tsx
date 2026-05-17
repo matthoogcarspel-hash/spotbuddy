@@ -7249,18 +7249,33 @@ export default function App() {
       }
       return updated;
     });
-    // Vervang chatMySessions volledig: verwijder alle entries voor vandaag/morgen, voeg deduped toe
+    // Merge: behoud entries die al berichten hebben (die hebben de juiste key voor badges)
+    // Voeg DB-entries toe voor sessies die nog geen entry hebben
     setChatMySessions((prev) => {
-      const keepManual = prev.filter((s: any) => {
-        // Behoud handmatig toegevoegde sessies (group_key format) die NIET gedekt worden door DB
-        const coveredByDb = deduped.some((d: any) => (d.group_key ?? d.id) === (s.group_key ?? s.id));
-        const sameSpotDay = deduped.some((d: any) =>
-          d.spot_name?.toLowerCase() === s.spot_name?.toLowerCase() &&
-          String(d.session_day) === String(s.session_day)
+      const result: any[] = [...prev];
+      for (const d of deduped) {
+        const existingIdx = result.findIndex((s: any) =>
+          s.spot_name?.toLowerCase() === d.spot_name?.toLowerCase() &&
+          String(s.session_day) === String(d.session_day)
         );
-        return !coveredByDb && !sameSpotDay;
+        if (existingIdx >= 0) {
+          const existing = result[existingIdx];
+          const hasMessages = (chatSessionMessagesRef.current[existing.group_key ?? existing.id]?.messages?.length ?? 0) > 0;
+          if (!hasMessages) result[existingIdx] = d; // vervang alleen als er nog geen berichten zijn
+        } else {
+          result.push(d);
+        }
+      }
+      // Dedup: verwijder dubbele entries voor dezelfde spot+day (behoud die met berichten)
+      const seen = new Set<string>();
+      return result.filter((s: any) => {
+        const key = `${s.spot_name?.toLowerCase()}|${String(s.session_day)}`;
+        const gk = s.group_key ?? s.id;
+        const hasMsg = (chatSessionMessagesRef.current[gk]?.messages?.length ?? 0) > 0;
+        if (seen.has(key)) return hasMsg; // bij duplicate: alleen behouden als er berichten zijn
+        seen.add(key);
+        return true;
       });
-      return [...deduped, ...keepManual];
     });
     chatMySessionsRef.current = deduped;
   };
