@@ -2448,9 +2448,9 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // spotName → ongelezen count
-  const [unreadSessionCount, setUnreadSessionCount] = useState(0);
-  const [unreadDmCount, setUnreadDmCount] = useState(0);
+  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({});
+  const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
+  const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
@@ -2494,8 +2494,6 @@ export default function App() {
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
   const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
-  const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
-  const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
