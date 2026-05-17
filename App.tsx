@@ -9591,7 +9591,6 @@ const handleSave = async () => {
             ))}
           </View>
 
-          {/* Open Spot Chat knop - onder de GOING card, alleen native */}
           <Pressable
             onPress={() => {
               if (selectedSpot) {
