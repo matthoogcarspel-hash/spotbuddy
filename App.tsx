@@ -4406,8 +4406,15 @@ export default function App() {
         return;
       }
 
+      // Als een ANDERE auth user inlogt: profiel direct wissen (synchroon)
+      // zodat er geen sessies aangemaakt worden met het vorige profiel ID
+      if (activeProfileOwnerUidRef.current !== null && activeProfileOwnerUidRef.current !== nextSession.user.id) {
+        setProfile(null);
+        activeProfileOwnerUidRef.current = null;
+        activeProfileIdRef.current = null;
+      }
+
       if (activeProfileOwnerUidRef.current === nextSession.user.id && activeProfileIdRef.current) {
-        
         return;
       }
 
