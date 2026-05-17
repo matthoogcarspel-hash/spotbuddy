@@ -1859,37 +1859,36 @@ function SessionRow({
         </View>
 
         <View style={{ width: 92 }} />
-
-        {canJoinGroup ? (
-          <Pressable
-            onPress={(event) => {
-              event.stopPropagation();
-              if (!joinTarget) return;
-              onJoin({
-                sessionId: joinTarget.id,
-                sessionDay: joinTarget.sessionDay,
-                sessionStatus: joinTarget.status ?? null,
-                normalizedStart: group.startTime,
-                normalizedEnd: group.endTime,
-              });
-            }}
-            style={{
-              paddingHorizontal: 14,
-              paddingVertical: 6,
-              borderRadius: 999,
-              backgroundColor: theme.primary,
-              justifyContent: 'center',
-              alignItems: 'center',
-              zIndex: 10,
-              elevation: 10,
-            }}
-          >
-            <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>JOIN</Text>
-          </Pressable>
-        ) : (
-          <View style={{ width: 8 }} />
-        )}
+        <View style={{ width: 8 }} />
       </View>
+
+      {/* JOIN knop buiten de rij — geen overlap met de absolute balk */}
+      {canJoinGroup ? (
+        <Pressable
+          onPress={(event) => {
+            event.stopPropagation();
+            if (!joinTarget) return;
+            onJoin({
+              sessionId: joinTarget.id,
+              sessionDay: joinTarget.sessionDay,
+              sessionStatus: joinTarget.status ?? null,
+              normalizedStart: group.startTime,
+              normalizedEnd: group.endTime,
+            });
+          }}
+          style={{
+            marginTop: 6,
+            marginLeft: 12,
+            marginRight: 12,
+            backgroundColor: theme.primary,
+            borderRadius: 12,
+            paddingVertical: 8,
+            alignItems: 'center',
+          }}
+        >
+          <Text style={{ color: '#061421', fontSize: 13, fontWeight: '900' }}>JOIN SESSION</Text>
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 }
