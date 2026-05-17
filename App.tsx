@@ -9738,10 +9738,10 @@ const handleSave = async () => {
                       setSelectedSpot(null);
                     }
                   }}
-                  style={{ backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 5 }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
                 >
-                  <Ionicons name="chatbubble-outline" size={12} color={theme.textSoft} />
-                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Spot Chat</Text>
+                  <Ionicons name="chatbubble" size={13} color="#ffffff" />
+                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Spot Chat</Text>
                 </Pressable>
                 {showManageSessions ? (
                   <Pressable onPress={() => setShowManageSessions(false)} style={{ paddingVertical: 6, paddingHorizontal: 8 }}>
