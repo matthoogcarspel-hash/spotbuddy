@@ -4718,7 +4718,8 @@ export default function App() {
     const channel = supabase.channel(`global-messages-${activeAppUserId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const row = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string };
-        if (!row?.id || !row.user_id || row.user_id === activeAppUserId) return;
+        if (!row?.id || !row.user_id) return;
+        // Geen user_id filter — ook eigen berichten van andere apparaten verwerken
 
         const convId = row.conversation_id ?? '';
         if (!convId) return;
