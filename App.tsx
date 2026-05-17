@@ -1748,13 +1748,9 @@ function SessionRow({
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  // Controleer of user ECHT al deel uitmaakt van deze specifieke sessiegroep
-  // (niet alleen een overlappende onafhankelijke sessie)
-  const isActuallyInGroup = safeGroupSessions.some(
-    (entry) => entry.item?.userId === currentProfileId
-      && (entry.item?.sourceSessionId === joinTarget?.id || entry.item?.id === joinTarget?.id)
-  );
-  const canJoinGroup = Boolean(joinTarget) && !isActuallyInGroup;
+  // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
+  const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
+  const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1879,19 +1875,9 @@ function SessionRow({
               normalizedEnd: group.endTime,
             });
           }}
-          style={{
-            marginTop: 6,
-            marginLeft: 12,
-            marginRight: 12,
-            backgroundColor: 'rgba(255,255,255,0.07)',
-            borderRadius: 999,
-            borderWidth: 1,
-            borderColor: 'rgba(255,255,255,0.12)',
-            paddingVertical: 7,
-            alignItems: 'center',
-          }}
+          style={{ marginTop: 4, marginLeft: 12, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}
         >
-          <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '600' }}>Join session</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>+ Join</Text>
         </Pressable>
       ) : null}
     </Pressable>
@@ -2093,7 +2079,7 @@ function SessionTimeline({
                 // JOIN check voor native
                 const mGSessions = Array.isArray(group.sessions) ? group.sessions : [];
                 const mJoinTarget = mGSessions.find(e => e.item?.userId !== currentProfileId)?.item ?? null;
-                const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId && (e.item?.sourceSessionId === mJoinTarget?.id || e.item?.id === mJoinTarget?.id));
+                const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId);
                 const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn;
 
                 const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
