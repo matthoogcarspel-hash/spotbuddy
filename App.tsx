@@ -4480,11 +4480,15 @@ export default function App() {
 
   useEffect(() => {
     if (activeChatSpot && showChat) {
+      setExpandedChatSession(null);
+      setExpandedDmId(null);
       setExpandedChatSpot(activeChatSpot);
       setChatSubTab('spot');
       if (!chatSpotMessages[activeChatSpot]?.loaded) {
         void loadSpotChatForTab(activeChatSpot);
       }
+      // Reset na gebruik zodat hij niet opnieuw vuurt bij volgende showChat
+      setActiveChatSpot(null);
     }
   }, [activeChatSpot, showChat]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -10027,6 +10031,9 @@ const handleSave = async () => {
               // Navigate naar Messages tab > Session chats en open direct die groepschat
               if (!selectedSpot || !selectedDayKey) return;
               void loadSessionChatForTab(groupKey, selectedSpot, selectedDayKey);
+              setActiveChatSpot(null); // voorkom dat activeChatSpot effect expandedChatSpot overschrijft
+              setExpandedChatSpot(null);
+              setExpandedDmId(null);
               setChatSubTab('session');
               setExpandedChatSession(groupKey);
               // Voeg de sessie ook toe aan chatMySessions als die er nog niet in zit
