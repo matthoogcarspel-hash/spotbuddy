@@ -2495,6 +2495,7 @@ export default function App() {
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
   const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const expandedChatSpotRef = useRef<string | null>(null);
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -4697,6 +4698,7 @@ export default function App() {
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
   useEffect(() => { chatSessionMessagesRef.current = chatSessionMessages; }, [chatSessionMessages]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
+  useEffect(() => { expandedChatSpotRef.current = expandedChatSpot; }, [expandedChatSpot]);
   useEffect(() => {
     const ids = new Set<string>();
     for (const dm of dmConversations) ids.add(dm.id);
@@ -4747,9 +4749,11 @@ export default function App() {
           : null;
 
         if (matchedSpotName) {
-          if (!showChatRef.current) {
+          // Badge tonen tenzij gebruiker DEZE spot al open heeft
+          const isViewingThisSpot = showChatRef.current
+            && expandedChatSpotRef.current?.toLowerCase() === matchedSpotName.toLowerCase();
+          if (!isViewingThisSpot) {
             setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
-            // Directe spotName mapping — geen convId of case lookup nodig in render
             setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
           }
           // Bericht toevoegen aan chatSpotMessages
@@ -7929,17 +7933,6 @@ export default function App() {
               );
             })}
           </View>
-
-          {/* DEBUG — tijdelijk */}
-          {chatSubTab === 'spot' && (
-            <View style={{ backgroundColor: 'rgba(255,0,0,0.15)', borderRadius: 8, padding: 8, marginBottom: 8 }}>
-              <Text style={{ color: '#ff6666', fontSize: 10 }}>
-                unreadBySpot: {JSON.stringify(unreadBySpot)}{'\n'}
-                unreadBySpotName: {JSON.stringify(unreadBySpotName)}{'\n'}
-                chatSpotKeys: {Object.keys(chatSpotMessages).join(', ')}
-              </Text>
-            </View>
-          )}
 
           {/* Spot chats */}
           {chatSubTab === 'spot' && (
