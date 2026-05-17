@@ -4906,15 +4906,20 @@ export default function App() {
           return;
         }
 
-        // Sessie convId bekend maar chat nog niet geladen — sla op als sessie, niet als DM
+        // Sessie convId bekend maar chat nog niet geladen — haal groupKey op en sla correct op
         if (sessionConvIdsRef.current.has(convId)) {
+          const { data: convData } = await supabase.from('conversations')
+            .select('group_key')
+            .eq('id', convId)
+            .maybeSingle();
+          const storageKey = convData?.group_key ?? convId;
           if (!showChatRef.current) {
-            setUnreadBySession(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }));
+            setUnreadBySession(prev => ({ ...prev, [storageKey]: (prev[storageKey] ?? 0) + 1 }));
           }
           setChatSessionMessages(prev => {
-            const existing = prev[convId] ?? { conversationId: convId, messages: [], loaded: false };
+            const existing = prev[storageKey] ?? { conversationId: convId, messages: [], loaded: false };
             if (existing.messages.some((m: any) => m.id === row.id)) return prev;
-            return { ...prev, [convId]: { ...existing, messages: [...existing.messages, newMsg] } };
+            return { ...prev, [storageKey]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
           });
           return;
         }
