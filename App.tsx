@@ -2452,7 +2452,9 @@ export default function App() {
   const [unreadSessionCount, setUnreadSessionCount] = useState(0);
   const [unreadDmCount, setUnreadDmCount] = useState(0);
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
-  const chatUnreadCount = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + unreadSessionCount + unreadDmCount;
+  const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
+  const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
+  const chatUnreadCount = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -2491,6 +2493,9 @@ export default function App() {
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
+  const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
+  const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -4678,9 +4683,16 @@ export default function App() {
     })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // DM convIds proactief laden zodat realtime werkt zonder chat te openen
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    void loadDmConversations();
+  }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
+  useEffect(() => { chatSessionMessagesRef.current = chatSessionMessages; }, [chatSessionMessages]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
   useEffect(() => {
     const ids = new Set<string>();
@@ -4746,28 +4758,33 @@ export default function App() {
           return; // verwerkt als spot chat
         }
 
-        // Sessie chat bijwerken
-        setChatSessionMessages((prev) => {
-          for (const [gk, data] of Object.entries(prev)) {
-            // Drop 'loaded' check — ook tijdens laden berichten toevoegen
-            if (data.conversationId === convId) {
-              if (data.messages.some((m) => m.id === row.id)) return prev;
-              if (!showChatRef.current) setUnreadSessionCount((n) => n + 1);
-              return { ...prev, [gk]: { ...data, messages: [...data.messages, newMsg] } };
-            }
+        // Sessie chat bijwerken — vlag voor setState-buiten-setState
+        const sessionEntry = Object.entries(chatSessionMessagesRef.current).find(([, d]) => d.conversationId === convId);
+        if (sessionEntry) {
+          const [sessionGk] = sessionEntry;
+          if (!showChatRef.current) {
+            setUnreadBySession((prev2) => ({ ...prev2, [sessionGk]: (prev2[sessionGk] ?? 0) + 1 }));
           }
-          return prev;
-        });
+          setChatSessionMessages((prev) => {
+            const data = prev[sessionGk];
+            if (!data || data.messages.some((m) => m.id === row.id)) return prev;
+            return { ...prev, [sessionGk]: { ...data, messages: [...data.messages, newMsg] } };
+          });
+          return;
+        }
 
-        // DM bijwerken
-        setDmMessages((prev) => {
-          if (prev[convId]) {
-            if ((prev[convId] as any[]).some((m) => m.id === row.id)) return prev;
-            if (!showChatRef.current) setUnreadDmCount((n) => n + 1);
-            return { ...prev, [convId]: [...prev[convId], newMsg] };
+        // DM bijwerken — vlag buiten setState
+        const isDmConv = myConvIdsRef.current.has(convId);
+        if (isDmConv) {
+          if (!showChatRef.current) {
+            setUnreadByDm((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
           }
-          return prev;
-        });
+          setDmMessages((prev) => {
+            const existing = prev[convId] ?? [];
+            if (existing.some((m: any) => m.id === row.id)) return prev;
+            return { ...prev, [convId]: [...existing, newMsg] };
+          });
+        }
       }).subscribe();
     return () => { void supabase.removeChannel(channel); };
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -7128,6 +7145,8 @@ export default function App() {
       const lm = lastMsgMap.get(c.id);
       return { id: c.id, otherUserId: c.otherUserId!, otherName: p?.display_name ?? 'Unknown', otherAvatar: p?.avatar_url ?? null, lastMessage: lm?.text ?? null, lastMessageAt: lm?.created_at ?? null };
     }).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
+    // Voeg DM convIds direct toe aan myConvIdsRef zodat realtime werkt zonder chat openen
+    for (const c of result) myConvIdsRef.current.add(c.id);
     setDmConversations(result);
   };
 
@@ -7655,8 +7674,8 @@ export default function App() {
     const spotUnreadTotal = Object.values(unreadBySpot).reduce((a, b) => a + b, 0);
     const chatTabs = [
       { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
-      { key: 'session' as const, label: 'Session chats', badge: unreadSessionCount },
-      { key: 'dm' as const, label: 'DMs', badge: unreadDmCount },
+      { key: 'session' as const, label: 'Session chats', badge: unreadSessionTotal },
+      { key: 'dm' as const, label: 'DMs', badge: unreadDmTotal },
     ];
 
     const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean) =>
@@ -7889,8 +7908,8 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
-                    if (tab.key === 'session') setUnreadSessionCount(0);
-                    if (tab.key === 'dm') setUnreadDmCount(0);
+                    if (tab.key === 'session') setUnreadBySession({});
+                    if (tab.key === 'dm') setUnreadByDm({});
                   }}
                   style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
                 >
@@ -7961,7 +7980,7 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 return (
-                  <Pressable key={session.id} onPress={() => { setExpandedChatSession(groupKey); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={session.id} onPress={() => { setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (unreadBySession[groupKey] ?? 0) > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: (unreadBySession[groupKey] ?? 0) > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="people" size={18} color="#FFB432" />
                     </View>
@@ -7972,7 +7991,10 @@ export default function App() {
                         {lastMsg ? ` · ${lastMsg.text}` : ''}
                       </Text>
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    {(unreadBySession[groupKey] ?? 0) > 0
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unreadBySession[groupKey]}</Text></View>
+                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    }
                   </Pressable>
                 );
               })}
@@ -8003,7 +8025,7 @@ export default function App() {
               {dmConversations.map((dm) => {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
-                  <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (unreadByDm[dm.id] ?? 0) > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: (unreadByDm[dm.id] ?? 0) > 0 ? 'rgba(77,184,255,0.5)' : isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <Avatar uri={dm.otherAvatar} size={42} />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -8012,7 +8034,10 @@ export default function App() {
                       </View>
                       {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
                     </View>
-                    <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    {(unreadByDm[dm.id] ?? 0) > 0
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unreadByDm[dm.id]}</Text></View>
+                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                    }
                   </Pressable>
                 );
               })}
