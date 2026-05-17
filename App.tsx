@@ -2448,16 +2448,14 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({});
-  const [_dbgEventCount, _setDbgEventCount] = useState(0); // tijdelijk debug // convId → count (voor totaal)
-  const [unreadBySpotName, setUnreadBySpotName] = useState<Record<string, number>>({}); // spotName → count
-  const [unreadSpotConvIds, setUnreadSpotConvIds] = useState<Set<string>>(new Set()); // convIds met ongelezen berichten
+  const [spotsWithUnread, setSpotsWithUnread] = useState<string[]>([]); // spotNamen met ongelezen
+  const [_dbgEventCount, _setDbgEventCount] = useState(0); // tijdelijk debug
   const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
   const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const chatUnreadCount = Object.values(unreadBySpot).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal;
+  const chatUnreadCount = spotsWithUnread.length + unreadSessionTotal + unreadDmTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -4759,10 +4757,10 @@ export default function App() {
         }
 
         if (matchedSpotName) {
-          // Altijd incrementen — badge reset pas als gebruiker spot opent
-          setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
-          setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
-          setUnreadSpotConvIds((prev2) => new Set([...prev2, convId]));
+          // Voeg spotNaam toe aan lijst met ongelezen spots (direct, geen convId nodig)
+          setSpotsWithUnread((prev) => prev.some(s => s.toLowerCase() === matchedSpotName.toLowerCase())
+            ? prev
+            : [...prev, matchedSpotName]);
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
             const data = prev[matchedSpotName];
@@ -5939,7 +5937,7 @@ export default function App() {
     if (destination === 'chat') {
       setShowChat(true);
       // Ga naar Spot chats tab als er ongelezen spots zijn
-      const hasUnreadSpots = Object.values(unreadBySpot).some((n) => n > 0);
+      const hasUnreadSpots = spotsWithUnread.length > 0;
       if (hasUnreadSpots) setChatSubTab('spot');
           }
   };
@@ -7686,8 +7684,7 @@ export default function App() {
   }
 
   if (showChat) {
-    // spotUnreadTotal: som van alle waarden (sleutels zijn convIds)
-    const spotUnreadTotal = Object.values(unreadBySpot).reduce((a, b) => a + b, 0);
+    const spotUnreadTotal = spotsWithUnread.length;
     const chatTabs = [
       { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
       { key: 'session' as const, label: 'Session chats', badge: unreadSessionTotal },
@@ -7924,7 +7921,7 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
-                    if (tab.key === 'spot') setUnreadBySpotName({});
+                    if (tab.key === 'spot') setSpotsWithUnread([]);
                     if (tab.key === 'session') setUnreadBySession({});
                     if (tab.key === 'dm') setUnreadByDm({});
                   }}
@@ -7954,22 +7951,12 @@ export default function App() {
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                 // Directe spotName lookup — geen convId of case matching nodig
-                // Vier fallbacks — minstens één moet werken
-                const spotConvId2 = chatData?.conversationId ?? null;
-                const unread = (
-                  unreadBySpotName[spotName]
-                  ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
-                  ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0)
-                ) || (spotConvId2 ? (unreadBySpot[spotConvId2] ?? 0) : 0);
+                // Directe spotNaam check — geen convId nodig
+                const unread = spotsWithUnread.some(s => s.toLowerCase() === spotName.toLowerCase()) ? 1 : 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
-                    setUnreadBySpotName((p) => { const n = { ...p }; Object.keys(n).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) n[k] = 0; }); return n; });
-                    const cid = chatData?.conversationId;
-                    if (cid) {
-                      setUnreadBySpot((p) => ({ ...p, [cid]: 0 }));
-                      setUnreadSpotConvIds((p) => { const n = new Set(p); n.delete(cid); return n; });
-                    }
+                    setSpotsWithUnread((p) => p.filter(s => s.toLowerCase() !== spotName.toLowerCase()));
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
@@ -8157,7 +8144,7 @@ export default function App() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setUnreadBySpot({}); if (tab.key === 'session') setUnreadSessionCount(0); if (tab.key === 'dm') setUnreadDmCount(0); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread([]); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
