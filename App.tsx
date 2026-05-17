@@ -1874,16 +1874,16 @@ function SessionRow({
             }}
             style={{
               width: 72,
-              height: 18,
-              borderRadius: 14,
-              backgroundColor: 'rgba(255,255,255,0.88)',
+              height: 30,
+              borderRadius: 999,
+              backgroundColor: theme.primary,
               justifyContent: 'center',
               alignItems: 'center',
               position: 'absolute',
               right: 0,
             }}
           >
-            <Text style={{ color: '#061421', fontSize: 10, fontWeight: '900' }}>JOIN</Text>
+            <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
           </Pressable>
         ) : (
           <View style={{ width: 72 }} />
@@ -9154,7 +9154,8 @@ export default function App() {
         logSessionUiActionResult('joinSession', result);
         if (!result.ok) {
           const joinReason = joinResultReason;
-          setSessionActionError(getJoinErrorMessageByReason(joinReason));
+          console.error('JOIN_FAILED', joinReason, result);
+          setSessionActionError(getJoinErrorMessageByReason(joinReason) || `Join failed: ${joinReason}`);
           return;
         }
 
@@ -9560,15 +9561,15 @@ const handleSave = async () => {
               style={{
                 borderRadius: 16,
                 borderWidth: 1,
-                borderColor: 'rgba(77,184,255,0.40)',
-                backgroundColor: 'rgba(8,24,39,0.72)',
+                borderColor: 'rgba(255,255,255,0.12)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
                 paddingVertical: 14,
                 paddingHorizontal: 20,
                 alignItems: 'center',
                 alignSelf: isWebPlatform ? 'flex-start' : 'stretch',
               }}
             >
-              <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Plan a session</Text>
+              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Plan a session</Text>
             </Pressable>
           ) : null}
 
