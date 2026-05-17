@@ -1816,7 +1816,7 @@ function SessionRow({
             </Text>
           ) : null}
 
-          {sortedVisibleSessions.length > 1 && isAlreadyInGroup ? (
+          {sortedVisibleSessions.length > 1 && !canJoinGroup ? (
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
@@ -9590,6 +9590,23 @@ const handleSave = async () => {
           </View>
         )}
 
+        {/* Native: Spot Chat knop direct onder de summary cards */}
+        {!isWebPlatform ? (
+          <Pressable
+            onPress={() => {
+              if (selectedSpot) {
+                setActiveChatSpot(selectedSpot);
+                setShowChat(true);
+                setChatSubTab('spot');
+                setSelectedSpot(null);
+              }
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, marginBottom: 4 }}
+          >
+            <Ionicons name="chatbubble-outline" size={16} color="#ffffff" />
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '600' }}>Open Spot Chat</Text>
+          </Pressable>
+        ) : null}
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
@@ -10258,26 +10275,29 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        <Pressable
-          onPress={() => {
-            if (selectedSpot) {
-              setActiveChatSpot(selectedSpot);
-              setShowChat(true);
-              setChatSubTab('spot');
-              setSelectedSpot(null);
-            }
-          }}
-          style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: isWebPlatform ? 14 : 90 }}
-        >
-          <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Spot Chat</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 13 }}>Open in Messages tab</Text>
-          </View>
-          <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-        </Pressable>
+        {/* Spot Chat knop — alleen op web onderaan, native staat het na de summary cards */}
+        {isWebPlatform ? (
+          <Pressable
+            onPress={() => {
+              if (selectedSpot) {
+                setActiveChatSpot(selectedSpot);
+                setShowChat(true);
+                setChatSubTab('spot');
+                setSelectedSpot(null);
+              }
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: 14 }}
+          >
+            <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Spot Chat</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 13 }}>Open in Messages tab</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+          </Pressable>
+        ) : null}
 
 
         </ScrollView>
