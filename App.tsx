@@ -4768,20 +4768,26 @@ export default function App() {
           return [...sessions, ...manual];
         });
       }
-      // Sla convId → session-gk mapping op zodat realtime handler de juiste key vindt
+      // Gebruik conversations.group_key als storage key (identiek aan realtime handler + onOpenGroupChat)
       const initialEntries: Record<string, { conversationId: string; messages: any[]; loaded: boolean }> = {};
+      const initialSessions: any[] = [];
       for (const conv of (convs ?? [])) {
-        const match = (sessions ?? []).find((s: any) =>
-          s.spot_name?.toLowerCase() === conv.spot_name?.toLowerCase() &&
-          String(s.session_day) === String(conv.session_day)
-        );
-        if (match) {
-          const gk: string = match.group_key ?? match.id;
-          initialEntries[gk] = { conversationId: conv.id, messages: [], loaded: false };
-        }
+        const gk: string = conv.group_key ?? conv.id;
+        initialEntries[gk] = { conversationId: conv.id, messages: [], loaded: false };
+        initialSessions.push({
+          id: gk, group_key: gk,
+          spot_name: conv.spot_name,
+          session_day: conv.session_day ? String(conv.session_day) : getTodayLocalDateKey(),
+          start_time: null, end_time: null, user_id: activeAppUserId,
+        });
       }
       if (Object.keys(initialEntries).length) {
         setChatSessionMessages((prev) => ({ ...initialEntries, ...prev }));
+        setChatMySessions((prev) => {
+          const existingKeys = new Set(prev.map((s: any) => s.group_key ?? s.id));
+          const toAdd = initialSessions.filter((s: any) => !existingKeys.has(s.group_key ?? s.id));
+          return toAdd.length ? [...prev, ...toAdd] : prev;
+        });
       }
     };
     void run();
@@ -4864,132 +4870,76 @@ export default function App() {
           }
         }
 
-        // Sla spot check over als dit een bekende sessie convId is
+        // Bepaal of dit een sessie (group) chat is
         const isKnownSessionConv = sessionConvIdsRef.current.has(convId) ||
           Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
 
-        // Laatste vangnet: check DB als convId nog onbekend is maar spot_name matcht
-        if (matchedSpotName && !isKnownSessionConv) {
-          const { data: convType } = await supabase.from('conversations')
-            .select('type')
-            .eq('id', convId)
-            .maybeSingle();
-          if (convType?.type === 'group') {
-            // Het is een sessie chat — voeg toe aan ref
+        // Als onbekend en spot matcht: check type in DB
+        let confirmedGroupConv = isKnownSessionConv;
+        if (!isKnownSessionConv && matchedSpotName) {
+          const { data: typeRow } = await supabase.from('conversations')
+            .select('type').eq('id', convId).maybeSingle();
+          if (typeRow?.type === 'group') {
+            confirmedGroupConv = true;
             sessionConvIdsRef.current.add(convId);
-            // Zoek de juiste storageKey via sessions tabel (session.id is de key in de session list)
-            let groupStorageKey: string = convId;
-            if (matchedSpotName && activeAppUserId) {
-              const { data: convMeta } = await supabase.from('conversations').select('session_day').eq('id', convId).maybeSingle();
-              console.log('[RT] DB-typecheck path, convMeta.session_day:', convMeta?.session_day, 'matchedSpot:', matchedSpotName);
-              if (convMeta?.session_day) {
-                const { data: mySession } = await supabase.from('sessions')
-                  .select('id, group_key')
-                  .eq('user_id', activeAppUserId)
-                  .eq('spot_name', matchedSpotName)
-                  .eq('session_day', convMeta.session_day)
-                  .limit(1).maybeSingle();
-                console.log('[RT] mySession:', mySession?.id?.slice(0,8), 'group_key:', mySession?.group_key);
-                if (mySession) groupStorageKey = mySession.group_key ?? mySession.id;
-              }
+          } else if (typeRow?.type !== 'group') {
+            // Spot chat — verwerk als spot
+            const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
+            if (!isOwnMessage) {
+              setSpotsWithUnread((prev) => { const k = matchedSpotName.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
             }
-            console.log('[RT] storing under groupStorageKey:', groupStorageKey.slice(0,8));
-            const watchingGroup = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === groupStorageKey;
-            if (!watchingGroup) setUnreadBySession(prev => ({ ...prev, [groupStorageKey]: (prev[groupStorageKey] ?? 0) + 1 }));
-            setChatSessionMessages(prev => {
-              const existing = prev[groupStorageKey] ?? { conversationId: convId, messages: [], loaded: false };
-              if (existing.messages.some((m: any) => m.id === row.id)) return prev;
-              return { ...prev, [groupStorageKey]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
+            setChatSpotMessages((prev) => {
+              const data = prev[matchedSpotName];
+              if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
+              const isDup = data.messages.some((m) => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
+              if (isDup) return prev;
+              return { ...prev, [matchedSpotName]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
             });
-            return; // niet doorgaan naar DM check!
+            return;
           }
-        }
-        const isActuallySessionConv = sessionConvIdsRef.current.has(convId) ||
-          Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
-        if (matchedSpotName && !isActuallySessionConv) {
-          // Badge alleen voor berichten van anderen
-          const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
-          if (!isOwnMessage) {
-            setSpotsWithUnread((prev) => {
-              const key = matchedSpotName.toLowerCase();
-              return { ...prev, [key]: (prev[key] ?? 0) + 1 };
-            });
-          }
-          // Bericht toevoegen aan chatSpotMessages
-          setChatSpotMessages((prev) => {
-            const data = prev[matchedSpotName];
-            if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
-            // Dedup: zelfde ID óf zelfde user+tekst binnen 10 seconden (vangt optimistische duplicaten)
-            const isDup = data.messages.some((m) =>
-              m.id === row.id ||
-              (m.userId === row.user_id && m.text === row.text &&
-               Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000)
-            );
-            if (isDup) return prev;
-            const existing = data ?? { conversationId: convId, messages: [], loaded: false };
-            return { ...prev, [matchedSpotName]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
-          });
-          return; // verwerkt als spot chat
         }
 
-        // Sessie chat bijwerken — vlag voor setState-buiten-setState
-        const sessionEntry = Object.entries(chatSessionMessagesRef.current).find(([, d]) => d.conversationId === convId);
-        if (sessionEntry) {
-          const [sessionGk] = sessionEntry;
-          // Badge tonen tenzij gebruiker deze sessie al actief bekijkt
-          const userWatchingThisSession = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === sessionGk;
-          if (!userWatchingThisSession) {
-            setUnreadBySession((prev2) => ({ ...prev2, [sessionGk]: (prev2[sessionGk] ?? 0) + 1 }));
-          }
-          setChatSessionMessages((prev) => {
-            const data = prev[sessionGk];
-            if (!data) return prev;
-            const isDup = data.messages.some((m) =>
-              m.id === row.id ||
-              (m.userId === row.user_id && m.text === row.text &&
-               Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000)
-            );
-            if (isDup) return prev;
-            return { ...prev, [sessionGk]: { ...data, messages: [...data.messages, newMsg] } };
+        if (!confirmedGroupConv) return; // geen bekende sessie of spot conv
+
+        // === UNIFIED SESSION CHAT HANDLER ===
+        // Altijd conversations.group_key gebruiken als storage key — dit is de enige key
+        // die loadSessionChatForTab betrouwbaar kan opzoeken (WHERE group_key = ?)
+        const { data: convFull } = await supabase.from('conversations')
+          .select('group_key, spot_name, session_day')
+          .eq('id', convId).maybeSingle();
+        const sessionGk: string = convFull?.group_key ?? convId;
+
+        // Voeg toe aan chatSessionMessages (geeft loadSessionChatForTab de conversationId)
+        setChatSessionMessages((prev) => {
+          const existing = prev[sessionGk] ?? { conversationId: convId, messages: [], loaded: false };
+          if (existing.messages.some((m: any) => m.id === row.id)) return prev;
+          return { ...prev, [sessionGk]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
+        });
+
+        // Voeg toe aan chatMySessions als sessie nog niet in lijst staat
+        // Gebruikt group_key als id — zelfde als onOpenGroupChat — zodat loadSessionChatForTab
+        // WHERE group_key = sessionGk kan uitvoeren en de conversation vindt
+        if (convFull?.spot_name) {
+          setChatMySessions((prev) => {
+            if (prev.some((s) => (s.group_key ?? s.id) === sessionGk)) return prev;
+            return [...prev, {
+              id: sessionGk,
+              group_key: sessionGk,
+              spot_name: convFull.spot_name,
+              session_day: convFull.session_day ? String(convFull.session_day) : getTodayLocalDateKey(),
+              start_time: null, end_time: null,
+              user_id: activeAppUserId,
+            }];
           });
-          return;
+          // Sync ref direct zodat volgende berichten hem direct vinden
+          chatMySessionsRef.current = [...chatMySessionsRef.current.filter((s: any) => (s.group_key ?? s.id) !== sessionGk),
+            { id: sessionGk, group_key: sessionGk, spot_name: convFull.spot_name, session_day: convFull.session_day ? String(convFull.session_day) : getTodayLocalDateKey(), start_time: null, end_time: null, user_id: activeAppUserId }];
         }
 
-        // Sessie convId bekend maar chat nog niet geladen — sla op onder de juiste session-gk
-        console.log('[RT] hitting sessionConvIds fallback, has(convId):', sessionConvIdsRef.current.has(convId));
-        if (sessionConvIdsRef.current.has(convId)) {
-          const { data: convData } = await supabase.from('conversations')
-            .select('spot_name, session_day')
-            .eq('id', convId)
-            .maybeSingle();
-          const rtToday = getTodayLocalDateKey();
-          const rtTomorrow = getTomorrowLocalDateKey();
-          let storageKey: string = convId;
-          if (activeAppUserId) {
-            // Zoek sessie zonder session_day filter (case-insensitive spot_name) voor maximale match
-            const sessionQuery = supabase.from('sessions')
-              .select('id, group_key')
-              .eq('user_id', activeAppUserId)
-              .in('session_day', [rtToday, rtTomorrow])
-              .limit(1);
-            if (convData?.spot_name) {
-              sessionQuery.ilike('spot_name', convData.spot_name);
-            }
-            const { data: mySession } = await sessionQuery.maybeSingle();
-            console.log('[RT] mySession:', mySession?.id?.slice(0,8) ?? 'null', 'spot:', convData?.spot_name);
-            if (mySession) storageKey = mySession.group_key ?? mySession.id;
-          }
-          console.log('[RT] storageKey:', storageKey.slice(0,8));
-          const watchingStorage = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === storageKey;
-          if (!watchingStorage) {
-            setUnreadBySession(prev => ({ ...prev, [storageKey]: (prev[storageKey] ?? 0) + 1 }));
-          }
-          setChatSessionMessages(prev => {
-            const existing = prev[storageKey] ?? { conversationId: convId, messages: [], loaded: false };
-            if (existing.messages.some((m: any) => m.id === row.id)) return prev;
-            return { ...prev, [storageKey]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
-          });
-          return;
+        // Badge — alleen als gebruiker deze sessie niet actief bekijkt
+        const watching = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === sessionGk;
+        if (!watching) {
+          setUnreadBySession((prev) => ({ ...prev, [sessionGk]: (prev[sessionGk] ?? 0) + 1 }));
         }
 
         // DM bijwerken — vlag buiten setState
