@@ -7957,11 +7957,14 @@ export default function App() {
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                 // Directe spotName lookup — geen convId of case matching nodig
-                // Drie fallbacks: naam direct, naam case-insensitief, convId in Set
+                // Vier fallbacks — minstens één moet werken
                 const spotConvId2 = chatData?.conversationId ?? null;
-                const unread = unreadBySpotName[spotName]
+                const unread = (
+                  unreadBySpotName[spotName]
                   ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
-                  ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0);
+                  ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0)
+                  // Vierde: unreadBySpot heeft de juiste count, chatData.conversationId is de convId
+                ) || (spotConvId2 ? (unreadBySpot[spotConvId2] ?? 0) : 0);
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
