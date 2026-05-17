@@ -2449,7 +2449,8 @@ export default function App() {
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
   const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // convId → count (voor totaal)
-  const [unreadBySpotName, setUnreadBySpotName] = useState<Record<string, number>>({}); // spotName → count (voor per-spot badge)
+  const [unreadBySpotName, setUnreadBySpotName] = useState<Record<string, number>>({}); // spotName → count
+  const [unreadSpotConvIds, setUnreadSpotConvIds] = useState<Set<string>>(new Set()); // convIds met ongelezen berichten
   const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
   const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
@@ -4755,6 +4756,8 @@ export default function App() {
           if (!isViewingThisSpot) {
             setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
             setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
+            // Meest betrouwbaar: ook convId opslaan
+            setUnreadSpotConvIds((prev2) => new Set([...prev2, convId]));
           }
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
@@ -7947,21 +7950,20 @@ export default function App() {
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                 // Directe spotName lookup — geen convId of case matching nodig
+                // Drie fallbacks: naam direct, naam case-insensitief, convId in Set
+                const spotConvId2 = chatData?.conversationId ?? null;
                 const unread = unreadBySpotName[spotName]
                   ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
-                  ?? 0;
+                  ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0);
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
-                    setUnreadBySpotName((p) => {
-                      const next = { ...p };
-                      Object.keys(next).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) next[k] = 0; });
-                      return next;
-                    });
-                    setUnreadBySpot((p) => {
-                      const convId2 = chatData?.conversationId;
-                      return convId2 ? { ...p, [convId2]: 0 } : p;
-                    });
+                    setUnreadBySpotName((p) => { const n = { ...p }; Object.keys(n).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) n[k] = 0; }); return n; });
+                    const cid = chatData?.conversationId;
+                    if (cid) {
+                      setUnreadBySpot((p) => ({ ...p, [cid]: 0 }));
+                      setUnreadSpotConvIds((p) => { const n = new Set(p); n.delete(cid); return n; });
+                    }
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
