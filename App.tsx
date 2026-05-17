@@ -1748,10 +1748,13 @@ function SessionRow({
       activeDayKey,
     })
     : { allowed: false, reason: null };
-  const isAlreadyInGroup = safeGroupSessions.some(
+  // Controleer of user ECHT al deel uitmaakt van deze specifieke sessiegroep
+  // (niet alleen een overlappende onafhankelijke sessie)
+  const isActuallyInGroup = safeGroupSessions.some(
     (entry) => entry.item?.userId === currentProfileId
+      && (entry.item?.sourceSessionId === joinTarget?.id || entry.item?.id === joinTarget?.id)
   );
-  const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+  const canJoinGroup = Boolean(joinTarget) && !isActuallyInGroup;
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
