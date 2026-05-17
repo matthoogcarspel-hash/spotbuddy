@@ -1759,6 +1759,8 @@ function SessionRow({
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
   const isLiveRow = rowStatus === 'live';
+  // DEBUG
+  const _dbg2 = `uid:${session?.userId?.slice(-6)} cp:${currentProfileId?.slice(-6)} cJG:${canJoinGroup}`;
 
   return (
     <Pressable
@@ -1772,7 +1774,7 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-
+      <Text style={{ color: '#ff4', fontSize: 9, fontWeight: '800' }}>{_dbg2}</Text>
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
