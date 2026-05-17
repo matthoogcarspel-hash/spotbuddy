@@ -2448,14 +2448,14 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [spotsWithUnread, setSpotsWithUnread] = useState<string[]>([]); // spotNamen met ongelezen
+  const [spotsWithUnread, setSpotsWithUnread] = useState<Record<string, number>>({}); // lowercase spotName → count
   const [_dbgEventCount, _setDbgEventCount] = useState(0); // tijdelijk debug
   const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
   const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const chatUnreadCount = spotsWithUnread.length + unreadSessionTotal + unreadDmTotal;
+  const chatUnreadCount = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -4757,10 +4757,11 @@ export default function App() {
         }
 
         if (matchedSpotName) {
-          // Voeg spotNaam toe aan lijst met ongelezen spots (direct, geen convId nodig)
-          setSpotsWithUnread((prev) => prev.some(s => s.toLowerCase() === matchedSpotName.toLowerCase())
-            ? prev
-            : [...prev, matchedSpotName]);
+          // Increment count voor deze spot (key = lowercase naam)
+          setSpotsWithUnread((prev) => {
+            const key = matchedSpotName.toLowerCase();
+            return { ...prev, [key]: (prev[key] ?? 0) + 1 };
+          });
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
             const data = prev[matchedSpotName];
@@ -5937,7 +5938,7 @@ export default function App() {
     if (destination === 'chat') {
       setShowChat(true);
       // Ga naar Spot chats tab als er ongelezen spots zijn
-      const hasUnreadSpots = spotsWithUnread.length > 0;
+      const hasUnreadSpots = Object.values(spotsWithUnread).some(n => n > 0);
       if (hasUnreadSpots) setChatSubTab('spot');
           }
   };
@@ -7684,7 +7685,7 @@ export default function App() {
   }
 
   if (showChat) {
-    const spotUnreadTotal = spotsWithUnread.length;
+    const spotUnreadTotal = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0);
     const chatTabs = [
       { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
       { key: 'session' as const, label: 'Session chats', badge: unreadSessionTotal },
@@ -7921,7 +7922,7 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
-                    if (tab.key === 'spot') setSpotsWithUnread([]);
+                    if (tab.key === 'spot') setSpotsWithUnread({});
                     if (tab.key === 'session') setUnreadBySession({});
                     if (tab.key === 'dm') setUnreadByDm({});
                   }}
@@ -7952,7 +7953,7 @@ export default function App() {
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
                 // Directe spotName lookup — geen convId of case matching nodig
                 // Directe spotNaam check — geen convId nodig
-                const unread = spotsWithUnread.some(s => s.toLowerCase() === spotName.toLowerCase()) ? 1 : 0;
+                const unread = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
@@ -8144,15 +8145,16 @@ export default function App() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread([]); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread({}); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
                   {favoriteSpots.map((spotName) => {
                     const msgs = (chatSpotMessages[spotName] ?? Object.entries(chatSpotMessages).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1])?.messages ?? [];
                     const lastMsg = msgs[msgs.length - 1];
-                    const hasUnread = spotsWithUnread.some(s => s.toLowerCase() === spotName.toLowerCase());
-                    return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => p.filter(s => s.toLowerCase() !== spotName.toLowerCase())); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: hasUnread ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: hasUnread ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
+                    const hasUnread = spotUnreadCount > 0;
+                    return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: hasUnread ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: hasUnread ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: hasUnread ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color={theme.primary} />
                       </View>
@@ -8161,7 +8163,7 @@ export default function App() {
                         {lastMsg ? <Text style={{ color: hasUnread ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: hasUnread ? '700' : '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                       </View>
                       {hasUnread
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>1</Text></View>
+                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>
                         : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                       }
                     </Pressable>;
