@@ -10057,7 +10057,7 @@ const handleSave = async () => {
             groupedSessions={spotState.groupedSessions}
             joinStateBySession={spotState.joinStateBySession}
             selectedTimelineSessionId={selectedTimelineSessionId}
-            currentProfileId={activeAppUserId}
+            currentProfileId={activeProfile?.id ?? activeAppUserId}
             selectedSpot={selectedSpot}
             ownSessionForSpotDay={spotState.ownSessionForSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
