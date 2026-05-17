@@ -9592,20 +9592,6 @@ const handleSave = async () => {
             ))}
           </View>
 
-          <Pressable
-            onPress={() => {
-              if (selectedSpot) {
-                setActiveChatSpot(selectedSpot);
-                setShowChat(true);
-                setChatSubTab('spot');
-                setSelectedSpot(null);
-              }
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2, marginBottom: 6 }}
-          >
-            <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.55)" />
-            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '500' }}>Open Spot Chat</Text>
-          </Pressable>
           </>
         )}
 
@@ -9742,6 +9728,20 @@ const handleSave = async () => {
                   }}
                 >
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>＋ Add session</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => {
+                    if (selectedSpot) {
+                      setActiveChatSpot(selectedSpot);
+                      setShowChat(true);
+                      setChatSubTab('spot');
+                      setSelectedSpot(null);
+                    }
+                  }}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 5 }}
+                >
+                  <Ionicons name="chatbubble-outline" size={12} color={theme.textSoft} />
+                  <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Spot Chat</Text>
                 </Pressable>
                 {showManageSessions ? (
                   <Pressable onPress={() => setShowManageSessions(false)} style={{ paddingVertical: 6, paddingHorizontal: 8 }}>
