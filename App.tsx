@@ -2501,6 +2501,7 @@ export default function App() {
   const favoriteSpotsRef = useRef<string[]>([]);
   const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const expandedChatSpotRef = useRef<string | null>(null);
+  const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -4773,7 +4774,8 @@ export default function App() {
           }
         }
 
-        if (matchedSpotName) {
+        // Sla spot check over als dit een bekende sessie convId is
+        if (matchedSpotName && !sessionConvIdsRef.current.has(convId)) {
           // Badge alleen voor berichten van anderen
           const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
           if (!isOwnMessage) {
@@ -7121,6 +7123,7 @@ export default function App() {
       return;
     }
     myConvIdsRef.current.add(convId);
+    sessionConvIdsRef.current.add(convId); // markeer als sessie convId
     const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
@@ -7147,7 +7150,7 @@ export default function App() {
         if (error) console.error('SESSION_CHAT_CREATE_ERROR', error);
         convId = created?.id ?? null;
       }
-      if (convId) myConvIdsRef.current.add(convId);
+      if (convId) { myConvIdsRef.current.add(convId); sessionConvIdsRef.current.add(convId); }
     }
     if (!convId) return;
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
@@ -8115,7 +8118,6 @@ export default function App() {
                   </Pressable>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-                    {openChatState ? <Text style={{ color: '#ff6666', fontSize: 9 }}>{openChatState.type}:{openChatState.id?.slice(-6)}</Text> : null}
                     {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
                   </View>
                 </View>
