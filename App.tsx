@@ -2193,6 +2193,31 @@ function SessionTimeline({
                       ) : null}
                     </View>
 
+                    {/* JOIN knop in expanded view */}
+                    {isSelected ? (() => {
+                      const gSessions = Array.isArray(group.sessions) ? group.sessions : [];
+                      const jTarget = gSessions.find(e => e.item?.userId !== currentProfileId)?.item ?? null;
+                      const alreadyIn = gSessions.some(e => e.item?.userId === currentProfileId);
+                      if (!jTarget || alreadyIn) return null;
+                      return (
+                        <Pressable
+                          onPress={(e) => {
+                            e.stopPropagation();
+                            onJoinSession({
+                              sessionId: jTarget.id,
+                              sessionDay: jTarget.sessionDay,
+                              sessionStatus: jTarget.status ?? null,
+                              normalizedStart: group.startTime,
+                              normalizedEnd: group.endTime,
+                            });
+                          }}
+                          style={{ marginTop: 10, backgroundColor: theme.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
+                        >
+                          <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>JOIN SESSION</Text>
+                        </Pressable>
+                      );
+                    })() : null}
+
                     {/* Ledenlijst — zichtbaar als geselecteerd en groep */}
                     {isSelected && (group.visibleSessions?.length ?? 0) > 1 ? (
                       <View style={{ marginTop: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10, gap: 8 }}>
