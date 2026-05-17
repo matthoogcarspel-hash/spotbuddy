@@ -7934,12 +7934,14 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
               )}
               {favoriteSpots.map((spotName) => {
-                const chatData = chatSpotMessages[spotName];
+                // Case-insensitief zoeken in chatSpotMessages (key kan lowercase zijn)
+                const chatData = chatSpotMessages[spotName]
+                  ?? Object.entries(chatSpotMessages).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1];
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                // Gebruik convId als sleutel — geen naam/case mismatch mogelijk
-                const spotConvId = chatSpotMessages[spotName]?.conversationId ?? null;
+                // convId als sleutel voor unread — UUID, geen case issues
+                const spotConvId = chatData?.conversationId ?? null;
                 const unread = spotConvId ? (unreadBySpot[spotConvId] ?? 0) : 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
