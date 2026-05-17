@@ -4911,19 +4911,21 @@ export default function App() {
         // Sessie convId bekend maar chat nog niet geladen — sla op onder de juiste session-gk
         if (sessionConvIdsRef.current.has(convId)) {
           const { data: convData } = await supabase.from('conversations')
-            .select('group_key, spot_name, session_day')
+            .select('spot_name, session_day')
             .eq('id', convId)
             .maybeSingle();
-          // Zoek de matchende sessie in chatMySessions op spot_name + session_day
-          const matchedSession = convData
-            ? chatMySessionsRef.current.find(
-                (s: any) => s.spot_name === convData.spot_name && s.session_day === convData.session_day
-              )
-            : null;
-          // gk = session.group_key ?? session.id (zelfde logica als de session list)
-          const storageKey = matchedSession
-            ? (matchedSession.group_key ?? matchedSession.id)
-            : (convData?.group_key ?? convId);
+          // Zoek Matt's sessie direct in de DB op spot_name + session_day
+          let storageKey: string = convId;
+          if (convData?.spot_name && convData?.session_day && activeAppUserId) {
+            const { data: mySession } = await supabase.from('sessions')
+              .select('id, group_key')
+              .eq('user_id', activeAppUserId)
+              .eq('spot_name', convData.spot_name)
+              .eq('session_day', convData.session_day)
+              .limit(1)
+              .maybeSingle();
+            if (mySession) storageKey = mySession.group_key ?? mySession.id;
+          }
           if (!showChatRef.current) {
             setUnreadBySession(prev => ({ ...prev, [storageKey]: (prev[storageKey] ?? 0) + 1 }));
           }
