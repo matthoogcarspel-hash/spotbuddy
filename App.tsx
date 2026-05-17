@@ -2529,6 +2529,8 @@ export default function App() {
   const activeProfileOwnerUidRef = useRef<string | null>(null);
   const activeProfileIdRef = useRef<string | null>(null);
   const showChatRef = useRef(false);
+  const chatSubTabRef = useRef<string>('spot');
+  const expandedChatSessionRef2 = useRef<string | null>(null);
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
@@ -4797,6 +4799,8 @@ export default function App() {
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
+  useEffect(() => { chatSubTabRef.current = chatSubTab; }, [chatSubTab]);
+  useEffect(() => { expandedChatSessionRef2.current = expandedChatSession; }, [expandedChatSession]);
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
   useEffect(() => { chatSessionMessagesRef.current = chatSessionMessages; }, [chatSessionMessages]);
   useEffect(() => { chatMySessionsRef.current = chatMySessions; }, [chatMySessions]);
@@ -4890,7 +4894,8 @@ export default function App() {
               }
             }
             console.log('[RT] storing under groupStorageKey:', groupStorageKey.slice(0,8));
-            if (!showChatRef.current) setUnreadBySession(prev => ({ ...prev, [groupStorageKey]: (prev[groupStorageKey] ?? 0) + 1 }));
+            const watchingGroup = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === groupStorageKey;
+            if (!watchingGroup) setUnreadBySession(prev => ({ ...prev, [groupStorageKey]: (prev[groupStorageKey] ?? 0) + 1 }));
             setChatSessionMessages(prev => {
               const existing = prev[groupStorageKey] ?? { conversationId: convId, messages: [], loaded: false };
               if (existing.messages.some((m: any) => m.id === row.id)) return prev;
@@ -4931,7 +4936,9 @@ export default function App() {
         const sessionEntry = Object.entries(chatSessionMessagesRef.current).find(([, d]) => d.conversationId === convId);
         if (sessionEntry) {
           const [sessionGk] = sessionEntry;
-          if (!showChatRef.current) {
+          // Badge tonen tenzij gebruiker deze sessie al actief bekijkt
+          const userWatchingThisSession = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === sessionGk;
+          if (!userWatchingThisSession) {
             setUnreadBySession((prev2) => ({ ...prev2, [sessionGk]: (prev2[sessionGk] ?? 0) + 1 }));
           }
           setChatSessionMessages((prev) => {
@@ -4973,7 +4980,8 @@ export default function App() {
             if (mySession) storageKey = mySession.group_key ?? mySession.id;
           }
           console.log('[RT] storageKey:', storageKey.slice(0,8));
-          if (!showChatRef.current) {
+          const watchingStorage = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === storageKey;
+          if (!watchingStorage) {
             setUnreadBySession(prev => ({ ...prev, [storageKey]: (prev[storageKey] ?? 0) + 1 }));
           }
           setChatSessionMessages(prev => {
@@ -4987,7 +4995,8 @@ export default function App() {
         // DM bijwerken — vlag buiten setState
         const isDmConv = myConvIdsRef.current.has(convId) && !sessionConvIdsRef.current.has(convId);
         if (isDmConv) {
-          if (!showChatRef.current) {
+          const watchingDm = showChatRef.current && chatSubTabRef.current === 'dm' && expandedChatSessionRef2.current === null && expandedChatSpot === null;
+          if (!watchingDm) {
             setUnreadByDm((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
           }
           setDmMessages((prev) => {
