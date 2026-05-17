@@ -4765,15 +4765,25 @@ export default function App() {
         }
 
         if (matchedSpotName) {
-          // Increment count voor deze spot (key = lowercase naam)
-          setSpotsWithUnread((prev) => {
-            const key = matchedSpotName.toLowerCase();
-            return { ...prev, [key]: (prev[key] ?? 0) + 1 };
-          });
+          // Badge alleen voor berichten van anderen
+          const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
+          if (!isOwnMessage) {
+            setSpotsWithUnread((prev) => {
+              const key = matchedSpotName.toLowerCase();
+              return { ...prev, [key]: (prev[key] ?? 0) + 1 };
+            });
+          }
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
             const data = prev[matchedSpotName];
-            if (data && data.messages.some((m) => m.id === row.id)) return prev;
+            if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
+            // Dedup: zelfde ID óf zelfde user+tekst binnen 10 seconden (vangt optimistische duplicaten)
+            const isDup = data.messages.some((m) =>
+              m.id === row.id ||
+              (m.userId === row.user_id && m.text === row.text &&
+               Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000)
+            );
+            if (isDup) return prev;
             const existing = data ?? { conversationId: convId, messages: [], loaded: false };
             return { ...prev, [matchedSpotName]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
           });
@@ -4789,7 +4799,13 @@ export default function App() {
           }
           setChatSessionMessages((prev) => {
             const data = prev[sessionGk];
-            if (!data || data.messages.some((m) => m.id === row.id)) return prev;
+            if (!data) return prev;
+            const isDup = data.messages.some((m) =>
+              m.id === row.id ||
+              (m.userId === row.user_id && m.text === row.text &&
+               Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000)
+            );
+            if (isDup) return prev;
             return { ...prev, [sessionGk]: { ...data, messages: [...data.messages, newMsg] } };
           });
           return;
@@ -4803,7 +4819,12 @@ export default function App() {
           }
           setDmMessages((prev) => {
             const existing = prev[convId] ?? [];
-            if (existing.some((m: any) => m.id === row.id)) return prev;
+            const isDup = existing.some((m: any) =>
+              m.id === row.id ||
+              (m.userId === row.user_id && m.text === row.text &&
+               Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000)
+            );
+            if (isDup) return prev;
             return { ...prev, [convId]: [...existing, newMsg] };
           });
         }
