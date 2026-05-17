@@ -7035,7 +7035,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: today, conversation_id: convId, created_at: new Date().toISOString() });
     if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
     setSpotChatInputInChat('');
-    Keyboard.dismiss();
+    setTimeout(() => chatSpotScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
     // Push naar spot-volgers — GEEN create_chat_notification (dat gaat naar bell, niet Messages)
@@ -7123,7 +7123,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
     if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
     setSessionChatInput('');
-    Keyboard.dismiss();
+    setTimeout(() => chatSessionScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
   };
@@ -7189,7 +7189,7 @@ export default function App() {
     const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
     if (error) { console.error('DM_SEND_ERROR', error); return; }
     setDmInput('');
-    Keyboard.dismiss();
+    setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
