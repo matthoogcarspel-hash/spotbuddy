@@ -7700,7 +7700,7 @@ export default function App() {
         return (
           <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8 }}>
             {!own && <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}><Avatar uri={msg.avatar_url} size={22} /></Pressable>}
-            <View style={{ marginLeft: own ? 0 : 6, marginRight: own ? 6 : 0, maxWidth: '82%', backgroundColor: own ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
+            <View style={{ marginLeft: own ? 0 : 6, marginRight: own ? 6 : 0, maxWidth: '82%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
               {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }} numberOfLines={1}>{msg.display_name}</Text>}
               <Text style={{ color: theme.text, fontSize: 14, marginTop: own ? 0 : 2 }}>{msg.text}</Text>
               {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
@@ -7959,7 +7959,7 @@ export default function App() {
                     setExpandedChatSpot(spotName);
                     setSpotsWithUnread((p) => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; });
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
-                  }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="location" size={18} color={theme.primary} />
                     </View>
@@ -8096,7 +8096,7 @@ export default function App() {
                   }
                 </ScrollView>
                 {/* Invoerbalk */}
-                <View style={{ paddingLeft: 16, paddingRight: 72, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+                <View style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                     <TextInput
                       value={openInput}
@@ -8154,13 +8154,13 @@ export default function App() {
                     const lastMsg = msgs[msgs.length - 1];
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
-                    return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: hasUnread ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: hasUnread ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: hasUnread ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                    return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color={theme.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: hasUnread ? '900' : '700' }}>{spotName}</Text>
-                        {lastMsg ? <Text style={{ color: hasUnread ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: hasUnread ? '700' : '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
+                        {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                       </View>
                       {hasUnread
                         ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>
@@ -10075,7 +10075,7 @@ const handleSave = async () => {
                   return (
                     <View key={message.id} style={{ flexDirection: isOwn ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
                       {!isOwn && <Avatar uri={message.avatar_url} size={24} />}
-                      <View style={{ marginLeft: isOwn ? 0 : 8, marginRight: isOwn ? 0 : 0, maxWidth: '84%', backgroundColor: isOwn ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwn ? 16 : 5, borderBottomRightRadius: isOwn ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwn ? 'rgba(77,184,255,0.3)' : 'rgba(255,255,255,0.065)' }}>
+                      <View style={{ marginLeft: isOwn ? 0 : 8, marginRight: isOwn ? 0 : 0, maxWidth: '84%', backgroundColor: isOwn ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwn ? 16 : 5, borderBottomRightRadius: isOwn ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
                         {!isOwn && (
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
                             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
