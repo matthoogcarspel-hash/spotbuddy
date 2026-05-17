@@ -4742,7 +4742,7 @@ export default function App() {
     })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Group/session convIds proactief laden zodat realtime berichten niet naar spot chat gaan
+  // Group/session convIds proactief laden + chatMySessions alvast vullen bij startup
   useEffect(() => {
     if (!activeAppUserId || !favoriteSpots.length) return;
     const today = new Date().toISOString().split('T')[0];
@@ -4756,6 +4756,21 @@ export default function App() {
         for (const conv of (data ?? [])) {
           sessionConvIdsRef.current.add(conv.id);
           myConvIdsRef.current.add(conv.id);
+        }
+      });
+    // Sessies alvast laden zodat chatMySessionsRef klaar is voor realtime berichten
+    void supabase.from('sessions')
+      .select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
+      .eq('user_id', activeAppUserId)
+      .in('session_day', [today, tomorrow])
+      .then(({ data }) => {
+        if (data?.length) {
+          chatMySessionsRef.current = data;
+          setChatMySessions((prev) => {
+            const dbIds = new Set(data.map((s) => s.id));
+            const manual = prev.filter((s) => !dbIds.has(s.id));
+            return [...data, ...manual];
+          });
         }
       });
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -4845,16 +4860,27 @@ export default function App() {
             .eq('id', convId)
             .maybeSingle();
           if (convType?.type === 'group') {
-            // Het is een sessie chat — voeg toe aan ref en verwerk als sessie (NIET als spot)
+            // Het is een sessie chat — voeg toe aan ref
             sessionConvIdsRef.current.add(convId);
-            // Voeg NIET toe aan myConvIdsRef hier — dat doet de sessie handler straks
-            if (!showChatRef.current) setUnreadBySession(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }));
+            // Zoek de juiste storageKey via sessions tabel (session.id is de key in de session list)
+            let groupStorageKey: string = convId;
+            if (matchedSpotName && activeAppUserId) {
+              const { data: convMeta } = await supabase.from('conversations').select('session_day').eq('id', convId).maybeSingle();
+              if (convMeta?.session_day) {
+                const { data: mySession } = await supabase.from('sessions')
+                  .select('id, group_key')
+                  .eq('user_id', activeAppUserId)
+                  .eq('spot_name', matchedSpotName)
+                  .eq('session_day', convMeta.session_day)
+                  .limit(1).maybeSingle();
+                if (mySession) groupStorageKey = mySession.group_key ?? mySession.id;
+              }
+            }
+            if (!showChatRef.current) setUnreadBySession(prev => ({ ...prev, [groupStorageKey]: (prev[groupStorageKey] ?? 0) + 1 }));
             setChatSessionMessages(prev => {
-              const existingEntry = Object.entries(prev).find(([, d]) => d.conversationId === convId);
-              const key = existingEntry?.[0] ?? convId;
-              const data = existingEntry?.[1] ?? { conversationId: convId, messages: [], loaded: false };
-              if (data.messages.some(m => m.id === row.id)) return prev;
-              return { ...prev, [key]: { ...data, messages: [...data.messages, newMsg] } };
+              const existing = prev[groupStorageKey] ?? { conversationId: convId, messages: [], loaded: false };
+              if (existing.messages.some((m: any) => m.id === row.id)) return prev;
+              return { ...prev, [groupStorageKey]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
             });
             return; // niet doorgaan naar DM check!
           }
