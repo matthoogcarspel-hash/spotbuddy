@@ -7970,7 +7970,7 @@ export default function App() {
                       </Text>
                     </View>
                     {unread > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
                       : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                     }
                   </Pressable>
@@ -8163,7 +8163,7 @@ export default function App() {
                         {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                       </View>
                       {hasUnread
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>
+                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>
                         : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                       }
                     </Pressable>;
