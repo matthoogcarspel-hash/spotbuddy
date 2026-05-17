@@ -2490,6 +2490,7 @@ export default function App() {
   const showChatRef = useRef(false);
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const favoriteSpotsRef = useRef<string[]>([]);
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -4680,6 +4681,7 @@ export default function App() {
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
+  useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
   useEffect(() => {
     const ids = new Set<string>();
     for (const dm of dmConversations) ids.add(dm.id);
@@ -4701,20 +4703,32 @@ export default function App() {
         if (!row?.id || !row.user_id || row.user_id === activeAppUserId) return;
 
         const convId = row.conversation_id ?? '';
-        if (!convId || !myConvIdsRef.current.has(convId)) return;
+        if (!convId) return;
+
+        // Als convId nog niet in de ref staat: voeg toe (preload was nog niet klaar)
+        if (!myConvIdsRef.current.has(convId)) {
+          // Controleer of dit een spot chat is via spot_name in het bericht
+          const rowFull2 = payload.new as { spot_name?: string };
+          const rawName = rowFull2.spot_name ?? null;
+          const matchedInFavorites = rawName
+            ? favoriteSpotsRef.current.find((s) => s.toLowerCase() === rawName.toLowerCase())
+            : null;
+          if (!matchedInFavorites) return; // niet van een gevolgde spot, negeer
+          myConvIdsRef.current.add(convId); // voeg toe zodat volgende berichten direct werken
+        }
 
         // Profiel ophalen voor de afzender
         const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
-        // Spot naam: direct uit het bericht of via ref, genormaliseerd naar favoriteSpots case
-        const rowFull = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string; spot_name?: string };
+        // Spot naam: direct uit het bericht of via ref
+        // favoriteSpotsRef.current gebruiken (NIET favoriteSpots — stale closure!)
+        const rowFull = payload.new as { spot_name?: string };
         const spotNameFromMsg = rowFull.spot_name ?? null;
         const spotNameFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
         const rawSpotName = spotNameFromMsg ?? spotNameFromRef;
-        // Normaliseer naar exacte favoriteSpots schrijfwijze (DB slaat soms lowercase op)
         const matchedSpotName = rawSpotName
-          ? (favoriteSpots.find((s) => s.toLowerCase() === rawSpotName.toLowerCase()) ?? rawSpotName)
+          ? (favoriteSpotsRef.current.find((s) => s.toLowerCase() === rawSpotName.toLowerCase()) ?? rawSpotName)
           : null;
 
         if (matchedSpotName) {
