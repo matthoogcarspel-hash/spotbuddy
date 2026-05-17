@@ -4757,15 +4757,10 @@ export default function App() {
         }
 
         if (matchedSpotName) {
-          // Badge tonen tenzij gebruiker DEZE spot al open heeft
-          const isViewingThisSpot = showChatRef.current
-            && expandedChatSpotRef.current?.toLowerCase() === matchedSpotName.toLowerCase();
-          if (!isViewingThisSpot) {
-            setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
-            setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
-            // Meest betrouwbaar: ook convId opslaan
-            setUnreadSpotConvIds((prev2) => new Set([...prev2, convId]));
-          }
+          // Altijd incrementen — badge reset pas als gebruiker spot opent
+          setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
+          setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
+          setUnreadSpotConvIds((prev2) => new Set([...prev2, convId]));
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
             const data = prev[matchedSpotName];
@@ -7964,8 +7959,6 @@ export default function App() {
                   ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
                   ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0)
                 ) || (spotConvId2 ? (unreadBySpot[spotConvId2] ?? 0) : 0);
-                // DEBUG — verwijder later
-                const _dbg = `${spotName.slice(0,12)}|cid:${spotConvId2?.slice(-4)??'nil'}|u:${unread}|bs:${spotConvId2?unreadBySpot[spotConvId2]??0:'?'}|keys:${Object.keys(unreadBySpot).length}`;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
@@ -7985,7 +7978,6 @@ export default function App() {
                       <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
                         {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
                       </Text>
-                      {_dbg ? <Text style={{ color: '#ff6666', fontSize: 8 }}>{_dbg}</Text> : null}
                     </View>
                     {unread > 0
                       ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
