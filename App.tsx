@@ -8020,9 +8020,9 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 return (
-                  <Pressable key={session.id} onPress={() => { setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (unreadBySession[groupKey] ?? 0) > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: (unreadBySession[groupKey] ?? 0) > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="people" size={18} color="#FFB432" />
+                  <Pressable key={session.id} onPress={() => { setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
@@ -8065,7 +8065,7 @@ export default function App() {
               {dmConversations.map((dm) => {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
-                  <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (unreadByDm[dm.id] ?? 0) > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: (unreadByDm[dm.id] ?? 0) > 0 ? 'rgba(77,184,255,0.5)' : isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <Avatar uri={dm.otherAvatar} size={42} />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -8200,11 +8200,40 @@ export default function App() {
                 </View>}
                 {chatSubTab === 'session' && <View style={{ gap: 8 }}>
                   {chatMySessions.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>}
-                  {chatMySessions.map((session) => { const gk = session.group_key ?? session.id; const msgs = chatSessionMessages[gk]?.messages ?? []; const lastMsg = msgs[msgs.length - 1]; return <Pressable key={session.id} onPress={() => { setExpandedChatSession(gk); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,180,50,0.12)', alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="#FFB432" /></View><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>{lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.text}</Text> : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{session.session_day}{session.start_time ? ' · ' + session.start_time : ''}</Text>}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
+                  {chatMySessions.map((session) => {
+                    const gk = session.group_key ?? session.id;
+                    const msgs = chatSessionMessages[gk]?.messages ?? [];
+                    const lastMsg = msgs[msgs.length - 1];
+                    const sessionUnread = unreadBySession[gk] ?? 0;
+                    return <Pressable key={session.id} onPress={() => { setExpandedChatSession(gk); setUnreadBySession(p => ({ ...p, [gk]: 0 })); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" /></View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
+                        {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{lastMsg.text}</Text> : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{session.session_day}{session.start_time ? ' · ' + session.start_time : ''}</Text>}
+                      </View>
+                      {sessionUnread > 0
+                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
+                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      }
+                    </Pressable>;
+                  })}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
-                  {dmConversations.map((dm) => { const isBuddy = followingUserIds.includes(dm.otherUserId); return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: isBuddy ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.12)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}><Avatar uri={dm.otherAvatar} size={42} /><View style={{ flex: 1 }}><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>{dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}</View><Ionicons name="chevron-forward" size={16} color={theme.textMuted} /></Pressable>; })}
+                  {dmConversations.map((dm) => {
+                    const dmUnread = unreadByDm[dm.id] ?? 0;
+                    return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                      <Avatar uri={dm.otherAvatar} size={42} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
+                        {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
+                      </View>
+                      {dmUnread > 0
+                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>
+                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      }
+                    </Pressable>;
+                  })}
                 </View>}
               </ScrollView>
             )}
