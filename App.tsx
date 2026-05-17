@@ -4755,6 +4755,24 @@ export default function App() {
     })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Group/session convIds proactief laden zodat realtime berichten niet naar spot chat gaan
+  useEffect(() => {
+    if (!activeAppUserId || !favoriteSpots.length) return;
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    void supabase.from('conversations')
+      .select('id')
+      .eq('type', 'group')
+      .in('spot_name', favoriteSpots)
+      .in('session_day', [today, tomorrow])
+      .then(({ data }) => {
+        for (const conv of (data ?? [])) {
+          sessionConvIdsRef.current.add(conv.id);
+          myConvIdsRef.current.add(conv.id);
+        }
+      });
+  }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // DM convIds proactief in myConvIdsRef laden (inlined — loadDmConversations is nog niet gedeclareerd op dit punt)
   useEffect(() => {
     if (!activeAppUserId) return;
@@ -4829,10 +4847,25 @@ export default function App() {
         }
 
         // Sla spot check over als dit een bekende sessie convId is
-        // Ook chatSessionMessagesRef controleren voor de race condition window
         const isKnownSessionConv = sessionConvIdsRef.current.has(convId) ||
           Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
+
+        // Laatste vangnet: check DB als convId nog onbekend is maar spot_name matcht
         if (matchedSpotName && !isKnownSessionConv) {
+          const { data: convType } = await supabase.from('conversations')
+            .select('type')
+            .eq('id', convId)
+            .maybeSingle();
+          if (convType?.type === 'group') {
+            // Het is een sessie chat — voeg toe aan ref zodat volgende berichten direct kloppen
+            sessionConvIdsRef.current.add(convId);
+            myConvIdsRef.current.add(convId);
+            // Verwerk als sessie chat hieronder
+          }
+        }
+        const isActuallySessionConv = sessionConvIdsRef.current.has(convId) ||
+          Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
+        if (matchedSpotName && !isActuallySessionConv) {
           // Badge alleen voor berichten van anderen
           const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
           if (!isOwnMessage) {
