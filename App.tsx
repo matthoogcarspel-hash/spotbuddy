@@ -2448,7 +2448,8 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({});
+  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // convId → count (voor totaal)
+  const [unreadBySpotName, setUnreadBySpotName] = useState<Record<string, number>>({}); // spotName → count (voor per-spot badge)
   const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
   const [unreadByDm, setUnreadByDm] = useState<Record<string, number>>({});
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
@@ -4746,9 +4747,10 @@ export default function App() {
           : null;
 
         if (matchedSpotName) {
-          // Unread teller op convId (UUID) — geen case/naam mismatches mogelijk
           if (!showChatRef.current) {
             setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
+            // Directe spotName mapping — geen convId of case lookup nodig in render
+            setUnreadBySpotName((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
           }
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
@@ -7911,6 +7913,7 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
+                    if (tab.key === 'spot') setUnreadBySpotName({});
                     if (tab.key === 'session') setUnreadBySession({});
                     if (tab.key === 'dm') setUnreadByDm({});
                   }}
@@ -7934,19 +7937,27 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
               )}
               {favoriteSpots.map((spotName) => {
-                // Case-insensitief zoeken in chatSpotMessages (key kan lowercase zijn)
                 const chatData = chatSpotMessages[spotName]
                   ?? Object.entries(chatSpotMessages).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1];
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                // convId als sleutel voor unread — UUID, geen case issues
-                const spotConvId = chatData?.conversationId ?? null;
-                const unread = spotConvId ? (unreadBySpot[spotConvId] ?? 0) : 0;
+                // Directe spotName lookup — geen convId of case matching nodig
+                const unread = unreadBySpotName[spotName]
+                  ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
+                  ?? 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
-                    if (spotConvId) setUnreadBySpot((p) => ({ ...p, [spotConvId]: 0 }));
+                    setUnreadBySpotName((p) => {
+                      const next = { ...p };
+                      Object.keys(next).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) next[k] = 0; });
+                      return next;
+                    });
+                    setUnreadBySpot((p) => {
+                      const convId2 = chatData?.conversationId;
+                      return convId2 ? { ...p, [convId2]: 0 } : p;
+                    });
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
