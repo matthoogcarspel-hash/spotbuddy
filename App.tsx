@@ -1828,7 +1828,7 @@ function SessionRow({
           ) : null}
         </View>
 
-        <View style={{ position: 'absolute', left: 104, right: 104, height: 24 }}>
+        <View style={{ position: 'absolute', left: 104, right: 104, height: 24, zIndex: 1 }}>
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
@@ -1880,6 +1880,8 @@ function SessionRow({
               backgroundColor: theme.primary,
               justifyContent: 'center',
               alignItems: 'center',
+              zIndex: 10,
+              elevation: 10,
             }}
           >
             <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>JOIN</Text>
