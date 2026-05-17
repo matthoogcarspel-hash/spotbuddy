@@ -4906,8 +4906,21 @@ export default function App() {
           return;
         }
 
+        // Sessie convId bekend maar chat nog niet geladen — sla op als sessie, niet als DM
+        if (sessionConvIdsRef.current.has(convId)) {
+          if (!showChatRef.current) {
+            setUnreadBySession(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }));
+          }
+          setChatSessionMessages(prev => {
+            const existing = prev[convId] ?? { conversationId: convId, messages: [], loaded: false };
+            if (existing.messages.some((m: any) => m.id === row.id)) return prev;
+            return { ...prev, [convId]: { ...existing, messages: [...existing.messages, newMsg] } };
+          });
+          return;
+        }
+
         // DM bijwerken — vlag buiten setState
-        const isDmConv = myConvIdsRef.current.has(convId);
+        const isDmConv = myConvIdsRef.current.has(convId) && !sessionConvIdsRef.current.has(convId);
         if (isDmConv) {
           if (!showChatRef.current) {
             setUnreadByDm((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
