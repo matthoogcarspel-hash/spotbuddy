@@ -7213,8 +7213,12 @@ export default function App() {
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
     // Initialiseer entry direct zodat realtime berichten niet worden gedropped tijdens laden
     setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false } });
-    const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('group_key', groupKey).limit(1);
-    let convId = convResponse.data?.[0]?.id ?? null;
+    // Gebruik al opgeslagen conversationId (bijv. vanuit realtime fallback) om spot_name mismatch te vermijden
+    let convId: string | null = chatSessionMessagesRef.current[groupKey]?.conversationId ?? null;
+    if (!convId) {
+      const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('group_key', groupKey).limit(1);
+      convId = convResponse.data?.[0]?.id ?? null;
+    }
     if (!convId) {
       const { data: created, error } = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
       if (error) console.error('GROUP_CONV_CREATE_ERROR', error);
