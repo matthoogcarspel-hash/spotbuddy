@@ -1752,11 +1752,6 @@ function SessionRow({
     (entry) => entry.item?.userId === currentProfileId
   );
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
-  // Debug tijdelijk — meer chars zodat we echt zeker weten of IDs matchen
-  if (__DEV__ && safeGroupSessions.length > 0) {
-    const sId = safeGroupSessions[0]?.item?.userId ?? 'nil';
-    console.log('JOIN_DEBUG', { sId: sId.slice(-8), cPId: currentProfileId?.slice(-8), same: sId === currentProfileId, canJoin: canJoinGroup, sgs: safeGroupSessions.length });
-  }
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -10035,7 +10030,7 @@ const handleSave = async () => {
             groupedSessions={spotState.groupedSessions}
             joinStateBySession={spotState.joinStateBySession}
             selectedTimelineSessionId={selectedTimelineSessionId}
-            currentProfileId={activeProfile?.id ?? activeAppUserId}
+            currentProfileId={activeAppUserId}
             selectedSpot={selectedSpot}
             ownSessionForSpotDay={spotState.ownSessionForSpotDay}
             currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
