@@ -8020,7 +8020,7 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 return (
-                  <Pressable key={session.id} onPress={() => { setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={session.id} onPress={() => { setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
                     </View>
@@ -8065,7 +8065,7 @@ export default function App() {
               {dmConversations.map((dm) => {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
-                  <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                  <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <Avatar uri={dm.otherAvatar} size={42} />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
@@ -8183,7 +8183,7 @@ export default function App() {
                     const lastMsg = msgs[msgs.length - 1];
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
-                    return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    return <Pressable key={spotName} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                       </View>
@@ -8205,7 +8205,7 @@ export default function App() {
                     const msgs = chatSessionMessages[gk]?.messages ?? [];
                     const lastMsg = msgs[msgs.length - 1];
                     const sessionUnread = unreadBySession[gk] ?? 0;
-                    return <Pressable key={session.id} onPress={() => { setExpandedChatSession(gk); setUnreadBySession(p => ({ ...p, [gk]: 0 })); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    return <Pressable key={session.id} onPress={() => { setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk); setUnreadBySession(p => ({ ...p, [gk]: 0 })); if (!chatSessionMessages[gk]?.loaded) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" /></View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
