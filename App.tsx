@@ -9586,26 +9586,26 @@ const handleSave = async () => {
                 <View>
                   <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900' }}>{metric.label}</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 3 }}>{metric.helper}</Text>
-                  {metric.label === 'GOING' ? (
-                    <Pressable
-                      onPress={() => {
-                        if (selectedSpot) {
-                          setActiveChatSpot(selectedSpot);
-                          setShowChat(true);
-                          setChatSubTab('spot');
-                          setSelectedSpot(null);
-                        }
-                      }}
-                      style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 8 }}
-                    >
-                      <Ionicons name="chatbubble-outline" size={11} color="rgba(255,255,255,0.45)" />
-                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '600' }}>Open Spot Chat</Text>
-                    </Pressable>
-                  ) : null}
                 </View>
               </View>
             ))}
           </View>
+
+          {/* Open Spot Chat knop — onder de GOING card, alleen native */}
+          <Pressable
+            onPress={() => {
+              if (selectedSpot) {
+                setActiveChatSpot(selectedSpot);
+                setShowChat(true);
+                setChatSubTab('spot');
+                setSelectedSpot(null);
+              }
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 2, marginBottom: 6 }}
+          >
+            <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.55)" />
+            <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '500' }}>Open Spot Chat</Text>
+          </Pressable>
         )}
 
 
