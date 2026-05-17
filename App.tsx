@@ -9708,7 +9708,7 @@ const handleSave = async () => {
                       opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35,
                     }}
                   >
-                    <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
+                    <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Cancel</Text>
                   </Pressable>
                 ) : null}
                 <Pressable
