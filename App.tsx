@@ -7989,8 +7989,8 @@ export default function App() {
                     setSpotsWithUnread((p) => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; });
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="location" size={18} color={theme.primary} />
+                    <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
@@ -8032,7 +8032,7 @@ export default function App() {
                       </Text>
                     </View>
                     {(unreadBySession[groupKey] ?? 0) > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unreadBySession[groupKey]}</Text></View>
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unreadBySession[groupKey]}</Text></View>
                       : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                     }
                   </Pressable>
@@ -8075,7 +8075,7 @@ export default function App() {
                       {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
                     </View>
                     {(unreadByDm[dm.id] ?? 0) > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unreadByDm[dm.id]}</Text></View>
+                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unreadByDm[dm.id]}</Text></View>
                       : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                     }
                   </Pressable>
@@ -8174,7 +8174,7 @@ export default function App() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread({}); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread({}); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
@@ -8184,8 +8184,8 @@ export default function App() {
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
                     return <Pressable key={spotName} onPress={() => { setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="location" size={18} color={theme.primary} />
+                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
@@ -10163,7 +10163,7 @@ const handleSave = async () => {
           }}
           style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: isWebPlatform ? 14 : 90 }}
         >
-          <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
             <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
           </View>
           <View style={{ flex: 1 }}>
