@@ -1759,8 +1759,6 @@ function SessionRow({
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
   const isLiveRow = rowStatus === 'live';
-  // DEBUG
-  const _dbg2 = `uid:${session?.userId?.slice(-6)} cp:${currentProfileId?.slice(-6)} cJG:${canJoinGroup}`;
 
   return (
     <Pressable
@@ -1774,7 +1772,7 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text style={{ color: '#ff4', fontSize: 9, fontWeight: '800' }}>{_dbg2}</Text>
+
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
@@ -2090,6 +2088,11 @@ function SessionTimeline({
                 const sessionEntry = group.visibleSessions?.[0] ?? group.sessions?.[0] ?? null;
                 const sessionItem = sessionEntry?.item ?? null;
                 const riderName = sessionItem?.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider';
+                // JOIN check voor native
+                const mGSessions = Array.isArray(group.sessions) ? group.sessions : [];
+                const mJoinTarget = mGSessions.find(e => e.item?.userId !== currentProfileId)?.item ?? null;
+                const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId && (e.item?.sourceSessionId === mJoinTarget?.id || e.item?.id === mJoinTarget?.id));
+                const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn;
 
                 const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
                 const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -2162,6 +2165,26 @@ function SessionTimeline({
                           <Text style={{ color: '#4DB8FF', fontSize: 10, fontWeight: '900' }}>
                             💬 Chat →
                           </Text>
+                        </Pressable>
+                      ) : null}
+
+                      {/* JOIN knop naast Chat knop */}
+                      {mCanJoin ? (
+                        <Pressable
+                          onPress={(event) => {
+                            event.stopPropagation();
+                            if (!mJoinTarget) return;
+                            onJoinSession({
+                              sessionId: mJoinTarget.id,
+                              sessionDay: mJoinTarget.sessionDay,
+                              sessionStatus: mJoinTarget.status ?? null,
+                              normalizedStart: group.startTime,
+                              normalizedEnd: group.endTime,
+                            });
+                          }}
+                          style={{ borderRadius: 999, backgroundColor: theme.primary, paddingHorizontal: 12, paddingVertical: 6 }}
+                        >
+                          <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
                         </Pressable>
                       ) : null}
                     </View>
