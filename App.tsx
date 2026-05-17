@@ -7930,6 +7930,17 @@ export default function App() {
             })}
           </View>
 
+          {/* DEBUG — tijdelijk */}
+          {chatSubTab === 'spot' && (
+            <View style={{ backgroundColor: 'rgba(255,0,0,0.15)', borderRadius: 8, padding: 8, marginBottom: 8 }}>
+              <Text style={{ color: '#ff6666', fontSize: 10 }}>
+                unreadBySpot: {JSON.stringify(unreadBySpot)}{'\n'}
+                unreadBySpotName: {JSON.stringify(unreadBySpotName)}{'\n'}
+                chatSpotKeys: {Object.keys(chatSpotMessages).join(', ')}
+              </Text>
+            </View>
+          )}
+
           {/* Spot chats */}
           {chatSubTab === 'spot' && (
             <View style={{ gap: 8 }}>
