@@ -4746,9 +4746,9 @@ export default function App() {
           : null;
 
         if (matchedSpotName) {
-          // Unread teller apart updaten (NIET binnen setChatSpotMessages)
+          // Unread teller op convId (UUID) — geen case/naam mismatches mogelijk
           if (!showChatRef.current) {
-            setUnreadBySpot((prev2) => ({ ...prev2, [matchedSpotName]: (prev2[matchedSpotName] ?? 0) + 1 }));
+            setUnreadBySpot((prev2) => ({ ...prev2, [convId]: (prev2[convId] ?? 0) + 1 }));
           }
           // Bericht toevoegen aan chatSpotMessages
           setChatSpotMessages((prev) => {
@@ -7673,6 +7673,7 @@ export default function App() {
   }
 
   if (showChat) {
+    // spotUnreadTotal: som van alle waarden (sleutels zijn convIds)
     const spotUnreadTotal = Object.values(unreadBySpot).reduce((a, b) => a + b, 0);
     const chatTabs = [
       { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
@@ -7937,18 +7938,13 @@ export default function App() {
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                // Case-insensitive lookup zodat key-mismatch nooit een probleem is
-                const unread = Object.entries(unreadBySpot)
-                  .find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1] ?? 0;
+                // Gebruik convId als sleutel — geen naam/case mismatch mogelijk
+                const spotConvId = chatSpotMessages[spotName]?.conversationId ?? null;
+                const unread = spotConvId ? (unreadBySpot[spotConvId] ?? 0) : 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
-                    // Reset alle varianten van deze spot naam (case-insensitief)
-                    setUnreadBySpot((p) => {
-                      const next = { ...p };
-                      Object.keys(next).forEach((k) => { if (k.toLowerCase() === spotName.toLowerCase()) next[k] = 0; });
-                      return next;
-                    });
+                    if (spotConvId) setUnreadBySpot((p) => ({ ...p, [spotConvId]: 0 }));
                     if (!chatData?.loaded) void loadSpotChatForTab(spotName);
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: unread > 0 ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: unread > 0 ? 'rgba(77,184,255,0.5)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: unread > 0 ? 'rgba(77,184,255,0.25)' : 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
@@ -9768,6 +9764,11 @@ const handleSave = async () => {
                 </>
               ) : (
                 /* Native: wheel pickers */
+                <View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 2 }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Van</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tot</Text>
+                  </View>
                 <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 10 }}>
                   <WheelPicker
                     values={startHourOptions}
@@ -9779,21 +9780,22 @@ const handleSave = async () => {
                         if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest);
                       }
                     }}
-                    label="Start"
+                    label="Uur"
                     formatVal={formatTimePart}
                   />
                   <WheelPicker values={minuteOptions} selected={startMinute} onSelect={setStartMinute} label="Min" formatVal={formatTimePart} />
-                  <View style={{ alignSelf: 'center', paddingTop: 18, paddingHorizontal: 2 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 20 }}>–</Text>
+                  <View style={{ alignSelf: 'center', paddingTop: 18, paddingHorizontal: 4 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '300' }}>→</Text>
                   </View>
                   <WheelPicker
                     values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)}
                     selected={endHour}
                     onSelect={setEndHour}
-                    label="End"
+                    label="Uur"
                     formatVal={formatTimePart}
                   />
                   <WheelPicker values={minuteOptions} selected={endMinute} onSelect={setEndMinute} label="Min" formatVal={formatTimePart} />
+                </View>
                 </View>
               )}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
