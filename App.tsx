@@ -2531,6 +2531,7 @@ export default function App() {
   const showChatRef = useRef(false);
   const chatSubTabRef = useRef<string>('spot');
   const expandedChatSessionRef2 = useRef<string | null>(null);
+  const unreadBySessionRef = useRef<Record<string, number>>({});
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
@@ -4810,6 +4811,7 @@ export default function App() {
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
   useEffect(() => { chatSessionMessagesRef.current = chatSessionMessages; }, [chatSessionMessages]);
   useEffect(() => { chatMySessionsRef.current = chatMySessions; }, [chatMySessions]);
+  useEffect(() => { unreadBySessionRef.current = unreadBySession; }, [unreadBySession]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
   useEffect(() => { expandedChatSpotRef.current = expandedChatSpot; }, [expandedChatSpot]);
   useEffect(() => {
@@ -7221,63 +7223,52 @@ export default function App() {
         .in('session_day', [today, tomorrow]),
     ]);
     if (!sessions?.length) return;
-    // Per sessie: zoek de bijbehorende conversation op via spot_name + session_day
-    // Gebruik conversations.group_key als id (zelfde als onOpenGroupChat + realtime handler)
+    // Per sessie: zoek de bijbehorende conversation — prefereer conv die al in chatSessionMessages staat
+    // (die is de key die de realtime handler + badge gebruikt, zie spot chat patroon)
     const enhanced = sessions.map((s: any) => {
-      const conv = (convs ?? []).find((c: any) =>
+      // Stap 1: zoek conv die al een entry heeft in chatSessionMessages (realtime handler key)
+      const convWithEntry = (convs ?? []).find((c: any) => {
+        const gk = c.group_key ?? c.id;
+        return c.spot_name?.toLowerCase() === s.spot_name?.toLowerCase() &&
+          String(c.session_day) === String(s.session_day) &&
+          !!chatSessionMessagesRef.current[gk];
+      });
+      // Stap 2: fallback naar eerste conv die spot+day matcht
+      const conv = convWithEntry ?? (convs ?? []).find((c: any) =>
         c.spot_name?.toLowerCase() === s.spot_name?.toLowerCase() &&
         String(c.session_day) === String(s.session_day)
       );
       const gk: string = conv?.group_key ?? s.group_key ?? s.id;
       return { ...s, id: gk, group_key: gk, _convId: conv?.id ?? null };
     });
-    // Dedup: één entry per spot_name + session_day (eerste wint)
-    const seen = new Set<string>();
-    const deduped = enhanced.filter((s: any) => {
-      const key = `${s.spot_name?.toLowerCase()}|${String(s.session_day)}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
     // Update chatSessionMessages met convId mapping (zodat loadSessionChatForTab werkt)
     setChatSessionMessages((prev) => {
       let updated = { ...prev };
-      for (const s of deduped) {
+      for (const s of enhanced) {
         if (s._convId && !updated[s.id]) {
           updated[s.id] = { conversationId: s._convId, messages: [], loaded: false };
         }
       }
       return updated;
     });
-    // Merge: behoud entries die al berichten hebben (die hebben de juiste key voor badges)
-    // Voeg DB-entries toe voor sessies die nog geen entry hebben
+    // Merge: gebruik unreadBySessionRef om bij duplicaten de entry met badge te kiezen
+    // Hetzelfde principe als spot chat: de key die de badge draagt wint
     setChatMySessions((prev) => {
-      const result: any[] = [...prev];
-      for (const d of deduped) {
-        const existingIdx = result.findIndex((s: any) =>
-          s.spot_name?.toLowerCase() === d.spot_name?.toLowerCase() &&
-          String(s.session_day) === String(d.session_day)
-        );
-        if (existingIdx >= 0) {
-          const existing = result[existingIdx];
-          const hasMessages = (chatSessionMessagesRef.current[existing.group_key ?? existing.id]?.messages?.length ?? 0) > 0;
-          if (!hasMessages) result[existingIdx] = d; // vervang alleen als er nog geen berichten zijn
-        } else {
-          result.push(d);
-        }
-      }
-      // Dedup: verwijder dubbele entries voor dezelfde spot+day (behoud die met berichten)
-      const seen = new Set<string>();
-      return result.filter((s: any) => {
+      const combined = [...prev, ...enhanced];
+      // Groepeer per spot+day, kies winnaar: unread > messages > eerste
+      const bySpotDay = new Map<string, any>();
+      for (const s of combined) {
         const key = `${s.spot_name?.toLowerCase()}|${String(s.session_day)}`;
         const gk = s.group_key ?? s.id;
-        const hasMsg = (chatSessionMessagesRef.current[gk]?.messages?.length ?? 0) > 0;
-        if (seen.has(key)) return hasMsg; // bij duplicate: alleen behouden als er berichten zijn
-        seen.add(key);
-        return true;
-      });
+        const unread = unreadBySessionRef.current[gk] ?? 0;
+        const msgs = chatSessionMessagesRef.current[gk]?.messages?.length ?? 0;
+        const existing = bySpotDay.get(key);
+        if (!existing) { bySpotDay.set(key, { ...s, _score: unread * 1000 + msgs }); continue; }
+        const newScore = unread * 1000 + msgs;
+        if (newScore > existing._score) bySpotDay.set(key, { ...s, _score: newScore });
+      }
+      return [...bySpotDay.values()].map(({ _score, ...s }) => s);
     });
-    chatMySessionsRef.current = deduped;
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
