@@ -4724,7 +4724,7 @@ export default function App() {
   // Preload spot conversation IDs zodat realtime werkt ook als Messages tab nooit geopend is
   useEffect(() => {
     if (!activeAppUserId || !favoriteSpots.length) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayLocalDateKey();
     void (async () => {
       const { data } = await supabase
         .from('conversations')
@@ -4747,8 +4747,8 @@ export default function App() {
   // Group/session convIds proactief laden + convId→session.id koppeling opslaan in chatSessionMessages
   useEffect(() => {
     if (!activeAppUserId || !favoriteSpots.length) return;
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const today = getTodayLocalDateKey();
+    const tomorrow = getTomorrowLocalDateKey();
     const run = async () => {
       const [{ data: convs }, { data: sessions }] = await Promise.all([
         supabase.from('conversations').select('id, spot_name, session_day')
@@ -4962,8 +4962,8 @@ export default function App() {
             .select('spot_name, session_day')
             .eq('id', convId)
             .maybeSingle();
-          const rtToday = new Date().toISOString().split('T')[0];
-          const rtTomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+          const rtToday = getTodayLocalDateKey();
+          const rtTomorrow = getTomorrowLocalDateKey();
           let storageKey: string = convId;
           if (activeAppUserId) {
             // Zoek sessie zonder session_day filter (case-insensitive spot_name) voor maximale match
@@ -7199,7 +7199,7 @@ export default function App() {
     }} />;
   }
   const loadSpotChatForTab = async (spotName: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayLocalDateKey();
     const convResponse = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
     const convId = convResponse.data?.[0]?.id ?? null;
     if (!convId) {
@@ -7224,7 +7224,7 @@ export default function App() {
     const text = spotChatInputInChat.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text || !spotName || !senderId) return;
-    const today = new Date().toISOString().split('T')[0];
+    const today = getTodayLocalDateKey();
     let convId = chatSpotMessages[spotName]?.conversationId ?? null;
     if (!convId) {
       const existing = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
@@ -7262,8 +7262,8 @@ export default function App() {
 
   const loadMySessionsForChatTab = async () => {
     if (!activeAppUserId) return;
-    const today = new Date().toISOString().split('T')[0];
-    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    const today = getTodayLocalDateKey();
+    const tomorrow = getTomorrowLocalDateKey();
     const { data } = await supabase.from('sessions')
       .select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
       .eq('user_id', activeAppUserId)
