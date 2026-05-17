@@ -2484,7 +2484,7 @@ export default function App() {
   const setExpandedDmId = (v: string | null) => v ? setOpenChatState({ type: 'dm', id: v }) : setOpenChatState(null);
   const [spotChatInputInChat, setSpotChatInputInChat] = useState('');
   const [chatMySessions, setChatMySessions] = useState<any[]>([]);
-  const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
   const [spotsWithUnread, setSpotsWithUnread] = useState<Record<string, number>>({}); // lowercase spotName → count
@@ -2535,7 +2535,7 @@ export default function App() {
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
-  const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string }>>({});
   const chatMySessionsRef = useRef<any[]>([]);
   const expandedChatSpotRef = useRef<string | null>(null);
   const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
@@ -4745,53 +4745,27 @@ export default function App() {
     })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Group/session convIds proactief laden + convId→session.id koppeling opslaan in chatSessionMessages
+  // Session convIds preload — exact zelfde patroon als spot chat preload
   useEffect(() => {
     if (!activeAppUserId || !favoriteSpots.length) return;
     const today = getTodayLocalDateKey();
     const tomorrow = getTomorrowLocalDateKey();
-    const run = async () => {
-      const [{ data: convs }, { data: sessions }] = await Promise.all([
-        supabase.from('conversations').select('id, spot_name, session_day')
-          .eq('type', 'group').in('spot_name', favoriteSpots).in('session_day', [today, tomorrow]),
-        supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
-          .eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
-      ]);
-      for (const conv of (convs ?? [])) {
-        sessionConvIdsRef.current.add(conv.id);
-        myConvIdsRef.current.add(conv.id);
-      }
-      if (sessions?.length) {
-        chatMySessionsRef.current = sessions;
-        setChatMySessions((prev) => {
-          const dbIds = new Set(sessions.map((s: any) => s.id));
-          const manual = prev.filter((s: any) => !dbIds.has(s.id));
-          return [...sessions, ...manual];
-        });
-      }
-      // Gebruik conversations.group_key als storage key (identiek aan realtime handler + onOpenGroupChat)
-      const initialEntries: Record<string, { conversationId: string; messages: any[]; loaded: boolean }> = {};
-      const initialSessions: any[] = [];
+    void (async () => {
+      const { data: convs } = await supabase.from('conversations')
+        .select('id, group_key, spot_name, session_day')
+        .eq('type', 'group')
+        .in('spot_name', favoriteSpots)
+        .in('session_day', [today, tomorrow]);
       for (const conv of (convs ?? [])) {
         const gk: string = conv.group_key ?? conv.id;
-        initialEntries[gk] = { conversationId: conv.id, messages: [], loaded: false };
-        initialSessions.push({
-          id: gk, group_key: gk,
-          spot_name: conv.spot_name,
-          session_day: conv.session_day ? String(conv.session_day) : getTodayLocalDateKey(),
-          start_time: null, end_time: null, user_id: activeAppUserId,
+        sessionConvIdsRef.current.add(conv.id);
+        myConvIdsRef.current.add(conv.id);
+        setChatSessionMessages(prev => prev[gk] ? prev : {
+          ...prev,
+          [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: conv.spot_name ?? undefined, sessionDay: conv.session_day ? String(conv.session_day) : today }
         });
       }
-      if (Object.keys(initialEntries).length) {
-        setChatSessionMessages((prev) => ({ ...initialEntries, ...prev }));
-        setChatMySessions((prev) => {
-          const existingKeys = new Set(prev.map((s: any) => s.group_key ?? s.id));
-          const toAdd = initialSessions.filter((s: any) => !existingKeys.has(s.group_key ?? s.id));
-          return toAdd.length ? [...prev, ...toAdd] : prev;
-        });
-      }
-    };
-    void run();
+    })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // DM convIds proactief in myConvIdsRef laden via participant kolommen (werkt ook zonder group_key)
@@ -4872,70 +4846,65 @@ export default function App() {
           }
         }
 
-        // Bepaal of dit een sessie (group) chat is
+        // Sla spot check over als dit een bekende sessie convId is
         const isKnownSessionConv = sessionConvIdsRef.current.has(convId) ||
           Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
 
-        // Als onbekend en spot matcht: check type in DB
-        let confirmedGroupConv = isKnownSessionConv;
+        // Niet een bekende sessie en geen spot: controleer type in DB
         if (!isKnownSessionConv && matchedSpotName) {
           const { data: typeRow } = await supabase.from('conversations')
             .select('type').eq('id', convId).maybeSingle();
-          if (typeRow?.type === 'group') {
-            confirmedGroupConv = true;
-            sessionConvIdsRef.current.add(convId);
-          } else if (typeRow?.type !== 'group') {
-            // Spot chat — verwerk als spot
+          if (typeRow?.type !== 'group') {
+            // Spot chat
             const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
             if (!isOwnMessage) {
-              setSpotsWithUnread((prev) => { const k = matchedSpotName.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
+              setSpotsWithUnread(prev => { const k = matchedSpotName.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
             }
-            setChatSpotMessages((prev) => {
+            setChatSpotMessages(prev => {
               const data = prev[matchedSpotName];
               if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
-              const isDup = data.messages.some((m) => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
+              const isDup = data.messages.some(m => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
               if (isDup) return prev;
               return { ...prev, [matchedSpotName]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
             });
             return;
           }
+          sessionConvIdsRef.current.add(convId);
         }
 
-        if (!confirmedGroupConv) return; // geen bekende sessie of spot conv
+        // === SESSION CHAT HANDLER (spot chat patroon) ===
+        if (isKnownSessionConv || sessionConvIdsRef.current.has(convId)) {
+          // Zoek bestaand entry via conversationId
+          const existingEntry = Object.entries(chatSessionMessagesRef.current).find(([, d]) => d.conversationId === convId);
+          let gk: string;
+          let spotName: string | undefined;
+          let sessionDay: string | undefined;
 
-        // === UNIFIED SESSION CHAT HANDLER ===
-        // Altijd conversations.group_key gebruiken als storage key — dit is de enige key
-        // die loadSessionChatForTab betrouwbaar kan opzoeken (WHERE group_key = ?)
-        const { data: convFull } = await supabase.from('conversations')
-          .select('group_key, spot_name, session_day')
-          .eq('id', convId).maybeSingle();
-        const sessionGk: string = convFull?.group_key ?? convId;
+          if (existingEntry) {
+            gk = existingEntry[0];
+            spotName = existingEntry[1].spotName;
+            sessionDay = existingEntry[1].sessionDay;
+          } else {
+            // Haal group_key + spotName + sessionDay op uit DB (éénmalig)
+            const { data: conv } = await supabase.from('conversations')
+              .select('group_key, spot_name, session_day').eq('id', convId).maybeSingle();
+            gk = conv?.group_key ?? convId;
+            spotName = conv?.spot_name ?? undefined;
+            sessionDay = conv?.session_day ? String(conv.session_day) : getTodayLocalDateKey();
+            myConvIdsRef.current.add(convId);
+          }
 
-        // Voeg toe aan chatSessionMessages (geeft loadSessionChatForTab de conversationId)
-        setChatSessionMessages((prev) => {
-          const existing = prev[sessionGk] ?? { conversationId: convId, messages: [], loaded: false };
-          if (existing.messages.some((m: any) => m.id === row.id)) return prev;
-          return { ...prev, [sessionGk]: { ...existing, conversationId: convId, messages: [...existing.messages, newMsg] } };
-        });
-
-        // Voeg toe aan chatMySessions als sessie nog niet in lijst staat
-        // Check op group_key én op spot_name+session_day om duplicaten te voorkomen
-        if (convFull?.spot_name) {
-          const rtSessionDay = convFull.session_day ? String(convFull.session_day) : getTodayLocalDateKey();
-          setChatMySessions((prev) => {
-            const alreadyThere = prev.some((s) =>
-              (s.group_key ?? s.id) === sessionGk ||
-              (s.spot_name?.toLowerCase() === convFull.spot_name?.toLowerCase() && String(s.session_day) === rtSessionDay)
-            );
-            if (alreadyThere) return prev;
-            return [...prev, { id: sessionGk, group_key: sessionGk, spot_name: convFull.spot_name, session_day: rtSessionDay, start_time: null, end_time: null, user_id: activeAppUserId }];
+          // Sla bericht op — exact zelfde patroon als spot chat
+          setChatSessionMessages(prev => {
+            const existing = prev[gk] ?? { conversationId: convId, messages: [], loaded: false, spotName, sessionDay };
+            if (existing.messages.some((m: any) => m.id === row.id)) return prev;
+            return { ...prev, [gk]: { ...existing, conversationId: convId, spotName: spotName ?? existing.spotName, sessionDay: sessionDay ?? existing.sessionDay, messages: [...existing.messages, newMsg] } };
           });
-        }
 
-        // Badge — alleen als gebruiker deze sessie niet actief bekijkt
-        const watching = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === sessionGk;
-        if (!watching) {
-          setUnreadBySession((prev) => ({ ...prev, [sessionGk]: (prev[sessionGk] ?? 0) + 1 }));
+          // Badge — alleen als gebruiker deze sessie niet actief bekijkt
+          const watching = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === gk;
+          if (!watching) setUnreadBySession(prev => ({ ...prev, [gk]: (prev[gk] ?? 0) + 1 }));
+          return;
         }
 
         // DM bijwerken — vlag buiten setState
@@ -7210,65 +7179,33 @@ export default function App() {
     if (!activeAppUserId) return;
     const today = getTodayLocalDateKey();
     const tomorrow = getTomorrowLocalDateKey();
-    // Laad sessions en bijbehorende conversations tegelijk
+    // Laad mijn sessies + hun conversations in één keer
     const [{ data: sessions }, { data: convs }] = await Promise.all([
-      supabase.from('sessions')
-        .select('id, spot_name, session_day, start_time, end_time, group_key, user_id')
-        .eq('user_id', activeAppUserId)
-        .in('session_day', [today, tomorrow])
-        .order('session_day').order('start_time'),
-      supabase.from('conversations')
-        .select('id, group_key, spot_name, session_day')
-        .eq('type', 'group')
-        .in('session_day', [today, tomorrow]),
+      supabase.from('sessions').select('id, spot_name, session_day').eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
+      supabase.from('conversations').select('id, group_key, spot_name, session_day').eq('type', 'group').in('session_day', [today, tomorrow]),
     ]);
-    if (!sessions?.length) return;
-    // Per sessie: zoek de bijbehorende conversation — prefereer conv die al in chatSessionMessages staat
-    // (die is de key die de realtime handler + badge gebruikt, zie spot chat patroon)
-    const enhanced = sessions.map((s: any) => {
-      // Stap 1: zoek conv die al een entry heeft in chatSessionMessages (realtime handler key)
-      const convWithEntry = (convs ?? []).find((c: any) => {
-        const gk = c.group_key ?? c.id;
-        return c.spot_name?.toLowerCase() === s.spot_name?.toLowerCase() &&
-          String(c.session_day) === String(s.session_day) &&
-          !!chatSessionMessagesRef.current[gk];
-      });
-      // Stap 2: fallback naar eerste conv die spot+day matcht
-      const conv = convWithEntry ?? (convs ?? []).find((c: any) =>
-        c.spot_name?.toLowerCase() === s.spot_name?.toLowerCase() &&
-        String(c.session_day) === String(s.session_day)
+    for (const session of (sessions ?? [])) {
+      const conv = (convs ?? []).find(c =>
+        c.spot_name?.toLowerCase() === session.spot_name?.toLowerCase() &&
+        String(c.session_day) === String(session.session_day)
       );
-      const gk: string = conv?.group_key ?? s.group_key ?? s.id;
-      return { ...s, id: gk, group_key: gk, _convId: conv?.id ?? null };
-    });
-    // Update chatSessionMessages met convId mapping (zodat loadSessionChatForTab werkt)
-    setChatSessionMessages((prev) => {
-      let updated = { ...prev };
-      for (const s of enhanced) {
-        if (s._convId && !updated[s.id]) {
-          updated[s.id] = { conversationId: s._convId, messages: [], loaded: false };
-        }
+      if (conv) {
+        const gk: string = conv.group_key ?? conv.id;
+        sessionConvIdsRef.current.add(conv.id);
+        myConvIdsRef.current.add(conv.id);
+        setChatSessionMessages(prev => prev[gk]?.conversationId ? prev : {
+          ...prev,
+          [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day) }
+        });
+      } else {
+        // Geen conversation gevonden: voeg lege entry toe zodat sessie in lijst verschijnt
+        const gk = `session:${session.spot_name?.toLowerCase()}:${session.session_day}`;
+        setChatSessionMessages(prev => prev[gk] ? prev : {
+          ...prev,
+          [gk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day) }
+        });
       }
-      return updated;
-    });
-    // Merge: gebruik unreadBySessionRef om bij duplicaten de entry met badge te kiezen
-    // Hetzelfde principe als spot chat: de key die de badge draagt wint
-    setChatMySessions((prev) => {
-      const combined = [...prev, ...enhanced];
-      // Groepeer per spot+day, kies winnaar: unread > messages > eerste
-      const bySpotDay = new Map<string, any>();
-      for (const s of combined) {
-        const key = `${s.spot_name?.toLowerCase()}|${String(s.session_day)}`;
-        const gk = s.group_key ?? s.id;
-        const unread = unreadBySessionRef.current[gk] ?? 0;
-        const msgs = chatSessionMessagesRef.current[gk]?.messages?.length ?? 0;
-        const existing = bySpotDay.get(key);
-        if (!existing) { bySpotDay.set(key, { ...s, _score: unread * 1000 + msgs }); continue; }
-        const newScore = unread * 1000 + msgs;
-        if (newScore > existing._score) bySpotDay.set(key, { ...s, _score: newScore });
-      }
-      return [...bySpotDay.values()].map(({ _score, ...s }) => s);
-    });
+    }
   };
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
@@ -7405,14 +7342,23 @@ export default function App() {
 
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) return null;
-    // Gebruik de get_or_create_conversation RPC (SECURITY DEFINER, bypast RLS correct)
-    const { data: convId, error } = await supabase.rpc('get_or_create_conversation', {
-      p_type: 'dm',
-      p_other_user_id: otherUserId,
-    });
-    if (error) console.error('DM_OPEN_ERROR', error);
-    if (convId) myConvIdsRef.current.add(convId);
-    return convId ?? null;
+    // Zoek via participant kolommen — werkt altijd, geen group_key nodig
+    const { data: existing } = await supabase.from('conversations')
+      .select('id, participant_a_id, participant_b_id')
+      .eq('type', 'dm')
+      .or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
+    const found = existing?.find(c =>
+      (c.participant_a_id === activeAppUserId && c.participant_b_id === otherUserId) ||
+      (c.participant_a_id === otherUserId && c.participant_b_id === activeAppUserId)
+    );
+    if (found) { myConvIdsRef.current.add(found.id); return found.id; }
+    // Aanmaken
+    const { data: created, error } = await supabase.from('conversations').insert({
+      type: 'dm', participant_a_id: activeAppUserId, participant_b_id: otherUserId,
+    }).select('id').single();
+    if (error) console.error('DM_CREATE_ERROR', error);
+    if (created?.id) myConvIdsRef.current.add(created.id);
+    return created?.id ?? null;
   };
 
   const withNativeShell = (screen: React.ReactNode) => {
@@ -7933,11 +7879,11 @@ export default function App() {
     const openConvName = expandedChatSpot
       ? expandedChatSpot
       : expandedChatSession
-      ? (chatMySessions.find((s) => (s.group_key ?? s.id) === expandedChatSession)?.spot_name ?? 'Session chat')
+      ? (chatSessionMessages[expandedChatSession]?.spotName ?? 'Session chat')
       : openDmConv?.otherName ?? 'DM';
 
     const openConvSub = expandedChatSession
-      ? (() => { const s = chatMySessions.find((x) => (x.group_key ?? x.id) === expandedChatSession); return s ? `${s.session_day}${s.start_time ? ' · ' + s.start_time : ''}` : ''; })()
+      ? (() => { const d = chatSessionMessages[expandedChatSession]; return d?.sessionDay ?? ''; })()
       : expandedChatSpot ? new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
 
     const openScrollRef = expandedChatSpot ? chatSpotScrollRef : expandedChatSession ? chatSessionScrollRef : chatDmScrollRef;
@@ -7953,10 +7899,9 @@ export default function App() {
       // Keyboard.dismiss() verwijderd — toetsenbord blijft open na verzenden
       if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot);
       else if (expandedChatSession) {
-        const s = chatMySessions.find((x) => (x.group_key ?? x.id) === expandedChatSession);
-        // Fallback: gebruik openConvName (spot naam) en openConvSub (datum) als sessie niet in lijst staat
-        const spotName = s?.spot_name ?? openConvName;
-        const sessionDay = s?.session_day ?? (openConvSub?.split(' ·')?.[0] ?? new Date().toISOString().split('T')[0]);
+        const d = chatSessionMessages[expandedChatSession];
+        const spotName = d?.spotName ?? openConvName;
+        const sessionDay = d?.sessionDay ?? getTodayLocalDateKey();
         void sendSessionMessageInChatTab(expandedChatSession, spotName, sessionDay);
       }
       else if (expandedDmId) void sendDmMessage(expandedDmId);
@@ -8189,33 +8134,42 @@ export default function App() {
           {/* Session chats */}
           {chatSubTab === 'session' && (
             <View style={{ gap: 8 }}>
-              {chatMySessions.length === 0 && (
-                <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>
-              )}
-              {chatMySessions.map((session) => {
-                const groupKey = session.group_key ?? session.id;
-                const chatData = chatSessionMessages[groupKey];
-                const msgs = chatData?.messages ?? [];
-                const lastMsg = msgs[msgs.length - 1];
-                return (
-                  <Pressable key={session.id} onPress={() => { setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(groupKey); setUnreadBySession((p) => ({ ...p, [groupKey]: 0 })); if (!chatData?.loaded || !chatData.messages.length) void loadSessionChatForTab(groupKey, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                        {(() => { const d = String(session.session_day); const day = d === getTodayLocalDateKey() ? 'Today' : d === getTomorrowLocalDateKey() ? 'Tomorrow' : d; return session.start_time ? `${day} · ${session.start_time}–${session.end_time ?? '?'}` : day; })()}
-                        {lastMsg ? ` · ${lastMsg.display_name}: ${lastMsg.text}` : ''}
-                      </Text>
-                    </View>
-                    {(unreadBySession[groupKey] ?? 0) > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unreadBySession[groupKey]}</Text></View>
-                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    }
-                  </Pressable>
-                );
-              })}
+              {(() => {
+                const today = getTodayLocalDateKey();
+                const tomorrow = getTomorrowLocalDateKey();
+                const sessionEntries = Object.entries(chatSessionMessages)
+                  .filter(([, d]) => d.spotName && (d.sessionDay === today || d.sessionDay === tomorrow))
+                  .sort(([, a], [, b]) => (a.sessionDay ?? '').localeCompare(b.sessionDay ?? ''));
+                if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
+                return sessionEntries.map(([gk, data]) => {
+                  const msgs = data.messages ?? [];
+                  const lastMsg = msgs[msgs.length - 1];
+                  const sessionUnread = unreadBySession[gk] ?? 0;
+                  const dayLabel = data.sessionDay === today ? 'Today' : data.sessionDay === tomorrow ? 'Tomorrow' : (data.sessionDay ?? '');
+                  return (
+                    <Pressable key={gk} onPress={() => {
+                      setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk);
+                      setUnreadBySession(p => ({ ...p, [gk]: 0 }));
+                      if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
+                    }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
+                        {lastMsg
+                          ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
+                          : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
+                        }
+                      </View>
+                      {sessionUnread > 0
+                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
+                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                      }
+                    </Pressable>
+                  );
+                });
+              })()}
             </View>
           )}
 
@@ -8377,27 +8331,42 @@ export default function App() {
                   })}
                 </View>}
                 {chatSubTab === 'session' && <View style={{ gap: 8 }}>
-                  {chatMySessions.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>}
-                  {chatMySessions.map((session) => {
-                    const gk = session.group_key ?? session.id;
-                    const msgs = chatSessionMessages[gk]?.messages ?? [];
-                    const lastMsg = msgs[msgs.length - 1];
-                    const sessionUnread = unreadBySession[gk] ?? 0;
-                    return <Pressable key={session.id} onPress={() => { setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk); setUnreadBySession(p => ({ ...p, [gk]: 0 })); const cdata = chatSessionMessages[gk]; if (!cdata?.loaded || !cdata.messages.length) void loadSessionChatForTab(gk, session.spot_name, session.session_day); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}><Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" /></View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{session.spot_name}</Text>
-                        {lastMsg
-                          ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}><Text style={{ fontWeight: '600' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
-                          : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{String(session.session_day) === getTodayLocalDateKey() ? 'Today' : String(session.session_day) === getTomorrowLocalDateKey() ? 'Tomorrow' : String(session.session_day)}{session.start_time ? ' · ' + session.start_time + (session.end_time ? '–' + session.end_time : '') : ''}</Text>
-                        }
-                      </View>
-                      {sessionUnread > 0
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
-                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      }
-                    </Pressable>;
-                  })}
+                  {(() => {
+                    const today = getTodayLocalDateKey();
+                    const tomorrow = getTomorrowLocalDateKey();
+                    const sessionEntries = Object.entries(chatSessionMessages)
+                      .filter(([, d]) => d.spotName && (d.sessionDay === today || d.sessionDay === tomorrow))
+                      .sort(([, a], [, b]) => (a.sessionDay ?? '').localeCompare(b.sessionDay ?? ''));
+                    if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
+                    return sessionEntries.map(([gk, data]) => {
+                      const msgs = data.messages ?? [];
+                      const lastMsg = msgs[msgs.length - 1];
+                      const sessionUnread = unreadBySession[gk] ?? 0;
+                      const dayLabel = data.sessionDay === today ? 'Today' : data.sessionDay === tomorrow ? 'Tomorrow' : (data.sessionDay ?? '');
+                      return (
+                        <Pressable key={gk} onPress={() => {
+                          setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk);
+                          setUnreadBySession(p => ({ ...p, [gk]: 0 }));
+                          if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
+                        }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                          <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
+                          </View>
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
+                            {lastMsg
+                              ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
+                              : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
+                            }
+                          </View>
+                          {sessionUnread > 0
+                            ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
+                            : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                          }
+                        </Pressable>
+                      );
+                    });
+                  })()}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
@@ -8577,10 +8546,9 @@ export default function App() {
                               if (!convId) return;
                               void loadDmMessages(convId);
                               void loadDmConversations();
-                              // Stel DM state in vóór navigatie zodat navigateNative het niet reset
+                              setShowBuddies(false);
                               setChatSubTab('dm');
                               setExpandedDmId(convId);
-                              setShowBuddies(false);
                               setShowChat(true);
                             }}
                             style={{ backgroundColor: 'rgba(77,184,255,0.12)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}
@@ -10229,10 +10197,10 @@ const handleSave = async () => {
               setExpandedDmId(null);
               setChatSubTab('session');
               setExpandedChatSession(groupKey);
-              // Voeg de sessie ook toe aan chatMySessions als die er nog niet in zit
-              setChatMySessions((prev) => {
-                if (prev.some((s) => (s.group_key ?? s.id) === groupKey)) return prev;
-                return [...prev, { id: groupKey, group_key: groupKey, spot_name: selectedSpot, session_day: selectedDayKey, start_time: null, end_time: null, user_id: activeAppUserId }];
+              // Voeg de sessie ook toe aan chatSessionMessages als die er nog niet in zit
+              setChatSessionMessages((prev) => prev[groupKey] ? prev : {
+                ...prev,
+                [groupKey]: { conversationId: null, messages: [], loaded: false, spotName: selectedSpot, sessionDay: selectedDayKey }
               });
               setShowChat(true);
               setSelectedSpot(null);
