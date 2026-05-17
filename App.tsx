@@ -4681,10 +4681,14 @@ export default function App() {
     })();
   }, [activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // DM convIds proactief laden zodat realtime werkt zonder chat te openen
+  // DM convIds proactief in myConvIdsRef laden (inlined — loadDmConversations is nog niet gedeclareerd op dit punt)
   useEffect(() => {
     if (!activeAppUserId) return;
-    void loadDmConversations();
+    void supabase.from('conversations')
+      .select('id')
+      .eq('type', 'dm')
+      .like('group_key', `%${activeAppUserId}%`)
+      .then(({ data }) => { for (const c of (data ?? [])) myConvIdsRef.current.add(c.id); });
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
