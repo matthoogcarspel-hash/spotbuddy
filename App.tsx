@@ -1752,8 +1752,6 @@ function SessionRow({
     (entry) => entry.item?.userId === currentProfileId
   );
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
-  // Debug: toon sesssie userId vs currentProfileId
-  const _dbgJoin = `sgs:${safeGroupSessions.length} jId:${safeGroupSessions[0]?.item?.userId?.slice(-4)??'?'} cPId:${currentProfileId?.slice(-4)??'?'} cJG:${canJoinGroup?'Y':'N'}`;
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1771,7 +1769,7 @@ function SessionRow({
         opacity: pressed ? 0.7 : 1,
       })}
     >
-      <Text style={{ color: '#ff4444', fontSize: 11, fontWeight: '700', marginBottom: 2 }}>{_dbgJoin}</Text>
+
       <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
         <View style={{ width: 82, alignItems: 'center' }}>
           {sortedVisibleSessions.length > 1 ? (
