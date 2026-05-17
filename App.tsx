@@ -2448,7 +2448,8 @@ export default function App() {
   const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
-  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({}); // convId → count (voor totaal)
+  const [unreadBySpot, setUnreadBySpot] = useState<Record<string, number>>({});
+  const [_dbgEventCount, _setDbgEventCount] = useState(0); // tijdelijk debug // convId → count (voor totaal)
   const [unreadBySpotName, setUnreadBySpotName] = useState<Record<string, number>>({}); // spotName → count
   const [unreadSpotConvIds, setUnreadSpotConvIds] = useState<Set<string>>(new Set()); // convIds met ongelezen berichten
   const [unreadBySession, setUnreadBySession] = useState<Record<string, number>>({});
@@ -4717,9 +4718,9 @@ export default function App() {
     if (!activeAppUserId) return;
     const channel = supabase.channel(`global-messages-${activeAppUserId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
+        _setDbgEventCount(n => n + 1); // telt elk raw event
         const row = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string };
         if (!row?.id || !row.user_id) return;
-        // Geen user_id filter — ook eigen berichten van andere apparaten verwerken
 
         const convId = row.conversation_id ?? '';
         if (!convId) return;
@@ -7826,7 +7827,7 @@ export default function App() {
           {/* Header */}
           {isWebPlatform ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages <Text style={{ color: '#ff6666', fontSize: 12 }}>({_dbgEventCount})</Text></Text>
               <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                 <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
