@@ -2533,6 +2533,7 @@ export default function App() {
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
   const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const chatMySessionsRef = useRef<any[]>([]);
   const expandedChatSpotRef = useRef<string | null>(null);
   const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
   const chatSpotScrollRef = useRef<ScrollView>(null);
@@ -4773,6 +4774,7 @@ export default function App() {
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
   useEffect(() => { chatSpotMessagesRef.current = chatSpotMessages; }, [chatSpotMessages]);
   useEffect(() => { chatSessionMessagesRef.current = chatSessionMessages; }, [chatSessionMessages]);
+  useEffect(() => { chatMySessionsRef.current = chatMySessions; }, [chatMySessions]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
   useEffect(() => { expandedChatSpotRef.current = expandedChatSpot; }, [expandedChatSpot]);
   useEffect(() => {
@@ -4906,13 +4908,22 @@ export default function App() {
           return;
         }
 
-        // Sessie convId bekend maar chat nog niet geladen — haal groupKey op en sla correct op
+        // Sessie convId bekend maar chat nog niet geladen — sla op onder de juiste session-gk
         if (sessionConvIdsRef.current.has(convId)) {
           const { data: convData } = await supabase.from('conversations')
-            .select('group_key')
+            .select('group_key, spot_name, session_day')
             .eq('id', convId)
             .maybeSingle();
-          const storageKey = convData?.group_key ?? convId;
+          // Zoek de matchende sessie in chatMySessions op spot_name + session_day
+          const matchedSession = convData
+            ? chatMySessionsRef.current.find(
+                (s: any) => s.spot_name === convData.spot_name && s.session_day === convData.session_day
+              )
+            : null;
+          // gk = session.group_key ?? session.id (zelfde logica als de session list)
+          const storageKey = matchedSession
+            ? (matchedSession.group_key ?? matchedSession.id)
+            : (convData?.group_key ?? convId);
           if (!showChatRef.current) {
             setUnreadBySession(prev => ({ ...prev, [storageKey]: (prev[storageKey] ?? 0) + 1 }));
           }
@@ -7218,6 +7229,11 @@ export default function App() {
     if (!convId) {
       const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('group_key', groupKey).limit(1);
       convId = convResponse.data?.[0]?.id ?? null;
+    }
+    // Fallback: zoek op spot_name + session_day (als group_key niet matcht, bijv. sessions.group_key = null)
+    if (!convId && spotName && sessionDay) {
+      const fallbackResp = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).limit(1);
+      convId = fallbackResp.data?.[0]?.id ?? null;
     }
     if (!convId) {
       const { data: created, error } = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
