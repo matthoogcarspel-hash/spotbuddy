@@ -4655,7 +4655,15 @@ export default function App() {
   // Keyboard hoogte bijhouden voor chat input bar (native only)
   useEffect(() => {
     if (isWebPlatform) return;
-    const showSub = Keyboard.addListener('keyboardWillShow', (e) => setChatKeyboardHeight(e.endCoordinates.height));
+    const showSub = Keyboard.addListener('keyboardWillShow', (e) => {
+      setChatKeyboardHeight(e.endCoordinates.height);
+      // Scroll naar onderaan zodat laatste bericht zichtbaar is boven toetsenbord
+      setTimeout(() => {
+        chatSpotScrollRef.current?.scrollToEnd({ animated: true });
+        chatSessionScrollRef.current?.scrollToEnd({ animated: true });
+        chatDmScrollRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    });
     const hideSub = Keyboard.addListener('keyboardWillHide', () => setChatKeyboardHeight(0));
     return () => { showSub.remove(); hideSub.remove(); };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -7743,7 +7751,7 @@ export default function App() {
       : setDmInput;
 
     const handleOpenSend = () => {
-      Keyboard.dismiss();
+      // Keyboard.dismiss() verwijderd — toetsenbord blijft open na verzenden
       if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot);
       else if (expandedChatSession) {
         const s = chatMySessions.find((x) => (x.group_key ?? x.id) === expandedChatSession);
