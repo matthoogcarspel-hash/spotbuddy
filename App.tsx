@@ -7963,8 +7963,9 @@ export default function App() {
                   unreadBySpotName[spotName]
                   ?? Object.entries(unreadBySpotName).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1]
                   ?? (spotConvId2 && unreadSpotConvIds.has(spotConvId2) ? 1 : 0)
-                  // Vierde: unreadBySpot heeft de juiste count, chatData.conversationId is de convId
                 ) || (spotConvId2 ? (unreadBySpot[spotConvId2] ?? 0) : 0);
+                // DEBUG — verwijder later
+                const _dbg = spotName.includes('KZVS') ? `cid:${spotConvId2?.slice(-4)} u:${unread} bySpot:${spotConvId2?unreadBySpot[spotConvId2]:'?'} byName:${unreadBySpotName[spotName]} keys:${Object.keys(unreadBySpot).map(k=>k.slice(-4)).join(',')}` : null;
                 return (
                   <Pressable key={spotName} onPress={() => {
                     setExpandedChatSpot(spotName);
@@ -7984,6 +7985,7 @@ export default function App() {
                       <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
                         {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
                       </Text>
+                      {_dbg ? <Text style={{ color: '#ff6666', fontSize: 8 }}>{_dbg}</Text> : null}
                     </View>
                     {unread > 0
                       ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#fff', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
