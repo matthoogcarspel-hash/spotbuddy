@@ -2134,8 +2134,8 @@ function SessionTimeline({
                       <View style={{ flex: 1 }}>
                         {(group.visibleSessions?.length ?? 0) > 1 ? (
                           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                            <View style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}>
-                              <Text style={{ color: '#9EDBFF', fontSize: 10, fontWeight: '900' }}>👥 GROUP · {group.visibleSessions?.length} riders</Text>
+                            <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                              <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>👥 Group · {group.visibleSessions?.length} riders</Text>
                             </View>
                           </View>
                         ) : null}
@@ -2155,14 +2155,14 @@ function SessionTimeline({
                           }}
                           style={{
                             borderRadius: 999,
-                            backgroundColor: 'rgba(77,184,255,0.15)',
+                            backgroundColor: 'rgba(255,255,255,0.07)',
                             paddingHorizontal: 10,
                             paddingVertical: 6,
                             borderWidth: 1,
-                            borderColor: 'rgba(77,184,255,0.30)',
+                            borderColor: 'rgba(255,255,255,0.12)',
                           }}
                         >
-                          <Text style={{ color: '#4DB8FF', fontSize: 10, fontWeight: '900' }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
                             💬 Chat →
                           </Text>
                         </Pressable>
@@ -2182,9 +2182,9 @@ function SessionTimeline({
                               normalizedEnd: group.endTime,
                             });
                           }}
-                          style={{ borderRadius: 999, backgroundColor: theme.primary, paddingHorizontal: 12, paddingVertical: 6 }}
+                          style={{ borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.10)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 12, paddingVertical: 6 }}
                         >
-                          <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>JOIN</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }}>Join</Text>
                         </Pressable>
                       ) : null}
                     </View>
@@ -9659,8 +9659,7 @@ const handleSave = async () => {
                     style={{
                       backgroundColor: 'rgba(139,31,56,0.85)',
                       borderRadius: 12,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,95,125,0.25)',
+                      borderWidth: 0,
                       paddingVertical: 12,
                       alignItems: 'center',
                     }}
@@ -9697,16 +9696,15 @@ const handleSave = async () => {
                     disabled={!joinedSession || !canCancelJoinedSession}
                     onPress={() => { if (joinedSession && canCancelJoinedSession) void handleCancelPlannedSession(); }}
                     style={{
-                      backgroundColor: 'rgba(255,95,125,0.10)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,95,125,0.18)',
+                      backgroundColor: 'transparent',
+                      borderWidth: 0,
                       borderRadius: 999,
                       paddingVertical: 6,
                       paddingHorizontal: 12,
                       opacity: joinedSession && canCancelJoinedSession ? 1 : 0.35,
                     }}
                   >
-                    <Text style={{ color: '#ffb8c4', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
+                    <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '700' }}>× Cancel</Text>
                   </Pressable>
                 ) : null}
                 <Pressable
@@ -9821,13 +9819,12 @@ const handleSave = async () => {
                           borderRadius: 999,
                           paddingVertical: 8,
                           paddingHorizontal: 14,
-                          backgroundColor: 'rgba(255,95,125,0.10)',
-                          borderWidth: 1,
-                          borderColor: 'rgba(255,95,125,0.18)',
+                          backgroundColor: 'transparent',
+                          borderWidth: 0,
                           alignItems: 'center',
                         }}
                       >
-                        <Text style={{ color: '#ffb8c4', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
+                        <Text style={{ color: '#ff6b6b', fontSize: 13, fontWeight: '700' }}>Cancel</Text>
                       </Pressable>
 
                       {primaryOverlap ? (
