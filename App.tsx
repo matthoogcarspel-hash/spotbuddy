@@ -1880,9 +1880,9 @@ function SessionRow({
               normalizedEnd: group.endTime,
             });
           }}
-          style={{ marginTop: 4, marginLeft: 12, flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}
+          style={{ marginTop: 6, marginLeft: 12, alignSelf: 'flex-start', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', paddingHorizontal: 12, paddingVertical: 5 }}
         >
-          <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '600' }}>+ Join</Text>
+          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }}>+ Join</Text>
         </Pressable>
       ) : null}
     </Pressable>
