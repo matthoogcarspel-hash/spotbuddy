@@ -1817,9 +1817,16 @@ function SessionRow({
           </View>
 
           {sortedVisibleSessions.length === 1 ? (
-            <Text style={{ color: isLiveRow && session?.checkedInAt ? theme.textSoft : theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 4, textAlign: 'center', width: 64 }} numberOfLines={1}>
-              {getRiderRowName(sortedVisibleSessions[0]?.item)}{isLiveRow && session?.checkedInAt ? ` · ${formatToHourMinute(session.checkedInAt)}` : ''}
-            </Text>
+            <View style={{ alignItems: 'center', marginTop: 4 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', textAlign: 'center', width: 64 }} numberOfLines={1}>
+                {getRiderRowName(sortedVisibleSessions[0]?.item)}
+              </Text>
+              {isLiveRow && session?.checkedInAt ? (
+                <Text style={{ color: theme.textSoft, fontSize: 10, fontWeight: '600', marginTop: 2 }}>
+                  {formatToHourMinute(session.checkedInAt)}
+                </Text>
+              ) : null}
+            </View>
           ) : null}
 
           {sortedVisibleSessions.length > 1 && !canJoinGroup ? (
@@ -10496,29 +10503,6 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        {/* Spot Chat knop — alleen op web onderaan, native staat het na de summary cards */}
-        {isWebPlatform ? (
-          <Pressable
-            onPress={() => {
-              if (selectedSpot) {
-                setActiveChatSpot(selectedSpot);
-                setShowChat(true);
-                setChatSubTab('spot');
-                setSelectedSpot(null);
-              }
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: 14 }}
-          >
-            <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="chatbubbles-outline" size={18} color={theme.primary} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Spot Chat</Text>
-              <Text style={{ color: theme.textMuted, fontSize: 13 }}>Open in Messages tab</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-          </Pressable>
-        ) : null}
 
 
         </ScrollView>
