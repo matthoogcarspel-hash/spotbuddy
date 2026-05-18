@@ -8154,22 +8154,29 @@ export default function App() {
               {favoriteSpots.length === 0 && (
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
               )}
-              {favoriteSpots.map((spotName) => {
-                // Toon de entry met de meest recente activiteit (vandaag of morgen)
-                const spotEntries = Object.entries(chatSpotMessages)
-                  .filter(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase());
-                const bestEntry = spotEntries.sort((a, b) => {
-                  const aTime = a[1].messages[a[1].messages.length - 1]?.createdAt ?? '';
-                  const bTime = b[1].messages[b[1].messages.length - 1]?.createdAt ?? '';
-                  return bTime.localeCompare(aTime);
-                })[0];
-                const activeKey = bestEntry?.[0] ?? spotChatKey(spotName, getTodayLocalDateKey());
-                const chatData = bestEntry?.[1] ?? null;
+              {(() => {
+                // Toon één rij per dag per spot (vandaag + morgen als beide actief zijn)
+                const today = getTodayLocalDateKey();
+                const tomorrow = getTomorrowLocalDateKey();
+                const rows: Array<{ spotName: string; chatKey: string; chatData: typeof chatSpotMessages[string] | null }> = [];
+                for (const spotName of favoriteSpots) {
+                  for (const day of [today, tomorrow]) {
+                    const cKey = spotChatKey(spotName, day);
+                    const data = chatSpotMessages[cKey] ?? null;
+                    // Toon altijd vandaag; morgen alleen als er al activiteit is
+                    if (day === today || data) {
+                      rows.push({ spotName, chatKey: cKey, chatData: data });
+                    }
+                  }
+                }
+                return rows.map(({ spotName, chatKey, chatData }) => {
+                const activeKey = chatKey;
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const unread = spotsWithUnread[spotName.toLowerCase()] ?? 0;
+                const dayLabel = dayFromChatKey(chatKey) === today ? 'Today' : 'Tomorrow';
                 return (
-                  <Pressable key={spotName} onPress={() => {
+                  <Pressable key={chatKey} onPress={() => {
                     setExpandedChatSpot(activeKey);
                     setSpotsWithUnread((p) => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; });
                     if (!chatData?.loaded) {
@@ -8182,9 +8189,8 @@ export default function App() {
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
-                      <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
-                        {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : dayFromChatKey(activeKey)}
-                      </Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{dayLabel}</Text>
+                      {lastMsg ? <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                     </View>
                     {unread > 0
                       ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
@@ -8192,7 +8198,8 @@ export default function App() {
                     }
                   </Pressable>
                 );
-              })}
+                }); // einde rows.map
+              })()} {/* einde IIFE */}
             </View>
           )}
 
@@ -8376,21 +8383,31 @@ export default function App() {
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
-                  {favoriteSpots.map((spotName) => {
-                    // Meest recente entry (vandaag of morgen)
-                    const nativeEntries = Object.entries(chatSpotMessages).filter(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase());
-                    const bestNative = nativeEntries.sort((a, b) => (b[1].messages[b[1].messages.length-1]?.createdAt ?? '').localeCompare(a[1].messages[a[1].messages.length-1]?.createdAt ?? ''))[0];
-                    const activeNativeKey = bestNative?.[0] ?? spotChatKey(spotName, getTodayLocalDateKey());
-                    const msgs = bestNative?.[1]?.messages ?? [];
+                  {(() => {
+                    const todayN = getTodayLocalDateKey();
+                    const tomorrowN = getTomorrowLocalDateKey();
+                    const nativeRows: Array<{ spotName: string; chatKey: string; chatData: typeof chatSpotMessages[string] | null }> = [];
+                    for (const spotName of favoriteSpots) {
+                      for (const day of [todayN, tomorrowN]) {
+                        const cKey = spotChatKey(spotName, day);
+                        const data = chatSpotMessages[cKey] ?? null;
+                        if (day === todayN || data) nativeRows.push({ spotName, chatKey: cKey, chatData: data });
+                      }
+                    }
+                    return nativeRows.map(({ spotName, chatKey, chatData }) => {
+                    const activeNativeKey = chatKey;
+                    const msgs = chatData?.messages ?? [];
                     const lastMsg = msgs[msgs.length - 1];
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
-                    return <Pressable key={spotName} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    const nativeDayLabel = dayFromChatKey(chatKey) === todayN ? 'Today' : 'Tomorrow';
+                    return <Pressable key={chatKey} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{nativeDayLabel}</Text>
                         {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                       </View>
                       {hasUnread
@@ -8398,7 +8415,8 @@ export default function App() {
                         : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
                       }
                     </Pressable>;
-                  })}
+                    }); // einde nativeRows.map
+                  })()}
                 </View>}
                 {chatSubTab === 'session' && <View style={{ gap: 8 }}>
                   {(() => {
