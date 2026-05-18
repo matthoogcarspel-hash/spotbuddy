@@ -10527,9 +10527,9 @@ const handleSave = async () => {
   const homeTopPadding = isWebPlatform ? 18 : 8;
   const homeLogoBoxSize = isWebPlatform ? 120 : 72;
   const homeLogoImageSize = isWebPlatform ? 210 : 126;
-  const homeWordmarkWidth = isWebPlatform ? 700 : 480;
-  const homeWordmarkHeight = isWebPlatform ? 165 : 120;
-  const homeWordmarkMarginLeft = isWebPlatform ? -190 : -130;
+  const homeWordmarkWidth = isWebPlatform ? 470 : 480;
+  const homeWordmarkHeight = isWebPlatform ? 110 : 120;
+  const homeWordmarkMarginLeft = isWebPlatform ? -125 : -130;
   const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
   const homeSpotCardPadding = isWebPlatform ? 22 : 16;
   const homeSpotCardRadius = isWebPlatform ? 24 : 18;
