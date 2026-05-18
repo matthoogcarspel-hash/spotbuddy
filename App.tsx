@@ -8183,7 +8183,7 @@ export default function App() {
                     <View style={{ flex: 1 }}>
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
                       <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, marginTop: 2, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>
-                        {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : `Today · ${today}`}
+                        {lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : dayFromChatKey(activeKey)}
                       </Text>
                     </View>
                     {unread > 0
