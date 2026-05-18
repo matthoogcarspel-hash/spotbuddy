@@ -5929,11 +5929,11 @@ export default function App() {
             style={{ width: 160, height: 160 }}
           />
         </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 18 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
           <Image
             source={require('./assets/wordmark.png')}
             resizeMode="contain"
-            style={{ width: 440, height: 110 }}
+            style={{ width: 360, height: 72 }}
           />
         </View>
         <Pressable
