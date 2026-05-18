@@ -10545,7 +10545,7 @@ const handleSave = async () => {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 0 }}>
-          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingTop: 24 }}>
+          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: -20, paddingTop: 8 }}>
             <View style={{ width: homeLogoBoxSize, height: homeLogoBoxSize, overflow: 'hidden', marginRight: -12, marginLeft: -4, justifyContent: 'center', alignItems: 'center' }}>
               <Image source={require('./assets/logo.png')} style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }} resizeMode="contain" />
             </View>
