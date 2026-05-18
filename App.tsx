@@ -8174,9 +8174,7 @@ export default function App() {
                   onPress={() => {
                     setChatSubTab(tab.key);
                     // Reset teller voor dit type bij openen
-                    if (tab.key === 'spot') setSpotsWithUnread({});
-                    if (tab.key === 'session') setUnreadBySession({});
-                    if (tab.key === 'dm') setUnreadByDm({});
+                    // Badges individueel wissen bij openen van die specifieke chat — niet bulk hier
                   }}
                   style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
                 >
@@ -8422,7 +8420,7 @@ export default function App() {
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); if (tab.key === 'spot') setSpotsWithUnread({}); if (tab.key === 'session') setUnreadBySession({}); if (tab.key === 'dm') setUnreadByDm({}); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
+                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
                 </View>
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
