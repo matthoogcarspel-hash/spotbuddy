@@ -4263,8 +4263,8 @@ export default function App() {
       console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
     }
 
-    if (sessionsResponse.error) {
-      console.error('Failed to load sessions:', sessionsResponse.error);
+    if (sessionsWithDay.error) {
+      console.error('Failed to load sessions:', sessionsWithDay.error);
     } else {
       const nextSessionsBySpot = createSpotRecord<SpotSession[]>(spotNames, () => []);
       const canonicalSpotNameByNormalizedSpotName = new Map<string, SpotName>();
