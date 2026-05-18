@@ -9831,25 +9831,20 @@ const handleSave = async () => {
             <Pressable
               onPress={() => void handleUpdateSessionStatus('Is er al')}
               style={{
-                backgroundColor: 'rgba(94,240,208,0.08)',
-                borderRadius: 999,
+                borderRadius: 16,
                 borderWidth: 1,
-                borderColor: 'rgba(94,240,208,0.22)',
-                paddingVertical: 8,
-                paddingHorizontal: 16,
+                borderColor: 'rgba(255,255,255,0.12)',
+                backgroundColor: 'rgba(255,255,255,0.06)',
+                paddingVertical: 14,
+                paddingHorizontal: 20,
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 8,
-                alignSelf: 'flex-start',
+                gap: 10,
+                alignSelf: isWebPlatform ? 'flex-start' : 'stretch',
               }}
             >
               <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: '#5EF0D0', fontSize: 14, fontWeight: '700' }}>Check in</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400', marginTop: 1 }}>
-                  {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'You\'re at the spot'}
-                </Text>
-              </View>
+              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Check in</Text>
             </Pressable>
           ) : null}
 
