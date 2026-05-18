@@ -10542,41 +10542,23 @@ const handleSave = async () => {
       <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
-
-        <View style={{ marginBottom: 0 }}>
-          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 12, height: 90, overflow: 'hidden' }}>
-            <View
-              style={{
-                width: homeLogoBoxSize,
-                height: homeLogoBoxSize,
-                overflow: 'hidden',
-                marginRight: -12,
-                marginLeft: -4,
-                justifyContent: 'center',
-                alignItems: 'center',
-              }}
-            >
-              <Image
-                source={require('./assets/logo.png')}
-                style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }}
-                resizeMode="contain"
-              />
+        {/* Web header — vaste balk buiten ScrollView */}
+        {isWebPlatform && (
+          <View style={{ height: 80, flexDirection: 'row', alignItems: 'center', paddingHorizontal: homeHorizontalPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <View style={{ width: homeLogoBoxSize, height: homeLogoBoxSize, overflow: 'hidden', marginRight: -12, marginLeft: -4, justifyContent: 'center', alignItems: 'center' }}>
+              <Image source={require('./assets/logo.png')} style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }} resizeMode="contain" />
             </View>
-
-            <Image
-              source={require('./assets/wordmark.png')}
-              style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }}
-              resizeMode="contain"
-            />
-
+            <Image source={require('./assets/wordmark.png')} style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }} resizeMode="contain" />
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <Pressable onPress={() => setShowProfile(true)}>
                 <Avatar uri={profile?.avatar_url ?? null} size={38} nationality={profile?.nationality} />
               </Pressable>
             </View>
           </View>
+        )}
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
 
+        <View style={{ marginBottom: 0 }}>
           {plannedSession ? (
             <Pressable
               onPress={() => setSelectedSpot(plannedSession.spot)}
