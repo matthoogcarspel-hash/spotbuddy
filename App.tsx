@@ -4204,14 +4204,14 @@ export default function App() {
     
 
     const dayBounds = getDayBoundsForDayKey(selectedDayKey);
-    const sessionsResponse = dayBounds
-      ? await supabase
-          .from('sessions')
-          .select('*')
-          .eq('session_day', selectedDayKey)
-          .order('created_at', { ascending: true })
-      : { data: [], error: { message: 'INVALID_DAY_KEY' } };
-    const sessionsData = sessionsResponse.data ?? [];
+    // Twee queries: sessies met expliciete session_day + sessies zonder session_day binnen created_at bounds
+    const [sessionsWithDay, sessionsWithoutDay] = dayBounds
+      ? await Promise.all([
+          supabase.from('sessions').select('*').eq('session_day', selectedDayKey).order('created_at', { ascending: true }),
+          supabase.from('sessions').select('*').is('session_day', null).gte('created_at', dayBounds.start).lt('created_at', dayBounds.endExclusive).order('created_at', { ascending: true }),
+        ])
+      : [{ data: [], error: { message: 'INVALID_DAY_KEY' } }, { data: [], error: null }];
+    const sessionsData = [...(sessionsWithDay.data ?? []), ...(sessionsWithoutDay.data ?? [])];
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
