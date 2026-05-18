@@ -577,6 +577,19 @@ export async function cancelSession(input: {
     return { ok: false, reason: 'CANCEL_NOT_ALLOWED' };
   }
 
+  // Blokkeer cancel van een root-sessie als er actieve joiners zijn
+  const { data: activeJoiners } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('source_session_id', input.session.id)
+    .is('checked_out_at', null)
+    .not('status', 'in', '("finished","Uitchecken")')
+    .limit(1);
+
+  if (activeJoiners && activeJoiners.length > 0) {
+    return { ok: false, reason: 'SESSION_HAS_ACTIVE_JOINERS' };
+  }
+
   const { error } = await supabase
     .from('sessions')
     .delete()
