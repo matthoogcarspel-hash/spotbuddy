@@ -2528,6 +2528,7 @@ export default function App() {
   const [loadingData, setLoadingData] = useState(false);
   const activeProfileOwnerUidRef = useRef<string | null>(null);
   const activeProfileIdRef = useRef<string | null>(null);
+  const fetchSharedDataVersionRef = useRef(0);
   const showChatRef = useRef(false);
   const chatSubTabRef = useRef<string>('spot');
   const expandedChatSessionRef2 = useRef<string | null>(null);
@@ -4197,6 +4198,7 @@ export default function App() {
 
 
   const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
+    const myVersion = ++fetchSharedDataVersionRef.current;
     if (!skipLoadingState) {
       setLoadingData(true);
     }
@@ -4213,8 +4215,6 @@ export default function App() {
         ])
       : [{ data: [], error: { message: 'INVALID_DAY_KEY' } }, { data: [], error: null }];
     const sessionsData = [...(sessionsWithDay.data ?? []), ...(sessionsWithoutDay.data ?? [])];
-    console.log('FETCH_SESSIONS count=' + sessionsData.length + ' day=' + selectedDayKey);
-    sessionsData.forEach(s => console.log('  S:', s.id, 'user:', s.user_id, 'day:', s.session_day, 'source:', s.source_session_id));
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -4331,12 +4331,10 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      if (selectedSpot) {
-        const sp = nextSessionsBySpot[selectedSpot] ?? [];
-        console.log('FETCH_SPOT count=' + sp.length + ' spot=' + selectedSpot);
-        sp.forEach(s => console.log('  SP:', s.id, 'user:', s.userId, 'day:', s.sessionDay, 'source:', s.sourceSessionId));
+      // Stale fetch check: als een nieuwere fetch klaar is, negeer deze verouderde resultaten
+      if (myVersion !== fetchSharedDataVersionRef.current) {
+        return;
       }
-
       setSessionsBySpot(nextSessionsBySpot);
     }
 
@@ -9278,7 +9276,6 @@ export default function App() {
     };
 
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
-      console.log('JOIN_SESSION_START', { sessionId, sessionDay, sessionStatus, activeDateKey, activeDay });
       if (joinInFlightSessionId === sessionId) {
         return;
       }
