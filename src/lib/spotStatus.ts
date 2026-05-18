@@ -28,8 +28,11 @@ export const getSpotStatus = <T>({
   getSessionState: (sessionItem: T, nowReference: Date) => SpotSessionState;
 }): SpotStatusResult => {
   const safeSessions = Array.isArray(sessions) ? sessions : [];
-  const activeCount = safeSessions.filter((sessionItem) => getSessionState(sessionItem, now) === 'active').length;
-  const plannedCount = safeSessions.filter((sessionItem) => getSessionState(sessionItem, now) === 'planned').length;
+  const activeSessions = safeSessions.filter((sessionItem) => getSessionState(sessionItem, now) === 'active');
+  const plannedSessions = safeSessions.filter((sessionItem) => getSessionState(sessionItem, now) === 'planned');
+  // Tel unieke gebruikers, niet sessies
+  const activeCount = new Set(activeSessions.map((s) => (s as any).userId ?? (s as any).user_id).filter(Boolean)).size;
+  const plannedCount = new Set(plannedSessions.map((s) => (s as any).userId ?? (s as any).user_id).filter(Boolean)).size;
   const totalCount = activeCount + plannedCount;
   const isLiveNow = activeCount >= 1;
   const isForming = !isLiveNow && plannedCount >= 1;
@@ -49,15 +52,6 @@ export const getSpotStatus = <T>({
   }
 
   const intensity = activeCount > 0 ? activeCount : plannedCount;
-
-  console.log('SPOT_STATUS_SHARED_RESULT', {
-    spotName,
-    selectedDay,
-    activeCount,
-    plannedCount,
-    totalCount,
-    label,
-  });
 
   return {
     key,
