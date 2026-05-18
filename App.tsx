@@ -1154,12 +1154,17 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
   const isScrolling = useRef(false);
 
   useEffect(() => {
-    if (selected === null) return;
-    const idx = values.indexOf(selected);
-    if (idx >= 0) {
-      setTimeout(() => scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: false }), 30);
+    if (isScrolling.current) return;
+    if (selected === null && values.length > 0) {
+      // Auto-select first item and scroll to it
+      onSelect(values[0]);
+      setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 30);
+      return;
     }
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+    const idx = selected === null ? 0 : values.indexOf(selected);
+    const safeIdx = idx >= 0 ? idx : 0;
+    setTimeout(() => scrollRef.current?.scrollTo({ y: safeIdx * ITEM_H, animated: false }), 30);
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
@@ -9271,6 +9276,7 @@ export default function App() {
     };
 
     const joinSession = async ({ sessionId, sessionDay, sessionStatus, normalizedStart, normalizedEnd }: SessionJoinRequest) => {
+      console.log('JOIN_SESSION_START', { sessionId, sessionDay, sessionStatus, activeDateKey, activeDay });
       if (joinInFlightSessionId === sessionId) {
         return;
       }
