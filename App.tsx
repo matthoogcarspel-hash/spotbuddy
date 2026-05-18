@@ -1756,6 +1756,8 @@ function SessionRow({
   // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
   const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+  // "You're in" alleen tonen als je in een groep zit MET anderen (niet je eigen solo-sessie)
+  const isJoinedGroup = isAlreadyInGroup && safeGroupSessions.some(e => e.item?.userId !== currentProfileId);
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1817,7 +1819,7 @@ function SessionRow({
             </Text>
           ) : null}
 
-          {isAlreadyInGroup ? (
+          {isJoinedGroup ? (
             <Text style={{ color: '#5EF0D0', fontSize: 10, fontWeight: '800', marginTop: 4 }}>✓ You're in</Text>
           ) : null}
           {sortedVisibleSessions.length > 1 && !canJoinGroup && !isAlreadyInGroup ? (
@@ -2081,6 +2083,7 @@ function SessionTimeline({
                 const mJoinTarget = mGSessions.find(e => e.item?.userId !== currentProfileId)?.item ?? null;
                 const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId);
                 const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn;
+                const mJoinedGroup = mAlreadyIn && mGSessions.some(e => e.item?.userId !== currentProfileId);
 
                 const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
                 const clampedEndMinutes = clamp(Math.max(group.endMinutes, clampedStartMinutes + 20), timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -2148,8 +2151,8 @@ function SessionTimeline({
                         </Pressable>
                       ) : null}
 
-                      {/* "You're in" badge */}
-                      {mAlreadyIn ? (
+                      {/* "You're in" badge — alleen als je in een groep zit MET anderen */}
+                      {mJoinedGroup ? (
                         <View style={{ borderRadius: 999, backgroundColor: 'rgba(94,240,208,0.12)', borderWidth: 1, borderColor: 'rgba(94,240,208,0.3)', paddingHorizontal: 10, paddingVertical: 5 }}>
                           <Text style={{ color: '#5EF0D0', fontSize: 11, fontWeight: '800' }}>✓ You're in</Text>
                         </View>
