@@ -5930,11 +5930,8 @@ export default function App() {
           />
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Image
-            source={require('./assets/wordmark.png')}
-            resizeMode="contain"
-            style={{ width: 220, height: 58 }}
-          />
+          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.3 }}>SpotBuddy</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 1 }}>See who's going. Ride together.</Text>
         </View>
         <Pressable
           onPress={() => {
@@ -7463,7 +7460,12 @@ export default function App() {
           <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
             <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
             <View style={{ gap: 2 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>Activity</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+                <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={16} color={theme.textMuted} />
+                </Pressable>
+              </View>
               {notificationRows.length === 0 ? (
                 <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
               ) : (
@@ -8149,8 +8151,8 @@ export default function App() {
                       {(['everyone', 'buddies', 'off'] as const).map((opt) => {
                         const selected = currentValue === opt;
                         return (
-                          <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}>
-                            <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
+                          <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                            <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
                           </Pressable>
                         );
                       })}
@@ -8172,8 +8174,8 @@ export default function App() {
                   {(['on', 'off'] as const).map((opt) => {
                     const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
                     return (
-                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}>
-                        <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                       </Pressable>
                     );
                   })}
@@ -8441,7 +8443,7 @@ export default function App() {
                         <View style={{ flexDirection: 'row', gap: 6 }}>
                           {(['everyone', 'buddies', 'off'] as const).map((opt) => {
                             const selected = messagesAlertSettings[key] === opt;
-                            return <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)' }}><Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text></Pressable>;
+                            return <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}><Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text></Pressable>;
                           })}
                         </View>
                       </View>
@@ -9758,12 +9760,12 @@ const handleSave = async () => {
                               paddingHorizontal: 10,
                               paddingVertical: 6,
                               borderRadius: 8,
-                              backgroundColor: selected ? 'rgba(77,184,255,0.2)' : 'rgba(255,255,255,0.04)',
+                              backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)',
                               borderWidth: 1,
-                              borderColor: selected ? 'rgba(77,184,255,0.45)' : 'rgba(255,255,255,0.07)',
+                              borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)',
                             }}
                           >
-                            <Text style={{ color: selected ? '#AEE8FF' : theme.textMuted, fontSize: 11, fontWeight: '800' }}>
+                            <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>
                               {option.label}
                             </Text>
                           </Pressable>
@@ -10559,11 +10561,10 @@ const handleSave = async () => {
               />
             </View>
 
-            <Image
-              source={require('./assets/wordmark.png')}
-              style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }}
-              resizeMode="contain"
-            />
+            <View style={{ marginLeft: homeWordmarkMarginLeft }}>
+              <Text style={{ color: theme.text, fontSize: isWebPlatform ? 28 : 22, fontWeight: '900', letterSpacing: -0.5 }}>SpotBuddy</Text>
+              <Text style={{ color: theme.textMuted, fontSize: isWebPlatform ? 14 : 12, fontWeight: '500', marginTop: 1 }}>See who's going. Ride together.</Text>
+            </View>
 
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <Pressable onPress={() => setShowProfile(true)}>
@@ -10753,18 +10754,22 @@ const handleSave = async () => {
               gap: 2,
             }}
           >
-            <Text
-              style={{
-                color: theme.textMuted,
-                fontSize: 11,
-                fontWeight: '800',
-                textTransform: 'uppercase',
-                letterSpacing: 0.6,
-                marginBottom: 6,
-              }}
-            >
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text
+                style={{
+                  color: theme.textMuted,
+                  fontSize: 11,
+                  fontWeight: '800',
+                  textTransform: 'uppercase',
+                  letterSpacing: 0.6,
+                }}
+              >
               Activity
             </Text>
+              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                <Ionicons name="close" size={16} color={theme.textMuted} />
+              </Pressable>
+            </View>
 
             {notificationRows.length === 0 ? (
               <Text style={{ color: theme.textMuted, fontSize: 12 }}>
