@@ -1756,7 +1756,6 @@ function SessionRow({
   // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
   const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
-  if (!canJoinGroup) console.log('SESSION_ROW_NO_JOIN', { groupKey: group.key, joinTarget: !!joinTarget, isAlreadyInGroup, sessionsCount: safeGroupSessions.length, userIds: safeGroupSessions.map(e => e.item?.userId).join(','), currentProfileId });
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -1818,7 +1817,10 @@ function SessionRow({
             </Text>
           ) : null}
 
-          {sortedVisibleSessions.length > 1 && !canJoinGroup ? (
+          {isAlreadyInGroup ? (
+            <Text style={{ color: '#5EF0D0', fontSize: 10, fontWeight: '800', marginTop: 4 }}>✓ You're in</Text>
+          ) : null}
+          {sortedVisibleSessions.length > 1 && !canJoinGroup && !isAlreadyInGroup ? (
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
@@ -2144,6 +2146,13 @@ function SessionTimeline({
                           <Ionicons name="chatbubble" size={13} color="#ffffff" />
                           <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Group Chat</Text>
                         </Pressable>
+                      ) : null}
+
+                      {/* "You're in" badge */}
+                      {mAlreadyIn ? (
+                        <View style={{ borderRadius: 999, backgroundColor: 'rgba(94,240,208,0.12)', borderWidth: 1, borderColor: 'rgba(94,240,208,0.3)', paddingHorizontal: 10, paddingVertical: 5 }}>
+                          <Text style={{ color: '#5EF0D0', fontSize: 11, fontWeight: '800' }}>✓ You're in</Text>
+                        </View>
                       ) : null}
 
                       {/* JOIN knop naast Chat knop */}
