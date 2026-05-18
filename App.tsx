@@ -4204,6 +4204,7 @@ export default function App() {
     if (!skipLoadingState) {
       setLoadingData(true);
     }
+    try {
     
     
     
@@ -4415,6 +4416,10 @@ export default function App() {
 
     if (!skipLoadingState) {
       setLoadingData(false);
+    }
+    } catch (err) {
+      console.error('FETCH_SHARED_DATA_ERROR', err);
+      if (!skipLoadingState) setLoadingData(false);
     }
   };
 
