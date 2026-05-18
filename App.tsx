@@ -10861,7 +10861,7 @@ const handleSave = async () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
                   <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start' }}>
                     <Text style={{ color: theme.textMuted, fontSize: 13 }}>
-                      Nearest spot · <Text style={{ color: theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
+                      Nearest spot · <Text style={{ color: nearestStatus.activeCount > 0 ? '#5EF0D0' : theme.primary, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
                       {nearestStatus.activeCount > 0 ? (
                         <Text> · <Text style={{ color: '#5EF0D0', fontWeight: '800' }}>● {nearestStatus.activeCount} live</Text></Text>
                       ) : nearestStatus.plannedCount > 0 ? (
