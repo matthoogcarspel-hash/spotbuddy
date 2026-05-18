@@ -10702,11 +10702,6 @@ const handleSave = async () => {
             }}
           >
             <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Messages</Text>
-            {chatUnreadCount > 0 && (
-              <View style={{ minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}>
-                <Text style={{ color: '#000', fontSize: 10, fontWeight: '900' }}>{chatUnreadCount}</Text>
-              </View>
-            )}
           </Pressable>
 
           {/* Bell — compact, rechts uitgelijnd */}
