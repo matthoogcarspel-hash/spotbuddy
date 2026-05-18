@@ -4334,6 +4334,7 @@ export default function App() {
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
       // Stale fetch check: als een nieuwere fetch klaar is, negeer deze verouderde resultaten
       if (myVersion !== fetchSharedDataVersionRef.current) {
+        if (!skipLoadingState) setLoadingData(false);
         return;
       }
       setSessionsBySpot(nextSessionsBySpot);
