@@ -4213,7 +4213,8 @@ export default function App() {
         ])
       : [{ data: [], error: { message: 'INVALID_DAY_KEY' } }, { data: [], error: null }];
     const sessionsData = [...(sessionsWithDay.data ?? []), ...(sessionsWithoutDay.data ?? [])];
-    console.log('FETCH_SESSIONS', { selectedDayKey, selectedSpot, count: sessionsData.length, ids: sessionsData.map(s => ({ id: s.id, user_id: s.user_id, session_day: s.session_day, source: s.source_session_id })) });
+    console.log('FETCH_SESSIONS count=' + sessionsData.length + ' day=' + selectedDayKey);
+    sessionsData.forEach(s => console.log('  S:', s.id, 'user:', s.user_id, 'day:', s.session_day, 'source:', s.source_session_id));
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -4330,7 +4331,11 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      if (selectedSpot) console.log('FETCH_SPOT_SESSIONS', { spot: selectedSpot, count: nextSessionsBySpot[selectedSpot]?.length ?? 0, sessions: nextSessionsBySpot[selectedSpot]?.map(s => ({ id: s.id, userId: s.userId, sessionDay: s.sessionDay, sourceId: s.sourceSessionId })) });
+      if (selectedSpot) {
+        const sp = nextSessionsBySpot[selectedSpot] ?? [];
+        console.log('FETCH_SPOT count=' + sp.length + ' spot=' + selectedSpot);
+        sp.forEach(s => console.log('  SP:', s.id, 'user:', s.userId, 'day:', s.sessionDay, 'source:', s.sourceSessionId));
+      }
 
       setSessionsBySpot(nextSessionsBySpot);
     }
