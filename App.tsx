@@ -4902,8 +4902,24 @@ export default function App() {
               return { ...prev, [targetChatKey]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
             });
             return;
+          } else if (typeRow?.type === 'dm') {
+            // DM — verwerk ook als convId nog niet in myConvIdsRef zit
+            myConvIdsRef.current.add(convId);
+            const isOwnDm = row.user_id === (activeProfile?.id ?? activeAppUserId);
+            const watchingDm = showChatRef.current && chatSubTabRef.current === 'dm';
+            if (!watchingDm && !isOwnDm) {
+              setUnreadByDm(prev => ({ ...prev, [convId]: (prev[convId] ?? 0) + 1 }));
+            }
+            setDmMessages(prev => {
+              const existing = prev[convId] ?? [];
+              const isDup = existing.some((m: any) => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
+              if (isDup) return prev;
+              return { ...prev, [convId]: [...existing, newMsg] };
+            });
+            void loadDmConversations();
+            return;
           } else if (!typeRow?.type) {
-            return; // DM of onbekend type — negeer
+            return; // onbekend type — negeer
           }
         }
 
@@ -7373,6 +7389,14 @@ export default function App() {
     const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
+    // Push notificatie naar de andere deelnemer
+    void (async () => {
+      const dmConv = dmConversations.find(c => c.id === conversationId);
+      const otherUserId = dmConv?.otherUserId ?? null;
+      if (!otherUserId) return;
+      const actorName = activeProfile?.display_name?.trim() || 'Someone';
+      void sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
+    })();
   };
 
   const openDmWithUser = async (otherUserId: string) => {
@@ -7387,7 +7411,7 @@ export default function App() {
       p_type: 'dm',
       p_other_user_id: otherUserId,
     });
-    console.log('DM_RPC_RESULT', { rpcConvId, rpcError });
+    if (rpcError) console.warn('DM_RPC_ERROR', rpcError?.message);
     if (!rpcError && rpcConvId) {
       myConvIdsRef.current.add(rpcConvId);
       return rpcConvId as string;
@@ -7409,7 +7433,7 @@ export default function App() {
       type: 'dm', participant_a_id: activeAppUserId, participant_b_id: otherUserId,
     }).select('id').single();
     console.log('DM_INSERT_RESULT', { created, insertError });
-    if (insertError) console.error('DM_CREATE_ERROR', insertError);
+    if (insertError) console.error('DM_CREATE_ERROR', insertError?.message);
     if (created?.id) myConvIdsRef.current.add(created.id);
     return created?.id ?? null;
   };
