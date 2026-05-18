@@ -8155,21 +8155,27 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
               )}
               {favoriteSpots.map((spotName) => {
-                const todayKey = spotChatKey(spotName, getTodayLocalDateKey());
-                const chatData = chatSpotMessages[todayKey]
-                  ?? Object.entries(chatSpotMessages).find(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase())?.[1];
+                // Toon de entry met de meest recente activiteit (vandaag of morgen)
+                const spotEntries = Object.entries(chatSpotMessages)
+                  .filter(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase());
+                const bestEntry = spotEntries.sort((a, b) => {
+                  const aTime = a[1].messages[a[1].messages.length - 1]?.createdAt ?? '';
+                  const bTime = b[1].messages[b[1].messages.length - 1]?.createdAt ?? '';
+                  return bTime.localeCompare(aTime);
+                })[0];
+                const activeKey = bestEntry?.[0] ?? spotChatKey(spotName, getTodayLocalDateKey());
+                const chatData = bestEntry?.[1] ?? null;
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
-                const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-                // Directe spotName lookup — geen convId of case matching nodig
-                // Directe spotNaam check — geen convId nodig
                 const unread = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
-                    const tKey = spotChatKey(spotName, getTodayLocalDateKey());
-                    setExpandedChatSpot(tKey);
+                    setExpandedChatSpot(activeKey);
                     setSpotsWithUnread((p) => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; });
-                    if (!chatData?.loaded) void loadSpotChatForTab(spotName, getTodayLocalDateKey());
+                    if (!chatData?.loaded) {
+                      const day = dayFromChatKey(activeKey);
+                      void loadSpotChatForTab(spotName, day);
+                    }
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
@@ -8371,12 +8377,15 @@ export default function App() {
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
                   {favoriteSpots.map((spotName) => {
-                    const todayKeyNative = spotChatKey(spotName, getTodayLocalDateKey());
-                    const msgs = (chatSpotMessages[todayKeyNative] ?? Object.entries(chatSpotMessages).find(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase())?.[1])?.messages ?? [];
+                    // Meest recente entry (vandaag of morgen)
+                    const nativeEntries = Object.entries(chatSpotMessages).filter(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase());
+                    const bestNative = nativeEntries.sort((a, b) => (b[1].messages[b[1].messages.length-1]?.createdAt ?? '').localeCompare(a[1].messages[a[1].messages.length-1]?.createdAt ?? ''))[0];
+                    const activeNativeKey = bestNative?.[0] ?? spotChatKey(spotName, getTodayLocalDateKey());
+                    const msgs = bestNative?.[1]?.messages ?? [];
                     const lastMsg = msgs[msgs.length - 1];
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
-                    return <Pressable key={spotName} onPress={() => { const today = getTodayLocalDateKey(); const cKey = spotChatKey(spotName, today); setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(cKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[cKey]?.loaded) void loadSpotChatForTab(spotName, today); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    return <Pressable key={spotName} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                       </View>
