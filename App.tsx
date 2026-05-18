@@ -327,6 +327,10 @@ const theme = {
   warm: '#F2C94C',
 };
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
+// Spot chat sleutels zijn dag-bewust: "SpotName|||2026-05-18"
+const spotChatKey = (spotName: string, dayKey: string) => `${spotName}|||${dayKey}`;
+const spotNameFromChatKey = (key: string) => key.split('|||')[0] ?? key;
+const dayFromChatKey = (key: string) => key.split('|||')[1] ?? getTodayLocalDateKey();
 const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNotificationPreferencesModel.reduce((accumulator, preference) => {
   accumulator[preference.dbField] = 'off';
   return accumulator;
@@ -4528,11 +4532,12 @@ export default function App() {
   useEffect(() => {
     if (!showChat || !activeAppUserId) return;
     if (chatSubTab === 'spot') {
+      const today = getTodayLocalDateKey();
       for (const spotName of favoriteSpots) {
-        // Skip als activeChatSpot deze spot al laadt (met mogelijk een andere dag)
         if (spotName === activeChatSpot) continue;
-        if (!chatSpotMessages[spotName]?.loaded) {
-          void loadSpotChatForTab(spotName);
+        const cKey = spotChatKey(spotName, today);
+        if (!chatSpotMessages[cKey]?.loaded) {
+          void loadSpotChatForTab(spotName, today);
         }
       }
     }
@@ -4546,16 +4551,14 @@ export default function App() {
   useEffect(() => {
     if (activeChatSpot && showChat) {
       const day = activeChatDayKey ?? getTodayLocalDateKey();
+      const cKey = spotChatKey(activeChatSpot, day);
       setExpandedChatSession(null);
       setExpandedDmId(null);
-      setExpandedChatSpot(activeChatSpot);
+      setExpandedChatSpot(cKey);
       setChatSubTab('spot');
-      // Herlaad als de dag verschilt of nog niet geladen
-      const existing = chatSpotMessages[activeChatSpot];
-      if (!existing?.loaded || existing?.dayKey !== day) {
+      if (!chatSpotMessages[cKey]?.loaded) {
         void loadSpotChatForTab(activeChatSpot, day);
       }
-      // Reset na gebruik zodat hij niet opnieuw vuurt bij volgende showChat
       setActiveChatSpot(null);
       setActiveChatDayKey(null);
     }
@@ -4852,7 +4855,9 @@ export default function App() {
         // favoriteSpotsRef.current gebruiken (NIET favoriteSpots — stale closure!)
         const rowFull = payload.new as { spot_name?: string };
         const spotNameFromMsg = rowFull.spot_name ?? null;
-        const spotNameFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
+        // chatSpotMessages gebruikt compound keys (SpotName|||day) — extraheer alleen de spotnaam
+        const chatKeyFromRef = Object.entries(chatSpotMessagesRef.current).find(([, data]) => data.conversationId === convId)?.[0] ?? null;
+        const spotNameFromRef = chatKeyFromRef ? spotNameFromChatKey(chatKeyFromRef) : null;
         const rawSpotName = spotNameFromMsg ?? spotNameFromRef;
         // Als geen spot_name bekend: zoek via conversations tabel
         let matchedSpotName: string | null = rawSpotName
@@ -4879,15 +4884,16 @@ export default function App() {
             if (!isOwnMessage) {
               setSpotsWithUnread(prev => { const k = matchedSpotName.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
             }
+            // Gebruik session_day uit het bericht voor de dag-bewuste sleutel
+            const msgDay = String((payload.new as any).session_day ?? getTodayLocalDateKey());
+            // chatKeyFromRef is al de compound key als de entry bestaat
+            const targetChatKey = chatKeyFromRef ?? spotChatKey(matchedSpotName ?? '', msgDay);
             setChatSpotMessages(prev => {
-              const data = prev[matchedSpotName];
-              // Alleen toevoegen als dit de juiste conversation is (zelfde dag)
-              // Anders: negeer om vandaag's chat niet te vervuilen met morgen's berichten
-              if (data?.conversationId && data.conversationId !== convId) return prev;
-              if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
+              const data = prev[targetChatKey];
+              if (!data) return { ...prev, [targetChatKey]: { conversationId: convId, messages: [newMsg], loaded: false, dayKey: msgDay } };
               const isDup = data.messages.some(m => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
               if (isDup) return prev;
-              return { ...prev, [matchedSpotName]: { ...data, messages: [...data.messages, newMsg] } };
+              return { ...prev, [targetChatKey]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
             });
             return;
           }
@@ -7143,10 +7149,11 @@ export default function App() {
   }
   const loadSpotChatForTab = async (spotName: string, dayKey?: string) => {
     const day = dayKey ?? getTodayLocalDateKey();
+    const cKey = spotChatKey(spotName, day);
     const convResponse = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', day).limit(1);
     const convId = convResponse.data?.[0]?.id ?? null;
     if (!convId) {
-      setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
+      setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
       return;
     }
     const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
@@ -7160,30 +7167,31 @@ export default function App() {
       avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
     }));
     myConvIdsRef.current.add(convId);
-    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: enriched, loaded: true, dayKey: day } }));
+    setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: convId, messages: enriched, loaded: true, dayKey: day } }));
   };
 
-  const sendSpotMessageInChatTab = async (spotName: string) => {
+  const sendSpotMessageInChatTab = async (chatKey: string) => {
     const text = spotChatInputInChat.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
-    if (!text || !spotName || !senderId) return;
-    const today = getTodayLocalDateKey();
-    let convId = chatSpotMessages[spotName]?.conversationId ?? null;
+    const spotName = spotNameFromChatKey(chatKey);
+    const day = dayFromChatKey(chatKey);
+    if (!text || !chatKey || !senderId) return;
+    let convId = chatSpotMessages[chatKey]?.conversationId ?? null;
     if (!convId) {
-      const existing = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
+      const existing = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', day).limit(1);
       convId = existing.data?.[0]?.id ?? null;
       if (!convId) {
-        const { data: created } = await supabase.from('conversations').insert({ type: 'spot', spot_name: spotName, session_day: today }).select('id').single();
+        const { data: created } = await supabase.from('conversations').insert({ type: 'spot', spot_name: spotName, session_day: day }).select('id').single();
         convId = created?.id ?? null;
       }
     }
     if (!convId) return;
-    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: today, conversation_id: convId, created_at: new Date().toISOString() });
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: day, conversation_id: convId, created_at: new Date().toISOString() });
     if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
     setSpotChatInputInChat('');
     setTimeout(() => chatSpotScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
-    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: [...(prev[spotName]?.messages ?? []), newMsg], loaded: true } }));
+    setChatSpotMessages((prev) => ({ ...prev, [chatKey]: { conversationId: convId, messages: [...(prev[chatKey]?.messages ?? []), newMsg], loaded: true } }));
     // Push naar spot-volgers — GEEN create_chat_notification (dat gaat naar bell, niet Messages)
     void (async () => {
       const { data: followers } = await supabase
@@ -7916,7 +7924,7 @@ export default function App() {
       : [];
 
     const openConvName = expandedChatSpot
-      ? expandedChatSpot
+      ? spotNameFromChatKey(expandedChatSpot)
       : expandedChatSession
       ? (chatSessionMessages[expandedChatSession]?.spotName ?? 'Session chat')
       : openDmConv?.otherName ?? 'DM';
@@ -8147,8 +8155,9 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
               )}
               {favoriteSpots.map((spotName) => {
-                const chatData = chatSpotMessages[spotName]
-                  ?? Object.entries(chatSpotMessages).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1];
+                const todayKey = spotChatKey(spotName, getTodayLocalDateKey());
+                const chatData = chatSpotMessages[todayKey]
+                  ?? Object.entries(chatSpotMessages).find(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase())?.[1];
                 const msgs = chatData?.messages ?? [];
                 const lastMsg = msgs[msgs.length - 1];
                 const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
@@ -8157,9 +8166,10 @@ export default function App() {
                 const unread = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                 return (
                   <Pressable key={spotName} onPress={() => {
-                    setExpandedChatSpot(spotName);
+                    const tKey = spotChatKey(spotName, getTodayLocalDateKey());
+                    setExpandedChatSpot(tKey);
                     setSpotsWithUnread((p) => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; });
-                    if (!chatData?.loaded) void loadSpotChatForTab(spotName);
+                    if (!chatData?.loaded) void loadSpotChatForTab(spotName, getTodayLocalDateKey());
                   }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                     <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                       <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
@@ -8361,11 +8371,12 @@ export default function App() {
                 {chatSubTab === 'spot' && <View style={{ gap: 8 }}>
                   {favoriteSpots.length === 0 && <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet.</Text>}
                   {favoriteSpots.map((spotName) => {
-                    const msgs = (chatSpotMessages[spotName] ?? Object.entries(chatSpotMessages).find(([k]) => k.toLowerCase() === spotName.toLowerCase())?.[1])?.messages ?? [];
+                    const todayKeyNative = spotChatKey(spotName, getTodayLocalDateKey());
+                    const msgs = (chatSpotMessages[todayKeyNative] ?? Object.entries(chatSpotMessages).find(([k]) => spotNameFromChatKey(k).toLowerCase() === spotName.toLowerCase())?.[1])?.messages ?? [];
                     const lastMsg = msgs[msgs.length - 1];
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
-                    return <Pressable key={spotName} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(spotName); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[spotName]?.loaded) void loadSpotChatForTab(spotName); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
+                    return <Pressable key={spotName} onPress={() => { const today = getTodayLocalDateKey(); const cKey = spotChatKey(spotName, today); setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(cKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[cKey]?.loaded) void loadSpotChatForTab(spotName, today); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
                       <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
                         <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
                       </View>
