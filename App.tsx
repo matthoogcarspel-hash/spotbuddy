@@ -5929,7 +5929,7 @@ export default function App() {
             style={{ width: 160, height: 160 }}
           />
         </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4 }}>
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 18 }}>
           <Image
             source={require('./assets/wordmark.png')}
             resizeMode="contain"
