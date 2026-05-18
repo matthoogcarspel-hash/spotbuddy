@@ -10527,9 +10527,9 @@ const handleSave = async () => {
   const homeTopPadding = isWebPlatform ? 18 : 8;
   const homeLogoBoxSize = isWebPlatform ? 120 : 72;
   const homeLogoImageSize = isWebPlatform ? 210 : 126;
-  const homeWordmarkWidth = isWebPlatform ? 600 : 480;
-  const homeWordmarkHeight = isWebPlatform ? 141 : 120;
-  const homeWordmarkMarginLeft = isWebPlatform ? -180 : -130;
+  const homeWordmarkWidth = isWebPlatform ? 680 : 480;
+  const homeWordmarkHeight = isWebPlatform ? 160 : 120;
+  const homeWordmarkMarginLeft = isWebPlatform ? -195 : -130;
   const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
   const homeSpotCardPadding = isWebPlatform ? 22 : 16;
   const homeSpotCardRadius = isWebPlatform ? 24 : 18;
@@ -10545,7 +10545,7 @@ const handleSave = async () => {
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
 
         <View style={{ marginBottom: 0 }}>
-          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 12, height: 90, overflow: 'hidden' }}>
             <View
               style={{
                 width: homeLogoBoxSize,
