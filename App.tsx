@@ -4874,19 +4874,25 @@ export default function App() {
         const isKnownSessionConv = sessionConvIdsRef.current.has(convId) ||
           Object.values(chatSessionMessagesRef.current).some((d) => d.conversationId === convId);
 
-        // Niet een bekende sessie en geen spot: controleer type in DB
-        if (!isKnownSessionConv && matchedSpotName) {
+        // Type-check altijd uitvoeren — ook als matchedSpotName null is (spot niet gevolgd)
+        // Fix: app→web session chat werkt ook als web de spot niet volgt
+        if (!isKnownSessionConv) {
           const { data: typeRow } = await supabase.from('conversations')
-            .select('type').eq('id', convId).maybeSingle();
-          if (typeRow?.type !== 'group') {
-            // Spot chat
+            .select('type, spot_name').eq('id', convId).maybeSingle();
+          if (typeRow?.type === 'group') {
+            // Sessie chat — altijd doorsturen ook zonder spotName
+            sessionConvIdsRef.current.add(convId);
+            // Vul matchedSpotName in als we hem niet hadden
+            if (!matchedSpotName && typeRow?.spot_name) {
+              matchedSpotName = typeRow.spot_name;
+            }
+          } else if (typeRow?.type === 'spot' && matchedSpotName) {
+            // Spot chat — alleen als spot bekend is
             const isOwnMessage = row.user_id === (activeProfile?.id ?? activeAppUserId);
             if (!isOwnMessage) {
-              setSpotsWithUnread(prev => { const k = matchedSpotName.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
+              setSpotsWithUnread(prev => { const k = matchedSpotName!.toLowerCase(); return { ...prev, [k]: (prev[k] ?? 0) + 1 }; });
             }
-            // Gebruik session_day uit het bericht voor de dag-bewuste sleutel
             const msgDay = String((payload.new as any).session_day ?? getTodayLocalDateKey());
-            // chatKeyFromRef is al de compound key als de entry bestaat
             const targetChatKey = chatKeyFromRef ?? spotChatKey(matchedSpotName ?? '', msgDay);
             setChatSpotMessages(prev => {
               const data = prev[targetChatKey];
@@ -4896,8 +4902,9 @@ export default function App() {
               return { ...prev, [targetChatKey]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
             });
             return;
+          } else if (!typeRow?.type) {
+            return; // DM of onbekend type — negeer
           }
-          sessionConvIdsRef.current.add(convId);
         }
 
         // === SESSION CHAT HANDLER (spot chat patroon) ===
