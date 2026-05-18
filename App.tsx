@@ -5930,8 +5930,11 @@ export default function App() {
           />
         </View>
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900', letterSpacing: -0.3 }}>SpotBuddy</Text>
-          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 1 }}>See who's going. Ride together.</Text>
+          <Image
+            source={require('./assets/wordmark.png')}
+            resizeMode="contain"
+            style={{ width: 220, height: 58 }}
+          />
         </View>
         <Pressable
           onPress={() => {
@@ -10561,10 +10564,11 @@ const handleSave = async () => {
               />
             </View>
 
-            <View style={{ marginLeft: homeWordmarkMarginLeft }}>
-              <Text style={{ color: theme.text, fontSize: isWebPlatform ? 28 : 22, fontWeight: '900', letterSpacing: -0.5 }}>SpotBuddy</Text>
-              <Text style={{ color: theme.textMuted, fontSize: isWebPlatform ? 14 : 12, fontWeight: '500', marginTop: 1 }}>See who's going. Ride together.</Text>
-            </View>
+            <Image
+              source={require('./assets/wordmark.png')}
+              style={{ width: homeWordmarkWidth, height: homeWordmarkHeight, marginLeft: homeWordmarkMarginLeft }}
+              resizeMode="contain"
+            />
 
             <View style={{ flex: 1, alignItems: 'flex-end' }}>
               <Pressable onPress={() => setShowProfile(true)}>
