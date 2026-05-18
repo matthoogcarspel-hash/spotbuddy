@@ -4524,6 +4524,8 @@ export default function App() {
     if (!showChat || !activeAppUserId) return;
     if (chatSubTab === 'spot') {
       for (const spotName of favoriteSpots) {
+        // Skip als activeChatSpot deze spot al laadt (met mogelijk een andere dag)
+        if (spotName === activeChatSpot) continue;
         if (!chatSpotMessages[spotName]?.loaded) {
           void loadSpotChatForTab(spotName);
         }
@@ -7199,7 +7201,7 @@ export default function App() {
     const tomorrow = getTomorrowLocalDateKey();
     // Laad mijn sessies + hun conversations in één keer
     const [{ data: sessions }, { data: convs }] = await Promise.all([
-      supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time').eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
+      supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time, source_session_id').eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
       supabase.from('conversations').select('id, group_key, spot_name, session_day').eq('type', 'group').in('session_day', [today, tomorrow]),
     ]);
     for (const session of (sessions ?? [])) {
@@ -7216,8 +7218,9 @@ export default function App() {
           [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
         });
       } else {
-        // Geen conversation gevonden: voeg lege entry toe zodat sessie in lijst verschijnt
-        const gk = `session:${session.spot_name?.toLowerCase()}:${session.session_day}`;
+        // Geen conversation gevonden: gebruik de correcte group_key zodat realtime routing werkt
+        const sourceId = (session as any).source_session_id ?? session.id;
+        const gk = `spot:${normalizeSpotName(session.spot_name ?? '')}:source:${sourceId}`;
         setChatSessionMessages(prev => prev[gk] ? prev : {
           ...prev,
           [gk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
@@ -7229,10 +7232,8 @@ export default function App() {
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
     // Initialiseer entry direct zodat realtime berichten niet worden gedropped tijdens laden
     setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false, spotName, sessionDay } });
-    console.log('[LOAD] groupKey:', groupKey.slice(0,8), 'spotName:', spotName, 'sessionDay:', sessionDay);
     // Gebruik al opgeslagen conversationId (bijv. vanuit realtime fallback) om spot_name mismatch te vermijden
     let convId: string | null = chatSessionMessagesRef.current[groupKey]?.conversationId ?? null;
-    console.log('[LOAD] cached convId:', convId?.slice(0,8) ?? 'null');
     if (!convId) {
       const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('group_key', groupKey).limit(1);
       convId = convResponse.data?.[0]?.id ?? null;
