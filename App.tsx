@@ -1608,7 +1608,8 @@ const groupTimelineSessions = ({
       return {
         ...group,
         visibleSessions,
-        representative: visibleSessions[0] ?? (Array.isArray(group.sessions) ? group.sessions[0] : null) ?? null,
+        // Gebruik altijd de root sessie (geen source) als representative — niet de joined sessie
+        representative: (visibleSessions.find(e => !e.item?.sourceSessionId) ?? visibleSessions[0]) ?? (Array.isArray(group.sessions) ? (group.sessions.find(e => !e.item?.sourceSessionId) ?? group.sessions[0]) : null) ?? null,
       };
     })
     .filter((group) => group.visibleSessions.length > 0);
