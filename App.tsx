@@ -1833,7 +1833,7 @@ function SessionRow({
           ) : null}
         </View>
 
-        <View style={{ position: 'absolute', left: 104, right: 104, height: 24, zIndex: 1 }}>
+        <View style={{ position: 'absolute', left: 104, right: canJoinGroup ? 110 : 104, height: 24, zIndex: 1 }}>
           <SessionBar
             leftPercent={leftPercent}
             widthPercent={widthPercent}
@@ -1863,29 +1863,21 @@ function SessionRow({
           />
         </View>
 
-        <View style={{ width: 92 }} />
-        <View style={{ width: 8 }} />
+        {/* JOIN knop rechts in de rij — zelfde positie als op native */}
+        {canJoinGroup ? (
+          <View
+            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.15)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)', paddingHorizontal: 10, paddingVertical: 5 }}
+            {...({ onClick: (e: any) => { e.stopPropagation(); if (!joinTarget) return; onJoin({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, sessionStatus: joinTarget.status ?? null, normalizedStart: group.startTime, normalizedEnd: group.endTime }); } } as any)}
+          >
+            <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Join</Text>
+          </View>
+        ) : (
+          <>
+            <View style={{ width: 92 }} />
+            <View style={{ width: 8 }} />
+          </>
+        )}
       </View>
-
-      {/* JOIN knop buiten de rij — geen overlap met de absolute balk */}
-      {canJoinGroup ? (
-        <Pressable
-          onPress={(event) => {
-            event.stopPropagation();
-            if (!joinTarget) return;
-            onJoin({
-              sessionId: joinTarget.id,
-              sessionDay: joinTarget.sessionDay,
-              sessionStatus: joinTarget.status ?? null,
-              normalizedStart: group.startTime,
-              normalizedEnd: group.endTime,
-            });
-          }}
-          style={{ marginTop: 6, marginLeft: 12, alignSelf: 'flex-start', borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.09)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)', paddingHorizontal: 12, paddingVertical: 5 }}
-        >
-          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }}>+ Join</Text>
-        </Pressable>
-      ) : null}
     </Pressable>
   );
 }
