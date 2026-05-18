@@ -5910,7 +5910,6 @@ export default function App() {
         </View>
         <Pressable
           onPress={() => {
-            navigateNative('home');
             setIsNotificationInboxExpanded((prev) => {
               if (!prev) void markAllBuzzAsRead();
               return !prev;
@@ -7423,6 +7422,43 @@ export default function App() {
           {screen}
         </View>
         {renderNativeBottomNav()}
+        {/* Notification inbox overlay — bovenop elk scherm */}
+        {isNotificationInboxExpanded && (
+          <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
+            <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <View style={{ gap: 2 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 6 }}>Activity</Text>
+              {notificationRows.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
+              ) : (
+                notificationRows.slice(0, 8).map((row) => {
+                  const summaryText = getNotificationInboxSummary(row);
+                  if (!summaryText) return null;
+                  const timeAgo = row.created_at ? (() => {
+                    const diff = Date.now() - new Date(row.created_at).getTime();
+                    const mins = Math.floor(diff / 60000);
+                    if (mins < 60) return `${mins}m ago`;
+                    const hrs = Math.floor(mins / 60);
+                    if (hrs < 24) return `${hrs}h ago`;
+                    return `${Math.floor(hrs / 24)}d ago`;
+                  })() : '';
+                  return (
+                    <Pressable key={row.id} onPress={() => { setIsNotificationInboxExpanded(false); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                      </View>
+                      {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
+                    </Pressable>
+                  );
+                })
+              )}
+            </View>
+          </View>
+        )}
       </SafeAreaView>
     );
   };
