@@ -10529,7 +10529,7 @@ const handleSave = async () => {
   const homeLogoImageSize = isWebPlatform ? 210 : 126;
   const homeWordmarkWidth = isWebPlatform ? 600 : 480;
   const homeWordmarkHeight = isWebPlatform ? 141 : 120;
-  const homeWordmarkMarginLeft = isWebPlatform ? -220 : -130;
+  const homeWordmarkMarginLeft = isWebPlatform ? -180 : -130;
   const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
   const homeSpotCardPadding = isWebPlatform ? 22 : 16;
   const homeSpotCardRadius = isWebPlatform ? 24 : 18;
@@ -10544,8 +10544,8 @@ const handleSave = async () => {
         {renderNativeTopBar()}
         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
 
-        <View style={{ marginBottom: 8 }}>
-          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 18 }}>
+        <View style={{ marginBottom: 0 }}>
+          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
             <View
               style={{
                 width: homeLogoBoxSize,
