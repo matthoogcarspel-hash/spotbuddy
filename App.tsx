@@ -9831,20 +9831,23 @@ const handleSave = async () => {
             <Pressable
               onPress={() => void handleUpdateSessionStatus('Is er al')}
               style={{
-                backgroundColor: '#5EF0D0',
-                borderRadius: 16,
-                paddingVertical: 16,
-                paddingHorizontal: 20,
+                backgroundColor: 'rgba(94,240,208,0.08)',
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: 'rgba(94,240,208,0.22)',
+                paddingVertical: 8,
+                paddingHorizontal: 16,
                 flexDirection: 'row',
                 alignItems: 'center',
-                gap: 12,
+                gap: 8,
+                alignSelf: 'flex-start',
               }}
             >
-              <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: '#061421' }} />
+              <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Check in now</Text>
-                <Text style={{ color: 'rgba(6,20,33,0.65)', fontSize: 12, fontWeight: '700', marginTop: 2 }}>
-                  {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m from the spot` : 'You\'re at the spot'}
+                <Text style={{ color: '#5EF0D0', fontSize: 14, fontWeight: '700' }}>Check in</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400', marginTop: 1 }}>
+                  {selectedSpotDistanceMeters !== null ? `${Math.round(selectedSpotDistanceMeters)} m away` : 'You\'re at the spot'}
                 </Text>
               </View>
             </Pressable>
@@ -9873,19 +9876,12 @@ const handleSave = async () => {
           {topCtaMode === 'edit' ? (
             <View style={{ gap: 10 }}>
               {canCheckOut ? (
-                <View style={{
-                  backgroundColor: 'rgba(8,24,39,0.72)',
-                  borderRadius: 16,
-                  borderWidth: 1,
-                  borderColor: 'rgba(94,240,208,0.18)',
-                  padding: 16,
-                  gap: 12,
-                }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#5EF0D0' }} />
-                    <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800' }}>You're live</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
+                    <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '600' }}>Live</Text>
                     {activeCheckedInSession?.checkedInAt ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400' }}>
                         since {formatToHourMinute(activeCheckedInSession.checkedInAt)}
                       </Text>
                     ) : null}
@@ -9893,14 +9889,15 @@ const handleSave = async () => {
                   <Pressable
                     onPress={() => void handleUpdateSessionStatus('Uitchecken')}
                     style={{
-                      backgroundColor: 'rgba(139,31,56,0.85)',
-                      borderRadius: 12,
-                      borderWidth: 0,
-                      paddingVertical: 12,
-                      alignItems: 'center',
+                      backgroundColor: 'rgba(255,255,255,0.05)',
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,255,255,0.10)',
+                      paddingVertical: 6,
+                      paddingHorizontal: 14,
                     }}
                   >
-                    <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '900' }}>Check out</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Check out</Text>
                   </Pressable>
                 </View>
               ) : null}
