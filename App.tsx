@@ -1299,7 +1299,7 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           <Text
             numberOfLines={1}
             style={{
-              color: 'rgba(255,255,255,0.92)',
+              color: state === 'live' ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.92)',
               fontSize: 10,
               fontWeight: '700',
               letterSpacing: 0.1,
@@ -1500,7 +1500,11 @@ const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
 const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
-  const rawStartMinutes = hasPlannedWindow ? toMinutes(sessionItem.start) : (checkedInMinutes ?? timelineStartMinutes);
+  const plannedStartMinutes = hasPlannedWindow ? toMinutes(sessionItem.start) : null;
+  // Als ingecheckt vóór geplande starttijd → balk begint op check-in tijdstip
+  const rawStartMinutes = plannedStartMinutes !== null
+    ? (checkedInMinutes !== null && checkedInMinutes < plannedStartMinutes ? checkedInMinutes : plannedStartMinutes)
+    : (checkedInMinutes ?? timelineStartMinutes);
   const rawEndMinutes = hasPlannedWindow
     ? toMinutes(sessionItem.end)
     : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
@@ -1813,14 +1817,8 @@ function SessionRow({
           </View>
 
           {sortedVisibleSessions.length === 1 ? (
-            <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 4, textAlign: 'center', width: 64 }} numberOfLines={1}>
-              {getRiderRowName(sortedVisibleSessions[0]?.item)}
-            </Text>
-          ) : null}
-
-          {isLiveRow && session?.checkedInAt ? (
-            <Text style={{ color: '#5EF0D0', fontSize: 10, fontWeight: '700', marginTop: 4 }}>
-              checked in at: {formatToHourMinute(session.checkedInAt)}
+            <Text style={{ color: isLiveRow && session?.checkedInAt ? theme.textSoft : theme.textMuted, fontSize: 10, fontWeight: '500', marginTop: 4, textAlign: 'center', width: 64 }} numberOfLines={1}>
+              {getRiderRowName(sortedVisibleSessions[0]?.item)}{isLiveRow && session?.checkedInAt ? ` · ${formatToHourMinute(session.checkedInAt)}` : ''}
             </Text>
           ) : null}
 
