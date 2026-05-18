@@ -5985,7 +5985,7 @@ export default function App() {
       { key: 'home', icon: 'home-outline', iconActive: 'home', label: 'Home', onPress: () => navigateNative('home'), badge: unreadCount > 0 && !isHome ? unreadCount : null, isActive: isHome },
       { key: 'spots', icon: 'location-outline', iconActive: 'location', label: 'Spots', onPress: () => navigateNative('spots'), badge: null, isActive: isSpots },
       { key: 'buddies', icon: 'people-outline', iconActive: 'people', label: 'Buddies', onPress: () => navigateNative('buddies'), badge: hasPendingRequests && pendingRequestsCount !== null ? pendingRequestsCount : null, isActive: isBuddies },
-      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: chatUnreadCount > 0 ? chatUnreadCount : null, isActive: isChat },
+      { key: 'chat', icon: 'chatbubbles-outline', iconActive: 'chatbubbles', label: 'Messages', onPress: () => navigateNative('chat'), badge: null, isActive: isChat },
     ];
 
     return (
@@ -8340,7 +8340,7 @@ export default function App() {
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
-                        {isBuddy ? <View style={{ backgroundColor: 'rgba(77,184,255,0.2)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: '#4DB8FF', fontSize: 10, fontWeight: '800' }}>BUDDY</Text></View> : <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>REQUEST</Text></View>}
+                        {isBuddy ? <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>Buddy</Text></View> : <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>REQUEST</Text></View>}
                       </View>
                       {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
                     </View>
@@ -8707,9 +8707,9 @@ export default function App() {
                               setExpandedDmId(convId);
                               setShowChat(true);
                             }}
-                            style={{ backgroundColor: 'rgba(77,184,255,0.12)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(77,184,255,0.25)' }}
+                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
                           >
-                            <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '800' }}>Message</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Message</Text>
                           </Pressable>
                           <Pressable
                             onPress={() => setViewingOtherUserId(u.id)}
