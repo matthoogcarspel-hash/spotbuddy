@@ -293,12 +293,13 @@ export async function joinSession(input: {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: joinEligibility.reason ?? 'JOIN_NOT_ALLOWED' });
   }
 
+  // Gebruik session_day i.p.v. created_at bounds — created_at kan op een andere dag vallen
+  // (bijv. bij buildCreatedAtForDayKey of wanneer de join de dag vóór wordt uitgevoerd)
   const { data: ownSessionsForDay, error: ownSessionsForDayError } = await supabase
     .from('sessions')
     .select('id, user_id, spot_name, session_day, start_time, end_time, status, checked_out_at')
     .eq('user_id', sessionIdentity.user_id)
-    .gte('created_at', getDayBoundsForDayKey(sessionIdentity.day_key)?.start)
-    .lt('created_at', getDayBoundsForDayKey(sessionIdentity.day_key)?.endExclusive);
+    .eq('session_day', sessionIdentity.day_key);
 
   if (ownSessionsForDayError) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'OWN_DAY_SESSIONS_QUERY_FAILED', error: ownSessionsForDayError });
