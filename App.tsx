@@ -1756,6 +1756,7 @@ function SessionRow({
   // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
   const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+  if (!canJoinGroup) console.log('SESSION_ROW_NO_JOIN', { groupKey: group.key, joinTarget: !!joinTarget, isAlreadyInGroup, sessionsCount: safeGroupSessions.length, userIds: safeGroupSessions.map(e => e.item?.userId).join(','), currentProfileId });
   const hostCleanStatus = getCleanSessionStatus(session);
   const rowStatus: TimelineState = hostCleanStatus === 'live' ? 'live' : 'planned';
   const rowIntent: SessionIntent = hostCleanStatus === 'maybe' ? 'maybe' : 'definitely';
@@ -2562,6 +2563,7 @@ export default function App() {
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
+  const [sessionActionSuccess, setSessionActionSuccess] = useState('');
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -9324,6 +9326,8 @@ export default function App() {
 
         await fetchSharedData({ skipLoadingState: true });
         setSessionActionError('');
+        setSessionActionSuccess("You're in! Joined the session.");
+        setTimeout(() => setSessionActionSuccess(''), 3000);
         setSelectedTimelineSessionId(null);
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
@@ -9965,6 +9969,7 @@ const handleSave = async () => {
           ) : null}
           <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 12 : 13, marginTop: 8, lineHeight: 18 }}>{headerHelperText}</Text>
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
+          {sessionActionSuccess ? <Text style={{ color: '#5EF0D0', fontSize: 14, marginTop: 8, fontWeight: '700' }}>{sessionActionSuccess}</Text> : null}
 
           {showForm ? (
             <View
