@@ -9319,7 +9319,7 @@ export default function App() {
 
         setSessionActionError('');
         setSelectedTimelineSessionId(null);
-        void fetchSharedData({ skipLoadingState: true });
+        await fetchSharedData({ skipLoadingState: true });
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
         setSessionActionError('Joining the session failed. Please try again.');
