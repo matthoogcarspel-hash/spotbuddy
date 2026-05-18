@@ -5,6 +5,7 @@ import {
   getOwnSessionForSpotDay,
   isSessionBlockingOwnSession,
   normalizeSessionIdentity,
+  normalizeSpotName,
   REAL_SESSION_SCHEMA_FIELDS,
 } from '../../lib/sessionHelpers';
 import { buildSpotNotificationPreferenceKey, normalizeSpotNotificationMode } from '../../lib/spotNotificationPreferences';
@@ -314,25 +315,30 @@ export async function joinSession(input: {
   const joinStartMinutes = toMinutes(input.normalizedStart);
   const joinEndMinutes = toMinutes(input.normalizedEnd);
 
-  const overlappingOwnSessionIds = (ownSessionsForDay ?? [])
+  // Verwijder ALLE eigen sessies op dezelfde spot+dag (unique constraint: 1 sessie per user/spot/dag)
+  // plus tijdoverlappende sessies op andere spots.
+  const sessionsToDeleteIds = (ownSessionsForDay ?? [])
     .filter((session) => {
       if (!session?.id || session.id === input.sessionId) return false;
       if (session.checked_out_at || ['finished', 'uitchecken'].includes(String(session.status ?? '').toLowerCase())) return false;
 
+      // Zelfde spot: altijd verwijderen (unique constraint)
+      if (normalizeSpotName(session.spot_name) === normalizeSpotName(sessionIdentity.spot_name)) return true;
+
+      // Andere spot: alleen bij tijdoverlap
       const start = toMinutes(session.start_time);
       const end = toMinutes(session.end_time);
       if (joinStartMinutes === null || joinEndMinutes === null || start === null || end === null) return false;
-
       return Math.max(start, joinStartMinutes) < Math.min(end, joinEndMinutes);
     })
     .map((session) => session.id);
 
-  if (overlappingOwnSessionIds.length > 0) {
+  if (sessionsToDeleteIds.length > 0) {
     const deleteResult = await supabase
       .from('sessions')
       .delete()
       .eq('user_id', sessionIdentity.user_id)
-      .in('id', overlappingOwnSessionIds);
+      .in('id', sessionsToDeleteIds);
 
     if (deleteResult.error) {
       return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'DELETE_OVERLAPPING_OWN_SESSIONS_FAILED', error: deleteResult.error });
