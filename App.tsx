@@ -2474,7 +2474,8 @@ export default function App() {
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
-  const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const [activeChatDayKey, setActiveChatDayKey] = useState<string | null>(null);
+  const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; dayKey?: string }>>({});
   // Één state voor welke chat open is — voorkomt conflicten tussen de drie types
   const [openChatState, setOpenChatState] = useState<{ type: 'spot' | 'session' | 'dm'; id: string } | null>(null);
   const expandedChatSpot = openChatState?.type === 'spot' ? openChatState.id : null;
@@ -2535,7 +2536,7 @@ export default function App() {
   const expandedChatSessionRef2 = useRef<string | null>(null);
   const unreadBySessionRef = useRef<Record<string, number>>({});
   const myConvIdsRef = useRef<Set<string>>(new Set());
-  const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
+  const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; dayKey?: string }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
   const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string; sessionStart?: string; sessionEnd?: string }>>({});
   const chatMySessionsRef = useRef<any[]>([]);
@@ -4537,15 +4538,19 @@ export default function App() {
 
   useEffect(() => {
     if (activeChatSpot && showChat) {
+      const day = activeChatDayKey ?? getTodayLocalDateKey();
       setExpandedChatSession(null);
       setExpandedDmId(null);
       setExpandedChatSpot(activeChatSpot);
       setChatSubTab('spot');
-      if (!chatSpotMessages[activeChatSpot]?.loaded) {
-        void loadSpotChatForTab(activeChatSpot);
+      // Herlaad als de dag verschilt of nog niet geladen
+      const existing = chatSpotMessages[activeChatSpot];
+      if (!existing?.loaded || existing?.dayKey !== day) {
+        void loadSpotChatForTab(activeChatSpot, day);
       }
       // Reset na gebruik zodat hij niet opnieuw vuurt bij volgende showChat
       setActiveChatSpot(null);
+      setActiveChatDayKey(null);
     }
   }, [activeChatSpot, showChat]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -7126,12 +7131,12 @@ export default function App() {
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
-  const loadSpotChatForTab = async (spotName: string) => {
-    const today = getTodayLocalDateKey();
-    const convResponse = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', today).limit(1);
+  const loadSpotChatForTab = async (spotName: string, dayKey?: string) => {
+    const day = dayKey ?? getTodayLocalDateKey();
+    const convResponse = await supabase.from('conversations').select('id').eq('type', 'spot').eq('spot_name', spotName).eq('session_day', day).limit(1);
     const convId = convResponse.data?.[0]?.id ?? null;
     if (!convId) {
-      setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: null, messages: [], loaded: true } }));
+      setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
       return;
     }
     const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', convId).order('created_at', { ascending: true });
@@ -7145,7 +7150,7 @@ export default function App() {
       avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
     }));
     myConvIdsRef.current.add(convId);
-    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: enriched, loaded: true } }));
+    setChatSpotMessages((prev) => ({ ...prev, [spotName]: { conversationId: convId, messages: enriched, loaded: true, dayKey: day } }));
   };
 
   const sendSpotMessageInChatTab = async (spotName: string) => {
@@ -7279,11 +7284,12 @@ export default function App() {
       if (convId) { myConvIdsRef.current.add(convId); sessionConvIdsRef.current.add(convId); }
     }
     if (!convId) return;
-    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() });
+    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString() }).select('id').single();
     if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
     setSessionChatInput('');
     setTimeout(() => chatSessionScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
+    // Gebruik het echte DB-ID zodat realtime dedup correct werkt (geen verdubbeling)
+    const newMsg = { id: inserted?.id ?? `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
   };
 
@@ -7344,11 +7350,11 @@ export default function App() {
     const text = dmInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text || !conversationId || !senderId) return;
-    const { error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
-    if (error) { console.error('DM_SEND_ERROR', error); return; }
+    const { data: dmInserted, error } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString() }).select('id').single();
+    if (error) { console.error('DM_SEND_ERROR', error); setSessionActionError(`DM send failed: ${error.message}`); return; }
     setDmInput('');
     setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
+    const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
   };
@@ -9850,6 +9856,7 @@ const handleSave = async () => {
                   onPress={() => {
                     if (selectedSpot) {
                       setActiveChatSpot(selectedSpot);
+                      setActiveChatDayKey(selectedDayKey);
                       setShowChat(true);
                       setChatSubTab('spot');
                       setSelectedSpot(null);
