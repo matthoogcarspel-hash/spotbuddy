@@ -4876,10 +4876,13 @@ export default function App() {
             }
             setChatSpotMessages(prev => {
               const data = prev[matchedSpotName];
+              // Alleen toevoegen als dit de juiste conversation is (zelfde dag)
+              // Anders: negeer om vandaag's chat niet te vervuilen met morgen's berichten
+              if (data?.conversationId && data.conversationId !== convId) return prev;
               if (!data) return { ...prev, [matchedSpotName]: { conversationId: convId, messages: [newMsg], loaded: false } };
               const isDup = data.messages.some(m => m.id === row.id || (m.userId === row.user_id && m.text === row.text && Math.abs(new Date(m.createdAt ?? 0).getTime() - new Date(row.created_at ?? 0).getTime()) < 10000));
               if (isDup) return prev;
-              return { ...prev, [matchedSpotName]: { ...data, conversationId: convId, messages: [...data.messages, newMsg] } };
+              return { ...prev, [matchedSpotName]: { ...data, messages: [...data.messages, newMsg] } };
             });
             return;
           }
@@ -7237,13 +7240,6 @@ export default function App() {
     if (!convId) {
       const convResponse = await supabase.from('conversations').select('id').eq('type', 'group').eq('group_key', groupKey).limit(1);
       convId = convResponse.data?.[0]?.id ?? null;
-      console.log('[LOAD] group_key query result:', convId?.slice(0,8) ?? 'null');
-    }
-    // Fallback: zoek op spot_name + session_day (als group_key niet matcht, bijv. sessions.group_key = null)
-    if (!convId && spotName && sessionDay) {
-      const fallbackResp = await supabase.from('conversations').select('id').eq('type', 'group').eq('spot_name', spotName).eq('session_day', sessionDay).limit(1);
-      convId = fallbackResp.data?.[0]?.id ?? null;
-      console.log('[LOAD] spot+day fallback result:', convId?.slice(0,8) ?? 'null');
     }
     if (!convId) {
       const { data: created, error } = await supabase.from('conversations').insert({ type: 'group', spot_name: spotName, session_day: sessionDay, group_key: groupKey }).select('id').single();
