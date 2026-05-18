@@ -8106,7 +8106,7 @@ export default function App() {
           {/* Header */}
           {isWebPlatform ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages <Text style={{ color: '#ff6666', fontSize: 12 }}>({_dbgEventCount})</Text></Text>
+              <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>Messages</Text>
               <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                 <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
