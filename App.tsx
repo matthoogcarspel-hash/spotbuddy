@@ -9826,45 +9826,45 @@ const handleSave = async () => {
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
-          {/* Check in CTA */}
-          {checkInCtaVisible ? (
-            <Pressable
-              onPress={() => void handleUpdateSessionStatus('Is er al')}
-              style={{
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.12)',
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                paddingVertical: 14,
-                paddingHorizontal: 20,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
-                alignSelf: isWebPlatform ? 'flex-start' : 'stretch',
-              }}
-            >
-              <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
-              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Check in</Text>
-            </Pressable>
-          ) : null}
-
-          {/* Plan session */}
-          {topCtaMode === 'plan' ? (
-            <Pressable
-              onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
-              style={{
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.12)',
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                paddingVertical: 14,
-                paddingHorizontal: 20,
-                alignItems: 'center',
-                alignSelf: isWebPlatform ? 'flex-start' : 'stretch',
-              }}
-            >
-              <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Plan a session</Text>
-            </Pressable>
+          {/* Check in + Plan session — naast elkaar */}
+          {(checkInCtaVisible || topCtaMode === 'plan') ? (
+            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+              {checkInCtaVisible ? (
+                <Pressable
+                  onPress={() => void handleUpdateSessionStatus('Is er al')}
+                  style={{
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.12)',
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 8,
+                  }}
+                >
+                  <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
+                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Check in</Text>
+                </Pressable>
+              ) : null}
+              {topCtaMode === 'plan' ? (
+                <Pressable
+                  onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
+                  style={{
+                    borderRadius: 16,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.12)',
+                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    paddingVertical: 14,
+                    paddingHorizontal: 20,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Plan a session</Text>
+                </Pressable>
+              ) : null}
+            </View>
           ) : null}
 
           {/* Edit mode: checked in or session planned */}
@@ -10640,23 +10640,29 @@ const handleSave = async () => {
               </Pressable>
 
               <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', textTransform: 'uppercase' }}>
-                    Planned session
-                  </Text>
-
-                  {plannedSessionTimeLabel ? (
-                    <Text style={{ color: theme.primary, fontSize: 12, fontWeight: '700' }}>
-                      {plannedSessionTimeLabel}
-                    </Text>
-                  ) : null}
-                </View>
-                <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', marginTop: 4 }}>
-                  {plannedSession.spot}
-                </Text>
-                <Text style={{ color: theme.textSoft, fontSize: 18, fontWeight: '600', marginTop: 2 }}>
-                  {plannedSessionIntentLabel}
-                </Text>
+                {(() => {
+                  const isLive = !!activeCheckedInSession;
+                  const session = activeCheckedInSession ?? plannedSession;
+                  return (
+                    <>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 }}>
+                        {isLive ? 'Live' : plannedSessionIntentLabel}
+                      </Text>
+                      <Text style={{ color: theme.text, fontSize: 24, fontWeight: '800', marginTop: 4 }}>
+                        {session?.spot}
+                      </Text>
+                      {isLive && activeCheckedInSession?.checkedInAt ? (
+                        <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '500', marginTop: 2 }}>
+                          Since {formatToHourMinute(activeCheckedInSession.checkedInAt)}
+                        </Text>
+                      ) : plannedSessionTimeLabel ? (
+                        <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '500', marginTop: 2 }}>
+                          {plannedSessionTimeLabel}
+                        </Text>
+                      ) : null}
+                    </>
+                  );
+                })()}
               </View>
             </Pressable>
           ) : null}
