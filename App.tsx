@@ -1819,10 +1819,7 @@ function SessionRow({
             </Text>
           ) : null}
 
-          {isJoinedGroup ? (
-            <Text style={{ color: '#5EF0D0', fontSize: 10, fontWeight: '800', marginTop: 4 }}>✓ You're in</Text>
-          ) : null}
-          {sortedVisibleSessions.length > 1 && !canJoinGroup && !isAlreadyInGroup ? (
+          {sortedVisibleSessions.length > 1 && !canJoinGroup ? (
             <Pressable
               onPress={(event) => {
                 event.stopPropagation();
@@ -2149,13 +2146,6 @@ function SessionTimeline({
                           <Ionicons name="chatbubble" size={13} color="#ffffff" />
                           <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Group Chat</Text>
                         </Pressable>
-                      ) : null}
-
-                      {/* "You're in" badge — alleen als je in een groep zit MET anderen */}
-                      {mJoinedGroup ? (
-                        <View style={{ borderRadius: 999, backgroundColor: 'rgba(94,240,208,0.12)', borderWidth: 1, borderColor: 'rgba(94,240,208,0.3)', paddingHorizontal: 10, paddingVertical: 5 }}>
-                          <Text style={{ color: '#5EF0D0', fontSize: 11, fontWeight: '800' }}>✓ You're in</Text>
-                        </View>
                       ) : null}
 
                       {/* JOIN knop naast Chat knop */}
@@ -2567,7 +2557,6 @@ export default function App() {
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
-  const [sessionActionSuccess, setSessionActionSuccess] = useState('');
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -9328,11 +9317,9 @@ export default function App() {
           return;
         }
 
-        await fetchSharedData({ skipLoadingState: true });
         setSessionActionError('');
-        setSessionActionSuccess("You're in! Joined the session.");
-        setTimeout(() => setSessionActionSuccess(''), 3000);
         setSelectedTimelineSessionId(null);
+        void fetchSharedData({ skipLoadingState: true });
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
         setSessionActionError('Joining the session failed. Please try again.');
@@ -9973,7 +9960,6 @@ const handleSave = async () => {
           ) : null}
           <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 12 : 13, marginTop: 8, lineHeight: 18 }}>{headerHelperText}</Text>
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
-          {sessionActionSuccess ? <Text style={{ color: '#5EF0D0', fontSize: 14, marginTop: 8, fontWeight: '700' }}>{sessionActionSuccess}</Text> : null}
 
           {showForm ? (
             <View
