@@ -2485,7 +2485,7 @@ export default function App() {
   const setExpandedDmId = (v: string | null) => v ? setOpenChatState({ type: 'dm', id: v }) : setOpenChatState(null);
   const [spotChatInputInChat, setSpotChatInputInChat] = useState('');
   const [chatMySessions, setChatMySessions] = useState<any[]>([]);
-  const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string }>>({});
+  const [chatSessionMessages, setChatSessionMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string; sessionStart?: string; sessionEnd?: string }>>({});
   const [sessionChatInput, setSessionChatInput] = useState('');
   const [showMessagesAlertSettings, setShowMessagesAlertSettings] = useState(false);
   const [spotsWithUnread, setSpotsWithUnread] = useState<Record<string, number>>({}); // lowercase spotName → count
@@ -2537,7 +2537,7 @@ export default function App() {
   const myConvIdsRef = useRef<Set<string>>(new Set());
   const chatSpotMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean }>>({});
   const favoriteSpotsRef = useRef<string[]>([]);
-  const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string }>>({});
+  const chatSessionMessagesRef = useRef<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; spotName?: string; sessionDay?: string; sessionStart?: string; sessionEnd?: string }>>({});
   const chatMySessionsRef = useRef<any[]>([]);
   const expandedChatSpotRef = useRef<string | null>(null);
   const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
@@ -4908,9 +4908,10 @@ export default function App() {
             return { ...prev, [gk]: { ...existing, conversationId: convId, spotName: spotName ?? existing.spotName, sessionDay: sessionDay ?? existing.sessionDay, messages: [...existing.messages, newMsg] } };
           });
 
-          // Badge — alleen als gebruiker deze sessie niet actief bekijkt
+          // Badge — alleen als gebruiker deze sessie niet actief bekijkt én niet de afzender is
+          const isOwnSessionMsg = row.user_id === (activeProfile?.id ?? activeAppUserId);
           const watching = showChatRef.current && chatSubTabRef.current === 'session' && expandedChatSessionRef2.current === gk;
-          if (!watching) setUnreadBySession(prev => ({ ...prev, [gk]: (prev[gk] ?? 0) + 1 }));
+          if (!watching && !isOwnSessionMsg) setUnreadBySession(prev => ({ ...prev, [gk]: (prev[gk] ?? 0) + 1 }));
           return;
         }
 
@@ -7193,7 +7194,7 @@ export default function App() {
     const tomorrow = getTomorrowLocalDateKey();
     // Laad mijn sessies + hun conversations in één keer
     const [{ data: sessions }, { data: convs }] = await Promise.all([
-      supabase.from('sessions').select('id, spot_name, session_day').eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
+      supabase.from('sessions').select('id, spot_name, session_day, start_time, end_time').eq('user_id', activeAppUserId).in('session_day', [today, tomorrow]),
       supabase.from('conversations').select('id, group_key, spot_name, session_day').eq('type', 'group').in('session_day', [today, tomorrow]),
     ]);
     for (const session of (sessions ?? [])) {
@@ -7207,14 +7208,14 @@ export default function App() {
         myConvIdsRef.current.add(conv.id);
         setChatSessionMessages(prev => prev[gk]?.conversationId ? prev : {
           ...prev,
-          [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day) }
+          [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
         });
       } else {
         // Geen conversation gevonden: voeg lege entry toe zodat sessie in lijst verschijnt
         const gk = `session:${session.spot_name?.toLowerCase()}:${session.session_day}`;
         setChatSessionMessages(prev => prev[gk] ? prev : {
           ...prev,
-          [gk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day) }
+          [gk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
         });
       }
     }
@@ -7222,7 +7223,7 @@ export default function App() {
 
   const loadSessionChatForTab = async (groupKey: string, spotName: string, sessionDay: string) => {
     // Initialiseer entry direct zodat realtime berichten niet worden gedropped tijdens laden
-    setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false } });
+    setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false, spotName, sessionDay } });
     console.log('[LOAD] groupKey:', groupKey.slice(0,8), 'spotName:', spotName, 'sessionDay:', sessionDay);
     // Gebruik al opgeslagen conversationId (bijv. vanuit realtime fallback) om spot_name mismatch te vermijden
     let convId: string | null = chatSessionMessagesRef.current[groupKey]?.conversationId ?? null;
@@ -7913,7 +7914,17 @@ export default function App() {
       : openDmConv?.otherName ?? 'DM';
 
     const openConvSub = expandedChatSession
-      ? (() => { const d = chatSessionMessages[expandedChatSession]; return d?.sessionDay ?? ''; })()
+      ? (() => {
+          const d = chatSessionMessages[expandedChatSession];
+          if (!d) return '';
+          const parts: string[] = [];
+          if (d.sessionDay) {
+            try { parts.push(new Date(d.sessionDay).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })); } catch { parts.push(d.sessionDay); }
+          }
+          if (d.sessionStart && d.sessionEnd) parts.push(`${d.sessionStart.slice(0,5)} – ${d.sessionEnd.slice(0,5)}`);
+          else if (d.sessionStart) parts.push(d.sessionStart.slice(0,5));
+          return parts.join(' · ');
+        })()
       : expandedChatSpot ? new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
 
     const openScrollRef = expandedChatSpot ? chatSpotScrollRef : expandedChatSession ? chatSessionScrollRef : chatDmScrollRef;
@@ -8187,9 +8198,10 @@ export default function App() {
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: lastMsg ? 2 : 0 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)} – ${data.sessionEnd.slice(0,5)}` : ''}</Text>
                         {lastMsg
                           ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
-                          : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
+                          : null
                         }
                       </View>
                       {sessionUnread > 0
@@ -8384,9 +8396,10 @@ export default function App() {
                           </View>
                           <View style={{ flex: 1 }}>
                             <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
+                            <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: lastMsg ? 2 : 0 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)} – ${data.sessionEnd.slice(0,5)}` : ''}</Text>
                             {lastMsg
                               ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
-                              : <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
+                              : null
                             }
                           </View>
                           {sessionUnread > 0
