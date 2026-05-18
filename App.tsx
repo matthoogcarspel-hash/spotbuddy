@@ -10529,7 +10529,7 @@ const handleSave = async () => {
   const homeLogoImageSize = isWebPlatform ? 210 : 126;
   const homeWordmarkWidth = isWebPlatform ? 680 : 480;
   const homeWordmarkHeight = isWebPlatform ? 160 : 120;
-  const homeWordmarkMarginLeft = isWebPlatform ? -195 : -130;
+  const homeWordmarkMarginLeft = isWebPlatform ? -215 : -130;
   const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
   const homeSpotCardPadding = isWebPlatform ? 22 : 16;
   const homeSpotCardRadius = isWebPlatform ? 24 : 18;
@@ -10542,9 +10542,10 @@ const handleSave = async () => {
       <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
-        {/* Web header — vaste balk buiten ScrollView */}
-        {isWebPlatform && (
-          <View style={{ height: 80, flexDirection: 'row', alignItems: 'center', paddingHorizontal: homeHorizontalPadding, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
+
+        <View style={{ marginBottom: 0 }}>
+          <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingTop: 24 }}>
             <View style={{ width: homeLogoBoxSize, height: homeLogoBoxSize, overflow: 'hidden', marginRight: -12, marginLeft: -4, justifyContent: 'center', alignItems: 'center' }}>
               <Image source={require('./assets/logo.png')} style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }} resizeMode="contain" />
             </View>
@@ -10555,10 +10556,6 @@ const handleSave = async () => {
               </Pressable>
             </View>
           </View>
-        )}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: homeTopPadding, paddingBottom: homeBottomPadding }}>
-
-        <View style={{ marginBottom: 0 }}>
           {plannedSession ? (
             <Pressable
               onPress={() => setSelectedSpot(plannedSession.spot)}
