@@ -4213,6 +4213,7 @@ export default function App() {
         ])
       : [{ data: [], error: { message: 'INVALID_DAY_KEY' } }, { data: [], error: null }];
     const sessionsData = [...(sessionsWithDay.data ?? []), ...(sessionsWithoutDay.data ?? [])];
+    console.log('FETCH_SESSIONS', { selectedDayKey, selectedSpot, count: sessionsData.length, ids: sessionsData.map(s => ({ id: s.id, user_id: s.user_id, session_day: s.session_day, source: s.source_session_id })) });
     const conversationResponse = selectedSpot && selectedDayKey
       ? await supabase
           .from('conversations')
@@ -4329,6 +4330,7 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
+      if (selectedSpot) console.log('FETCH_SPOT_SESSIONS', { spot: selectedSpot, count: nextSessionsBySpot[selectedSpot]?.length ?? 0, sessions: nextSessionsBySpot[selectedSpot]?.map(s => ({ id: s.id, userId: s.userId, sessionDay: s.sessionDay, sourceId: s.sourceSessionId })) });
 
       setSessionsBySpot(nextSessionsBySpot);
     }
