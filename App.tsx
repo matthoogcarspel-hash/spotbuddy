@@ -7341,22 +7341,40 @@ export default function App() {
   };
 
   const openDmWithUser = async (otherUserId: string) => {
-    if (!activeAppUserId || !otherUserId) return null;
-    // Zoek via participant kolommen — werkt altijd, geen group_key nodig
-    const { data: existing } = await supabase.from('conversations')
+    if (!activeAppUserId || !otherUserId) {
+      console.warn('DM_OPEN_ABORT', { activeAppUserId, otherUserId });
+      return null;
+    }
+    console.log('DM_OPEN_START', { activeAppUserId, otherUserId });
+
+    // Primair: RPC (SECURITY DEFINER, gebruikt auth.uid() intern, bypast RLS)
+    const { data: rpcConvId, error: rpcError } = await supabase.rpc('get_or_create_conversation', {
+      p_type: 'dm',
+      p_other_user_id: otherUserId,
+    });
+    console.log('DM_RPC_RESULT', { rpcConvId, rpcError });
+    if (!rpcError && rpcConvId) {
+      myConvIdsRef.current.add(rpcConvId);
+      return rpcConvId as string;
+    }
+
+    // Fallback: directe participant kolommen query
+    console.warn('DM_RPC_FAILED, trying direct', rpcError);
+    const { data: existing, error: selectError } = await supabase.from('conversations')
       .select('id, participant_a_id, participant_b_id')
       .eq('type', 'dm')
       .or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
+    console.log('DM_SELECT_RESULT', { existing, selectError });
     const found = existing?.find(c =>
       (c.participant_a_id === activeAppUserId && c.participant_b_id === otherUserId) ||
       (c.participant_a_id === otherUserId && c.participant_b_id === activeAppUserId)
     );
     if (found) { myConvIdsRef.current.add(found.id); return found.id; }
-    // Aanmaken
-    const { data: created, error } = await supabase.from('conversations').insert({
+    const { data: created, error: insertError } = await supabase.from('conversations').insert({
       type: 'dm', participant_a_id: activeAppUserId, participant_b_id: otherUserId,
     }).select('id').single();
-    if (error) console.error('DM_CREATE_ERROR', error);
+    console.log('DM_INSERT_RESULT', { created, insertError });
+    if (insertError) console.error('DM_CREATE_ERROR', insertError);
     if (created?.id) myConvIdsRef.current.add(created.id);
     return created?.id ?? null;
   };
@@ -8542,7 +8560,9 @@ export default function App() {
                         <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
                           <Pressable
                             onPress={async () => {
+                              console.log('DM_BUTTON_BUDDIES', u.id);
                               const convId = await openDmWithUser(u.id);
+                              console.log('DM_BUTTON_BUDDIES_RESULT', { convId });
                               if (!convId) return;
                               void loadDmMessages(convId);
                               void loadDmConversations();
@@ -11118,7 +11138,9 @@ const handleSave = async () => {
                   )}
                   <Pressable
                     onPress={async () => {
+                      console.log('DM_BUTTON_PROFILE', viewingOtherUserId);
                       const convId = await openDmWithUser(viewingOtherUserId);
+                      console.log('DM_BUTTON_PROFILE_RESULT', { convId });
                       if (!convId) return;
                       void loadDmMessages(convId);
                       void loadDmConversations();
