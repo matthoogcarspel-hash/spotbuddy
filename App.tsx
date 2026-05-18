@@ -5933,7 +5933,7 @@ export default function App() {
           <Image
             source={require('./assets/wordmark.png')}
             resizeMode="contain"
-            style={{ width: 300, height: 78 }}
+            style={{ width: 380, height: 95 }}
           />
         </View>
         <Pressable
@@ -10527,9 +10527,9 @@ const handleSave = async () => {
   const homeTopPadding = isWebPlatform ? 18 : 8;
   const homeLogoBoxSize = isWebPlatform ? 120 : 72;
   const homeLogoImageSize = isWebPlatform ? 210 : 126;
-  const homeWordmarkWidth = isWebPlatform ? 470 : 340;
-  const homeWordmarkHeight = isWebPlatform ? 110 : 80;
-  const homeWordmarkMarginLeft = isWebPlatform ? -125 : -95;
+  const homeWordmarkWidth = isWebPlatform ? 470 : 420;
+  const homeWordmarkHeight = isWebPlatform ? 110 : 100;
+  const homeWordmarkMarginLeft = isWebPlatform ? -125 : -115;
   const homeActionButtonWidth = isWebPlatform ? 170 : '48%';
   const homeSpotCardPadding = isWebPlatform ? 22 : 16;
   const homeSpotCardRadius = isWebPlatform ? 24 : 18;
