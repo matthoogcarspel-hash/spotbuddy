@@ -5933,7 +5933,7 @@ export default function App() {
           <Image
             source={require('./assets/wordmark.png')}
             resizeMode="contain"
-            style={{ width: 440, height: 110, transform: [{ translateY: 14 }] }}
+            style={{ width: 440, height: 110, transform: [{ translateY: 24 }] }}
           />
         </View>
         <Pressable
