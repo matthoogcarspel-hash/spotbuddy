@@ -1,23 +1,49 @@
 {
   "expo": {
+    "name": "SpotBuddy",
+    "slug": "spotbuddy",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/appicoon.png",
+    "backgroundColor": "#07111F",
     "extra": {
       "eas": {
         "projectId": "6420f442-2be4-4803-9620-f769bc5def4f"
       }
     },
     "owner": "matthoogcarspel",
-    "icon": "./assets/appicoon.png",
-    "backgroundColor": "#07111F",
     "ios": {
+      "bundleIdentifier": "nl.spotbuddy.app",
+      "buildNumber": "1",
       "backgroundColor": "#07111F",
-      "icon": "./assets/appicoon.png"
+      "icon": "./assets/appicoon.png",
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "SpotBuddy uses your location to find nearby kite spots and auto check-out when you leave.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "SpotBuddy uses your location to find nearby kite spots and auto check-out when you leave.",
+        "NSPhotoLibraryUsageDescription": "SpotBuddy needs access to your photos to set a profile picture."
+      }
     },
     "android": {
+      "package": "nl.spotbuddy.app",
       "backgroundColor": "#07111F",
       "adaptiveIcon": {
         "foregroundImage": "./assets/appicoon.png",
         "backgroundColor": "#07111F"
-      }
-    }
+      },
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "READ_EXTERNAL_STORAGE"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "SpotBuddy uses your location to find nearby kite spots and auto check-out when you leave."
+        }
+      ]
+    ]
   }
 }
