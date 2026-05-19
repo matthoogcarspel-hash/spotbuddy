@@ -9251,45 +9251,46 @@ export default function App() {
 
           {/* Skill level */}
           <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
-            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 12 }}>Skill level</Text>
-            <View style={{ flexDirection: 'row', gap: 8 }}>
-              {([
-                { level: 1, name: 'Grom' },
-                { level: 2, name: 'Ripper' },
-                { level: 3, name: 'Freerider' },
-                { level: 4, name: 'Shredder' },
-                { level: 5, name: 'Storm Chaser' },
-              ] as const).map(({ level, name }) => {
-                const isSelected = profile.skill_level === level;
-                return (
-                  <Pressable
-                    key={`skill-${level}`}
-                    onPress={async () => {
-                      const newLevel = isSelected ? null : level;
-                      const { error } = await supabase.from('profiles').update({ skill_level: newLevel }).eq('id', activeAppUserId);
-                      if (!error) setProfile((prev) => prev ? { ...prev, skill_level: newLevel } : prev);
-                    }}
-                    style={{
-                      flex: 1,
-                      alignItems: 'center',
-                      paddingVertical: 8,
-                      borderRadius: 10,
-                      backgroundColor: isSelected ? 'rgba(77,184,255,0.18)' : 'rgba(255,255,255,0.04)',
-                      borderWidth: 1,
-                      borderColor: isSelected ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)',
-                    }}
-                  >
-                    <Text style={{ color: isSelected ? '#4DB8FF' : theme.textMuted, fontSize: 18, marginBottom: 2 }}>{'⬤'}</Text>
-                    <Text style={{ color: isSelected ? '#4DB8FF' : theme.textMuted, fontSize: 9, fontWeight: '800', textAlign: 'center' }} numberOfLines={1}>{name}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-            {profile.skill_level ? (
-              <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 10, textAlign: 'center' }}>
-                {['', 'Grom — just started', 'Ripper — first real rides', 'Freerider — comfortable riding', 'Shredder — big air & toeside', 'Storm Chaser — heavy conditions'][profile.skill_level]}
-              </Text>
-            ) : null}
+            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Skill level</Text>
+            {([
+              { level: 1, name: 'Grom', sub: 'Just getting started' },
+              { level: 2, name: 'Ripper', sub: 'First real rides' },
+              { level: 3, name: 'Freerider', sub: 'Comfortable on the water' },
+              { level: 4, name: 'Shredder', sub: 'Big air & toeside riding' },
+              { level: 5, name: 'Storm Chaser', sub: 'Loves heavy conditions' },
+            ] as const).map(({ level, name, sub }) => {
+              const isSelected = profile.skill_level === level;
+              return (
+                <Pressable
+                  key={`skill-${level}`}
+                  onPress={async () => {
+                    const newLevel = isSelected ? null : level;
+                    const { error } = await supabase.from('profiles').update({ skill_level: newLevel }).eq('id', activeAppUserId);
+                    if (!error) setProfile((prev) => prev ? { ...prev, skill_level: newLevel } : prev);
+                  }}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    gap: 12,
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    marginBottom: 6,
+                    backgroundColor: isSelected ? 'rgba(255,255,255,0.09)' : 'transparent',
+                    borderWidth: 1,
+                    borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
+                  }}
+                >
+                  <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: isSelected ? theme.text : 'rgba(255,255,255,0.25)', backgroundColor: isSelected ? theme.text : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                    {isSelected ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.bg }} /> : null}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: isSelected ? theme.text : theme.textSoft, fontSize: 14, fontWeight: '800' }}>{name}</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 1 }}>{sub}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
 
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
