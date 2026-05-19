@@ -9940,7 +9940,7 @@ const handleSave = async () => {
                   <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
                 </Pressable>
               ) : null}
-              {topCtaMode === 'plan' ? (
+              {topCtaMode === 'plan' && !showForm ? (
                 <Pressable
                   onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
                   style={{
@@ -10186,15 +10186,15 @@ const handleSave = async () => {
           {showForm ? (
             <View
               style={{
-                marginTop: 12,
+                marginTop: 8,
                 maxWidth: 640,
                 alignSelf: 'flex-start',
                 backgroundColor: 'rgba(8,24,39,0.52)',
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.06)',
                 borderRadius: 18,
-                padding: 12,
-                gap: 10,
+                padding: 14,
+                gap: 12,
               }}
             >
               {isWebPlatform ? (
@@ -10261,22 +10261,19 @@ const handleSave = async () => {
                 </>
               ) : (
                 <View>
-                  {/* Labels */}
-                  <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 4 }}>
-                    <Text style={{ flex: 1, textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Van</Text>
-                    <View style={{ width: 12 }} />
-                    <View style={{ width: 20 }} />
-                    <Text style={{ flex: 1, textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Tot</Text>
-                  </View>
-
                   {/* Single unified wheel container */}
                   <View style={{ height: WHEEL_ITEM_H * 3, position: 'relative', overflow: 'hidden', borderRadius: 14 }}>
                     {/* One selection highlight across all columns */}
                     <View pointerEvents="none" style={{ position: 'absolute', top: WHEEL_ITEM_H, left: 0, right: 0, height: WHEEL_ITEM_H, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.13)', zIndex: 1 }} />
-                    {/* Top fade */}
-                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.72, zIndex: 2 }} />
+                    {/* Top fade with Van/Tot labels */}
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.75, zIndex: 2 }} />
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: WHEEL_ITEM_H, zIndex: 3, flexDirection: 'row', alignItems: 'center', paddingTop: 8 }}>
+                      <View style={{ flex: 2, alignItems: 'center' }}><Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Van</Text></View>
+                      <View style={{ width: 30 }} />
+                      <View style={{ flex: 2, alignItems: 'center' }}><Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Tot</Text></View>
+                    </View>
                     {/* Bottom fade */}
-                    <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.72, zIndex: 2 }} />
+                    <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.75, zIndex: 2 }} />
 
                     {/* All columns in one row */}
                     <View style={{ flexDirection: 'row', height: '100%', alignItems: 'center' }}>
