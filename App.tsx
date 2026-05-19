@@ -9937,18 +9937,15 @@ const handleSave = async () => {
                   onPress={() => void handleUpdateSessionStatus('Is er al')}
                   style={{
                     borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.12)',
-                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    backgroundColor: '#5EF0D0',
                     paddingVertical: 14,
-                    paddingHorizontal: 20,
+                    paddingHorizontal: 24,
                     flexDirection: 'row',
                     alignItems: 'center',
                     gap: 8,
                   }}
                 >
-                  <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: '#5EF0D0' }} />
-                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Check in</Text>
+                  <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
                 </Pressable>
               ) : null}
               {topCtaMode === 'plan' ? (
