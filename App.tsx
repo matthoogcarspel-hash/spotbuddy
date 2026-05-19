@@ -1176,7 +1176,7 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
     <View style={{ flex: 1, alignItems: 'center' }}>
       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</Text>
       <View style={{ height: HEIGHT, width: 80, overflow: 'hidden', position: 'relative' }}>
-        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(77,184,255,0.10)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', zIndex: 1 }} />
+        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', zIndex: 1 }} />
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -1269,9 +1269,9 @@ function SessionBar({ leftPercent, widthPercent, state, intent, isSelected, show
           borderColor: state === 'planned' ? plannedBorderColor : stateStyle[state].border,
           borderStyle: stateStyle[state].borderStyle ?? 'solid',
           opacity: 1,
-          shadowColor: state === 'live' ? '#63e4be' : '#000000',
-          shadowOpacity: state === 'live' ? 0.16 : 0.08,
-          shadowRadius: state === 'live' ? 4 : 2,
+          shadowColor: '#000000',
+          shadowOpacity: 0.08,
+          shadowRadius: 2,
           shadowOffset: { width: 0, height: 0 },
           justifyContent: 'center',
           alignItems: 'center',
@@ -2277,10 +2277,10 @@ function SessionTimeline({
                   height: 9,
                   borderRadius: 14,
                   backgroundColor: '#e6f6ff',
-                  shadowColor: '#d8eeff',
-                  shadowOpacity: 0.14,
-                  shadowRadius: 3,
-                  shadowOffset: { width: 0, height: 0 },
+                  shadowColor: '#000',
+                  shadowOpacity: 0.08,
+                  shadowRadius: 2,
+                  shadowOffset: { width: 0, height: 1 },
                 }}
               />
               <Text style={{ marginTop: 2, color: '#ecf7ff', fontSize: 10, fontWeight: '700', letterSpacing: 0.2 }}>Now</Text>
@@ -5920,10 +5920,10 @@ export default function App() {
                       await handleFollowUser(viewingOtherUserId);
                       setViewingOtherUserId(null);
                     }}
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                   >
                     <Ionicons name="person-add-outline" size={16} color="#4DB8FF" />
-                    <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Add buddy</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '800' }}>Add buddy</Text>
                   </Pressable>
                 )}
                 <Pressable
@@ -8375,9 +8375,9 @@ export default function App() {
                       setShowBuddies(true);
                       setBuddiesTab('myBuddies');
                     }}
-                    style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                   >
-                    <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text>
                   </Pressable>
                 </View>
               )}
@@ -8573,7 +8573,7 @@ export default function App() {
                   })()}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
-                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
+                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
                     return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
@@ -8694,7 +8694,7 @@ export default function App() {
             <>
               {/* Incoming requests — also visible in My Buddies */}
               {incomingFollowRequests.length > 0 && (
-                <View style={{ backgroundColor: 'rgba(77,184,255,0.07)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 14, marginBottom: 16 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 14, marginBottom: 16 }}>
                   <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
                     BUDDY REQUESTS · {incomingFollowRequests.length}
                   </Text>
@@ -8784,7 +8784,7 @@ export default function App() {
             <>
               {/* Incoming requests */}
               {incomingFollowRequests.length > 0 ? (
-                <View style={{ backgroundColor: 'rgba(77,184,255,0.07)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(77,184,255,0.2)', padding: 14, marginBottom: 16 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 14, marginBottom: 16 }}>
                   <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
                     REQUESTS · {incomingFollowRequests.length}
                   </Text>
@@ -8846,12 +8846,12 @@ export default function App() {
                             onPress={() => !isPending && !inFlight && void handleFollowUser(u.id)}
                             disabled={isPending || inFlight}
                             style={{
-                              backgroundColor: isPending ? 'rgba(255,255,255,0.06)' : 'rgba(77,184,255,0.15)',
+                              backgroundColor: isPending ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.10)',
                               borderRadius: 999,
                               paddingHorizontal: 14,
                               paddingVertical: 7,
                               borderWidth: 1,
-                              borderColor: isPending ? 'rgba(255,255,255,0.08)' : 'rgba(77,184,255,0.35)',
+                              borderColor: isPending ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.18)',
                               opacity: inFlight ? 0.5 : 1,
                             }}
                           >
@@ -9149,7 +9149,7 @@ export default function App() {
               borderRadius: 14,
               padding: 14,
               borderWidth: 1,
-              borderColor: showNationalityPicker ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.10)',
+              borderColor: showNationalityPicker ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.10)',
               flexDirection: 'row',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -9214,7 +9214,7 @@ export default function App() {
                         alignItems: 'center',
                         paddingHorizontal: 16,
                         paddingVertical: 12,
-                        backgroundColor: isSelected ? 'rgba(77,184,255,0.12)' : 'transparent',
+                        backgroundColor: isSelected ? 'rgba(255,255,255,0.10)' : 'transparent',
                         borderBottomWidth: 1,
                         borderBottomColor: 'rgba(255,255,255,0.05)',
                         gap: 12,
@@ -10209,11 +10209,11 @@ const handleSave = async () => {
                 <>
                   <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>Start time</Text>
                   <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
                       <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
                       <Text style={{ color: startHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{startHour === null ? '--' : formatTimePart(startHour)}</Text>
                     </Pressable>
-                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startMinute' ? null : 'startMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startMinute' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
                       <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
                       <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(startMinute)}</Text>
                     </Pressable>
@@ -10238,11 +10238,11 @@ const handleSave = async () => {
                   )}
                   <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>End time</Text>
                   <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
-                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endHour' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endHour' ? null : 'endHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endHour' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
                       <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Hour</Text>
                       <Text style={{ color: endHour === null ? theme.textMuted : theme.text, fontSize: 20, fontWeight: '700' }}>{endHour === null ? '--' : formatTimePart(endHour)}</Text>
                     </Pressable>
-                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endMinute' ? 'rgba(77,184,255,0.4)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
+                    <Pressable onPress={() => { setActivePicker((prev) => (prev === 'endMinute' ? null : 'endMinute')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'endMinute' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
                       <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', textTransform: 'uppercase', marginBottom: 2 }}>Minute</Text>
                       <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>{formatTimePart(endMinute)}</Text>
                     </Pressable>
@@ -11300,7 +11300,7 @@ const handleSave = async () => {
         >
           <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                 <Ionicons name="location" size={20} color={theme.primary} />
               </View>
               <View style={{ flex: 1 }}>
@@ -11319,9 +11319,9 @@ const handleSave = async () => {
                     addSelectedSpot(followPromptSpot as any);
                     setFollowPromptSpot(null);
                   }}
-                  style={{ flex: 1, backgroundColor: 'rgba(77,184,255,0.15)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)' }}
+                  style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
                 >
-                  <Text style={{ color: '#4DB8FF', fontSize: 15, fontWeight: '800' }}>Yes, follow</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 15, fontWeight: '800' }}>Yes, follow</Text>
                 </Pressable>
               ) : (
                 <Pressable
@@ -11368,7 +11368,7 @@ const handleSave = async () => {
                 }}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
               >
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(77,184,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
                   <Ionicons name="location-outline" size={16} color={theme.primary} />
                 </View>
                 <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600', flex: 1 }}>{spotName}</Text>
