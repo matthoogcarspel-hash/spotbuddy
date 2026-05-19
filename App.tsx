@@ -9935,7 +9935,7 @@ const handleSave = async () => {
                 onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
                 style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 9, paddingHorizontal: 18, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
               >
-                <Ionicons name="add-circle" size={15} color="#071421" />
+                <Ionicons name="add-circle" size={20} color="#071421" />
                 <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Plan a session</Text>
               </Pressable>
             ) : null}
