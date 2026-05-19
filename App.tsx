@@ -9142,7 +9142,7 @@ export default function App() {
             autoCorrect={false}
             selectTextOnFocus
           />
-          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>Tap name to edit</Text>
+
           <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
         </View>
 
