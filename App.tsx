@@ -6243,12 +6243,7 @@ export default function App() {
     const result = await cancelSessionAction(input);
     logSessionUiActionResult('cancelSession', result);
     if (!result.ok) {
-      const cancelReason = 'reason' in result ? result.reason : null;
-      if (cancelReason === 'SESSION_HAS_ACTIVE_JOINERS') {
-        setSessionActionError('Others have joined this session. They need to leave first.');
-      } else {
-        setSessionActionError(getCancelErrorMessage());
-      }
+      setSessionActionError(getCancelErrorMessage());
       return;
     }
     await fetchSharedData();

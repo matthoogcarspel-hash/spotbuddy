@@ -577,12 +577,6 @@ export async function cancelSession(input: {
     return { ok: false, reason: 'CANCEL_NOT_ALLOWED' };
   }
 
-  // Organizer verlaat: cascade-delete alle joiner sessies eerst
-  await supabase
-    .from('sessions')
-    .delete()
-    .eq('source_session_id', input.session.id);
-
   const { error } = await supabase
     .from('sessions')
     .delete()
