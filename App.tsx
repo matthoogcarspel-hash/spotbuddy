@@ -1845,11 +1845,11 @@ function SessionRow({
           </View>
         ) : sortedVisibleSessions.length > 1 ? (
           <View
-            style={{ marginLeft: 'auto', zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 10, paddingVertical: 5 }}
+            style={{ marginLeft: 'auto', zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 4, paddingVertical: 5 }}
             {...({ onClick: (e: any) => { e.stopPropagation(); onOpenGroupChat(group.key); } } as any)}
           >
-            <Ionicons name="chatbubble-outline" size={12} color="rgba(255,255,255,0.65)" />
-            <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '700' }}>Group Chat</Text>
+            <Ionicons name="chatbubble" size={12} color="#ffffff" />
+            <Text style={{ color: '#ffffff', fontSize: 11, fontWeight: '800' }}>Group Chat</Text>
           </View>
         ) : (
           <>
@@ -2120,10 +2120,10 @@ function SessionTimeline({
                             event.stopPropagation();
                             onOpenGroupChat(group.key);
                           }}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
                         >
-                          <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.65)" />
-                          <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700' }}>Group Chat</Text>
+                          <Ionicons name="chatbubble" size={13} color="#ffffff" />
+                          <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Group Chat</Text>
                         </Pressable>
                       ) : null}
 
