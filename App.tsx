@@ -1809,11 +1809,10 @@ function SessionRow({
                 event.stopPropagation();
                 onOpenGroupChat(group.key);
               }}
-              style={{ marginTop: 4 }}
+              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginTop: 6, alignSelf: 'flex-start' }}
             >
-              <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
-                💬 Group chat →
-              </Text>
+              <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.65)" />
+              <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700' }}>Group Chat</Text>
             </Pressable>
           ) : null}
         </View>
