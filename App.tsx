@@ -2118,9 +2118,9 @@ function SessionTimeline({
                       {/* Avatars: stacked for groups */}
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
-                          <View key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }}>
+                          <Pressable key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
                             <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} />
-                          </View>
+                          </Pressable>
                         ))}
                         {(group.visibleSessions?.length ?? 0) > 3 ? (
                           <View style={{ marginLeft: -12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', zIndex: 0 }}>
@@ -2244,12 +2244,12 @@ function SessionTimeline({
                           Riders in this group
                         </Text>
                         {(group.visibleSessions ?? []).map(({ item }) => (
-                          <View key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <Pressable key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
                             <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} />
                             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                               {item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider'}
                             </Text>
-                          </View>
+                          </Pressable>
                         ))}
                       </View>
                     ) : null}
@@ -8346,7 +8346,7 @@ export default function App() {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
                   <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <Avatar uri={dm.otherAvatar} size={42} />
+                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} /></Pressable>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
@@ -8537,7 +8537,7 @@ export default function App() {
                   {dmConversations.map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
                     return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <Avatar uri={dm.otherAvatar} size={42} />
+                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} /></Pressable>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
                         {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
@@ -8573,9 +8573,9 @@ export default function App() {
       ? followedUsers.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
       : followedUsers;
 
-    const UserRow = ({ avatar, name, sub, right }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode }) => (
+    const UserRow = ({ avatar, name, sub, right, onAvatarPress }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode; onAvatarPress?: () => void }) => (
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
-        <Avatar uri={avatar} size={42} />
+        {onAvatarPress ? <Pressable onPress={onAvatarPress}><Avatar uri={avatar} size={42} /></Pressable> : <Avatar uri={avatar} size={42} />}
         <View style={{ flex: 1 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{name}</Text>
           {sub ? <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
@@ -8702,6 +8702,7 @@ export default function App() {
                       key={`buddy-list-${u.id}`}
                       avatar={u.avatar_url}
                       name={u.display_name}
+                      onAvatarPress={() => setViewingOtherUserId(u.id)}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
                           <Pressable
@@ -8752,6 +8753,7 @@ export default function App() {
                       avatar={req.requester?.avatar_url ?? null}
                       name={req.requester?.display_name ?? 'Someone'}
                       sub="wants to buddy up"
+                      onAvatarPress={() => req.requester?.id && setViewingOtherUserId(req.requester.id)}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <Pressable
@@ -8797,6 +8799,7 @@ export default function App() {
                         avatar={u.avatar_url}
                         name={u.display_name}
                         sub={via ? `via ${via}` : undefined}
+                        onAvatarPress={() => setViewingOtherUserId(u.id)}
                         right={
                           <Pressable
                             onPress={() => !isPending && !inFlight && void handleFollowUser(u.id)}
@@ -10459,7 +10462,7 @@ const handleSave = async () => {
                   const isOwn = message.userId === activeAppUserId;
                   return (
                     <View key={message.id} style={{ flexDirection: isOwn ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      {!isOwn && <Avatar uri={message.avatar_url} size={24} />}
+                      {!isOwn && <Pressable onPress={() => message.userId && setViewingOtherUserId(message.userId)}><Avatar uri={message.avatar_url} size={24} /></Pressable>}
                       <View style={{ marginLeft: isOwn ? 0 : 8, marginRight: isOwn ? 0 : 0, maxWidth: '84%', backgroundColor: isOwn ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwn ? 16 : 5, borderBottomRightRadius: isOwn ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
                         {!isOwn && (
                           <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
