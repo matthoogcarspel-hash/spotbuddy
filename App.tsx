@@ -194,6 +194,7 @@ type SpotSession = {
   userName: string;
   userAvatarUrl: string | null;
   userNationality?: string | null;
+  userSkillLevel?: number | null;
   userOwnerUid?: string | null;
   resolvedActorProfileId?: string | null;
 };
@@ -279,7 +280,7 @@ const spotNotificationPreferencesModel = [
 type SpotNotificationPreferenceType = (typeof spotNotificationPreferencesModel)[number]['key'];
 type SpotOrderMode = 'distance' | 'manual';
 type FollowStatus = 'pending' | 'accepted' | 'rejected';
-type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'>;
+type BuddyUser = Pick<Profile, 'id' | 'display_name' | 'avatar_url'> & { skill_level?: number | null };
 type SwitchableAccount = Pick<Profile, 'id' | 'display_name' | 'avatar_url' | 'owner_uid' | 'created_at'>;
 type FollowRequestItem = {
   id: string;
@@ -1210,26 +1211,32 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
   );
 }
 
-function Avatar({ uri, size = 28, nationality }: { uri: string | null; size?: number; nationality?: string | null }) {
+function Avatar({ uri, size = 28, nationality, skillLevel }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null }) {
   const flagSize = Math.max(10, Math.round(size * 0.42));
   const flag = getCountry(nationality)?.flag ?? null;
   const inner = !uri
     ? <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />
     : <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
 
-  if (!flag) return inner;
+  const showStars = skillLevel && skillLevel >= 1 && size >= 26;
+  const starFontSize = Math.max(6, Math.round(size * 0.22));
+  const starsText = size < 34 ? `★${skillLevel}` : '★'.repeat(skillLevel ?? 0);
+
+  if (!flag && !showStars) return inner;
 
   return (
     <View style={{ width: size, height: size }}>
       {inner}
-      <View style={{
-        position: 'absolute', bottom: -1, right: -1,
-        backgroundColor: theme.bg, borderRadius: 999,
-        width: flagSize + 4, height: flagSize + 4,
-        alignItems: 'center', justifyContent: 'center',
-      }}>
-        <Text style={{ fontSize: flagSize - 2, lineHeight: flagSize }}>{flag}</Text>
-      </View>
+      {flag ? (
+        <View style={{ position: 'absolute', bottom: -1, right: -1, backgroundColor: theme.bg, borderRadius: 999, width: flagSize + 4, height: flagSize + 4, alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontSize: flagSize - 2, lineHeight: flagSize }}>{flag}</Text>
+        </View>
+      ) : null}
+      {showStars ? (
+        <View style={{ position: 'absolute', bottom: -2, left: -2, backgroundColor: 'rgba(8,6,2,0.80)', borderRadius: 999, paddingHorizontal: 3, paddingVertical: 1 }}>
+          <Text style={{ color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1796,7 +1803,7 @@ function SessionRow({
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
               <Pressable key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }} onPress={() => item.userId && onAvatarPress?.(item.userId)}>
-                <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} />
+                <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
               </Pressable>
             ))}
             {sortedVisibleSessions.length > 3 ? (
@@ -2119,7 +2126,7 @@ function SessionTimeline({
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
                           <Pressable key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
                           </Pressable>
                         ))}
                         {(group.visibleSessions?.length ?? 0) > 3 ? (
@@ -2245,7 +2252,7 @@ function SessionTimeline({
                         </Text>
                         {(group.visibleSessions ?? []).map(({ item }) => (
                           <Pressable key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
                             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                               {item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider'}
                             </Text>
@@ -2511,7 +2518,7 @@ export default function App() {
     sessionChats: 'everyone' | 'buddies' | 'off';
     messageRequests: boolean;
   }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
-  const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
+  const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; otherSkillLevel?: number | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -3614,7 +3621,7 @@ export default function App() {
     const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
       supabase
         .from('profiles')
-        .select('id, display_name, avatar_url')
+        .select('id, display_name, avatar_url, skill_level')
         .neq('id', activeProfileId)
         .order('display_name', { ascending: true }),
       supabase
@@ -3988,6 +3995,7 @@ export default function App() {
       userName: row.display_name?.trim() || 'Unknown rider',
       userAvatarUrl: row.avatar_url ?? null,
       userNationality: row.nationality ?? null,
+      userSkillLevel: typeof row.skill_level === 'number' ? row.skill_level : null,
       userOwnerUid: row.owner_uid ?? null,
       resolvedActorProfileId: row.resolved_actor_profile_id ?? null,
     };    return session;
@@ -4266,10 +4274,10 @@ export default function App() {
       { data: profilesByOwnerUidData, error: profilesByOwnerUidError },
     ] = await Promise.all([
       sessionIdentityValues.length
-        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality').in('id', sessionIdentityValues)
+        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality, skill_level').in('id', sessionIdentityValues)
         : Promise.resolve({ data: [] as any[], error: null }),
       sessionIdentityValues.length
-        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality').in('owner_uid', sessionIdentityValues)
+        ? supabase.from('profiles').select('id, display_name, avatar_url, owner_uid, nationality, skill_level').in('owner_uid', sessionIdentityValues)
         : Promise.resolve({ data: [] as any[], error: null }),
     ]);
     const profilesData = [...(profilesByIdData ?? []), ...(profilesByOwnerUidData ?? [])];
@@ -5922,13 +5930,13 @@ export default function App() {
           {viewingOtherProfile ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <Avatar uri={viewingOtherProfile.avatar_url} size={60} nationality={viewingOtherProfile.nationality} />
+                <Avatar uri={viewingOtherProfile.avatar_url} size={60} nationality={viewingOtherProfile.nationality} skillLevel={viewingOtherProfile.skill_level} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
                   {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{c.flag}  {c.name}</Text> : null; })() : null}
                   {viewingOtherProfile.skill_level ? (
                     <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
-                      {['', 'Grom', 'Ripper', 'Freerider', 'Shredder', 'Storm Chaser'][viewingOtherProfile.skill_level]}
+                      {['', 'Beginner', 'Novice', 'Intermediate', 'Advanced', 'Expert / Pro'][viewingOtherProfile.skill_level]}
                     </Text>
                   ) : null}
                 </View>
@@ -7430,7 +7438,7 @@ export default function App() {
     const otherUserIds = [...new Set(withOtherId.map((c) => c.otherUserId).filter(Boolean))];
     const convIds = convs.map((c) => c.id);
     const [profilesResp, lastMsgsResp] = await Promise.all([
-      otherUserIds.length ? supabase.from('profiles').select('id, display_name, avatar_url').in('id', otherUserIds) : Promise.resolve({ data: [] as any[] }),
+      otherUserIds.length ? supabase.from('profiles').select('id, display_name, avatar_url, skill_level').in('id', otherUserIds) : Promise.resolve({ data: [] as any[] }),
       convIds.length ? supabase.from('messages').select('conversation_id, text, created_at').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(50) : Promise.resolve({ data: [] as any[] }),
     ]);
     const profileMap = new Map((profilesResp.data ?? []).map((p: any) => [p.id, p]));
@@ -7441,7 +7449,7 @@ export default function App() {
     const result = withOtherId.map((c) => {
       const p = profileMap.get(c.otherUserId);
       const lm = lastMsgMap.get(c.id);
-      return { id: c.id, otherUserId: c.otherUserId!, otherName: p?.display_name ?? 'Unknown', otherAvatar: p?.avatar_url ?? null, lastMessage: lm?.text ?? null, lastMessageAt: lm?.created_at ?? null };
+      return { id: c.id, otherUserId: c.otherUserId!, otherName: p?.display_name ?? 'Unknown', otherAvatar: p?.avatar_url ?? null, otherSkillLevel: p?.skill_level ?? null, lastMessage: lm?.text ?? null, lastMessageAt: lm?.created_at ?? null };
     }).sort((a, b) => (b.lastMessageAt ?? '').localeCompare(a.lastMessageAt ?? ''));
     // Voeg DM convIds direct toe aan myConvIdsRef zodat realtime werkt zonder chat openen
     for (const c of result) myConvIdsRef.current.add(c.id);
@@ -8421,7 +8429,7 @@ export default function App() {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
                   <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} /></Pressable>
+                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} /></Pressable>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
@@ -8613,7 +8621,7 @@ export default function App() {
                   {dmConversations.map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
                     return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} /></Pressable>
+                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} /></Pressable>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
                         {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
@@ -8650,9 +8658,9 @@ export default function App() {
       ? followedUsers.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
       : followedUsers;
 
-    const UserRow = ({ avatar, name, sub, right, onAvatarPress }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode; onAvatarPress?: () => void }) => (
+    const UserRow = ({ avatar, name, sub, right, onAvatarPress, skillLevel }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode; onAvatarPress?: () => void; skillLevel?: number | null }) => (
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
-        {onAvatarPress ? <Pressable onPress={onAvatarPress}><Avatar uri={avatar} size={42} /></Pressable> : <Avatar uri={avatar} size={42} />}
+        {onAvatarPress ? <Pressable onPress={onAvatarPress}><Avatar uri={avatar} size={42} skillLevel={skillLevel} /></Pressable> : <Avatar uri={avatar} size={42} skillLevel={skillLevel} />}
         <View style={{ flex: 1 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{name}</Text>
           {sub ? <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
@@ -8779,6 +8787,7 @@ export default function App() {
                       key={`buddy-list-${u.id}`}
                       avatar={u.avatar_url}
                       name={u.display_name}
+                      skillLevel={u.skill_level}
                       onAvatarPress={() => { setViewingOtherProfile({ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url ?? null }); setViewingOtherUserId(u.id); }}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
@@ -9253,11 +9262,11 @@ export default function App() {
           <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
             <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Skill level</Text>
             {([
-              { level: 1, name: 'Grom', sub: 'Just getting started' },
-              { level: 2, name: 'Ripper', sub: 'First real rides' },
-              { level: 3, name: 'Freerider', sub: 'Comfortable on the water' },
-              { level: 4, name: 'Shredder', sub: 'Big air & toeside riding' },
-              { level: 5, name: 'Storm Chaser', sub: 'Loves heavy conditions' },
+              { level: 1, name: 'Beginner', sub: 'Needs instruction and support.' },
+              { level: 2, name: 'Novice', sub: 'Can do the basics, but still inconsistent.' },
+              { level: 3, name: 'Intermediate', sub: 'Rides independently in normal conditions.' },
+              { level: 4, name: 'Advanced', sub: 'Strong control in challenging conditions.' },
+              { level: 5, name: 'Expert / Pro', sub: 'Elite skill, precision, and consistency.' },
             ] as const).map(({ level, name, sub }) => {
               const isSelected = profile.skill_level === level;
               return (
