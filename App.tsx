@@ -1837,7 +1837,7 @@ function SessionRow({
               }}
               style={{ marginTop: 4 }}
             >
-              <Text style={{ color: theme.primary, fontSize: 10, fontWeight: '700' }}>
+              <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>
                 💬 Group chat →
               </Text>
             </Pressable>
