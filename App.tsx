@@ -9262,7 +9262,7 @@ export default function App() {
 
           {/* Skill level */}
           <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
-            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Skill level</Text>
+            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Rate your skills</Text>
             {([
               { level: 1, name: 'Beginner', sub: 'I still need instruction and support.' },
               { level: 2, name: 'Novice', sub: "I can do the basics, but I'm still inconsistent." },
@@ -9296,7 +9296,7 @@ export default function App() {
                     {isSelected ? <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: theme.bg }} /> : null}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: isSelected ? theme.text : theme.textSoft, fontSize: 13, fontWeight: '800' }}>{name}</Text>
+                    <Text style={{ color: isSelected ? theme.text : theme.textSoft, fontSize: 13, fontWeight: '800' }}>{name} <Text style={{ color: '#FFD166', fontWeight: '400' }}>{'★'.repeat(level)}</Text></Text>
                     <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{sub}</Text>
                   </View>
                 </Pressable>
