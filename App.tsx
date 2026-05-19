@@ -1211,30 +1211,9 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
   );
 }
 
-function Avatar({ uri, size = 28, nationality, skillLevel }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null }) {
-  const flagSize = Math.max(10, Math.round(size * 0.42));
-  const flag = getCountry(nationality)?.flag ?? null;
-  const inner = !uri
-    ? <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />
-    : <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
-
-  const showStars = skillLevel && skillLevel >= 1 && size >= 26;
-  const starFontSize = Math.max(6, Math.round(size * 0.22));
-  const starsText = size < 34 ? `★${skillLevel}` : '★'.repeat(skillLevel ?? 0);
-
-  if (!flag && !showStars) return inner;
-
-  return (
-    <View style={{ width: size, height: size }}>
-      {inner}
-      {flag ? (
-        <Text style={{ position: 'absolute', bottom: -(flagSize / 2), left: 0, right: 0, textAlign: 'center', fontSize: flagSize, lineHeight: flagSize + 2 }}>{flag}</Text>
-      ) : null}
-      {showStars ? (
-        <Text numberOfLines={1} style={{ position: 'absolute', top: -(starFontSize / 2), left: 0, right: 0, textAlign: 'center', color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
-      ) : null}
-    </View>
-  );
+function Avatar({ uri, size = 28 }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null }) {
+  if (!uri) return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
+  return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
 }
 
 type SessionBarProps = {
@@ -5926,10 +5905,15 @@ export default function App() {
           {viewingOtherProfile ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <Avatar uri={viewingOtherProfile.avatar_url} size={60} nationality={viewingOtherProfile.nationality} skillLevel={viewingOtherProfile.skill_level} />
+                <Avatar uri={viewingOtherProfile.avatar_url} size={60} />
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
-                  {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>{c.flag}  {c.name}</Text> : null; })() : null}
+                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
+                    {viewingOtherProfile.skill_level ? (
+                      <Text style={{ color: '#FFD166', fontSize: 14 }}>{'★'.repeat(viewingOtherProfile.skill_level)}</Text>
+                    ) : null}
+                  </View>
+                  {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 3 }}>{c.flag}  {c.name}</Text> : null; })() : null}
                   {viewingOtherProfile.skill_level ? (
                     <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
                       {['', 'Beginner', 'Novice', 'Intermediate', 'Advanced', 'Expert / Pro'][viewingOtherProfile.skill_level]}
@@ -5942,9 +5926,9 @@ export default function App() {
               </View>
               <View style={{ gap: 10 }}>
                 {followingUserIds.includes(viewingOtherUserId) ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
-                    <Ionicons name="people-outline" size={16} color={theme.textMuted} />
-                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>You're buddies</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
+                    <Ionicons name="people-outline" size={15} color={theme.textMuted} />
+                    <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>You're buddies</Text>
                   </View>
                 ) : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
