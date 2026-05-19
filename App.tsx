@@ -9920,45 +9920,35 @@ const handleSave = async () => {
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
-          {/* Check in + Plan session — naast elkaar */}
-          {(checkInCtaVisible || topCtaMode === 'plan') ? (
-            <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-              {checkInCtaVisible ? (
-                <Pressable
-                  onPress={() => void handleUpdateSessionStatus('Is er al')}
-                  style={{
-                    borderRadius: 16,
-                    backgroundColor: '#5EF0D0',
-                    paddingVertical: 14,
-                    paddingHorizontal: 24,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: 8,
-                  }}
-                >
-                  <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
-                </Pressable>
-              ) : null}
-              {topCtaMode === 'plan' && !showForm ? (
-                <Pressable
-                  onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
-                  style={{
-                    borderRadius: 16,
-                    backgroundColor: '#ffffff',
-                    paddingVertical: 14,
-                    paddingHorizontal: 28,
-                    alignItems: 'center',
-                    flexDirection: 'row',
-                    gap: 8,
-                    justifyContent: 'center',
-                  }}
-                >
-                  <Ionicons name="add-circle" size={18} color="#071421" />
-                  <Text style={{ color: '#071421', fontSize: 15, fontWeight: '900' }}>Plan a session</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
+          {/* Check in + Plan session + Spot Chat — altijd zichtbaar */}
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            {checkInCtaVisible ? (
+              <Pressable
+                onPress={() => void handleUpdateSessionStatus('Is er al')}
+                style={{ borderRadius: 16, backgroundColor: '#5EF0D0', paddingVertical: 14, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+              >
+                <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
+              </Pressable>
+            ) : null}
+            {topCtaMode === 'plan' && !showForm ? (
+              <Pressable
+                onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
+                style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' }}
+              >
+                <Ionicons name="add-circle" size={18} color="#071421" />
+                <Text style={{ color: '#071421', fontSize: 15, fontWeight: '900' }}>Plan a session</Text>
+              </Pressable>
+            ) : null}
+            {activeDay === 'today' ? (
+              <Pressable
+                onPress={() => { if (selectedSpot) { setActiveChatSpot(selectedSpot); setActiveChatDayKey(selectedDayKey); setShowChat(true); setChatSubTab('spot'); setSelectedSpot(null); } }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
+              >
+                <Ionicons name="chatbubble" size={13} color="#ffffff" />
+                <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Spot Chat</Text>
+              </Pressable>
+            ) : null}
+          </View>
 
           {/* Edit mode: checked in or session planned */}
           {topCtaMode === 'edit' ? (
@@ -10041,21 +10031,6 @@ const handleSave = async () => {
                   }}
                 >
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>＋ Add session</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => {
-                    if (selectedSpot) {
-                      setActiveChatSpot(selectedSpot);
-                      setActiveChatDayKey(selectedDayKey);
-                      setShowChat(true);
-                      setChatSubTab('spot');
-                      setSelectedSpot(null);
-                    }
-                  }}
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
-                >
-                  <Ionicons name="chatbubble" size={13} color="#ffffff" />
-                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Spot Chat</Text>
                 </Pressable>
                 {showManageSessions ? (
                   <Pressable onPress={() => setShowManageSessions(false)} style={{ paddingVertical: 6, paddingHorizontal: 8 }}>
