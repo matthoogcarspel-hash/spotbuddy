@@ -5163,7 +5163,7 @@ export default function App() {
 
     const watchId = navigator.geolocation.watchPosition(onPosition, onError, {
       enableHighAccuracy: true,
-      maximumAge: 15_000,
+      maximumAge: 0,
     });
 
     return () => {
