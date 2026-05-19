@@ -6,12 +6,18 @@
       }
     },
     "owner": "matthoogcarspel",
+    "icon": "./assets/appicoon.png",
     "backgroundColor": "#07111F",
     "ios": {
-      "backgroundColor": "#07111F"
+      "backgroundColor": "#07111F",
+      "icon": "./assets/appicoon.png"
     },
     "android": {
-      "backgroundColor": "#07111F"
+      "backgroundColor": "#07111F",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/appicoon.png",
+        "backgroundColor": "#07111F"
+      }
     }
   }
 }
