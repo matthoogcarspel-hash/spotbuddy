@@ -577,6 +577,24 @@ export async function cancelSession(input: {
     return { ok: false, reason: 'CANCEL_NOT_ALLOWED' };
   }
 
+  // Check of dit een root-sessie is met joiners — gebruik RPC voor atomaire promotie
+  const { data: hasJoiner } = await supabase
+    .from('sessions')
+    .select('id')
+    .eq('source_session_id', input.session.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (hasJoiner) {
+    const { data: rpcResult, error: rpcError } = await supabase
+      .rpc('leave_group_session', { root_session_id: input.session.id });
+    if (rpcError) return { ok: false, reason: 'DELETE_FAILED', error: rpcError };
+    const result = rpcResult as { ok: boolean; reason?: string } | null;
+    if (!result?.ok) return { ok: false, reason: result?.reason ?? 'RPC_FAILED' };
+    return { ok: true, sessionId: input.session.id };
+  }
+
+  // Geen joiners: gewoon verwijderen
   const { error } = await supabase
     .from('sessions')
     .delete()
