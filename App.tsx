@@ -8784,7 +8784,7 @@ export default function App() {
                       key={`buddy-list-${u.id}`}
                       avatar={u.avatar_url}
                       name={u.display_name}
-                      onAvatarPress={() => setViewingOtherUserId(u.id)}
+                      onAvatarPress={() => { setViewingOtherProfile({ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url ?? null }); setViewingOtherUserId(u.id); }}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
                           <Pressable
@@ -8835,7 +8835,7 @@ export default function App() {
                       avatar={req.requester?.avatar_url ?? null}
                       name={req.requester?.display_name ?? 'Someone'}
                       sub="wants to buddy up"
-                      onAvatarPress={() => req.requester?.id && setViewingOtherUserId(req.requester.id)}
+                      onAvatarPress={() => { if (!req.requester?.id) return; setViewingOtherProfile({ id: req.requester.id, display_name: req.requester.display_name ?? 'Someone', avatar_url: req.requester.avatar_url ?? null }); setViewingOtherUserId(req.requester.id); }}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <Pressable
@@ -8881,7 +8881,7 @@ export default function App() {
                         avatar={u.avatar_url}
                         name={u.display_name}
                         sub={via ? `via ${via}` : undefined}
-                        onAvatarPress={() => setViewingOtherUserId(u.id)}
+                        onAvatarPress={() => { setViewingOtherProfile({ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url ?? null }); setViewingOtherUserId(u.id); }}
                         right={
                           <Pressable
                             onPress={() => !isPending && !inFlight && void handleFollowUser(u.id)}
@@ -10767,12 +10767,14 @@ const handleSave = async () => {
               alignItems: 'center',
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.08)',
-              flexDirection: 'row',
-              justifyContent: 'center',
-              gap: 6,
             }}
           >
             <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Messages</Text>
+            {chatUnreadCount > 0 ? (
+              <View style={{ position: 'absolute', top: -5, right: -5, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{chatUnreadCount > 99 ? '99+' : chatUnreadCount}</Text>
+              </View>
+            ) : null}
           </Pressable>
 
           {/* Bell — compact, rechts uitgelijnd */}
