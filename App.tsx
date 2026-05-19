@@ -8252,11 +8252,8 @@ export default function App() {
           {/* Spot chats */}
           {chatSubTab === 'spot' && (
             <View style={{ gap: 8 }}>
-              {favoriteSpots.length === 0 && (
-                <Text style={{ color: theme.textMuted, fontSize: 14 }}>You're not following any spots yet. Add spots in the Spots tab.</Text>
-              )}
               {(() => {
-                // Toon één rij per dag per spot (vandaag + morgen als beide actief zijn)
+                // Alleen spots tonen met actieve berichten (vandaag of morgen)
                 const today = getTodayLocalDateKey();
                 const tomorrow = getTomorrowLocalDateKey();
                 const rows: Array<{ spotName: string; chatKey: string; chatData: typeof chatSpotMessages[string] | null }> = [];
@@ -8264,11 +8261,17 @@ export default function App() {
                   for (const day of [today, tomorrow]) {
                     const cKey = spotChatKey(spotName, day);
                     const data = chatSpotMessages[cKey] ?? null;
-                    // Toon altijd vandaag; morgen alleen als er al activiteit is
-                    if (day === today || data) {
+                    if (data && data.messages.length > 0) {
                       rows.push({ spotName, chatKey: cKey, chatData: data });
                     }
                   }
+                }
+                if (rows.length === 0) {
+                  return <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                    <Text style={{ fontSize: 32 }}>💬</Text>
+                    <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No open chats yet</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Start a chat from one of your spots</Text>
+                  </View>;
                 }
                 return rows.map(({ spotName, chatKey, chatData }) => {
                 const activeKey = chatKey;
@@ -8318,7 +8321,11 @@ export default function App() {
                     if (a.sessionDay !== b.sessionDay) return (a.sessionDay ?? '').localeCompare(b.sessionDay ?? '');
                     return (b.messages.length) - (a.messages.length);
                   });
-                if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
+                if (!sessionEntries.length) return <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                    <Text style={{ fontSize: 32 }}>👥</Text>
+                    <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No group chats yet</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Join a session to start chatting with your group</Text>
+                  </View>;
                 return sessionEntries.map(([gk, data]) => {
                   const msgs = data.messages ?? [];
                   const lastMsg = msgs[msgs.length - 1];
@@ -8536,7 +8543,11 @@ export default function App() {
                         if (a.sessionDay !== b.sessionDay) return (a.sessionDay ?? '').localeCompare(b.sessionDay ?? '');
                         return (b.messages.length) - (a.messages.length);
                       });
-                    if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
+                    if (!sessionEntries.length) return <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
+                        <Text style={{ fontSize: 32 }}>👥</Text>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No group chats yet</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Join a session to start chatting with your group</Text>
+                      </View>;
                     return sessionEntries.map(([gk, data]) => {
                       const msgs = data.messages ?? [];
                       const lastMsg = msgs[msgs.length - 1];
