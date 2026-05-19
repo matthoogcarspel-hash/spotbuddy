@@ -9128,10 +9128,10 @@ export default function App() {
     };
 
     return (
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingTop: isWebPlatform ? 20 : 0 }}>
 
         {/* Header */}
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingVertical: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingVertical: 14, paddingHorizontal: 20 }}>
           <Pressable
             onPress={goBack}
             style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
@@ -9140,8 +9140,10 @@ export default function App() {
           </Pressable>
         </View>
 
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}>
+
         {/* Avatar + naam */}
-        <View style={{ alignItems: 'center', marginVertical: 28 }}>
+        <View style={{ alignItems: 'center', marginVertical: 20 }}>
           <Avatar uri={profile.avatar_url} size={90} nationality={profile.nationality} />
           <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14 }}>{profile.display_name}</Text>
           <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
@@ -9262,11 +9264,11 @@ export default function App() {
           <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
             <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>Skill level</Text>
             {([
-              { level: 1, name: 'Beginner', sub: 'Needs instruction and support.' },
-              { level: 2, name: 'Novice', sub: 'Can do the basics, but still inconsistent.' },
-              { level: 3, name: 'Intermediate', sub: 'Rides independently in normal conditions.' },
-              { level: 4, name: 'Advanced', sub: 'Strong control in challenging conditions.' },
-              { level: 5, name: 'Expert / Pro', sub: 'Elite skill, precision, and consistency.' },
+              { level: 1, name: 'Beginner', sub: 'I still need instruction and support.' },
+              { level: 2, name: 'Novice', sub: "I can do the basics, but I'm still inconsistent." },
+              { level: 3, name: 'Intermediate', sub: 'I ride independently in normal conditions.' },
+              { level: 4, name: 'Advanced', sub: 'I have strong control in challenging conditions.' },
+              { level: 5, name: 'Expert / Pro', sub: 'I have elite skill, precision, and consistency.' },
             ] as const).map(({ level, name, sub }) => {
               const isSelected = profile.skill_level === level;
               return (
@@ -9280,22 +9282,22 @@ export default function App() {
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 12,
-                    paddingVertical: 10,
-                    paddingHorizontal: 12,
-                    borderRadius: 10,
-                    marginBottom: 6,
+                    gap: 10,
+                    paddingVertical: 7,
+                    paddingHorizontal: 10,
+                    borderRadius: 9,
+                    marginBottom: 4,
                     backgroundColor: isSelected ? 'rgba(255,255,255,0.09)' : 'transparent',
                     borderWidth: 1,
                     borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.05)',
                   }}
                 >
-                  <View style={{ width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: isSelected ? theme.text : 'rgba(255,255,255,0.25)', backgroundColor: isSelected ? theme.text : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                    {isSelected ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: theme.bg }} /> : null}
+                  <View style={{ width: 15, height: 15, borderRadius: 8, borderWidth: 2, borderColor: isSelected ? theme.text : 'rgba(255,255,255,0.25)', backgroundColor: isSelected ? theme.text : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                    {isSelected ? <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: theme.bg }} /> : null}
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: isSelected ? theme.text : theme.textSoft, fontSize: 14, fontWeight: '800' }}>{name}</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 1 }}>{sub}</Text>
+                    <Text style={{ color: isSelected ? theme.text : theme.textSoft, fontSize: 13, fontWeight: '800' }}>{name}</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{sub}</Text>
                   </View>
                 </Pressable>
               );
@@ -9312,6 +9314,7 @@ export default function App() {
           </Pressable>
         </View>
 
+        </ScrollView>
       </SafeAreaView>
     );
   }
