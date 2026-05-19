@@ -1152,69 +1152,55 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: Sp
   };
 };
 
-function WheelPicker({ values, selected, onSelect, label, formatVal }: { values: number[]; selected: number | null; onSelect: (v: number) => void; label: string; formatVal: (v: number) => string }) {
-  const ITEM_H = 48;
-  const VISIBLE = 3;
-  const HEIGHT = ITEM_H * VISIBLE;
-  const BG = '#071421';
+const WHEEL_ITEM_H = 52;
+const WHEEL_BG = '#071421';
+
+function WheelColumn({ values, selected, onSelect, formatVal, flex = 1 }: { values: number[]; selected: number | null; onSelect: (v: number) => void; formatVal: (v: number) => string; flex?: number }) {
   const scrollRef = useRef<ScrollView>(null);
   const isScrolling = useRef(false);
 
   useEffect(() => {
     if (isScrolling.current) return;
-    if (selected === null && values.length > 0) {
-      onSelect(values[0]);
-      setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 30);
-      return;
-    }
-    const idx = selected === null ? 0 : values.indexOf(selected);
+    if (selected === null && values.length > 0) { onSelect(values[0]); setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 30); return; }
+    const idx = values.indexOf(selected!);
     const safeIdx = idx >= 0 ? idx : 0;
-    setTimeout(() => scrollRef.current?.scrollTo({ y: safeIdx * ITEM_H, animated: false }), 30);
+    setTimeout(() => scrollRef.current?.scrollTo({ y: safeIdx * WHEEL_ITEM_H, animated: false }), 30);
   }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{label}</Text>
-      <View style={{ height: HEIGHT, width: 72, overflow: 'hidden', position: 'relative', borderRadius: 12 }}>
-        {/* Selection highlight */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', zIndex: 1 }} />
-        {/* Top fade */}
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2, backgroundColor: BG, opacity: 0.7 }} />
-        {/* Bottom fade */}
-        <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2, backgroundColor: BG, opacity: 0.7 }} />
-        <ScrollView
-          ref={scrollRef}
-          showsVerticalScrollIndicator={false}
-          snapToInterval={ITEM_H}
-          decelerationRate="fast"
-          contentContainerStyle={{ paddingTop: ITEM_H, paddingBottom: ITEM_H }}
-          onScrollBeginDrag={() => { isScrolling.current = true; }}
-          onMomentumScrollEnd={(e) => {
-            isScrolling.current = false;
-            const idx = Math.round(e.nativeEvent.contentOffset.y / ITEM_H);
-            const clamped = Math.max(0, Math.min(idx, values.length - 1));
-            onSelect(values[clamped]);
-          }}
-          scrollEventThrottle={16}
-        >
-          {values.map((v) => {
-            const isSelected = v === selected;
-            return (
-              <Pressable key={v} onPress={() => {
-                onSelect(v);
-                const idx = values.indexOf(v);
-                scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
-              }} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.28)', fontSize: isSelected ? 26 : 17, fontWeight: isSelected ? '700' : '400' }}>
-                  {formatVal(v)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
-    </View>
+    <ScrollView
+      ref={scrollRef}
+      style={{ flex }}
+      showsVerticalScrollIndicator={false}
+      snapToInterval={WHEEL_ITEM_H}
+      decelerationRate="fast"
+      contentContainerStyle={{ paddingTop: WHEEL_ITEM_H, paddingBottom: WHEEL_ITEM_H }}
+      onScrollBeginDrag={() => { isScrolling.current = true; }}
+      onMomentumScrollEnd={(e) => {
+        isScrolling.current = false;
+        const idx = Math.round(e.nativeEvent.contentOffset.y / WHEEL_ITEM_H);
+        onSelect(values[Math.max(0, Math.min(idx, values.length - 1))]);
+      }}
+      scrollEventThrottle={16}
+    >
+      {values.map((v) => {
+        const isSelected = v === selected;
+        return (
+          <Pressable key={v} onPress={() => { onSelect(v); scrollRef.current?.scrollTo({ y: values.indexOf(v) * WHEEL_ITEM_H, animated: true }); }}
+            style={{ height: WHEEL_ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: isSelected ? '#fff' : 'rgba(255,255,255,0.22)', fontSize: isSelected ? 28 : 18, fontWeight: isSelected ? '600' : '400' }}>
+              {formatVal(v)}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </ScrollView>
   );
+}
+
+// Legacy wrapper kept for any remaining usages
+function WheelPicker({ values, selected, onSelect, label, formatVal }: { values: number[]; selected: number | null; onSelect: (v: number) => void; label: string; formatVal: (v: number) => string }) {
+  return <WheelColumn values={values} selected={selected} onSelect={onSelect} formatVal={formatVal} />;
 }
 
 function Avatar({ uri, size = 28 }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null }) {
@@ -10272,41 +10258,35 @@ const handleSave = async () => {
                   )}
                 </>
               ) : (
-                /* Native: wheel pickers */
                 <View>
-                <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
-                  <WheelPicker
-                    values={startHourOptions}
-                    selected={startHour}
-                    onSelect={(h) => {
-                      setStartHour(h);
-                      if (planningNowReference.isToday) {
-                        const earliest = minuteOptions.find((m) => (h * 60) + m >= planningNowReference.earliestStartMinutes);
-                        if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest);
-                      }
-                    }}
-                    label="Van"
-                    formatVal={formatTimePart}
-                  />
-                  <View style={{ alignSelf: 'center', paddingTop: 22 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '700' }}>:</Text>
+                  {/* Labels */}
+                  <View style={{ flexDirection: 'row', paddingHorizontal: 4, marginBottom: 4 }}>
+                    <Text style={{ flex: 1, textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Van</Text>
+                    <View style={{ width: 12 }} />
+                    <View style={{ width: 20 }} />
+                    <Text style={{ flex: 1, textAlign: 'center', color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Tot</Text>
                   </View>
-                  <WheelPicker values={minuteOptions} selected={startMinute} onSelect={setStartMinute} label=" " formatVal={formatTimePart} />
-                  <View style={{ alignSelf: 'center', paddingTop: 22, paddingHorizontal: 4 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18, fontWeight: '300' }}>–</Text>
+
+                  {/* Single unified wheel container */}
+                  <View style={{ height: WHEEL_ITEM_H * 3, position: 'relative', overflow: 'hidden', borderRadius: 14 }}>
+                    {/* One selection highlight across all columns */}
+                    <View pointerEvents="none" style={{ position: 'absolute', top: WHEEL_ITEM_H, left: 0, right: 0, height: WHEEL_ITEM_H, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.13)', zIndex: 1 }} />
+                    {/* Top fade */}
+                    <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.72, zIndex: 2 }} />
+                    {/* Bottom fade */}
+                    <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: WHEEL_ITEM_H, backgroundColor: WHEEL_BG, opacity: 0.72, zIndex: 2 }} />
+
+                    {/* All columns in one row */}
+                    <View style={{ flexDirection: 'row', height: '100%', alignItems: 'center' }}>
+                      <WheelColumn values={startHourOptions} selected={startHour} onSelect={(h) => { setStartHour(h); if (planningNowReference.isToday) { const earliest = minuteOptions.find((m) => (h * 60) + m >= planningNowReference.earliestStartMinutes); if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest); } }} formatVal={formatTimePart} />
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
+                      <WheelColumn values={minuteOptions} selected={startMinute} onSelect={setStartMinute} formatVal={formatTimePart} />
+                      <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 18, fontWeight: '300', paddingHorizontal: 6, paddingBottom: 2 }}>–</Text>
+                      <WheelColumn values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)} selected={endHour} onSelect={setEndHour} formatVal={formatTimePart} />
+                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
+                      <WheelColumn values={minuteOptions} selected={endMinute} onSelect={setEndMinute} formatVal={formatTimePart} />
+                    </View>
                   </View>
-                  <WheelPicker
-                    values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)}
-                    selected={endHour}
-                    onSelect={setEndHour}
-                    label="Tot"
-                    formatVal={formatTimePart}
-                  />
-                  <View style={{ alignSelf: 'center', paddingTop: 22 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '700' }}>:</Text>
-                  </View>
-                  <WheelPicker values={minuteOptions} selected={endMinute} onSelect={setEndMinute} label=" " formatVal={formatTimePart} />
-                </View>
                 </View>
               )}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
