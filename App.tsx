@@ -9933,10 +9933,10 @@ const handleSave = async () => {
             {topCtaMode === 'plan' && !showForm ? (
               <Pressable
                 onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
-                style={{ borderRadius: 16, backgroundColor: '#ffffff', paddingVertical: 14, paddingHorizontal: 28, alignItems: 'center', flexDirection: 'row', gap: 8, justifyContent: 'center' }}
+                style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 9, paddingHorizontal: 18, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
               >
-                <Ionicons name="add-circle" size={18} color="#071421" />
-                <Text style={{ color: '#071421', fontSize: 15, fontWeight: '900' }}>Plan a session</Text>
+                <Ionicons name="add-circle" size={15} color="#071421" />
+                <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Plan a session</Text>
               </Pressable>
             ) : null}
             <Pressable
