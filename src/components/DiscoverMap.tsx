@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Pressable, Text, View } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 
@@ -25,11 +25,15 @@ type Props = {
 const LAT_CLAMP = 85;
 const LNG_CLAMP = 179;
 const DEFAULT_DELTA = 0.5;
+// Namen verdwijnen als latitudeDelta groter is dan deze waarde (verder uitgezoomd)
+const LABEL_HIDE_THRESHOLD = 0.8;
 
 export default function DiscoverMap({ center, flyToTarget, spots, userLocation, onOpenSpot, onMapClick }: Props) {
   const mapRef = useRef<MapView>(null);
   const hasCenteredOnGps = useRef(false);
   const pulseAnim = useRef(new Animated.Value(0)).current;
+  const [latDelta, setLatDelta] = useState(DEFAULT_DELTA);
+  const showLabels = latDelta < LABEL_HIDE_THRESHOLD;
 
   const isDefaultCenter =
     Math.abs(center.latitude - 52.3676) < 0.001 &&
@@ -85,6 +89,7 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
           latitudeDelta: DEFAULT_DELTA,
           longitudeDelta: DEFAULT_DELTA,
         }}
+        onRegionChangeComplete={(region) => setLatDelta(region.latitudeDelta)}
         onPress={(e) => {
           const coordinate = e.nativeEvent.coordinate;
           if (!coordinate) return;
@@ -99,6 +104,11 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
           const hasActivity = live > 0 || going > 0;
           const activityColor = live > 0 ? '#5EF0D0' : '#4DB8FF';
           const activityLabel = live > 0 ? `⚡${live}` : `${going}`;
+          const pinBg = isAdded ? '#007AFF' : '#ffffff';
+          const pinBorder = isAdded ? 'rgba(255,255,255,0.4)' : '#007AFF';
+          const pinTextColor = isAdded ? '#ffffff' : '#007AFF';
+          const dotColor = isAdded ? 'rgba(255,255,255,0.8)' : '#007AFF';
+
           return (
             <Marker
               key={spot.name}
@@ -109,12 +119,12 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
               <View style={{ alignItems: 'center' }}>
                 <View style={{ position: 'relative' }}>
                   <View style={{
-                    backgroundColor: isAdded ? '#007AFF' : '#ffffff',
+                    backgroundColor: pinBg,
                     borderRadius: 999,
-                    paddingHorizontal: 10,
-                    paddingVertical: 5,
+                    paddingHorizontal: showLabels ? 10 : 6,
+                    paddingVertical: showLabels ? 5 : 6,
                     borderWidth: 1.5,
-                    borderColor: isAdded ? 'rgba(255,255,255,0.4)' : '#007AFF',
+                    borderColor: pinBorder,
                     shadowColor: '#000',
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.25,
@@ -122,10 +132,12 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
                     elevation: 5,
                     flexDirection: 'row',
                     alignItems: 'center',
-                    gap: 4,
+                    gap: showLabels ? 4 : 0,
                   }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: isAdded ? 'rgba(255,255,255,0.8)' : '#007AFF' }} />
-                    <Text style={{ color: isAdded ? '#ffffff' : '#007AFF', fontSize: 11, fontWeight: '800' }}>{label}</Text>
+                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />
+                    {showLabels ? (
+                      <Text style={{ color: pinTextColor, fontSize: 11, fontWeight: '800' }}>{label}</Text>
+                    ) : null}
                   </View>
                   {hasActivity ? (
                     <View style={{
@@ -165,28 +177,18 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
         })}
 
         {userLocation && (
-          <Marker
-            coordinate={userLocation}
-            anchor={{ x: 0.5, y: 0.5 }}
-            tracksViewChanges
-          >
+          <Marker coordinate={userLocation} anchor={{ x: 0.5, y: 0.5 }} tracksViewChanges>
             <View style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}>
               <Animated.View style={{
-                position: 'absolute',
-                width: 24, height: 24, borderRadius: 12,
+                position: 'absolute', width: 24, height: 24, borderRadius: 12,
                 backgroundColor: 'rgba(0,122,255,0.45)',
-                transform: [{ scale: pulseScale }],
-                opacity: pulseOpacity,
+                transform: [{ scale: pulseScale }], opacity: pulseOpacity,
               }} />
               <View style={{
                 width: 15, height: 15, borderRadius: 7.5,
-                backgroundColor: '#007AFF',
-                borderWidth: 2.5, borderColor: '#ffffff',
-                shadowColor: '#007AFF',
-                shadowOffset: { width: 0, height: 0 },
-                shadowOpacity: 0.6,
-                shadowRadius: 4,
-                elevation: 6,
+                backgroundColor: '#007AFF', borderWidth: 2.5, borderColor: '#ffffff',
+                shadowColor: '#007AFF', shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.6, shadowRadius: 4, elevation: 6,
               }} />
             </View>
           </Marker>
