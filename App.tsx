@@ -1093,7 +1093,7 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
     leftPercent: clamp(rightEdgePercent - timelineJoinButtonWidthPercent, leftPercent, 100 - timelineJoinButtonWidthPercent),
   };
 };
-const CONTACT_EMAIL = 'contact@spotbuddy.nl';
+const CONTACT_EMAIL = 'spotbuddy@gmail.com';
 const CHECK_IN_RADIUS_METERS = 1000;
 const AUTO_CHECKIN_PROMPT_RADIUS_METERS = 300;
 const AUTO_CHECKOUT_RADIUS_METERS = 3000;
