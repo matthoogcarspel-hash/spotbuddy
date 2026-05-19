@@ -4825,8 +4825,9 @@ export default function App() {
           const matchedInFavorites = rawName
             ? favoriteSpotsRef.current.find((s) => s.toLowerCase() === rawName.toLowerCase())
             : null;
-          if (!matchedInFavorites) return; // niet van een gevolgde spot, negeer
-          myConvIdsRef.current.add(convId); // voeg toe zodat volgende berichten direct werken
+          // Alleen negeren als spot_name wél gezet is maar niet gevolgd — DMs (spot_name null) altijd doorlaten
+          if (rawName && !matchedInFavorites) return;
+          if (matchedInFavorites) myConvIdsRef.current.add(convId);
         }
 
         // Profiel ophalen voor de afzender
