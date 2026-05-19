@@ -7283,10 +7283,15 @@ export default function App() {
       supabase.from('conversations').select('id, group_key, spot_name, session_day').eq('type', 'group').in('session_day', [today, tomorrow]),
     ]);
     for (const session of (sessions ?? [])) {
-      const conv = (convs ?? []).find(c =>
-        c.spot_name?.toLowerCase() === session.spot_name?.toLowerCase() &&
-        String(c.session_day) === String(session.session_day)
-      );
+      const sourceId = (session as any).source_session_id ?? session.id;
+      const expectedGk = `spot:${normalizeSpotName(session.spot_name ?? '')}:source:${sourceId}`;
+      // Match op group_key zodat elke sessie-groep zijn eigen conversation krijgt
+      const conv = (convs ?? []).find(c => c.group_key === expectedGk) ??
+        // Fallback: eerste conversation voor dit spot+day als group_key nog niet bestaat
+        (convs ?? []).find(c =>
+          c.spot_name?.toLowerCase() === session.spot_name?.toLowerCase() &&
+          String(c.session_day) === String(session.session_day)
+        );
       if (conv) {
         const gk: string = conv.group_key ?? conv.id;
         sessionConvIdsRef.current.add(conv.id);
@@ -7296,12 +7301,9 @@ export default function App() {
           [gk]: { conversationId: conv.id, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
         });
       } else {
-        // Geen conversation gevonden: gebruik de correcte group_key zodat realtime routing werkt
-        const sourceId = (session as any).source_session_id ?? session.id;
-        const gk = `spot:${normalizeSpotName(session.spot_name ?? '')}:source:${sourceId}`;
-        setChatSessionMessages(prev => prev[gk] ? prev : {
+        setChatSessionMessages(prev => prev[expectedGk] ? prev : {
           ...prev,
-          [gk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
+          [expectedGk]: { conversationId: null, messages: [], loaded: false, spotName: session.spot_name ?? undefined, sessionDay: String(session.session_day), sessionStart: session.start_time ?? undefined, sessionEnd: session.end_time ?? undefined }
         });
       }
     }
@@ -8315,7 +8317,12 @@ export default function App() {
                 const tomorrow = getTomorrowLocalDateKey();
                 const sessionEntries = Object.entries(chatSessionMessages)
                   .filter(([, d]) => d.spotName && (d.sessionDay === today || d.sessionDay === tomorrow))
-                  .sort(([, a], [, b]) => (a.sessionDay ?? '').localeCompare(b.sessionDay ?? ''));
+                  .filter(([, d]) => d.messages.length > 0 || d.conversationId)
+                  .sort(([, a], [, b]) => {
+                    // Meest recent (meeste berichten) bovenaan per spot+day
+                    if (a.sessionDay !== b.sessionDay) return (a.sessionDay ?? '').localeCompare(b.sessionDay ?? '');
+                    return (b.messages.length) - (a.messages.length);
+                  });
                 if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
                 return sessionEntries.map(([gk, data]) => {
                   const msgs = data.messages ?? [];
@@ -8529,7 +8536,11 @@ export default function App() {
                     const tomorrow = getTomorrowLocalDateKey();
                     const sessionEntries = Object.entries(chatSessionMessages)
                       .filter(([, d]) => d.spotName && (d.sessionDay === today || d.sessionDay === tomorrow))
-                      .sort(([, a], [, b]) => (a.sessionDay ?? '').localeCompare(b.sessionDay ?? ''));
+                      .filter(([, d]) => d.messages.length > 0 || d.conversationId)
+                      .sort(([, a], [, b]) => {
+                        if (a.sessionDay !== b.sessionDay) return (a.sessionDay ?? '').localeCompare(b.sessionDay ?? '');
+                        return (b.messages.length) - (a.messages.length);
+                      });
                     if (!sessionEntries.length) return <Text style={{ color: theme.textMuted, fontSize: 14 }}>No sessions planned for today or tomorrow.</Text>;
                     return sessionEntries.map(([gk, data]) => {
                       const msgs = data.messages ?? [];
