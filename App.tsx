@@ -1803,18 +1803,6 @@ function SessionRow({
             </View>
           ) : null}
 
-          {sortedVisibleSessions.length > 1 && !canJoinGroup ? (
-            <Pressable
-              onPress={(event) => {
-                event.stopPropagation();
-                onOpenGroupChat(group.key);
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', marginTop: 6, alignSelf: 'flex-start' }}
-            >
-              <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.65)" />
-              <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700' }}>Group Chat</Text>
-            </Pressable>
-          ) : null}
         </View>
 
         <View style={{ position: 'absolute', left: 104, right: canJoinGroup ? 110 : 104, height: 24, zIndex: 1 }}>
@@ -1847,13 +1835,21 @@ function SessionRow({
           />
         </View>
 
-        {/* JOIN knop rechts in de rij — zelfde positie als op native */}
+        {/* Rechts: Join knop of Group Chat knop */}
         {canJoinGroup ? (
           <View
             style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 5 }}
             {...({ onClick: (e: any) => { e.stopPropagation(); if (!joinTarget) return; onJoin({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, sessionStatus: joinTarget.status ?? null, normalizedStart: group.startTime, normalizedEnd: group.endTime }); } } as any)}
           >
             <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '800' }}>Join</Text>
+          </View>
+        ) : sortedVisibleSessions.length > 1 ? (
+          <View
+            style={{ marginLeft: 'auto', zIndex: 2, flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 10, paddingVertical: 5 }}
+            {...({ onClick: (e: any) => { e.stopPropagation(); onOpenGroupChat(group.key); } } as any)}
+          >
+            <Ionicons name="chatbubble-outline" size={12} color="rgba(255,255,255,0.65)" />
+            <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 11, fontWeight: '700' }}>Group Chat</Text>
           </View>
         ) : (
           <>
