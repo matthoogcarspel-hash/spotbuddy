@@ -9945,15 +9945,17 @@ const handleSave = async () => {
                   onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
                   style={{
                     borderRadius: 16,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.12)',
-                    backgroundColor: 'rgba(255,255,255,0.06)',
+                    backgroundColor: '#ffffff',
                     paddingVertical: 14,
-                    paddingHorizontal: 20,
+                    paddingHorizontal: 28,
                     alignItems: 'center',
+                    flexDirection: 'row',
+                    gap: 8,
+                    justifyContent: 'center',
                   }}
                 >
-                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>Plan a session</Text>
+                  <Ionicons name="add-circle" size={18} color="#071421" />
+                  <Text style={{ color: '#071421', fontSize: 15, fontWeight: '900' }}>Plan a session</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -10292,28 +10294,21 @@ const handleSave = async () => {
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>
                 Intent
               </Text>
-              <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'flex-start' }}>
+              <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignSelf: 'flex-start' }}>
                 {sessionIntentOptions.map((option) => {
                   const isActive = intent === option.value;
                   return (
                     <Pressable
                       key={`intent-${option.value}`}
-                      onPress={() => {
-                        setIntent(option.value);
-                        
-                      }}
+                      onPress={() => setIntent(option.value)}
                       style={{
-                        minWidth: 120,
-                        backgroundColor: isActive ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.045)',
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: isActive ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.10)',
-                        paddingVertical: 8,
-                        paddingHorizontal: 12,
-                        alignItems: 'center',
+                        paddingVertical: 6,
+                        paddingHorizontal: 20,
+                        borderRadius: 999,
+                        backgroundColor: isActive ? '#202833' : 'transparent',
                       }}
                     >
-                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: isActive ? '700' : '600' }}>{option.label}</Text>
+                      <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{option.label}</Text>
                     </Pressable>
                   );
                 })}
