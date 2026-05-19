@@ -5,12 +5,6 @@ export const SUPABASE_URL = process.env.EXPO_PUBLIC_SUPABASE_URL;
 export const SUPABASE_ANON_KEY = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const supabaseUrl = SUPABASE_URL ?? '';
 const supabaseAnonKey = SUPABASE_ANON_KEY ?? '';
-const SUPABASE_CLIENT_COUNT = 1;
-
-console.log('SUPABASE_ACTIVE_URL', supabaseUrl);
-console.log('SUPABASE_ACTIVE_KEY_PREFIX', String(supabaseAnonKey || '').slice(0, 12));
-console.log('SUPABASE_CLIENT_COUNT', SUPABASE_CLIENT_COUNT);
-
 if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
   console.error('Missing EXPO_PUBLIC_SUPABASE_URL or EXPO_PUBLIC_SUPABASE_ANON_KEY environment variables.');
 }

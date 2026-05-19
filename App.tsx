@@ -4824,7 +4824,6 @@ export default function App() {
 
         const convId = row.conversation_id ?? '';
         if (!convId) return;
-        console.log('[RT] msg', convId.slice(0,8), 'inMyConvIds:', myConvIdsRef.current.has(convId), 'inSessionRef:', sessionConvIdsRef.current.has(convId));
 
         // Als convId nog niet in de ref staat: voeg toe (preload was nog niet klaar)
         if (!myConvIdsRef.current.has(convId)) {
@@ -7451,7 +7450,6 @@ export default function App() {
       console.warn('DM_OPEN_ABORT', { activeAppUserId, otherUserId });
       return null;
     }
-    console.log('DM_OPEN_START', { activeAppUserId, otherUserId });
 
     // Primair: RPC (SECURITY DEFINER, gebruikt auth.uid() intern, bypast RLS)
     const { data: rpcConvId, error: rpcError } = await supabase.rpc('get_or_create_conversation', {
@@ -7470,7 +7468,6 @@ export default function App() {
       .select('id, participant_a_id, participant_b_id')
       .eq('type', 'dm')
       .or(`participant_a_id.eq.${activeAppUserId},participant_b_id.eq.${activeAppUserId}`);
-    console.log('DM_SELECT_RESULT', { existing, selectError });
     const found = existing?.find(c =>
       (c.participant_a_id === activeAppUserId && c.participant_b_id === otherUserId) ||
       (c.participant_a_id === otherUserId && c.participant_b_id === activeAppUserId)
@@ -7479,7 +7476,6 @@ export default function App() {
     const { data: created, error: insertError } = await supabase.from('conversations').insert({
       type: 'dm', participant_a_id: activeAppUserId, participant_b_id: otherUserId,
     }).select('id').single();
-    console.log('DM_INSERT_RESULT', { created, insertError });
     if (insertError) console.error('DM_CREATE_ERROR', insertError?.message);
     if (created?.id) myConvIdsRef.current.add(created.id);
     return created?.id ?? null;
@@ -8752,9 +8748,8 @@ export default function App() {
                         <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
                           <Pressable
                             onPress={async () => {
-                              console.log('DM_BUTTON_BUDDIES', u.id);
+
                               const convId = await openDmWithUser(u.id);
-                              console.log('DM_BUTTON_BUDDIES_RESULT', { convId });
                               if (!convId) return;
                               void loadDmMessages(convId);
                               void loadDmConversations();
@@ -9391,7 +9386,6 @@ export default function App() {
           session_day_param: selectedDayKey,
           message_preview_param: messageText,
         }).then(({ data: recipients, error: rpcError }) => {
-          console.log('GROUP_CHAT_NOTIF_RPC', { groupSenderId, selectedSpot, selectedDayKey, recipients, rpcError });
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
           void sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
@@ -9479,7 +9473,6 @@ export default function App() {
           session_day_param: selectedDayKey,
           message_preview_param: messageText,
         }).then(({ data: recipients, error: rpcError }) => {
-          console.log('CHAT_NOTIF_RPC', { senderId, selectedSpot, selectedDayKey, recipients, rpcError });
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           void sendPushToRecipients(ids, `New message at ${selectedSpot}`, messageText, { type: 'chat_message', spotName: selectedSpot });
         });
