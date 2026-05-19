@@ -10479,82 +10479,69 @@ const handleSave = async () => {
         ) : null}
 
         {activeGroupChatKey ? (
-          <View style={{ backgroundColor: 'transparent', borderRadius: 22, padding: 14, marginBottom: isWebPlatform ? 14 : 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-              <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                <Text style={{ fontSize: 16 }}>💬</Text>
-              </View>
-              <View>
-                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>
+          <View style={{ borderRadius: 22, padding: 14, marginBottom: isWebPlatform ? 14 : 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.055)' }}>
+            {/* Header — zelfde stijl als spot chat */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', marginBottom: 12, gap: 10 }}>
+              <Ionicons name="people" size={18} color={theme.textMuted} />
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
                   {activeGroupChatContext?.title ?? 'Group Chat'}
                 </Text>
                 {activeGroupChatContext?.subtitle ? (
-                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 2 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>
                     {activeGroupChatContext.subtitle}
                   </Text>
                 ) : null}
               </View>
             </View>
 
-            {groupMessages.length > 0 ? (
-              <ScrollView
-                ref={groupChatScrollRef}
-                style={{ maxHeight: 250, marginTop: 12 }}
-                keyboardDismissMode="interactive"
-                onContentSizeChange={() => {
-                  groupChatScrollRef.current?.scrollToEnd({ animated: false });
-                }}
-              >
-                {groupMessages.map((message) => {
-                  const renderedTime = message.createdAt ? formatToHourMinute(message.createdAt) : '';
-                  const isOwn = message.userId === activeAppUserId;
-                  return (
-                    <View key={message.id} style={{ flexDirection: isOwn ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 10 }}>
-                      {!isOwn && <Pressable onPress={() => message.userId && setViewingOtherUserId(message.userId)}><Avatar uri={message.avatar_url} size={24} /></Pressable>}
-                      <View style={{ marginLeft: isOwn ? 0 : 8, marginRight: isOwn ? 0 : 0, maxWidth: '84%', backgroundColor: isOwn ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 16, borderBottomLeftRadius: isOwn ? 16 : 5, borderBottomRightRadius: isOwn ? 5 : 16, paddingHorizontal: 11, paddingVertical: 8, borderWidth: 1, borderColor: isOwn ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
-                        {!isOwn && (
-                          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', gap: 10 }}>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', flexShrink: 1 }} numberOfLines={1}>
-                              {message.display_name}
-                            </Text>
-                            {renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700' }}>{renderedTime}</Text> : null}
-                          </View>
-                        )}
-                        <Text style={{ color: theme.text, fontSize: 15, marginTop: isOwn ? 0 : 3 }}>{message.text}</Text>
-                        {isOwn && renderedTime ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '700', marginTop: 3, textAlign: 'right' }}>{renderedTime}</Text> : null}
+            {/* Berichten — zelfde rendering als spot chat */}
+            <ScrollView
+              ref={groupChatScrollRef}
+              style={{ maxHeight: 260 }}
+              keyboardDismissMode="on-drag"
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() => groupChatScrollRef.current?.scrollToEnd({ animated: false })}
+            >
+              {groupMessages.length === 0
+                ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginVertical: 20 }}>No messages yet. Say something!</Text>
+                : groupMessages.map((msg) => {
+                    const own = msg.userId === (activeProfile?.id ?? activeAppUserId);
+                    const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
+                    return (
+                      <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8 }}>
+                        {!own && <Pressable onPress={() => msg.userId && setViewingOtherUserId(msg.userId)}><Avatar uri={msg.avatar_url} size={22} /></Pressable>}
+                        <View style={{ marginLeft: own ? 0 : 6, marginRight: own ? 6 : 0, maxWidth: '82%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
+                          {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800' }} numberOfLines={1}>{msg.display_name}</Text>}
+                          <Text style={{ color: theme.text, fontSize: 14, marginTop: own ? 0 : 2 }}>{msg.text}</Text>
+                          {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
+                        </View>
                       </View>
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            ) : (
-              <Text style={{ color: theme.textSoft, fontSize: 13, marginTop: 12 }}>No group messages yet</Text>
-            )}
+                    );
+                  })
+              }
+            </ScrollView>
 
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.065)', paddingLeft: 12, paddingRight: 5, paddingVertical: 5, marginTop: 10 }}>
+            {/* Input bar — zelfde stijl als spot chat */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5, marginTop: 10 }}>
               <TextInput
                 value={groupMessageInput}
                 onChangeText={setGroupMessageInput}
-                onFocus={() => {
-                  spotDetailScrollRef.current?.scrollToEnd({ animated: true });
-                }}
-                onSubmitEditing={() => {
-                  void sendGroupChatMessage();
-                }}
+                onFocus={() => spotDetailScrollRef.current?.scrollToEnd({ animated: true })}
+                onSubmitEditing={() => void sendGroupChatMessage()}
                 blurOnSubmit={false}
-                placeholder="Type a group message"
+                placeholder="Type a message…"
                 placeholderTextColor={theme.textMuted}
-                style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 8, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
               />
-            <Pressable
-              data-group-chat-send="true"
-              onPress={() => {
-                void sendGroupChatMessage();
-              }}
-              style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: '#05070a', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}
-            >
-              <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '900' }}>↑</Text>
-            </Pressable>
+              <Pressable
+                data-group-chat-send="true"
+                onPress={() => void sendGroupChatMessage()}
+                disabled={!groupMessageInput.trim()}
+                style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: groupMessageInput.trim() ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: groupMessageInput.trim() ? 1 : 0.4 }}
+              >
+                <Ionicons name="arrow-up" size={17} color="#ffffff" />
+              </Pressable>
             </View>
           </View>
         ) : null}
