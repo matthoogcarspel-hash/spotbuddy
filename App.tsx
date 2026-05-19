@@ -1231,9 +1231,7 @@ function Avatar({ uri, size = 28, nationality, skillLevel }: { uri: string | nul
         <Text style={{ position: 'absolute', bottom: -(flagSize / 2), left: 0, right: 0, textAlign: 'center', fontSize: flagSize, lineHeight: flagSize + 2 }}>{flag}</Text>
       ) : null}
       {showStars ? (
-        <View style={{ position: 'absolute', bottom: -2, left: -2, backgroundColor: 'rgba(8,6,2,0.80)', borderRadius: 999, paddingHorizontal: 3, paddingVertical: 1 }}>
-          <Text style={{ color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
-        </View>
+        <Text numberOfLines={1} style={{ position: 'absolute', bottom: -(starFontSize / 2), left: 0, right: 0, textAlign: 'center', color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
       ) : null}
     </View>
   );
@@ -5944,9 +5942,9 @@ export default function App() {
               </View>
               <View style={{ gap: 10 }}>
                 {followingUserIds.includes(viewingOtherUserId) ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(77,184,255,0.08)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(77,184,255,0.18)' }}>
-                    <Ionicons name="people" size={16} color="#4DB8FF" />
-                    <Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '700' }}>You're buddies</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
+                    <Ionicons name="people-outline" size={16} color={theme.textMuted} />
+                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>You're buddies</Text>
                   </View>
                 ) : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
