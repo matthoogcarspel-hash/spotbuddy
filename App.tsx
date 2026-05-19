@@ -5154,43 +5154,29 @@ export default function App() {
       };
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        if (!active) {
-          return;
-        }
+    const onPosition = (position: GeolocationPosition) => {
+      if (!active) return;
+      const coordinates = { latitude: position.coords.latitude, longitude: position.coords.longitude };
+      setCurrentCoordinates(coordinates);
+      setNearestSpotResult(getNearestSpot(coordinates, verifiedSpotDefinitions));
+      setIsResolvingNearestSpot(false);
+    };
 
-        const latitude = position.coords.latitude;
-        const longitude = position.coords.longitude;
-        const coordinates = {
-          latitude,
-          longitude,
-        };
-        setCurrentCoordinates(coordinates);
-        const nearest = getNearestSpot(coordinates, verifiedSpotDefinitions);
-        setNearestSpotResult(nearest);
-        
-        setIsResolvingNearestSpot(false);
-      },
-      (error) => {
-        if (!active) {
-          return;
-        }
+    const onError = () => {
+      if (!active) return;
+      setCurrentCoordinates(null);
+      setNearestSpotResult(null);
+      setIsResolvingNearestSpot(false);
+    };
 
-        setCurrentCoordinates(null);
-        setNearestSpotResult(null);
-        setIsResolvingNearestSpot(false);
-        
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12_000,
-        maximumAge: 45_000,
-      },
-    );
+    const watchId = navigator.geolocation.watchPosition(onPosition, onError, {
+      enableHighAccuracy: true,
+      maximumAge: 15_000,
+    });
 
     return () => {
       active = false;
+      navigator.geolocation.clearWatch(watchId);
     };
   }, [isNativePlatform, verifiedSpotDefinitions]);
 
@@ -5590,13 +5576,6 @@ export default function App() {
 
   useEffect(() => {
     const runAutoCheckOutIfNeeded = async () => {
-      if (!isNativePlatform) {
-        autoCheckoutOutsideCountRef.current = 0;
-        autoCheckoutOutsideSinceRef.current = null;
-        
-        return;
-      }
-
       const isActiveLiveStatus = gpsActiveCheckedInSession?.status === 'live' || gpsActiveCheckedInSession?.status === 'Is er al';
       if (!activeAppUserId || !currentCoordinates || !gpsActiveCheckedInSession || !isActiveLiveStatus) {
         autoCheckoutOutsideCountRef.current = 0;
