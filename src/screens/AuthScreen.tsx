@@ -77,10 +77,16 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
     if (password.length < 6) { setError('Password must be at least 6 characters'); return; }
     if (!trimmedName) { setError('Display name is required'); return; }
     if (hasEmoji(trimmedName)) { setError('Emojis are not allowed in your name'); return; }
-    if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) { setError('Username not allowed'); return; }
     if (hasRestrictedWord(trimmedName)) { setError('Username contains restricted words'); return; }
 
     setLoading(true); reset();
+
+    // SpotBuddy naam: alleen toestaan als er nog geen bestaat
+    const normalizedUsername = trimmedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalizedUsername.includes('spotbuddy')) {
+      const { data: sbExists } = await supabase.from('profiles').select('id').ilike('display_name', '%spotbuddy%').limit(1).maybeSingle();
+      if (sbExists) { setLoading(false); setError('Username not allowed'); return; }
+    }
 
     const { data: existing } = await supabase.from('profiles').select('id').eq('display_name', trimmedName).limit(1);
     if (existing && existing.length > 0) { setLoading(false); setError('This name is already taken'); return; }

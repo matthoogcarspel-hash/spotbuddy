@@ -46,10 +46,15 @@ export default function NameSetupScreen({ userId, userEmail, onSaved }: Props) {
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName) { setError('Display name is required'); return; }
-    const normalizedMail = normalizeEmail(userEmail);
     if (hasEmoji(trimmedName)) { setError('Emojis are not allowed in your name'); return; }
-    if (hasBlockedSpotbuddyName(trimmedName, normalizedMail)) { setError('Username not allowed'); return; }
     if (hasRestrictedWord(trimmedName)) { setError('Username contains restricted words'); return; }
+
+    // SpotBuddy naam: alleen toestaan als er nog geen bestaat
+    const normalized = trimmedName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (normalized.includes('spotbuddy')) {
+      const { data: existing } = await supabase.from('profiles').select('id').ilike('display_name', '%spotbuddy%').limit(1).maybeSingle();
+      if (existing) { setError('Username not allowed'); return; }
+    }
 
     setError('');
     setIsLoading(true);
