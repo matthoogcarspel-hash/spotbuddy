@@ -9282,9 +9282,32 @@ export default function App() {
 
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
+          {/* Clear stale sessions */}
+          <Pressable
+            onPress={async () => {
+              if (!activeAppUserId) return;
+              const { error } = await supabase
+                .from('sessions')
+                .delete()
+                .eq('user_id', activeAppUserId)
+                .is('checked_out_at', null)
+                .not('status', 'in', '("finished","Uitchecken")');
+              if (!error) {
+                await fetchSharedData();
+                setProfileEditError('');
+                alert('Done — all active sessions cleared.');
+              } else {
+                setProfileEditError('Could not clear sessions: ' + error.message);
+              }
+            }}
+            style={{ marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: 'rgba(255,100,100,0.55)', fontSize: 13, fontWeight: '600' }}>Clear all active sessions</Text>
+          </Pressable>
+
           <Pressable
             onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
-            style={{ marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' }}
+            style={{ marginTop: 2, borderRadius: 14, padding: 14, alignItems: 'center' }}
           >
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>Log out</Text>
           </Pressable>
