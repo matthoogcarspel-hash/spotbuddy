@@ -7201,7 +7201,7 @@ export default function App() {
   }
 
   if (!profile) {
-    return <NameSetupScreen userId={session.user.id} onSaved={(savedProfile) => {
+    return <NameSetupScreen userId={session.user.id} userEmail={session.user.email ?? ''} onSaved={(savedProfile) => {
       setProfile(savedProfile);
       activeProfileOwnerUidRef.current = session.user.id;
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);

@@ -19,12 +19,13 @@ const SKILL_LEVELS = [
   { level: 5, name: 'Expert / Pro', sub: 'I have elite skill, precision, and consistency.' },
 ] as const;
 
-type NameSetupScreenProps = {
+type Props = {
   userId: string;
+  userEmail: string;
   onSaved: (profile: Profile) => void;
 };
 
-export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProps) {
+export default function NameSetupScreen({ userId, userEmail, onSaved }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [nationality, setNationality] = useState<string | null>(null);
@@ -38,32 +39,22 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     setError('');
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') { setError('Allow photo access to choose a profile photo'); return; }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.7,
-    });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.7 });
     if (!result.canceled) setAvatarUri(result.assets[0].uri);
   };
 
   const handleSave = async () => {
     const trimmedName = displayName.trim();
     if (!trimmedName) { setError('Display name is required'); return; }
-
-    const { data: authUserData } = await supabase.auth.getUser();
-    const email = authUserData.user?.email ?? '';
-    const normalizedEmail = normalizeEmail(email);
-
+    const normalizedMail = normalizeEmail(userEmail);
     if (hasEmoji(trimmedName)) { setError('Emojis are not allowed in your name'); return; }
-    if (hasBlockedSpotbuddyName(trimmedName, normalizedEmail)) { setError('Username not allowed'); return; }
+    if (hasBlockedSpotbuddyName(trimmedName, normalizedMail)) { setError('Username not allowed'); return; }
     if (hasRestrictedWord(trimmedName)) { setError('Username contains restricted words'); return; }
 
     setError('');
     setIsLoading(true);
 
-    const { data: existingProfile } = await supabase
-      .from('profiles').select('id').eq('display_name', trimmedName).neq('id', userId).maybeSingle();
+    const { data: existingProfile } = await supabase.from('profiles').select('id').eq('display_name', trimmedName).neq('id', userId).maybeSingle();
     if (existingProfile) { setIsLoading(false); setError('This name is already taken'); return; }
 
     let avatarUrl: string | null = null;
@@ -72,25 +63,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       if (!uploadError && publicUrl) avatarUrl = publicUrl;
     }
 
-    const profilePayload = {
-      id: userId,
-      owner_uid: userId,
-      display_name: trimmedName,
-      avatar_url: avatarUrl,
-      nationality: nationality ?? null,
-      skill_level: skillLevel ?? null,
-      created_at: new Date().toISOString(),
-    };
-
     const { data: savedProfile, error: upsertError } = await supabase
-      .from('profiles').upsert(profilePayload, { onConflict: 'id' })
+      .from('profiles')
+      .upsert({ id: userId, owner_uid: userId, display_name: trimmedName, avatar_url: avatarUrl, nationality: nationality ?? null, skill_level: skillLevel ?? null, created_at: new Date().toISOString() }, { onConflict: 'id' })
       .select('id, display_name, avatar_url, created_at').single();
 
     setIsLoading(false);
-    if (upsertError) {
-      setError(upsertError.code === '23505' ? 'This name is already taken' : upsertError.message);
-      return;
-    }
+    if (upsertError) { setError(upsertError.code === '23505' ? 'This name is already taken' : upsertError.message); return; }
     onSaved(savedProfile);
   };
 
@@ -104,19 +83,19 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
 
         {/* Wordmark */}
-        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 28 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0 }}>
-            <Image source={require('../../assets/logo.png')} style={{ width: 48, height: 48, marginRight: -6 }} resizeMode="contain" />
-            <Image source={require('../../assets/wordmark.png')} style={{ width: 220, height: 55, marginLeft: -8 }} resizeMode="contain" />
-          </View>
+        <View style={{ alignItems: 'center', marginTop: 32, marginBottom: 24 }}>
+          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: 130 }} />
         </View>
 
-        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', marginBottom: 20 }}>Create your profile</Text>
+        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', marginBottom: 4 }}>Complete your profile</Text>
+        <Text style={{ color: MUTED, fontSize: 13, marginBottom: 20 }}>{userEmail}</Text>
 
         {/* Avatar */}
         <Pressable onPress={pickAvatar} style={{ alignItems: 'center', marginBottom: 20 }}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={{ width: 96, height: 96, borderRadius: 48 }} />
+            <View style={{ width: 96, height: 96, borderRadius: 48, overflow: 'hidden', borderWidth: 3, borderColor: BG }}>
+              <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} />
+            </View>
           ) : (
             <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 36 }}>📷</Text>
@@ -141,33 +120,22 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
           style={{ backgroundColor: CARD, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: BORDER, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}
         >
           <Text style={{ color: MUTED, fontSize: 13, fontWeight: '700' }}>Nationality</Text>
-          <Text style={{ color: '#ffffff', fontSize: 14 }}>
-            {selectedCountry ? `${selectedCountry.flag}  ${selectedCountry.name}` : 'Not set'}
-          </Text>
+          <Text style={{ color: '#ffffff', fontSize: 14 }}>{selectedCountry ? `${selectedCountry.flag}  ${selectedCountry.name}` : 'Not set'}</Text>
         </Pressable>
 
         {showNationalityPicker ? (
-          <View style={{ backgroundColor: 'rgba(8,24,39,0.95)', borderRadius: 14, borderWidth: 1, borderColor: BORDER, maxHeight: 260, overflow: 'hidden', marginBottom: 10 }}>
+          <View style={{ backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 14, borderWidth: 1, borderColor: BORDER, maxHeight: 260, overflow: 'hidden', marginBottom: 10 }}>
             <View style={{ padding: 10, borderBottomWidth: 1, borderBottomColor: BORDER }}>
-              <TextInput
-                value={nationalitySearch}
-                onChangeText={setNationalitySearch}
-                placeholder="Search country…"
-                placeholderTextColor={MUTED}
-                autoFocus
-                style={{ backgroundColor: CARD, color: '#ffffff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, borderWidth: 1, borderColor: BORDER }}
-              />
+              <TextInput value={nationalitySearch} onChangeText={setNationalitySearch} placeholder="Search country…" placeholderTextColor={MUTED} autoFocus
+                style={{ backgroundColor: CARD, color: '#ffffff', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, borderWidth: 1, borderColor: BORDER }} />
             </View>
             <ScrollView keyboardShouldPersistTaps="handled">
-              {filteredCountries.map(country => (
-                <Pressable
-                  key={country.code}
-                  onPress={() => { setNationality(country.code); setShowNationalityPicker(false); setNationalitySearch(''); }}
-                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)', gap: 12, backgroundColor: nationality === country.code ? 'rgba(255,255,255,0.07)' : 'transparent' }}
-                >
-                  <Text style={{ fontSize: 20 }}>{country.flag}</Text>
-                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: nationality === country.code ? '800' : '500' }}>{country.name}</Text>
-                  {nationality === country.code ? <Text style={{ color: '#ffffff', fontSize: 14, marginLeft: 'auto' }}>✓</Text> : null}
+              {filteredCountries.map(c => (
+                <Pressable key={c.code} onPress={() => { setNationality(c.code); setShowNationalityPicker(false); setNationalitySearch(''); }}
+                  style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)', gap: 12, backgroundColor: nationality === c.code ? 'rgba(255,255,255,0.07)' : 'transparent' }}>
+                  <Text style={{ fontSize: 20 }}>{c.flag}</Text>
+                  <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: nationality === c.code ? '800' : '500' }}>{c.name}</Text>
+                  {nationality === c.code ? <Text style={{ color: '#ffffff', marginLeft: 'auto' }}>✓</Text> : null}
                 </Pressable>
               ))}
             </ScrollView>
@@ -180,11 +148,8 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
           {SKILL_LEVELS.map(({ level, name, sub }) => {
             const isSelected = skillLevel === level;
             return (
-              <Pressable
-                key={level}
-                onPress={() => setSkillLevel(isSelected ? null : level)}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, marginBottom: 4, backgroundColor: isSelected ? 'rgba(255,255,255,0.09)' : 'transparent', borderWidth: 1, borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)' }}
-              >
+              <Pressable key={level} onPress={() => setSkillLevel(isSelected ? null : level)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 9, marginBottom: 4, backgroundColor: isSelected ? 'rgba(255,255,255,0.09)' : 'transparent', borderWidth: 1, borderColor: isSelected ? 'rgba(255,255,255,0.18)' : 'rgba(255,255,255,0.04)' }}>
                 <View style={{ width: 15, height: 15, borderRadius: 8, borderWidth: 2, borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.25)', backgroundColor: isSelected ? '#ffffff' : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
                   {isSelected ? <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: BG }} /> : null}
                 </View>
@@ -201,16 +166,9 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
 
         {error ? <Text style={{ color: '#ff6b6b', fontSize: 13, marginBottom: 10 }}>{error}</Text> : null}
 
-        {/* Save */}
-        <TouchableOpacity
-          disabled={isLoading}
-          onPress={handleSave}
-          activeOpacity={0.85}
-          style={{ backgroundColor: '#ffffff', borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: isLoading ? 0.6 : 1, marginTop: 4 }}
-        >
-          <Text style={{ color: BG, fontSize: 16, fontWeight: '900' }}>
-            {isLoading ? 'Saving...' : 'Save profile'}
-          </Text>
+        <TouchableOpacity disabled={isLoading} onPress={handleSave} activeOpacity={0.85}
+          style={{ backgroundColor: '#ffffff', borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: isLoading ? 0.6 : 1 }}>
+          <Text style={{ color: BG, fontSize: 16, fontWeight: '900' }}>{isLoading ? 'Saving...' : 'Save profile'}</Text>
         </TouchableOpacity>
 
       </ScrollView>
