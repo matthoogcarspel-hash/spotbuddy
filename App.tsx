@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Image, Keyboard, KeyboardAvoidingView, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -1093,6 +1093,7 @@ const getSessionJoinPlacement = (leftPercent: number, widthPercent: number): Ses
     leftPercent: clamp(rightEdgePercent - timelineJoinButtonWidthPercent, leftPercent, 100 - timelineJoinButtonWidthPercent),
   };
 };
+const CONTACT_EMAIL = 'contact@spotbuddy.nl';
 const CHECK_IN_RADIUS_METERS = 1000;
 const AUTO_CHECKIN_PROMPT_RADIUS_METERS = 300;
 const AUTO_CHECKOUT_RADIUS_METERS = 3000;
@@ -9301,8 +9302,15 @@ export default function App() {
           </Pressable>
 
           <Pressable
-            onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
+            onPress={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=SpotBuddy feedback`)}
             style={{ marginTop: 2, borderRadius: 14, padding: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, fontWeight: '600' }}>Contact · {CONTACT_EMAIL}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
+            style={{ borderRadius: 14, padding: 14, alignItems: 'center' }}
           >
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>Log out</Text>
           </Pressable>
@@ -11267,6 +11275,17 @@ const handleSave = async () => {
             </Pressable>
           );
         })}
+
+        {/* Contact footer — web only */}
+        {isWebPlatform ? (
+          <Pressable
+            onPress={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=SpotBuddy feedback`)}
+            style={{ paddingVertical: 20, alignItems: 'center' }}
+          >
+            <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>Contact · {CONTACT_EMAIL}</Text>
+          </Pressable>
+        ) : null}
+
         </ScrollView>
       </View>
       {renderNativeBottomNav()}
