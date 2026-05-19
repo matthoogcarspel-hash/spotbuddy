@@ -9132,7 +9132,7 @@ export default function App() {
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', paddingVertical: 14, paddingHorizontal: 20 }}>
           <Pressable
             onPress={goBack}
-            style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
+            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 12, paddingVertical: 6 }}
           >
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
@@ -9143,7 +9143,24 @@ export default function App() {
         {/* Avatar + naam */}
         <View style={{ alignItems: 'center', marginVertical: 20 }}>
           <Avatar uri={profile.avatar_url} size={90} nationality={profile.nationality} />
-          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14 }}>{profile.display_name}</Text>
+          <TextInput
+            value={profileNameInput}
+            onChangeText={setProfileNameInput}
+            onEndEditing={async () => {
+              const trimmed = profileNameInput.trim();
+              if (trimmed && trimmed !== profile.display_name) {
+                await handleSaveProfile();
+              } else if (!trimmed) {
+                setProfileNameInput(profile.display_name);
+              }
+            }}
+            style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14, textAlign: 'center', minWidth: 100 }}
+            maxLength={20}
+            returnKeyType="done"
+            autoCorrect={false}
+            selectTextOnFocus
+          />
+          <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>Tap name to edit</Text>
           <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
         </View>
 
