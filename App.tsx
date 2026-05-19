@@ -1153,16 +1153,16 @@ const getNearestSpot = (currentCoordinates: SpotCoordinates, spotDefinitions: Sp
 };
 
 function WheelPicker({ values, selected, onSelect, label, formatVal }: { values: number[]; selected: number | null; onSelect: (v: number) => void; label: string; formatVal: (v: number) => string }) {
-  const ITEM_H = 44;
+  const ITEM_H = 48;
   const VISIBLE = 3;
   const HEIGHT = ITEM_H * VISIBLE;
+  const BG = '#071421';
   const scrollRef = useRef<ScrollView>(null);
   const isScrolling = useRef(false);
 
   useEffect(() => {
     if (isScrolling.current) return;
     if (selected === null && values.length > 0) {
-      // Auto-select first item and scroll to it
       onSelect(values[0]);
       setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: false }), 30);
       return;
@@ -1174,9 +1174,14 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
 
   return (
     <View style={{ flex: 1, alignItems: 'center' }}>
-      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 }}>{label}</Text>
-      <View style={{ height: HEIGHT, width: 80, overflow: 'hidden', position: 'relative' }}>
-        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', zIndex: 1 }} />
+      <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>{label}</Text>
+      <View style={{ height: HEIGHT, width: 72, overflow: 'hidden', position: 'relative', borderRadius: 12 }}>
+        {/* Selection highlight */}
+        <View pointerEvents="none" style={{ position: 'absolute', top: ITEM_H, left: 0, right: 0, height: ITEM_H, backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)', zIndex: 1 }} />
+        {/* Top fade */}
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2, backgroundColor: BG, opacity: 0.7 }} />
+        {/* Bottom fade */}
+        <View pointerEvents="none" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: ITEM_H, zIndex: 2, backgroundColor: BG, opacity: 0.7 }} />
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
@@ -1200,7 +1205,7 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
                 const idx = values.indexOf(v);
                 scrollRef.current?.scrollTo({ y: idx * ITEM_H, animated: true });
               }} style={{ height: ITEM_H, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.35)', fontSize: isSelected ? 24 : 18, fontWeight: isSelected ? '800' : '400' }}>
+                <Text style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.28)', fontSize: isSelected ? 26 : 17, fontWeight: isSelected ? '700' : '400' }}>
                   {formatVal(v)}
                 </Text>
               </Pressable>
@@ -10273,7 +10278,7 @@ const handleSave = async () => {
                     <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Van</Text>
                     <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tot</Text>
                   </View>
-                <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, padding: 10 }}>
+                <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
                   <WheelPicker
                     values={startHourOptions}
                     selected={startHour}
@@ -10317,12 +10322,10 @@ const handleSave = async () => {
                       }}
                       style={{
                         minWidth: 120,
-                        backgroundColor: isActive
-                          ? (option.value === 'definitely' ? '#4DB8FF' : '#5F83A6')
-                          : 'rgba(255,255,255,0.045)',
+                        backgroundColor: isActive ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.045)',
                         borderRadius: 10,
                         borderWidth: 1,
-                        borderColor: isActive ? 'transparent' : 'rgba(255,255,255,0.10)',
+                        borderColor: isActive ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.10)',
                         paddingVertical: 8,
                         paddingHorizontal: 12,
                         alignItems: 'center',
