@@ -1,4 +1,4 @@
-const ADMIN_EMAIL_EXCEPTION = 'matthoogcarspel@gmail.com';
+const ADMIN_EMAIL_EXCEPTIONS = ['matthoogcarspel@gmail.com', 'spotbuddynl@gmail.com'];
 
 export const blockedWords = [
   'fuck',
@@ -39,7 +39,7 @@ export const normalizeUserInput = (value: string) =>
 
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
-export const isAdminEmailException = (email: string) => normalizeEmail(email) === ADMIN_EMAIL_EXCEPTION;
+export const isAdminEmailException = (email: string) => ADMIN_EMAIL_EXCEPTIONS.includes(normalizeEmail(email));
 
 export const hasRestrictedWord = (username: string) => {
   const normalizedUsername = normalizeUserInput(username);
