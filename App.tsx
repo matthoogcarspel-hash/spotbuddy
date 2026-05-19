@@ -1877,10 +1877,10 @@ function SessionRow({
         {/* JOIN knop rechts in de rij — zelfde positie als op native */}
         {canJoinGroup ? (
           <View
-            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.15)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.35)', paddingHorizontal: 10, paddingVertical: 5 }}
+            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 5 }}
             {...({ onClick: (e: any) => { e.stopPropagation(); if (!joinTarget) return; onJoin({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, sessionStatus: joinTarget.status ?? null, normalizedStart: group.startTime, normalizedEnd: group.endTime }); } } as any)}
           >
-            <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Join</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '800' }}>Join</Text>
           </View>
         ) : (
           <>
@@ -2151,10 +2151,10 @@ function SessionTimeline({
                             event.stopPropagation();
                             onOpenGroupChat(group.key);
                           }}
-                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
                         >
-                          <Ionicons name="chatbubble" size={13} color="#ffffff" />
-                          <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Group Chat</Text>
+                          <Ionicons name="chatbubble-outline" size={13} color="rgba(255,255,255,0.65)" />
+                          <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '700' }}>Group Chat</Text>
                         </Pressable>
                       ) : null}
 
@@ -5868,8 +5868,8 @@ export default function App() {
   const canCancelJoinedSession = Boolean(
     joinedSession
     && joinedSession?.userId === activeAppUserId
-    && !joinedSession.checkedInAt
-    && !joinedSession.checkedOutAt,
+    && joinedSession.status !== 'finished'
+    && joinedSession.status !== 'Uitchecken',
   );
   
   const topCtaMode = ownSessionCount === 0

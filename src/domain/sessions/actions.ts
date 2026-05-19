@@ -567,8 +567,6 @@ export async function cancelSession(input: {
   const isCancelable = Boolean(
     input.resolvedSessionActorProfileId === input.activeProfileId
       && ownSessionForSpotDay.hasOwnSession
-      && !input.session.checkedInAt
-      && !input.session.checkedOutAt
       && input.session.status !== 'finished'
       && input.session.status !== 'Uitchecken',
   );
