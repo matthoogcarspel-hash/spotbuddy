@@ -8846,7 +8846,7 @@ export default function App() {
                               opacity: inFlight ? 0.5 : 1,
                             }}
                           >
-                            <Text style={{ color: isPending ? theme.textMuted : '#4DB8FF', fontSize: 12, fontWeight: '800' }}>
+                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800' }}>
                               {inFlight ? '...' : isPending ? 'Requested' : 'Add'}
                             </Text>
                           </Pressable>
