@@ -16,7 +16,7 @@ function AvatarPreview({ uri }: { uri: string }) {
   return (
     <Image
       source={{ uri }}
-      style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: '#223247' }}
+      style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: '#071421' }}
     />
   );
 }
@@ -128,9 +128,6 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
     }
 
     const createdAt = new Date().toISOString();
-    console.log('PROFILE_CREATE_INPUT', {
-      userId,
-    });
 
     const profilePayload = {
       id: userId,
@@ -139,17 +136,13 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
       avatar_url: avatarUrl,
       created_at: createdAt,
     };
-    console.log('PROFILE_CREATE_PAYLOAD', profilePayload);
+
 
     const { data: savedProfile, error: upsertError } = await supabase
       .from('profiles')
       .upsert(profilePayload, { onConflict: 'id' })
       .select('id, display_name, avatar_url, created_at')
       .single();
-    console.log('PROFILE_CREATE_RESULT', {
-      success: !upsertError,
-      error: upsertError,
-    });
 
     setIsLoading(false);
 
@@ -169,54 +162,51 @@ export default function NameSetupScreen({ userId, onSaved }: NameSetupScreenProp
   };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#0b0f14', paddingHorizontal: 20, paddingTop: 20 }}>
-      <View style={{ marginTop: 40, backgroundColor: '#121821', borderRadius: 12, padding: 16 }}>
-        <Text style={{ color: '#ffffff', fontSize: 30, fontWeight: '700', marginBottom: 16 }}>Create your profile</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: '#071421', paddingHorizontal: 20, paddingTop: 20 }}>
+      <View style={{ marginTop: 40, gap: 12 }}>
+        <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '900', marginBottom: 8 }}>Create your profile</Text>
+
+        {/* Avatar */}
+        <Pressable onPress={pickAvatar} style={{ alignItems: 'center', marginBottom: 4 }}>
+          {avatarUri ? (
+            <AvatarPreview uri={avatarUri} />
+          ) : (
+            <View style={{ width: 90, height: 90, borderRadius: 45, backgroundColor: 'rgba(255,255,255,0.07)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+              <Text style={{ fontSize: 32 }}>📷</Text>
+            </View>
+          )}
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 8 }}>Tap to add photo</Text>
+        </Pressable>
 
         <TextInput
           value={displayName}
           onChangeText={setDisplayName}
           placeholder="Display name"
-          placeholderTextColor="#9db0c7"
+          placeholderTextColor="rgba(255,255,255,0.3)"
           autoCapitalize="none"
-          style={{ backgroundColor: '#0b0f14', color: '#ffffff', borderRadius: 10, padding: 12, marginBottom: 12 }}
+          style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#ffffff', borderRadius: 12, padding: 14, fontSize: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
         />
 
-        <Pressable
-          onPress={pickAvatar}
-          style={{ backgroundColor: '#0b0f14', borderRadius: 10, padding: 12, marginBottom: 12 }}
-        >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>Upload profile photo</Text>
-        </Pressable>
-
-        {avatarUri ? (
-          <View style={{ alignItems: 'center', marginBottom: 12 }}>
-            <AvatarPreview uri={avatarUri} />
-          </View>
-        ) : null}
-
-        {error ? <Text style={{ color: '#ff6b6b', marginBottom: 10 }}>{error}</Text> : null}
-        {warning ? <Text style={{ color: '#f2c66d', fontSize: 12, marginBottom: 10 }}>{warning}</Text> : null}
+        {error ? <Text style={{ color: '#ff6b6b', fontSize: 13 }}>{error}</Text> : null}
+        {warning ? <Text style={{ color: '#f2c66d', fontSize: 12 }}>{warning}</Text> : null}
 
         <TouchableOpacity
           disabled={isLoading}
           onPress={handleSave}
-          activeOpacity={0.7}
+          activeOpacity={0.85}
           style={{
-            backgroundColor: '#0b0f14',
-            borderRadius: 10,
-            minHeight: 48,
-            paddingHorizontal: 12,
-            justifyContent: 'center',
+            backgroundColor: '#ffffff',
+            borderRadius: 14,
+            paddingVertical: 15,
+            alignItems: 'center',
             opacity: isLoading ? 0.6 : 1,
+            marginTop: 4,
           }}
         >
-          <Text style={{ color: '#ffffff', textAlign: 'center', fontWeight: '600' }}>
-            {saveButtonClicked ? 'Clicked' : isLoading ? 'Saving...' : 'Save'}
+          <Text style={{ color: '#071421', fontSize: 16, fontWeight: '900' }}>
+            {isLoading ? 'Saving...' : 'Save'}
           </Text>
         </TouchableOpacity>
-
-        {saveStatusText ? <Text style={{ color: '#9db0c7', marginTop: 10, textAlign: 'center' }}>{saveStatusText}</Text> : null}
       </View>
     </SafeAreaView>
   );
