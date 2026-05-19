@@ -10274,10 +10274,6 @@ const handleSave = async () => {
               ) : (
                 /* Native: wheel pickers */
                 <View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 2 }}>
-                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Van</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 }}>Tot</Text>
-                  </View>
                 <View style={{ flexDirection: 'row', gap: 4, alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
                   <WheelPicker
                     values={startHourOptions}
@@ -10289,21 +10285,27 @@ const handleSave = async () => {
                         if (earliest !== undefined && startMinute < earliest) setStartMinute(earliest);
                       }
                     }}
-                    label="Uur"
+                    label="Van"
                     formatVal={formatTimePart}
                   />
-                  <WheelPicker values={minuteOptions} selected={startMinute} onSelect={setStartMinute} label="Min" formatVal={formatTimePart} />
-                  <View style={{ alignSelf: 'center', paddingTop: 18, paddingHorizontal: 4 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '300' }}>→</Text>
+                  <View style={{ alignSelf: 'center', paddingTop: 22 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '700' }}>:</Text>
+                  </View>
+                  <WheelPicker values={minuteOptions} selected={startMinute} onSelect={setStartMinute} label=" " formatVal={formatTimePart} />
+                  <View style={{ alignSelf: 'center', paddingTop: 22, paddingHorizontal: 4 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 18, fontWeight: '300' }}>–</Text>
                   </View>
                   <WheelPicker
                     values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)}
                     selected={endHour}
                     onSelect={setEndHour}
-                    label="Uur"
+                    label="Tot"
                     formatVal={formatTimePart}
                   />
-                  <WheelPicker values={minuteOptions} selected={endMinute} onSelect={setEndMinute} label="Min" formatVal={formatTimePart} />
+                  <View style={{ alignSelf: 'center', paddingTop: 22 }}>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 22, fontWeight: '700' }}>:</Text>
+                  </View>
+                  <WheelPicker values={minuteOptions} selected={endMinute} onSelect={setEndMinute} label=" " formatVal={formatTimePart} />
                 </View>
                 </View>
               )}
