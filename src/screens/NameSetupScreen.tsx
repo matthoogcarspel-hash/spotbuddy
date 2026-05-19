@@ -92,8 +92,21 @@ export default function NameSetupScreen({ userId, userEmail, onSaved }: Props) {
           <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: 130 }} />
         </View>
 
-        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', marginBottom: 4 }}>Complete your profile</Text>
-        <Text style={{ color: MUTED, fontSize: 13, marginBottom: 20 }}>{userEmail}</Text>
+        <Text style={{ color: '#ffffff', fontSize: 24, fontWeight: '900', marginBottom: 8 }}>Complete your profile</Text>
+
+        {/* Account info + sign out */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: CARD, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1, borderColor: BORDER, marginBottom: 20 }}>
+          <View>
+            <Text style={{ color: MUTED, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 }}>Logged in as</Text>
+            <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700', marginTop: 2 }}>{userEmail}</Text>
+          </View>
+          <Pressable
+            onPress={() => supabase.auth.signOut()}
+            style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: BORDER }}
+          >
+            <Text style={{ color: MUTED, fontSize: 12, fontWeight: '700' }}>Sign out</Text>
+          </Pressable>
+        </View>
 
         {/* Avatar */}
         <Pressable onPress={pickAvatar} style={{ alignItems: 'center', marginBottom: 20 }}>
