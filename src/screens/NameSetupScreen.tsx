@@ -3,7 +3,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { uploadAvatar } from '../lib/avatar';
 import { Profile, supabase } from '../lib/supabase';
-import { hasBlockedSpotbuddyName, hasEmoji, hasRestrictedWord, normalizeEmail } from '../lib/userValidation';
+import { hasEmoji, hasRestrictedWord } from '../lib/userValidation';
 import { COUNTRIES, getCountry } from '../lib/countries';
 
 const BG = '#071421';

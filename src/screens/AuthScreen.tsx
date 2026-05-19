@@ -2,7 +2,7 @@ import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
-import { isAdminEmailException, normalizeEmail, hasBlockedSpotbuddyName, hasEmoji, hasRestrictedWord } from '../lib/userValidation';
+import { normalizeEmail, hasEmoji, hasRestrictedWord } from '../lib/userValidation';
 import { uploadAvatar } from '../lib/avatar';
 import { COUNTRIES, getCountry } from '../lib/countries';
 

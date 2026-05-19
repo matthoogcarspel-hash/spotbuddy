@@ -7441,7 +7441,6 @@ export default function App() {
 
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) {
-      console.warn('DM_OPEN_ABORT', { activeAppUserId, otherUserId });
       return null;
     }
 
@@ -7450,14 +7449,12 @@ export default function App() {
       p_type: 'dm',
       p_other_user_id: otherUserId,
     });
-    if (rpcError) console.warn('DM_RPC_ERROR', rpcError?.message);
     if (!rpcError && rpcConvId) {
       myConvIdsRef.current.add(rpcConvId);
       return rpcConvId as string;
     }
 
     // Fallback: directe participant kolommen query
-    console.warn('DM_RPC_FAILED, trying direct', rpcError);
     const { data: existing, error: selectError } = await supabase.from('conversations')
       .select('id, participant_a_id, participant_b_id')
       .eq('type', 'dm')
@@ -9271,28 +9268,6 @@ export default function App() {
 
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
-          {/* Clear stale sessions */}
-          <Pressable
-            onPress={async () => {
-              if (!activeAppUserId) return;
-              const { error } = await supabase
-                .from('sessions')
-                .delete()
-                .eq('user_id', activeAppUserId)
-                .is('checked_out_at', null)
-                .not('status', 'in', '("finished","Uitchecken")');
-              if (!error) {
-                await fetchSharedData();
-                setProfileEditError('');
-                alert('Done — all active sessions cleared.');
-              } else {
-                setProfileEditError('Could not clear sessions: ' + error.message);
-              }
-            }}
-            style={{ marginTop: 8, borderRadius: 14, padding: 14, alignItems: 'center' }}
-          >
-            <Text style={{ color: 'rgba(255,100,100,0.55)', fontSize: 13, fontWeight: '600' }}>Clear all active sessions</Text>
-          </Pressable>
 
           <Pressable
             onPress={() => void Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=SpotBuddy feedback`)}
