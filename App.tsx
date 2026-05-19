@@ -4591,16 +4591,16 @@ export default function App() {
 
     if (!spotNames.includes(selectedSpot)) {
       const selectedCanonicalName = normalizeSpotName(selectedSpot);
-      const replacementSpot = spotDefinitions.find((spot) =>
+      const knownSpot = spotDefinitions.find((spot) =>
         spot.canonicalName === selectedCanonicalName
         || normalizeSpotName(spot.spot) === selectedCanonicalName
-      )?.spot ?? null;
-      if (replacementSpot) {
-        setSelectedSpot(replacementSpot);
+      );
+      // Spot bestaat in spotDefinitions maar wordt niet gevolgd — toch tonen (bijv. vanuit Discover)
+      if (knownSpot) {
+        if (knownSpot.spot !== selectedSpot) setSelectedSpot(knownSpot.spot);
         return;
       }
 
-      console.error('SPOT_DETAIL_SELECTED_SPOT_MISSING', { selectedSpot });
       setSelectedSpot(null);
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
