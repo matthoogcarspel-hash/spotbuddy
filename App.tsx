@@ -1231,7 +1231,7 @@ function Avatar({ uri, size = 28, nationality, skillLevel }: { uri: string | nul
         <Text style={{ position: 'absolute', bottom: -(flagSize / 2), left: 0, right: 0, textAlign: 'center', fontSize: flagSize, lineHeight: flagSize + 2 }}>{flag}</Text>
       ) : null}
       {showStars ? (
-        <Text numberOfLines={1} style={{ position: 'absolute', bottom: -(starFontSize / 2), left: 0, right: 0, textAlign: 'center', color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
+        <Text numberOfLines={1} style={{ position: 'absolute', top: -(starFontSize / 2), left: 0, right: 0, textAlign: 'center', color: '#FFD166', fontSize: starFontSize, lineHeight: starFontSize + 2, fontWeight: '800' }}>{starsText}</Text>
       ) : null}
     </View>
   );
