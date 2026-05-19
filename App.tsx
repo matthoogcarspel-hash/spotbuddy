@@ -6216,7 +6216,8 @@ export default function App() {
   const canQuickCheckIn = !quickCheckInWindowError;
   const nearestSpotName = nearestSpotResult?.spot ?? null;
   const distanceMeters = nearestSpotResult?.distanceMeters ?? null;
-  const nearestSpotWithinRange = nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false;
+  // Web GPS (WiFi/IP) is te onnauwkeurig voor check-in — alleen op native inschakelen
+  const nearestSpotWithinRange = !isWebPlatform && (nearestSpotResult ? nearestSpotResult.distanceMeters <= CHECK_IN_RADIUS_METERS : false);
   const nearestSpotDistanceLabel = nearestSpotResult ? formatDistance(nearestSpotResult.distanceMeters) : null;
   const nearestSpotCanCheckIn = activeDay === 'today' && !hasActiveCheckedInSession && canQuickCheckIn && nearestSpotWithinRange;
   const isHomeCheckoutButtonVisible = Boolean(activeDay === 'today' && nearestSpotResult && nearestSpotDistanceLabel && hasActiveCheckedInSession);
