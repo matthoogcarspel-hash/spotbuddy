@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Pressable, Text, View } from 'react-native';
+import { Animated, Platform, Pressable, Text, View } from 'react-native';
 import MapView, { Callout, Marker } from 'react-native-maps';
 
 type SpotMarker = {
@@ -109,70 +109,55 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
           const pinTextColor = isAdded ? '#ffffff' : '#007AFF';
           const dotColor = isAdded ? 'rgba(255,255,255,0.8)' : '#007AFF';
 
+          const pinView = (
+            <View style={{ alignItems: 'center' }}>
+              <View style={{ position: 'relative' }}>
+                <View style={{
+                  backgroundColor: pinBg, borderRadius: 999,
+                  paddingHorizontal: showLabels ? 10 : 6, paddingVertical: showLabels ? 5 : 6,
+                  borderWidth: 1.5, borderColor: pinBorder,
+                  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.25, shadowRadius: 4, elevation: 5,
+                  flexDirection: 'row', alignItems: 'center', gap: showLabels ? 4 : 0,
+                }}>
+                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />
+                  {showLabels ? <Text style={{ color: pinTextColor, fontSize: 11, fontWeight: '800' }}>{label}</Text> : null}
+                </View>
+                {hasActivity ? (
+                  <View style={{ position: 'absolute', top: -7, right: -7, backgroundColor: activityColor, borderRadius: 999, paddingHorizontal: 5, paddingVertical: 2, minWidth: 18, alignItems: 'center' }}>
+                    <Text style={{ color: '#061421', fontSize: 9, fontWeight: '900' }}>{activityLabel}</Text>
+                  </View>
+                ) : null}
+              </View>
+              <View style={{ width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: isAdded ? '#007AFF' : '#007AFF', marginTop: -1 }} />
+            </View>
+          );
+
           return (
             <Marker
               key={spot.name}
               coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
               anchor={{ x: 0.5, y: 1 }}
               tracksViewChanges={false}
-              onPress={() => onOpenSpot(spot.name)}
+              onPress={Platform.OS !== 'web' ? () => onOpenSpot(spot.name) : undefined}
             >
-              <View style={{ alignItems: 'center' }}>
-                <View style={{ position: 'relative' }}>
-                  <View style={{
-                    backgroundColor: pinBg,
-                    borderRadius: 999,
-                    paddingHorizontal: showLabels ? 10 : 6,
-                    paddingVertical: showLabels ? 5 : 6,
-                    borderWidth: 1.5,
-                    borderColor: pinBorder,
-                    shadowColor: '#000',
-                    shadowOffset: { width: 0, height: 2 },
-                    shadowOpacity: 0.25,
-                    shadowRadius: 4,
-                    elevation: 5,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    gap: showLabels ? 4 : 0,
-                  }}>
-                    <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />
-                    {showLabels ? (
-                      <Text style={{ color: pinTextColor, fontSize: 11, fontWeight: '800' }}>{label}</Text>
-                    ) : null}
-                  </View>
-                  {hasActivity ? (
-                    <View style={{
-                      position: 'absolute', top: -7, right: -7,
-                      backgroundColor: activityColor,
-                      borderRadius: 999,
-                      paddingHorizontal: 5,
-                      paddingVertical: 2,
-                      minWidth: 18,
-                      alignItems: 'center',
-                    }}>
-                      <Text style={{ color: '#061421', fontSize: 9, fontWeight: '900' }}>{activityLabel}</Text>
+              {Platform.OS !== 'web' ? (
+                // Native: tap pin → direct open, geen Callout nodig
+                pinView
+              ) : (
+                // Web: Callout met click handler (Leaflet blokkeert marker onPress)
+                <>
+                  {pinView}
+                  <Callout onPress={() => onOpenSpot(spot.name)}>
+                    <View style={{ padding: 8, minWidth: 150 }} {...({ onClick: () => onOpenSpot(spot.name) } as any)}>
+                      <Text style={{ fontWeight: '800', fontSize: 14, marginBottom: 4, color: '#07111F' }}>{spot.name}</Text>
+                      <View style={{ backgroundColor: '#07111F', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center' }}>
+                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Open spot →</Text>
+                      </View>
                     </View>
-                  ) : null}
-                </View>
-                <View style={{
-                  width: 0, height: 0,
-                  borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6,
-                  borderLeftColor: 'transparent', borderRightColor: 'transparent',
-                  borderTopColor: isAdded ? '#007AFF' : '#007AFF',
-                  marginTop: -1,
-                }} />
-              </View>
-              <Callout onPress={() => onOpenSpot(spot.name)}>
-                <View
-                  style={{ padding: 8, minWidth: 150 }}
-                  {...({ onClick: () => onOpenSpot(spot.name) } as any)}
-                >
-                  <Text style={{ fontWeight: '800', fontSize: 14, marginBottom: 4, color: '#07111F' }}>{spot.name}</Text>
-                  <View style={{ backgroundColor: '#07111F', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center' }}>
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Open spot →</Text>
-                  </View>
-                </View>
-              </Callout>
+                  </Callout>
+                </>
+              )}
             </Marker>
           );
         })}
