@@ -10973,11 +10973,11 @@ const handleSave = async () => {
                   const barH = Math.max(6, Math.round((spot.count / max) * BAR_MAX_H));
                   const color = barColor(spot.count);
                   return (
-                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.fullName as any)} style={{ alignItems: 'flex-start', gap: 6 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_MAX_H }}>
+                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.fullName as any)} style={{ alignItems: 'center', gap: 6 }}>
+                      <View style={{ alignItems: 'center', justifyContent: 'flex-end', height: BAR_MAX_H }}>
                         <View style={{ width: BAR_W, height: barH, borderRadius: 4, backgroundColor: color }} />
                       </View>
-                      <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '800' }}>{spot.name}</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '800', textAlign: 'center' }}>{spot.name}</Text>
                       <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{spot.count} riders</Text>
                     </Pressable>
                   );
