@@ -2581,6 +2581,7 @@ export default function App() {
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [showDiscoverSpotsPage, setShowDiscoverSpotsPage] = useState(false);
   const [pendingSpotFromDiscover, setPendingSpotFromDiscover] = useState<string | null>(null);
+  const openedFromDiscoverRef = useRef(false);
   const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
   const [coordinateReviewSpotName, setCoordinateReviewSpotName] = useState<SpotName | null>(null);
   const [coordinateReviewPoint, setCoordinateReviewPoint] = useState<SpotCoordinates | null>(null);
@@ -4648,13 +4649,18 @@ export default function App() {
 
 
     if (!spotNames.includes(selectedSpot)) {
+      // Vanuit Discover geopend — validatie overslaan
+      if (openedFromDiscoverRef.current) {
+        openedFromDiscoverRef.current = false;
+        return;
+      }
+
       const selectedCanonicalName = normalizeSpotName(selectedSpot);
       const knownSpot = spotDefinitions.find((spot) =>
         spot.canonicalName === selectedCanonicalName
         || normalizeSpotName(spot.spot) === selectedCanonicalName
       );
-      console.log('SPOT_DETAIL_CHECK', { selectedSpot, spotDefsLen: spotDefinitions.length, knownSpot: knownSpot?.spot ?? null, spotNamesLen: spotNames.length });
-      // Spot bestaat in spotDefinitions maar wordt niet gevolgd — toch tonen (bijv. vanuit Discover)
+      // Spot bestaat in spotDefinitions maar wordt niet gevolgd — toch tonen
       if (knownSpot) {
         if (knownSpot.spot !== selectedSpot) setSelectedSpot(knownSpot.spot);
         return;
@@ -7721,10 +7727,10 @@ export default function App() {
                   key={s.spot}
                   onPress={() => {
                     Keyboard.dismiss();
-                    // Direct spot openen vanuit zoekresultaten
-                    setPendingSpotFromDiscover(s.spot);
+                    openedFromDiscoverRef.current = true;
                     setShowDiscoverSpotsPage(false);
                     setHomeSpotSearchQuery('');
+                    requestAnimationFrame(() => setSelectedSpot(s.spot as any));
                   }}
                   style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                 >
@@ -7747,11 +7753,10 @@ export default function App() {
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
               if (!spotName) return;
+              openedFromDiscoverRef.current = true;
               setShowDiscoverSpotsPage(false);
               setHomeSpotSearchQuery('');
-              requestAnimationFrame(() => {
-                setSelectedSpot(spotName as any);
-              });
+              requestAnimationFrame(() => setSelectedSpot(spotName as any));
             }}
             onAddSpot={(spotName) => addSelectedSpot(spotName)}
             onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
