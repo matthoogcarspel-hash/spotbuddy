@@ -2834,14 +2834,13 @@ export default function App() {
     data: Record<string, unknown>,
   ) => {
     if (recipientIds.length === 0) return;
-    const { data: tokenRows } = await supabase
-      .from('push_tokens')
-      .select('expo_push_token')
-      .in('profile_id', recipientIds);
-    const tokens = [...new Set((tokenRows ?? []).map((r) => r.expo_push_token).filter(Boolean))];
-    for (const token of tokens) {
-      void sendExpoPushNotification({ to: token, title, body, data });
-    }
+    // Server-side via Supabase RPC (geen CORS issue op web)
+    void supabase.rpc('send_push_to_users', {
+      recipient_ids: recipientIds,
+      title,
+      body,
+      data,
+    });
   };
 
   const markAllBuzzAsRead = async () => {
