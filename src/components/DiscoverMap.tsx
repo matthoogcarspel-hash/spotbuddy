@@ -115,6 +115,7 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
               coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
               anchor={{ x: 0.5, y: 1 }}
               tracksViewChanges={false}
+              onPress={() => onOpenSpot(spot.name)}
             >
               <View style={{ alignItems: 'center' }}>
                 <View style={{ position: 'relative' }}>
