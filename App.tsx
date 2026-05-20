@@ -2575,6 +2575,7 @@ export default function App() {
   const [manualOrder, setManualOrder] = useState<SpotName[]>([]);
   const [showYourSpotsPage, setShowYourSpotsPage] = useState(false);
   const [showDiscoverSpotsPage, setShowDiscoverSpotsPage] = useState(false);
+  const [pendingSpotFromDiscover, setPendingSpotFromDiscover] = useState<string | null>(null);
   const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
   const [coordinateReviewSpotName, setCoordinateReviewSpotName] = useState<SpotName | null>(null);
   const [coordinateReviewPoint, setCoordinateReviewPoint] = useState<SpotCoordinates | null>(null);
@@ -3239,9 +3240,12 @@ export default function App() {
       handleNotification: async () => ({
         shouldShowAlert: true,
         shouldPlaySound: true,
-        shouldSetBadge: false,
+        shouldSetBadge: true,
       }),
     });
+
+    // Badge wissen zodra de app geopend wordt
+    void Buzz.setBadgeCountAsync(0);
 
     // Navigeer naar het juiste gesprek als de gebruiker op een push tikt
     const subscription = Buzz.addNotificationResponseReceivedListener((response) => {
@@ -4880,6 +4884,14 @@ export default function App() {
 
   // Profiel modal sluiten bij schermwissel
   useEffect(() => { setViewingOtherUserId(null); }, [selectedSpot, showBuddies, showChat, showProfile, showYourSpotsPage, showDiscoverSpotsPage]);
+
+  // Open spot nadat Discover gesloten is (pending spot van Discover kaart klik)
+  useEffect(() => {
+    if (pendingSpotFromDiscover && !showDiscoverSpotsPage) {
+      setSelectedSpot(pendingSpotFromDiscover as any);
+      setPendingSpotFromDiscover(null);
+    }
+  }, [pendingSpotFromDiscover, showDiscoverSpotsPage]);
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
@@ -7726,8 +7738,8 @@ export default function App() {
             spots={discoverSpots}
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
-              console.log('OPEN_SPOT_FROM_DISCOVER', spotName);
-              setSelectedSpot(spotName);
+              if (!spotName) return;
+              setPendingSpotFromDiscover(spotName);
               setShowDiscoverSpotsPage(false);
               setHomeSpotSearchQuery('');
             }}
@@ -9488,6 +9500,7 @@ export default function App() {
     );
   }
 
+  console.log('PRE_SPOT_DETAIL', { selectedSpot, showDiscover: showDiscoverSpotsPage, showChat, showBuddies, showProfile });
   if (selectedSpot) {
     const spotSessions = (daySessionsBySpot[selectedSpot] ?? []).filter((s) => getCleanSessionStatus(s) !== 'finished');
 
