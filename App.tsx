@@ -11054,6 +11054,10 @@ const handleSave = async () => {
               refreshing={isRefreshingWind}
               onRefresh={() => void refreshWindForFollowedSpots(true)}
               tintColor="rgba(255,255,255,0.4)"
+              title={windLastFetched
+                ? `Wind updated ${Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0 ? 'just now' : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`}`
+                : 'Pull to load wind data'}
+              titleColor="rgba(255,255,255,0.45)"
             />
           }
         >
@@ -11438,13 +11442,6 @@ const handleSave = async () => {
           );
         })() : null}
 
-        {visibleSpots.length > 0 ? (
-          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 10 }}>
-            {windLastFetched
-              ? `Wind updated ${Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0 ? 'just now' : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`} · pull to refresh`
-              : 'Pull down to load wind data'}
-          </Text>
-        ) : null}
 
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, alignItems: 'flex-start', gap: 12 }}>
