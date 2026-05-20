@@ -10949,10 +10949,11 @@ const handleSave = async () => {
             { name: 'Noordwijk', fullName: 'Noordwijk KSN', count: 4, dist: '18 km' },
             { name: 'IJmuiden', fullName: 'IJmuiden', count: 2, dist: '22 km' },
             { name: 'Bdam', fullName: 'Brouwersdam', count: 1, dist: '24 km' },
+            { name: 'Hoek v H', fullName: 'Hoek van Holland', count: 1, dist: '25 km' },
           ];
           const max = Math.max(...mockSpots.map(s => s.count), 1);
           const total = mockSpots.reduce((a, s) => a + s.count, 0);
-          const BAR_W = 10;
+          const BAR_W = 16;
           const BAR_MAX_H = 52;
           // Kleur: felgroen bij max, vervaagt naar donkerblauwgroen bij min
           const barColor = (count: number) => {
