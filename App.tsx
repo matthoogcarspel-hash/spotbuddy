@@ -7411,7 +7411,7 @@ export default function App() {
       display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown',
       avatar_url: pmap.get(m.user_id)?.avatar_url ?? null,
     }));
-    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: enriched, loaded: true } }));
+    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: enriched, loaded: true } }));
   };
 
   const sendSessionMessageInChatTab = async (groupKey: string, spotName: string, sessionDay: string) => {
