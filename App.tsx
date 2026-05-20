@@ -10963,14 +10963,9 @@ const handleSave = async () => {
             return `rgb(${r},${g},${b})`;
           };
           return (
-            <View style={{ marginBottom: 18, backgroundColor: '#071c2e', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(94,240,208,0.15)', padding: 14 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <View>
-                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Riders near you</Text>
-                  <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginTop: 1 }}>{total} riders today</Text>
-                </View>
-                <Text style={{ fontSize: 22 }}>🪁</Text>
-              </View>
+            <View style={{ marginBottom: 18 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>Today's top spots</Text>
+              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} riders</Text>
 
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
                 {mockSpots.map((spot) => {
