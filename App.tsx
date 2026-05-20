@@ -10942,6 +10942,56 @@ const handleSave = async () => {
           </View>
         ) : null}
 
+        {/* 🔥 MOCK: Activity cluster — top actieve spots in de buurt */}
+        {(() => {
+          const mockSpots = [
+            { name: 'Scheveningen KZVS', live: 4, going: 2, dist: '2.1 km' },
+            { name: 'Noordwijk KSN', live: 1, going: 3, dist: '18 km' },
+            { name: 'IJmuiden', live: 0, going: 2, dist: '22 km' },
+            { name: 'Brouwersdam', live: 0, going: 1, dist: '24 km' },
+          ];
+          const maxScore = Math.max(...mockSpots.map(s => s.live * 2 + s.going));
+          return (
+            <View style={{ marginBottom: 18 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>
+                Activity near you
+              </Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+                {mockSpots.map((spot) => {
+                  const score = spot.live * 2 + spot.going;
+                  const barHeight = Math.max(6, Math.round((score / maxScore) * 52));
+                  const liveH = Math.round((spot.live * 2 / score) * barHeight);
+                  const goingH = barHeight - liveH;
+                  return (
+                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.name as any)}
+                      style={{ marginHorizontal: 4, width: 90, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: 10, alignItems: 'center' }}>
+                      {/* Stacked bar */}
+                      <View style={{ width: 28, height: 60, justifyContent: 'flex-end', marginBottom: 8 }}>
+                        {spot.going > 0 || spot.live > 0 ? (
+                          <View style={{ width: '100%', borderRadius: 4, overflow: 'hidden' }}>
+                            {spot.going > 0 && <View style={{ height: goingH, backgroundColor: '#4DB8FF', opacity: 0.7 }} />}
+                            {spot.live > 0 && <View style={{ height: liveH, backgroundColor: '#5EF0D0' }} />}
+                          </View>
+                        ) : (
+                          <View style={{ height: 6, width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3 }} />
+                        )}
+                      </View>
+                      <Text style={{ color: theme.text, fontSize: 10, fontWeight: '800', textAlign: 'center' }} numberOfLines={2}>{spot.name}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 9, marginTop: 2 }}>{spot.dist}</Text>
+                      {(spot.live > 0 || spot.going > 0) && (
+                        <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
+                          {spot.live > 0 && <Text style={{ color: '#5EF0D0', fontSize: 9, fontWeight: '800' }}>⚡{spot.live}</Text>}
+                          {spot.going > 0 && <Text style={{ color: '#4DB8FF', fontSize: 9, fontWeight: '800' }}>→{spot.going}</Text>}
+                        </View>
+                      )}
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          );
+        })()}
+
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16 }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>No spots selected yet</Text>
