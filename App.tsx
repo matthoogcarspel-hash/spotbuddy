@@ -2607,6 +2607,7 @@ export default function App() {
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [windBySpot, setWindBySpot] = useState<Record<string, WindData | null>>({});
   const [isRefreshingWind, setIsRefreshingWind] = useState(false);
+  const [windLastFetched, setWindLastFetched] = useState<Date | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [topSpotsData, setTopSpotsData] = useState<{ name: string; shortName: string; count: number; dist: string }[]>([]);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
@@ -4965,6 +4966,7 @@ export default function App() {
         setWindBySpot((prev) => ({ ...prev, [s.spot]: data }));
       })
     );
+    setWindLastFetched(new Date());
     if (showSpinner) setIsRefreshingWind(false);
   };
 
@@ -11435,6 +11437,18 @@ const handleSave = async () => {
             </View>
           );
         })() : null}
+
+        {visibleSpots.length > 0 && windLastFetched ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.28)', fontSize: 11 }}>
+              {'Wind · '}
+              {Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0
+                ? 'just now'
+                : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`}
+              {' · pull to refresh'}
+            </Text>
+          </View>
+        ) : null}
 
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, alignItems: 'flex-start', gap: 12 }}>
