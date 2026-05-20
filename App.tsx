@@ -5876,7 +5876,14 @@ export default function App() {
     const isNotHome = Boolean(selectedSpot || showYourSpotsPage || showDiscoverSpotsPage || showBuddies || showProfile || showChat || isNotificationInboxExpanded);
 
     if (deltaX > 70 && isNotHome) {
-      goHomeFromNativeSwipe();
+      // Als er een open gesprek is, sluit dat eerst (terug naar lijst)
+      if (expandedDmId || expandedChatSpot || expandedChatSession) {
+        setExpandedDmId(null);
+        setExpandedChatSpot(null);
+        setExpandedChatSession(null);
+      } else {
+        goHomeFromNativeSwipe();
+      }
     }
   };
 
