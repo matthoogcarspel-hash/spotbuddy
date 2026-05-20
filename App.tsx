@@ -10146,9 +10146,12 @@ const handleSave = async () => {
               ) : null}
               {(() => {
                 const wind = windBySpot[selectedSpot];
-                if (!wind) return null;
-                const color = windColor(wind.speed);
-                const barPct = Math.min(100, Math.round((wind.speed / 40) * 100));
+                if (wind === undefined) {
+                  return <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>Loading wind…</Text>;
+                }
+                if (wind === null) {
+                  return <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>Wind unavailable</Text>;
+                }
                 return (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
                     <View style={{ alignItems: 'center', gap: 2 }}>
@@ -11564,23 +11567,12 @@ const handleSave = async () => {
                   {(() => {
                     const wind = windBySpot[spot.name];
                     if (!wind) return null;
-                    const color = windColor(wind.speed);
-                    const isNearest = spot.name === nearestSpotName;
                     return (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
-                        <Text style={{ color, fontSize: isNearest ? 15 : 13, fontWeight: isNearest ? '900' : '700' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
+                        <Text style={{ fontSize: 13, color: '#ffffff', transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
+                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
                           {wind.speed} kn {degreesToCompass(wind.direction)}
                         </Text>
-                        {wind.gusts > wind.speed + 3 ? (
-                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
-                            gusts {wind.gusts} kn
-                          </Text>
-                        ) : null}
-                        {isNearest ? (
-                          <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
-                            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>NEAREST</Text>
-                          </View>
-                        ) : null}
                       </View>
                     );
                   })()}
