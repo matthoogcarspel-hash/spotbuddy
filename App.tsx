@@ -10141,25 +10141,38 @@ const handleSave = async () => {
           <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
             <View style={{ flex: 1 }}>
               <Text style={{ color: theme.text, fontSize: isWebPlatform ? 28 : 25, fontWeight: '900', letterSpacing: -0.4, paddingRight: 8 }} numberOfLines={2}>{selectedSpot}</Text>
-              <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
-                {liveCount > 0 ? 'Live now' : 'No one live now'}
-              </Text>
+              {liveCount > 0 ? (
+                <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800', marginTop: 5 }}>Live now</Text>
+              ) : null}
               {(() => {
                 const wind = windBySpot[selectedSpot];
                 if (!wind) return null;
                 const color = windColor(wind.speed);
+                const barPct = Math.min(100, Math.round((wind.speed / 40) * 100));
                 return (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                      <Text style={{ color, fontSize: 22, fontWeight: '900' }}>{wind.speed}</Text>
-                      <Text style={{ color, fontSize: 13, fontWeight: '700' }}>kn</Text>
-                      <Text style={{ color, fontSize: 15, fontWeight: '800', marginLeft: 4 }}>{degreesToCompass(wind.direction)}</Text>
-                    </View>
-                    {wind.gusts > wind.speed + 3 ? (
-                      <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
-                        <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '700' }}>gusts {wind.gusts} kn</Text>
+                  <View style={{ marginTop: 14, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, padding: 14 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
+                      <View style={{ alignItems: 'center', gap: 3, width: 36 }}>
+                        <Text style={{ fontSize: 24, color, transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
                       </View>
-                    ) : null}
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                          <Text style={{ color, fontSize: 30, fontWeight: '900' }}>{wind.speed}</Text>
+                          <Text style={{ color, fontSize: 13, fontWeight: '700' }}>kn</Text>
+                          {wind.gusts > wind.speed + 3 ? (
+                            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 12, marginLeft: 6 }}>gusts {wind.gusts} kn</Text>
+                          ) : null}
+                        </View>
+                        <View style={{ height: 5, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, marginTop: 8, overflow: 'hidden' }}>
+                          <View style={{ height: 5, width: `${barPct}%` as any, backgroundColor: color, borderRadius: 999 }} />
+                        </View>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 3 }}>
+                          <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9 }}>0</Text>
+                          <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9 }}>40 kn</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
                 );
               })()}
