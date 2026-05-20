@@ -10944,12 +10944,18 @@ const handleSave = async () => {
 
         {/* 🔥 MOCK: Activity cluster */}
         {(() => {
-          const mockSpots = [
+          const mockSpots = activeDay === 'today' ? [
             { name: 'KZVS', fullName: 'Scheveningen KZVS', count: 6, dist: '2.1 km' },
             { name: 'Noordwijk', fullName: 'Noordwijk KSN', count: 4, dist: '18 km' },
             { name: 'IJmuiden', fullName: 'IJmuiden', count: 2, dist: '22 km' },
             { name: 'Bdam', fullName: 'Brouwersdam', count: 1, dist: '24 km' },
             { name: 'Hoek v H', fullName: 'Hoek van Holland', count: 1, dist: '25 km' },
+          ] : [
+            { name: 'Bdam', fullName: 'Brouwersdam', count: 5, dist: '24 km' },
+            { name: 'KZVS', fullName: 'Scheveningen KZVS', count: 3, dist: '2.1 km' },
+            { name: 'Workum', fullName: 'Workum', count: 2, dist: '20 km' },
+            { name: 'Hoek v H', fullName: 'Hoek van Holland', count: 2, dist: '25 km' },
+            { name: 'IJmuiden', fullName: 'IJmuiden', count: 1, dist: '22 km' },
           ];
           const max = Math.max(...mockSpots.map(s => s.count), 1);
           const total = mockSpots.reduce((a, s) => a + s.count, 0);
@@ -10965,7 +10971,7 @@ const handleSave = async () => {
           };
           return (
             <View style={{ marginBottom: 18 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>Today's top spots</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>{activeDay === 'today' ? "Today's top spots" : "Tomorrow's top spots"}</Text>
               <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} riders</Text>
 
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
