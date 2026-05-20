@@ -1536,6 +1536,15 @@ const groupTimelineSessions = ({
   const followingUserIdSet = new Set(safeFollowingUserIds);
   const groups = new Map<string, SessionGroup>();
 
+  // Bouw source-keten map om altijd de echte root te vinden
+  const sourceMap = new Map<string, string | null>();
+  for (const s of safeSessions) sourceMap.set(s.item.id, s.item.sourceSessionId ?? null);
+  const findRoot = (id: string): string => {
+    let cur = id; let depth = 0;
+    while (depth++ < 10) { const src = sourceMap.get(cur); if (!src) return cur; cur = src; }
+    return cur;
+  };
+
   for (const timelineSession of safeSessions) {
     const {
       startMinutes: roundedStartMinutes,
@@ -1543,9 +1552,9 @@ const groupTimelineSessions = ({
       startTime,
       endTime,
     } = getRoundedSessionWindow(timelineSession.item);
-    const groupRootId =
-      timelineSession.item.sourceSessionId
-      ?? timelineSession.item.id;
+    const groupRootId = timelineSession.item.sourceSessionId
+      ? findRoot(timelineSession.item.sourceSessionId)
+      : timelineSession.item.id;
 
     const groupSpotKey = normalizeSpotName(timelineSession.item.spot);
     const groupKey = `spot:${groupSpotKey}:source:${groupRootId}`;
