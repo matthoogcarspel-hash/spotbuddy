@@ -8199,17 +8199,16 @@ export default function App() {
         const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
         const msgUserId = msg.userId ?? msg.user_id;
         return (
-          <View key={msg.id} style={{ marginBottom: 8 }}>
+          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8, gap: 6 }}>
             {!own && (
-              <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)} style={{ marginBottom: 2, flexDirection: 'row', justifyContent: 'flex-end' }}>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>{msg.display_name}</Text>
+              <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}>
+                <Avatar uri={msg.avatar_url} size={28} name={msg.display_name} />
               </Pressable>
             )}
-            <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-              <View style={{ maxWidth: '88%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomRightRadius: 4, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
-                <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
-                {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: 'right' }}>{time}</Text> : null}
-              </View>
+            <View style={{ maxWidth: '75%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
+              {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>}
+              <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
+              {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
             </View>
           </View>
         );
@@ -8693,6 +8692,7 @@ export default function App() {
                       value={openInput}
                       onChangeText={setOpenInput}
                       onSubmitEditing={handleOpenSend}
+                      onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
                       blurOnSubmit={false}
                       placeholder="Type a message…"
                       placeholderTextColor={theme.textMuted}
@@ -10805,17 +10805,16 @@ const handleSave = async () => {
                     const own = msg.userId === (activeProfile?.id ?? activeAppUserId);
                     const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
                     return (
-                      <View key={msg.id} style={{ marginBottom: 8 }}>
+                      <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8, gap: 6 }}>
                         {!own && (
-                          <Pressable onPress={() => msg.userId && setViewingOtherUserId(msg.userId)} style={{ marginBottom: 2, flexDirection: 'row', justifyContent: 'flex-end' }}>
-                            <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700' }}>{msg.display_name}</Text>
+                          <Pressable onPress={() => msg.userId && setViewingOtherUserId(msg.userId)}>
+                            <Avatar uri={msg.avatar_url} size={28} name={msg.display_name} />
                           </Pressable>
                         )}
-                        <View style={{ flexDirection: 'row', justifyContent: 'flex-end' }}>
-                          <View style={{ maxWidth: '88%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomRightRadius: 4, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
-                            <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
-                            {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: 'right' }}>{time}</Text> : null}
-                          </View>
+                        <View style={{ maxWidth: '75%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
+                          {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>}
+                          <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
+                          {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
                         </View>
                       </View>
                     );
