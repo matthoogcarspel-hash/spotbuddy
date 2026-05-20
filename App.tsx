@@ -7688,6 +7688,17 @@ export default function App() {
       ? { latitude: discoverSuggestions[0].latitude, longitude: discoverSuggestions[0].longitude }
       : null;
 
+    const nearbyExistingSpot = currentCoordinates
+      ? spotDefinitions.find((s) => {
+          if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) return false;
+          const R = 6371000;
+          const dLat = (s.latitude - currentCoordinates.latitude) * Math.PI / 180;
+          const dLon = (s.longitude - currentCoordinates.longitude) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(currentCoordinates.latitude * Math.PI / 180) * Math.cos(s.latitude * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+          return R * 2 * Math.asin(Math.sqrt(a)) < 250;
+        }) ?? null
+      : null;
+
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
         <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
@@ -7697,7 +7708,7 @@ export default function App() {
           <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900' }}>Discover</Text>
           <Pressable
             onPress={() => { setShowDiscoverSpotsPage(false); setHomeSpotSearchQuery(''); }}
-            style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 6 }}
+            style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 12, paddingVertical: 6 }}
           >
             <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
           </Pressable>
@@ -7776,64 +7787,74 @@ export default function App() {
 
         {/* Add spot modal */}
         {showAddSpot && currentCoordinates && (
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#0d1b2a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-            {addSpotSuccess ? (
-              <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
-                <Text style={{ fontSize: 32 }}>🙏</Text>
-                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '800' }}>Thanks for your suggestion!</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>We'll review it and add it to the app.</Text>
-                <Pressable onPress={() => setShowAddSpot(false)} style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 8 }}>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>Close</Text>
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900', marginBottom: 4 }}>Suggest a spot</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 16 }}>
-                  Your GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
-                </Text>
-                <TextInput
-                  value={addSpotName}
-                  onChangeText={setAddSpotName}
-                  placeholder="Spot name (e.g. Tarifa Beach)"
-                  placeholderTextColor={theme.textMuted}
-                  autoFocus
-                  style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#ffffff', borderRadius: 12, padding: 12, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginBottom: 12 }}
-                />
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  <Pressable
-                    disabled={!addSpotName.trim() || addSpotSubmitting}
-                    onPress={async () => {
-                      if (!addSpotName.trim() || !activeAppUserId || !currentCoordinates) return;
-                      setAddSpotSubmitting(true);
-                      await supabase.from('pending_spots').insert({
-                        name: addSpotName.trim(),
-                        latitude: currentCoordinates.latitude,
-                        longitude: currentCoordinates.longitude,
-                        submitted_by: activeAppUserId,
-                      });
-                      void sendPushToRecipients(
-                        ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
-                        '🌍 New spot suggestion',
-                        `${activeProfile?.display_name} suggested: ${addSpotName.trim()}`,
-                        { type: 'admin' }
-                      );
-                      setAddSpotSubmitting(false);
-                      setAddSpotSuccess(true);
-                    }}
-                    style={{ flex: 1, backgroundColor: addSpotName.trim() ? '#5EF0D0' : 'rgba(255,255,255,0.06)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', opacity: addSpotSubmitting ? 0.6 : 1 }}
-                  >
-                    <Text style={{ color: addSpotName.trim() ? '#071421' : theme.textMuted, fontSize: 14, fontWeight: '900' }}>
-                      {addSpotSubmitting ? 'Submitting...' : 'Submit'}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={() => setShowAddSpot(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                    <Text style={{ color: theme.textMuted, fontSize: 14 }}>Cancel</Text>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'position' : undefined}
+            style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}
+          >
+            <View style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+              {addSpotSuccess ? (
+                <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
+                  <Text style={{ fontSize: 32 }}>🙏</Text>
+                  <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '800' }}>Thanks for your suggestion!</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>We'll review it and add it to the app.</Text>
+                  <Pressable onPress={() => setShowAddSpot(false)} style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 8 }}>
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>Close</Text>
                   </Pressable>
                 </View>
-              </>
-            )}
-          </View>
+              ) : (
+                <>
+                  <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900', marginBottom: 4 }}>Suggest a spot</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 16 }}>
+                    You must be physically at the spot — your current GPS location will be saved. Only suggest a spot when you're standing there.
+                  </Text>
+                  <TextInput
+                    value={addSpotName}
+                    onChangeText={setAddSpotName}
+                    placeholder="Spot name (e.g. Tarifa Beach)"
+                    placeholderTextColor={theme.textMuted}
+                    autoFocus
+                    style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#ffffff', borderRadius: 12, padding: 12, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginBottom: 12 }}
+                  />
+                  {nearbyExistingSpot ? (
+                    <Text style={{ color: '#FF6B6B', fontSize: 12, marginBottom: 12 }}>
+                      "{nearbyExistingSpot.spot}" is already within 250m of your location. Move to a new spot to suggest one.
+                    </Text>
+                  ) : null}
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      disabled={!addSpotName.trim() || addSpotSubmitting || !!nearbyExistingSpot}
+                      onPress={async () => {
+                        if (!addSpotName.trim() || !activeAppUserId || !currentCoordinates) return;
+                        setAddSpotSubmitting(true);
+                        await supabase.from('pending_spots').insert({
+                          name: addSpotName.trim(),
+                          latitude: currentCoordinates.latitude,
+                          longitude: currentCoordinates.longitude,
+                          submitted_by: activeAppUserId,
+                        });
+                        void sendPushToRecipients(
+                          ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
+                          '🌍 New spot suggestion',
+                          `${activeProfile?.display_name} suggested: ${addSpotName.trim()}`,
+                          { type: 'admin' }
+                        );
+                        setAddSpotSubmitting(false);
+                        setAddSpotSuccess(true);
+                      }}
+                      style={{ flex: 1, backgroundColor: addSpotName.trim() ? '#5EF0D0' : 'rgba(255,255,255,0.06)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', opacity: addSpotSubmitting ? 0.6 : 1 }}
+                    >
+                      <Text style={{ color: addSpotName.trim() ? '#071421' : theme.textMuted, fontSize: 14, fontWeight: '900' }}>
+                        {addSpotSubmitting ? 'Submitting...' : 'Submit'}
+                      </Text>
+                    </Pressable>
+                    <Pressable onPress={() => setShowAddSpot(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 14 }}>Cancel</Text>
+                    </Pressable>
+                  </View>
+                </>
+              )}
+            </View>
+          </KeyboardAvoidingView>
         )}
 
         {renderNativeBottomNav()}
@@ -8210,7 +8231,7 @@ export default function App() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>Missing a spot?</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, lineHeight: 16 }}>Go to Discover, head to the spot location and tap "Suggest spot". We'll add it after review.</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, lineHeight: 16 }}>Go to Discover, physically travel to the spot, and tap "Suggest spot". Your GPS location is used — so you need to be there. We'll add it after review.</Text>
               </View>
             </View>
           </View>
