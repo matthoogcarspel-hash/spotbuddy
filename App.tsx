@@ -3232,16 +3232,33 @@ export default function App() {
 
 
   useEffect(() => {
-    // Push ook tonen als de app in de foreground is
-    if (Platform.OS !== 'web') {
-      Buzz.setNotificationHandler({
-        handleNotification: async () => ({
-          shouldShowAlert: true,
-          shouldPlaySound: true,
-          shouldSetBadge: false,
-        }),
-      });
-    }
+    if (Platform.OS === 'web') return;
+
+    // Push tonen als de app in de foreground is
+    Buzz.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: false,
+      }),
+    });
+
+    // Navigeer naar het juiste gesprek als de gebruiker op een push tikt
+    const subscription = Buzz.addNotificationResponseReceivedListener((response) => {
+      const data = response.notification.request.content.data as Record<string, string> | null;
+      if (!data) return;
+      if (data.type === 'dm' && data.conversationId) {
+        setShowChat(true);
+        setChatSubTab('dm');
+        setExpandedDmId(data.conversationId);
+        void loadDmConversationsRef.current?.();
+      } else if (data.type === 'chat_message' && data.spotName) {
+        setShowChat(true);
+        setChatSubTab('spot');
+      }
+    });
+
+    return () => subscription.remove();
   }, []);
 
   useEffect(() => {
