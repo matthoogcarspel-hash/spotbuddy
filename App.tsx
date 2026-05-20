@@ -4731,17 +4731,23 @@ export default function App() {
       const dayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
       const { data } = await supabase
         .from('sessions')
-        .select('spot_name, user_id')
+        .select('spot_name, user_id, end_time')
         .eq('session_day', dayKey)
         .not('status', 'in', '("finished","Uitchecken")')
         .is('checked_out_at', null);
 
       if (!data || data.length === 0) { setTopSpotsData([]); return; }
 
-      // Tel unieke users per spot
+      const nowMinutes = getCurrentLocalMinutes();
+
+      // Tel unieke users per spot, sla verlopen sessies over
       const countMap: Record<string, Set<string>> = {};
       for (const row of data) {
         if (!row.spot_name || !row.user_id) continue;
+        if (row.end_time) {
+          const endMinutes = toMinutes(row.end_time);
+          if (!Number.isNaN(endMinutes) && endMinutes < nowMinutes) continue;
+        }
         if (!countMap[row.spot_name]) countMap[row.spot_name] = new Set();
         countMap[row.spot_name].add(row.user_id);
       }
