@@ -10154,10 +10154,7 @@ const handleSave = async () => {
                 }
                 return (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                    <View style={{ alignItems: 'center', gap: 2 }}>
-                      <Text style={{ fontSize: 20, color: '#ffffff', transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
-                    </View>
+                    <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
                       <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '900' }}>{wind.speed}</Text>
                       <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '700' }}>kn</Text>
@@ -11551,12 +11548,9 @@ const handleSave = async () => {
                       const wind = windBySpot[spot.name];
                       if (!wind) return null;
                       return (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <Text style={{ fontSize: 13, color: '#ffffff', transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
-                          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
-                            {wind.speed} kn {degreesToCompass(wind.direction)}
-                          </Text>
-                        </View>
+                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+                          {wind.speed} kn {degreesToCompass(wind.direction)}
+                        </Text>
                       );
                     })()}
                   </View>
