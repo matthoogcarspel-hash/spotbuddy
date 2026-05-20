@@ -7720,12 +7720,16 @@ export default function App() {
                 <Pressable
                   key={s.spot}
                   onPress={() => {
-                    setHomeSpotSearchQuery(s.spot);
                     Keyboard.dismiss();
+                    // Direct spot openen vanuit zoekresultaten
+                    setPendingSpotFromDiscover(s.spot);
+                    setShowDiscoverSpotsPage(false);
+                    setHomeSpotSearchQuery('');
                   }}
-                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                 >
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{s.spot}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>Open →</Text>
                 </Pressable>
               ))}
             </View>
