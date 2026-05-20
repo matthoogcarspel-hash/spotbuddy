@@ -10177,16 +10177,9 @@ const handleSave = async () => {
                 const wind = windBySpot[selectedSpot];
                 if (!wind) return null;
                 return (
-                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                      <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>{wind.speed}</Text>
-                      <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>kn</Text>
-                      <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>{degreesToCompass(wind.direction)}</Text>
-                    </View>
-                    {wind.gusts > wind.speed + 3 ? (
-                      <Text style={{ color: '#ffffff', fontSize: 11 }}>gusts {wind.gusts} kn</Text>
-                    ) : null}
-                  </View>
+                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700', textAlign: 'right' }}>
+                    {wind.speed} kn{wind.gusts > wind.speed + 3 ? ` - gusts: ${wind.gusts} kn` : ''} {degreesToCompass(wind.direction)}
+                  </Text>
                 );
               })()}
             </View>
