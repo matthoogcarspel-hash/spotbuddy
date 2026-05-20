@@ -1870,7 +1870,8 @@ function SessionRow({
             showJoinButton={false}
             onPress={() => {
               const isOwnBar = session?.userId === currentProfileId;
-              if (isOwnBar && onEditSession) {
+              const isGroup = safeGroupSessions.length > 1;
+              if (isOwnBar && !isGroup && onEditSession) {
                 onEditSession({ id: session.id, start: session.start ?? null, end: session.end ?? null, intent: session.intent ?? null });
               } else {
                 onSelect(group.key);
