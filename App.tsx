@@ -380,7 +380,7 @@ const getIsoDateFromLocalDateKey = (localDateKey: string) => {
 const quickCheckInEndMinutes = 21 * 60;
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
-    return 'You can only check in from 08:00';
+    return 'You can only check in from 07:00';
   }
 
   if (currentMinutes >= quickCheckInEndMinutes) {
@@ -5885,7 +5885,7 @@ export default function App() {
   const startHourOptions = useMemo(
     () =>
       hours
-        .filter((hour) => hour >= 8 && hour <= 20)
+        .filter((hour) => hour >= 7 && hour <= 20)
         .filter((hour) => {
           if (!planningNowReference.isToday) {
             return true;
@@ -10691,7 +10691,7 @@ const handleSave = async () => {
                   </View>
                   {activePicker === 'endHour' && (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                      {(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22).map((h) => (
+                      {(Array.isArray(hours) ? hours : []).filter((h) => h >= 7 && h <= 22).map((h) => (
                         <Pressable key={`eh-${h}`} onPress={() => setEndHour(h)} style={{ backgroundColor: endHour === h ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
                           <Text style={{ color: theme.text }}>{formatTimePart(h)}</Text>
                         </Pressable>
@@ -10730,7 +10730,7 @@ const handleSave = async () => {
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
                       <WheelColumn values={minuteOptions} selected={startMinute} onSelect={setStartMinute} formatVal={formatTimePart} />
                       <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 18, fontWeight: '300', paddingHorizontal: 6, paddingBottom: 2 }}>–</Text>
-                      <WheelColumn values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 8 && h <= 22)} selected={endHour} onSelect={setEndHour} formatVal={formatTimePart} />
+                      <WheelColumn values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 7 && h <= 22)} selected={endHour} onSelect={setEndHour} formatVal={formatTimePart} />
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
                       <WheelColumn values={minuteOptions} selected={endMinute} onSelect={setEndMinute} formatVal={formatTimePart} />
                     </View>
