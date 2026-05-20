@@ -10153,8 +10153,9 @@ const handleSave = async () => {
                   return <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>Wind unavailable</Text>;
                 }
                 return (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
+                    <Text style={{ fontSize: 20 }}>💨</Text>
+                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
                       <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '900' }}>{wind.speed}</Text>
                       <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '700' }}>kn</Text>
@@ -11548,9 +11549,12 @@ const handleSave = async () => {
                       const wind = windBySpot[spot.name];
                       if (!wind) return null;
                       return (
-                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
-                          {wind.speed} kn {degreesToCompass(wind.direction)}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                          <Text style={{ fontSize: 13 }}>💨</Text>
+                          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+                            {wind.speed} kn {degreesToCompass(wind.direction)}
+                          </Text>
+                        </View>
                       );
                     })()}
                   </View>
