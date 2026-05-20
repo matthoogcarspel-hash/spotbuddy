@@ -9181,30 +9181,22 @@ export default function App() {
                       skillLevel={u.skill_level}
                       onAvatarPress={() => { setViewingOtherProfile({ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url ?? null }); setViewingOtherUserId(u.id); }}
                       right={
-                        <View style={{ flexDirection: 'row', gap: 8, opacity: buddyActionUserId === u.id ? 0.4 : 1 }}>
-                          <Pressable
-                            onPress={async () => {
-
-                              const convId = await openDmWithUser(u.id);
-                              if (!convId) return;
-                              void loadDmMessages(convId);
-                              void loadDmConversations();
-                              setShowBuddies(false);
-                              setChatSubTab('dm');
-                              setExpandedDmId(convId);
-                              setShowChat(true);
-                            }}
-                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
-                          >
-                            <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Message</Text>
-                          </Pressable>
-                          <Pressable
-                            onPress={() => setViewingOtherUserId(u.id)}
-                            style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
-                          >
-                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Profile</Text>
-                          </Pressable>
-                        </View>
+                        <Pressable
+                          onPress={async () => {
+                            const convId = await openDmWithUser(u.id);
+                            if (!convId) return;
+                            void loadDmMessages(convId);
+                            void loadDmConversations();
+                            setShowBuddies(false);
+                            setChatSubTab('dm');
+                            setExpandedDmId(convId);
+                            setShowChat(true);
+                          }}
+                          style={{ flexDirection: 'row', alignItems: 'center', gap: 5, opacity: buddyActionUserId === u.id ? 0.4 : 1, paddingVertical: 6, paddingHorizontal: 4 }}
+                        >
+                          <Ionicons name="chatbubble" size={13} color="#ffffff" />
+                          <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Chat</Text>
+                        </Pressable>
                       }
                     />
                   );})}
