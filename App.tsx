@@ -4644,31 +4644,27 @@ export default function App() {
 
   useEffect(() => {
     if (!selectedSpot) {
+      openedFromDiscoverRef.current = false;
       return;
     }
 
+    // Vanuit Discover geopend — sla alle validatie over
+    if (openedFromDiscoverRef.current) {
+      openedFromDiscoverRef.current = false;
+      return;
+    }
 
     if (!spotNames.includes(selectedSpot)) {
-      // Vanuit Discover geopend — validatie overslaan
-      if (openedFromDiscoverRef.current) {
-        openedFromDiscoverRef.current = false;
-        return;
-      }
-
       const selectedCanonicalName = normalizeSpotName(selectedSpot);
       const knownSpot = spotDefinitions.find((spot) =>
         spot.canonicalName === selectedCanonicalName
         || normalizeSpotName(spot.spot) === selectedCanonicalName
       );
-      // Spot bestaat in spotDefinitions maar wordt niet gevolgd — toch tonen
       if (knownSpot) {
         if (knownSpot.spot !== selectedSpot) setSelectedSpot(knownSpot.spot);
         return;
       }
-
-      // spotDefinitions nog niet geladen — wacht op volgende render
       if (spotDefinitions.length === 0) return;
-
       setSelectedSpot(null);
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
@@ -7756,7 +7752,7 @@ export default function App() {
               openedFromDiscoverRef.current = true;
               setShowDiscoverSpotsPage(false);
               setHomeSpotSearchQuery('');
-              requestAnimationFrame(() => setSelectedSpot(spotName as any));
+              setSelectedSpot(spotName as any);
             }}
             onAddSpot={(spotName) => addSelectedSpot(spotName)}
             onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
