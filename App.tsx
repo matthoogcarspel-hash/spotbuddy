@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -2606,6 +2606,7 @@ export default function App() {
   const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [windBySpot, setWindBySpot] = useState<Record<string, WindData | null>>({});
+  const [isRefreshingWind, setIsRefreshingWind] = useState(false);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [topSpotsData, setTopSpotsData] = useState<{ name: string; shortName: string; count: number; dist: string }[]>([]);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
@@ -4952,17 +4953,25 @@ export default function App() {
   useEffect(() => { unreadBySessionRef.current = unreadBySession; }, [unreadBySession]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
 
-  useEffect(() => {
+  const refreshWindForFollowedSpots = async (showSpinner = false) => {
     if (spotDefinitions.length === 0 || favoriteSpots.length === 0) return;
     const spotsToFetch = spotDefinitions.filter((s) =>
       favoriteSpots.includes(s.spot) && Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
     );
-    void Promise.all(
+    if (showSpinner) setIsRefreshingWind(true);
+    await Promise.all(
       spotsToFetch.map(async (s) => {
         const data = await fetchWind(s.latitude, s.longitude);
         setWindBySpot((prev) => ({ ...prev, [s.spot]: data }));
       })
     );
+    if (showSpinner) setIsRefreshingWind(false);
+  };
+
+  useEffect(() => {
+    void refreshWindForFollowedSpots();
+    const interval = setInterval(() => void refreshWindForFollowedSpots(), 10 * 60 * 1000);
+    return () => clearInterval(interval);
   }, [favoriteSpots, spotDefinitions]);
 
   useEffect(() => { expandedChatSpotRef.current = expandedChatSpot; }, [expandedChatSpot]);
@@ -11035,7 +11044,17 @@ const handleSave = async () => {
       <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}
+          refreshControl={
+            <RefreshControl
+              refreshing={isRefreshingWind}
+              onRefresh={() => void refreshWindForFollowedSpots(true)}
+              tintColor="rgba(255,255,255,0.4)"
+            />
+          }
+        >
 
         <View style={{ marginBottom: 0 }}>
           <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: -20, paddingTop: 8 }}>
