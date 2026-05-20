@@ -11543,39 +11543,27 @@ const handleSave = async () => {
             >
               <View style={{ flexDirection: isWebPlatform ? 'row' : 'column', justifyContent: 'space-between', alignItems: isWebPlatform ? 'flex-start' : 'stretch', gap: isWebPlatform ? 18 : 10 }}>
                 <View style={{ flex: 1, paddingRight: 12 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-                    <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', letterSpacing: 0.2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', letterSpacing: 0.2, flex: 1 }}>
                       {spot.name}
                     </Text>
-
-                    <Text
-                      style={{
-                        color: 'rgba(255,255,255,0.36)',
-                        fontSize: 11,
-                        fontWeight: '800',
-                        letterSpacing: 1,
-                      }}
-                    >
-                      SESSION FORECAST — TODAY
-                    </Text>
+                    {(() => {
+                      const wind = windBySpot[spot.name];
+                      if (!wind) return null;
+                      return (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Text style={{ fontSize: 13, color: '#ffffff', transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
+                          <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
+                            {wind.speed} kn {degreesToCompass(wind.direction)}
+                          </Text>
+                        </View>
+                      );
+                    })()}
                   </View>
 
                   <Text style={{ color: 'rgba(255,255,255,0.52)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
                     {spot.distanceMeters === null ? 'DISTANCE UNKNOWN' : `${formatDistance(spot.distanceMeters)} AWAY`}
                   </Text>
-
-                  {(() => {
-                    const wind = windBySpot[spot.name];
-                    if (!wind) return null;
-                    return (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-                        <Text style={{ fontSize: 13, color: '#ffffff', transform: [{ rotate: `${wind.direction}deg` }] }}>↑</Text>
-                        <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>
-                          {wind.speed} kn {degreesToCompass(wind.direction)}
-                        </Text>
-                      </View>
-                    );
-                  })()}
                 </View>
 
                 <View style={{ alignItems: isWebPlatform ? 'flex-end' : 'flex-start', minWidth: isWebPlatform ? 150 : 0 }}>
