@@ -4649,6 +4649,9 @@ export default function App() {
         return;
       }
 
+      // spotDefinitions nog niet geladen — wacht op volgende render
+      if (spotDefinitions.length === 0) return;
+
       setSelectedSpot(null);
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
