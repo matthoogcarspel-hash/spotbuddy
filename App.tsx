@@ -11451,7 +11451,7 @@ const handleSave = async () => {
           return (
             <View style={{ marginBottom: 18 }}>
               <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>{activeDay === 'today' ? "Today's top spots" : "Tomorrow's top spots"}</Text>
-              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} riders</Text>
+              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} {total === 1 ? 'rider' : 'riders'}</Text>
 
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
                 {mockSpots.map((spot) => {
