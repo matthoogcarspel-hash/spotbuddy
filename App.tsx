@@ -1636,7 +1636,7 @@ const groupTimelineSessions = ({
           const visible =
             item.userId === normalizedActiveProfileId
               ? !isSessionExpired(item)
-              : buddiesMode === 'everyone' || followingUserIdSet.has(item.userId);
+              : !isSessionExpired(item) && (buddiesMode === 'everyone' || followingUserIdSet.has(item.userId));
 
 
           return visible;
