@@ -11438,16 +11438,12 @@ const handleSave = async () => {
           );
         })() : null}
 
-        {visibleSpots.length > 0 && windLastFetched ? (
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.28)', fontSize: 11 }}>
-              {'Wind · '}
-              {Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0
-                ? 'just now'
-                : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`}
-              {' · pull to refresh'}
-            </Text>
-          </View>
+        {visibleSpots.length > 0 ? (
+          <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, marginBottom: 10 }}>
+            {windLastFetched
+              ? `Wind updated ${Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0 ? 'just now' : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`} · pull to refresh`
+              : 'Pull down to load wind data'}
+          </Text>
         ) : null}
 
         {visibleSpots.length === 0 ? (
