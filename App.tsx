@@ -10942,73 +10942,52 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        {/* 🔥 MOCK: Activity cluster — top actieve spots in de buurt */}
+        {/* 🔥 MOCK: Activity cluster */}
         {(() => {
           const mockSpots = [
-            { name: 'KZVS', fullName: 'Scheveningen KZVS', live: 4, going: 2, dist: '2.1 km' },
-            { name: 'Noordwijk', fullName: 'Noordwijk KSN', live: 1, going: 3, dist: '18 km' },
-            { name: 'IJmuiden', fullName: 'IJmuiden', live: 0, going: 2, dist: '22 km' },
-            { name: 'Brouwersdam', fullName: 'Brouwersdam', live: 0, going: 1, dist: '24 km' },
+            { name: 'KZVS', fullName: 'Scheveningen KZVS', count: 6, dist: '2.1 km' },
+            { name: 'Noordwijk', fullName: 'Noordwijk KSN', count: 4, dist: '18 km' },
+            { name: 'IJmuiden', fullName: 'IJmuiden', count: 2, dist: '22 km' },
+            { name: 'Bdam', fullName: 'Brouwersdam', count: 1, dist: '24 km' },
           ];
-          const totalLive = mockSpots.reduce((a, s) => a + s.live, 0);
-          const totalGoing = mockSpots.reduce((a, s) => a + s.going, 0);
-          const maxScore = Math.max(...mockSpots.map(s => s.live * 2 + s.going), 1);
-          const BAR_MAX_H = 56;
+          const max = Math.max(...mockSpots.map(s => s.count), 1);
+          const total = mockSpots.reduce((a, s) => a + s.count, 0);
+          const BAR_W = 10;
+          const BAR_MAX_H = 52;
+          // Kleur: felgroen bij max, vervaagt naar donkerblauwgroen bij min
+          const barColor = (count: number) => {
+            const t = count / max; // 0..1
+            const r = Math.round(30 + t * (94 - 30));
+            const g = Math.round(60 + t * (240 - 60));
+            const b = Math.round(80 + t * (208 - 80));
+            return `rgb(${r},${g},${b})`;
+          };
           return (
-            <Pressable style={{ marginBottom: 18, backgroundColor: '#071c2e', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(94,240,208,0.18)', padding: 14, overflow: 'hidden' }}>
-              {/* Header */}
+            <View style={{ marginBottom: 18, backgroundColor: '#071c2e', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(94,240,208,0.15)', padding: 14 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <View>
-                  <Text style={{ color: '#5EF0D0', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>🤙 Riders near you</Text>
-                  <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', marginTop: 2 }}>
-                    {totalLive > 0 ? `${totalLive} live` : ''}{totalLive > 0 && totalGoing > 0 ? '  · ' : ''}{totalGoing > 0 ? `${totalGoing} going` : ''}
-                  </Text>
-                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 }}>Don't miss out — get on the water</Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 }}>Riders near you</Text>
+                  <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginTop: 1 }}>{total} riders today</Text>
                 </View>
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(94,240,208,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 18 }}>🪁</Text>
-                </View>
+                <Text style={{ fontSize: 22 }}>🪁</Text>
               </View>
 
-              {/* Bars + labels in één container */}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
                 {mockSpots.map((spot) => {
-                  const score = spot.live * 2 + spot.going;
-                  const barH = Math.max(8, Math.round((score / maxScore) * BAR_MAX_H));
-                  const liveH = score > 0 ? Math.round((spot.live * 2 / score) * barH) : 0;
-                  const goingH = barH - liveH;
+                  const barH = Math.max(6, Math.round((spot.count / max) * BAR_MAX_H));
+                  const color = barColor(spot.count);
                   return (
-                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.fullName as any)} style={{ flex: 1, alignItems: 'center' }}>
-                      <View style={{ width: '100%', height: BAR_MAX_H, justifyContent: 'flex-end' }}>
-                        <View style={{ width: '100%', borderRadius: 6, overflow: 'hidden' }}>
-                          {goingH > 0 && <View style={{ height: goingH, backgroundColor: '#4DB8FF', opacity: 0.7 }} />}
-                          {liveH > 0 && <View style={{ height: liveH, backgroundColor: '#5EF0D0' }} />}
-                          {score === 0 && <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3 }} />}
-                        </View>
+                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.fullName as any)} style={{ alignItems: 'flex-start', gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: BAR_MAX_H }}>
+                        <View style={{ width: BAR_W, height: barH, borderRadius: 4, backgroundColor: color }} />
                       </View>
-                      <Text style={{ color: score > 0 ? '#ffffff' : theme.textMuted, fontSize: 10, fontWeight: '800', marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{spot.name}</Text>
-                      {score > 0 ? (
-                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 1 }}>{spot.dist}</Text>
-                      ) : (
-                        <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9, marginTop: 1 }}>quiet</Text>
-                      )}
+                      <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '800' }}>{spot.name}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{spot.count} riders</Text>
                     </Pressable>
                   );
                 })}
               </View>
-
-              {/* Legenda */}
-              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#5EF0D0' }} />
-                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>Live</Text>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#4DB8FF', opacity: 0.7 }} />
-                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>Going</Text>
-                </View>
-              </View>
-            </Pressable>
+            </View>
           );
         })()}
 
