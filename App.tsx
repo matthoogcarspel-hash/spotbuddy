@@ -7794,7 +7794,7 @@ export default function App() {
             <View style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
               {addSpotSuccess ? (
                 <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
-                  <Text style={{ fontSize: 32 }}>🙏</Text>
+                  <Text style={{ fontSize: 32 }}>🤙</Text>
                   <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '800' }}>Thanks for your suggestion!</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>We'll review it and add it to the app.</Text>
                   <Pressable onPress={() => setShowAddSpot(false)} style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 8 }}>
