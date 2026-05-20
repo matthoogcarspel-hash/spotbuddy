@@ -7663,15 +7663,12 @@ export default function App() {
     return withNativeShell(
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
+          <Pressable onPress={() => setShowYourSpotsPage(false)} style={{ marginBottom: 10 }}>
+            <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back home</Text>
+          </Pressable>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
-              <Pressable
-                onPress={() => setShowYourSpotsPage(false)}
-                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
-              >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
-              </Pressable>
             </View>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14, marginBottom: 10 }}>
               <TextInput
