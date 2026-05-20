@@ -5642,7 +5642,8 @@ export default function App() {
       .filter((sessionItem) => sessionItem.userId === currentUserId)
       .filter((sessionItem) => isSessionOnDayKey(sessionItem, activeDayKey));
     const userSessions = allCandidateSessions
-      .filter((sessionItem) => getSessionViewState(sessionItem) !== 'live');
+      .filter((sessionItem) => getSessionViewState(sessionItem) !== 'live')
+      .filter((sessionItem) => !isSessionExpired(sessionItem));
     
 
     return userSessions
