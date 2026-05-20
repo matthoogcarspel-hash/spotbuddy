@@ -7718,9 +7718,9 @@ export default function App() {
     const rowHeight = 56;
 
     return withNativeShell(
-      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 0 }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg, paddingHorizontal: 20, paddingTop: isWebPlatform ? 20 : 10 }}>
         <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 28 }}>
-          <Pressable onPress={() => setShowYourSpotsPage(false)} style={{ marginBottom: 10 }}>
+          <Pressable onPress={() => setShowYourSpotsPage(false)} style={{ marginBottom: 10, marginTop: 6 }}>
             <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back home</Text>
           </Pressable>
           <View style={{ backgroundColor: 'rgba(255,255,255,0.025)', borderRadius: 18, padding: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -8182,6 +8182,26 @@ export default function App() {
             >
               {!openMessages.length ? (
                 <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
+              ) : expandedDmId ? (
+                // DMs: left/right split met avatars
+                openMessages.map((msg: any) => {
+                  const own = (msg.userId ?? msg.user_id) === (activeProfile?.id ?? activeAppUserId);
+                  const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
+                  return (
+                    <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8, gap: 6 }}>
+                      {!own && (
+                        <Pressable onPress={() => (msg.userId ?? msg.user_id) && setViewingOtherUserId(msg.userId ?? msg.user_id)}>
+                          <Avatar uri={msg.avatar_url} size={28} name={msg.display_name} />
+                        </Pressable>
+                      )}
+                      <View style={{ maxWidth: '75%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
+                        {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>}
+                        <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
+                        {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
+                      </View>
+                    </View>
+                  );
+                })
               ) : (
                 renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
               )}
@@ -8194,6 +8214,7 @@ export default function App() {
                   value={openInput}
                   onChangeText={setOpenInput}
                   onSubmitEditing={handleOpenSend}
+                  onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
                   blurOnSubmit={false}
                   placeholder="Type a message…"
                   placeholderTextColor={theme.textMuted}
