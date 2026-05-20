@@ -2557,6 +2557,11 @@ export default function App() {
   const [intent, setIntent] = useState<SessionIntent>('definitely');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [showManageSessions, setShowManageSessions] = useState(false);
+  const [showReportCoords, setShowReportCoords] = useState(false);
+  const [showAddSpot, setShowAddSpot] = useState(false);
+  const [addSpotName, setAddSpotName] = useState('');
+  const [addSpotSubmitting, setAddSpotSubmitting] = useState(false);
+  const [addSpotSuccess, setAddSpotSuccess] = useState(false);
   const [formError, setFormError] = useState('');
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
@@ -7747,6 +7752,79 @@ export default function App() {
           />
         </View>
 
+        {/* Spot toevoegen knop */}
+        {currentCoordinates && !showAddSpot && (
+          <Pressable
+            onPress={() => { setAddSpotName(''); setAddSpotSuccess(false); setShowAddSpot(true); }}
+            style={{ position: 'absolute', bottom: isWebPlatform ? 20 : 100, left: 16, backgroundColor: '#07111F', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, flexDirection: 'row', alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
+          >
+            <Ionicons name="add-circle-outline" size={16} color="#ffffff" />
+            <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Suggest spot</Text>
+          </Pressable>
+        )}
+
+        {/* Add spot modal */}
+        {showAddSpot && currentCoordinates && (
+          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#0d1b2a', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            {addSpotSuccess ? (
+              <View style={{ alignItems: 'center', paddingVertical: 20, gap: 8 }}>
+                <Text style={{ fontSize: 32 }}>🙏</Text>
+                <Text style={{ color: '#ffffff', fontSize: 16, fontWeight: '800' }}>Thanks for your suggestion!</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>We'll review it and add it to the app.</Text>
+                <Pressable onPress={() => setShowAddSpot(false)} style={{ marginTop: 10, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 10, paddingHorizontal: 20, paddingVertical: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>Close</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900', marginBottom: 4 }}>Suggest a spot</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 16 }}>
+                  Your GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                </Text>
+                <TextInput
+                  value={addSpotName}
+                  onChangeText={setAddSpotName}
+                  placeholder="Spot name (e.g. Tarifa Beach)"
+                  placeholderTextColor={theme.textMuted}
+                  autoFocus
+                  style={{ backgroundColor: 'rgba(255,255,255,0.06)', color: '#ffffff', borderRadius: 12, padding: 12, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginBottom: 12 }}
+                />
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <Pressable
+                    disabled={!addSpotName.trim() || addSpotSubmitting}
+                    onPress={async () => {
+                      if (!addSpotName.trim() || !activeAppUserId || !currentCoordinates) return;
+                      setAddSpotSubmitting(true);
+                      await supabase.from('pending_spots').insert({
+                        name: addSpotName.trim(),
+                        latitude: currentCoordinates.latitude,
+                        longitude: currentCoordinates.longitude,
+                        submitted_by: activeAppUserId,
+                      });
+                      void sendPushToRecipients(
+                        ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
+                        '🌍 New spot suggestion',
+                        `${activeProfile?.display_name} suggested: ${addSpotName.trim()}`,
+                        { type: 'admin' }
+                      );
+                      setAddSpotSubmitting(false);
+                      setAddSpotSuccess(true);
+                    }}
+                    style={{ flex: 1, backgroundColor: addSpotName.trim() ? '#5EF0D0' : 'rgba(255,255,255,0.06)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', opacity: addSpotSubmitting ? 0.6 : 1 }}
+                  >
+                    <Text style={{ color: addSpotName.trim() ? '#071421' : theme.textMuted, fontSize: 14, fontWeight: '900' }}>
+                      {addSpotSubmitting ? 'Submitting...' : 'Submit'}
+                    </Text>
+                  </Pressable>
+                  <Pressable onPress={() => setShowAddSpot(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                    <Text style={{ color: theme.textMuted, fontSize: 14 }}>Cancel</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
+          </View>
+        )}
+
         {renderNativeBottomNav()}
       </SafeAreaView>
     );
@@ -10153,17 +10231,57 @@ const handleSave = async () => {
                   </View>
                   <Pressable
                     onPress={() => void handleUpdateSessionStatus('Uitchecken')}
-                    style={{
-                      backgroundColor: 'rgba(255,255,255,0.05)',
-                      borderRadius: 999,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.10)',
-                      paddingVertical: 6,
-                      paddingHorizontal: 14,
-                    }}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingVertical: 6, paddingHorizontal: 14 }}
                   >
                     <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Check out</Text>
                   </Pressable>
+                  <Pressable
+                    onPress={() => setShowReportCoords(true)}
+                    style={{ paddingVertical: 4, paddingHorizontal: 4 }}
+                  >
+                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>📍 Wrong location?</Text>
+                  </Pressable>
+                </View>
+              ) : null}
+
+              {/* Coördinaten rapport modal */}
+              {showReportCoords && selectedSpot && currentCoordinates ? (
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginTop: 4 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 4 }}>Report wrong coordinates</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
+                    Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={async () => {
+                        if (!activeAppUserId || !currentCoordinates) return;
+                        const spotDef = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(selectedSpot));
+                        await supabase.from('spot_coordinate_suggestions').insert({
+                          spot_name: selectedSpot,
+                          submitted_by: activeAppUserId,
+                          current_latitude: spotDef?.latitude ?? null,
+                          current_longitude: spotDef?.longitude ?? null,
+                          suggested_latitude: currentCoordinates.latitude,
+                          suggested_longitude: currentCoordinates.longitude,
+                        });
+                        // Stuur push naar Matt
+                        void sendPushToRecipients(
+                          ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
+                          '📍 Spot correction',
+                          `${activeProfile?.display_name} reported wrong coordinates for ${selectedSpot}`,
+                          { type: 'admin' }
+                        );
+                        setShowReportCoords(false);
+                        alert('Thank you! We\'ll review your suggestion.');
+                      }}
+                      style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}
+                    >
+                      <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Submit</Text>
+                    </Pressable>
+                    <Pressable onPress={() => setShowReportCoords(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
+                      <Text style={{ color: theme.textMuted, fontSize: 13 }}>Cancel</Text>
+                    </Pressable>
+                  </View>
                 </View>
               ) : null}
 
