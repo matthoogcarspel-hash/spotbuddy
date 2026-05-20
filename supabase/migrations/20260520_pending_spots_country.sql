@@ -1,0 +1,1 @@
+ALTER TABLE pending_spots ADD COLUMN IF NOT EXISTS country TEXT;

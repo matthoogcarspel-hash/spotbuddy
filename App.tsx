@@ -7826,16 +7826,22 @@ export default function App() {
                       onPress={async () => {
                         if (!addSpotName.trim() || !activeAppUserId || !currentCoordinates) return;
                         setAddSpotSubmitting(true);
+                        let country: string | null = null;
+                        try {
+                          const geo = await Location.reverseGeocodeAsync(currentCoordinates);
+                          country = geo[0]?.country ?? null;
+                        } catch {}
                         await supabase.from('pending_spots').insert({
                           name: addSpotName.trim(),
                           latitude: currentCoordinates.latitude,
                           longitude: currentCoordinates.longitude,
                           submitted_by: activeAppUserId,
+                          country,
                         });
                         void sendPushToRecipients(
                           ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
                           '🌍 New spot suggestion',
-                          `${activeProfile?.display_name} suggested: ${addSpotName.trim()}`,
+                          `${activeProfile?.display_name} suggested: ${addSpotName.trim()} (${country ?? 'unknown country'})`,
                           { type: 'admin' }
                         );
                         setAddSpotSubmitting(false);
