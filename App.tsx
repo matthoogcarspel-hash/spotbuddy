@@ -1203,8 +1203,21 @@ function WheelPicker({ values, selected, onSelect, label, formatVal }: { values:
   return <WheelColumn values={values} selected={selected} onSelect={onSelect} formatVal={formatVal} />;
 }
 
-function Avatar({ uri, size = 28 }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null }) {
-  if (!uri) return <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
+const AVATAR_COLORS = ['#1a6b8a','#2d7a4f','#7a2d6b','#8a5a1a','#1a3d8a','#6b1a1a','#2d6b6b','#5a2d8a'];
+function avatarColor(name: string | null | undefined) {
+  if (!name) return AVATAR_COLORS[0];
+  let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffffffff;
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+function Avatar({ uri, size = 28, name }: { uri: string | null; size?: number; nationality?: string | null; skillLevel?: number | null; name?: string | null }) {
+  if (!uri) {
+    const initials = name ? name.trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('').toUpperCase() : '?';
+    return (
+      <View style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: avatarColor(name), alignItems: 'center', justifyContent: 'center' }}>
+        <Text style={{ color: '#ffffff', fontSize: Math.max(8, size * 0.38), fontWeight: '700' }}>{initials}</Text>
+      </View>
+    );
+  }
   return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
 }
 
@@ -1770,7 +1783,7 @@ function SessionRow({
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {sortedVisibleSessions.slice(0, 3).map(({ item }, index) => (
               <Pressable key={`session-avatar-${group.key}-${item.id}`} style={{ marginLeft: index === 0 ? 0 : -8 }} onPress={() => item.userId && onAvatarPress?.(item.userId)}>
-                <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
+                <Avatar uri={item.userAvatarUrl ?? null} size={40} nationality={item.userNationality} skillLevel={item.userSkillLevel} name={item.userName} />
               </Pressable>
             ))}
             {sortedVisibleSessions.length > 3 ? (
@@ -2088,7 +2101,7 @@ function SessionTimeline({
                       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
                           <Pressable key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} skillLevel={item.userSkillLevel} name={item.userName} />
                           </Pressable>
                         ))}
                         {(group.visibleSessions?.length ?? 0) > 3 ? (
@@ -2214,7 +2227,7 @@ function SessionTimeline({
                         </Text>
                         {(group.visibleSessions ?? []).map(({ item }) => (
                           <Pressable key={`member-${item.id}`} style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} skillLevel={item.userSkillLevel} />
+                            <Avatar uri={item.userAvatarUrl ?? null} size={30} nationality={item.userNationality} skillLevel={item.userSkillLevel} name={item.userName} />
                             <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>
                               {item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim() || 'Rider'}
                             </Text>
@@ -3833,7 +3846,14 @@ export default function App() {
       return;
     }
 
-    
+    // Automatisch terug-volgen zodat beide users buddy zijn van elkaar
+    await supabase.from('user_follows').upsert({
+      follower_id: payload.following_id,
+      following_id: payload.follower_id,
+      status: 'accepted',
+      responded_at: new Date().toISOString(),
+    }, { onConflict: 'follower_id,following_id' });
+
     setFollowRequestActionId(null);
     await fetchBuddiesData();
   };
@@ -5871,7 +5891,7 @@ export default function App() {
           {viewingOtherProfile ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <Avatar uri={viewingOtherProfile.avatar_url} size={60} />
+                <Avatar uri={viewingOtherProfile.avatar_url} size={60} name={viewingOtherProfile.display_name} />
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
@@ -7648,7 +7668,7 @@ export default function App() {
               <Text style={{ color: theme.text, fontSize: 26, fontWeight: '700' }}>My spots (max 5)</Text>
               <Pressable
                 onPress={() => setShowYourSpotsPage(false)}
-                style={{ display: isWebPlatform ? 'flex' : 'none', backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
+                style={{ backgroundColor: theme.cardStrong, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6 }}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Back home</Text>
               </Pressable>
@@ -8389,7 +8409,7 @@ export default function App() {
                 const isBuddy = followingUserIds.includes(dm.otherUserId);
                 return (
                   <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} /></Pressable>
+                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} name={dm.otherName} /></Pressable>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
@@ -8589,7 +8609,7 @@ export default function App() {
                   {dmConversations.map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
                     return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} /></Pressable>
+                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} name={dm.otherName} /></Pressable>
                       <View style={{ flex: 1 }}>
                         <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
                         {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
@@ -8628,7 +8648,7 @@ export default function App() {
 
     const UserRow = ({ avatar, name, sub, right, onAvatarPress, skillLevel }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode; onAvatarPress?: () => void; skillLevel?: number | null }) => (
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
-        {onAvatarPress ? <Pressable onPress={onAvatarPress}><Avatar uri={avatar} size={42} skillLevel={skillLevel} /></Pressable> : <Avatar uri={avatar} size={42} skillLevel={skillLevel} />}
+        {onAvatarPress ? <Pressable onPress={onAvatarPress}><Avatar uri={avatar} size={42} skillLevel={skillLevel} name={name} /></Pressable> : <Avatar uri={avatar} size={42} skillLevel={skillLevel} name={name} />}
         <View style={{ flex: 1 }}>
           <Text numberOfLines={1} style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>{name}</Text>
           {sub ? <Text numberOfLines={1} style={{ color: theme.textMuted, fontSize: 11, marginTop: 2 }}>{sub}</Text> : null}
