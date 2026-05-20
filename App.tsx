@@ -10155,47 +10155,41 @@ const handleSave = async () => {
               {liveCount > 0 ? (
                 <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800', marginTop: 5 }}>Live now</Text>
               ) : null}
+            </View>
+            <View style={{ alignItems: 'flex-end', gap: 8 }}>
+              <Pressable
+                onPress={() => setIsNotificationPanelExpanded((prev) => !prev)}
+                style={{
+                  borderRadius: 999,
+                  borderColor: theme.border,
+                  backgroundColor: theme.bgElevated,
+                  paddingHorizontal: isWebPlatform ? 10 : 8,
+                  paddingVertical: isWebPlatform ? 6 : 5,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>Alert settings</Text>
+                <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
+              </Pressable>
               {(() => {
                 const wind = windBySpot[selectedSpot];
-                if (wind === undefined) {
-                  return <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>Loading wind…</Text>;
-                }
-                if (wind === null) {
-                  return <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 8 }}>Wind unavailable</Text>;
-                }
+                if (!wind) return null;
                 return (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 12 }}>
-                    <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: '800' }}>{degreesToCompass(wind.direction)}</Text>
+                  <View style={{ alignItems: 'flex-end', gap: 2 }}>
                     <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
-                      <Text style={{ color: '#ffffff', fontSize: 28, fontWeight: '900' }}>{wind.speed}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, fontWeight: '700' }}>kn</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>{wind.speed}</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>kn</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '700' }}>{degreesToCompass(wind.direction)}</Text>
                     </View>
                     {wind.gusts > wind.speed + 3 ? (
-                      <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13 }}>gusts {wind.gusts} kn</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 11 }}>gusts {wind.gusts} kn</Text>
                     ) : null}
                   </View>
                 );
               })()}
             </View>
-            <Pressable
-              onPress={() => {
-                setIsNotificationPanelExpanded((prev) => !prev);
-              }}
-              style={{
-                borderRadius: 999,
-                
-                borderColor: theme.border,
-                backgroundColor: theme.bgElevated,
-                paddingHorizontal: isWebPlatform ? 10 : 8,
-                paddingVertical: isWebPlatform ? 6 : 5,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 6,
-              }}
-            >
-              <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>Alert settings</Text>
-              <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
-            </Pressable>
           </View>
           
           {false && selectedSpotMomentumLabel ? (
