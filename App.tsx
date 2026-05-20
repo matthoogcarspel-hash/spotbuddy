@@ -2834,7 +2834,7 @@ export default function App() {
     data: Record<string, unknown>,
   ) => {
     if (recipientIds.length === 0) return;
-    // Server-side via Supabase RPC (geen CORS issue op web)
+    // Server-side via Supabase RPC (geen CORS issue op web of native)
     void supabase.rpc('send_push_to_users', {
       recipient_ids: recipientIds,
       title,
