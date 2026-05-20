@@ -2558,6 +2558,7 @@ export default function App() {
   const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
+  const [topSpotsData, setTopSpotsData] = useState<{ name: string; shortName: string; count: number; dist: string }[]>([]);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
   const [homeSpotsLimitMessage, setHomeSpotsLimitMessage] = useState('');
   const [orderMode, setOrderMode] = useState<SpotOrderMode>('distance');
@@ -4633,6 +4634,55 @@ export default function App() {
 
     void fetchSharedData();
   }, [activeAppUserId, spotNames]);
+
+  // Top spots: laad activiteit van alle spots voor today/tomorrow
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    void (async () => {
+      const dayKey = activeDay === 'today' ? getTodayLocalDateKey() : getTomorrowLocalDateKey();
+      const { data } = await supabase
+        .from('sessions')
+        .select('spot_name, user_id')
+        .eq('session_day', dayKey)
+        .not('status', 'in', '("finished","Uitchecken")')
+        .is('checked_out_at', null);
+
+      if (!data || data.length === 0) { setTopSpotsData([]); return; }
+
+      // Tel unieke users per spot
+      const countMap: Record<string, Set<string>> = {};
+      for (const row of data) {
+        if (!row.spot_name || !row.user_id) continue;
+        if (!countMap[row.spot_name]) countMap[row.spot_name] = new Set();
+        countMap[row.spot_name].add(row.user_id);
+      }
+
+      // Koppel aan spotDefinitions voor afstand
+      const withDist = Object.entries(countMap).map(([spotName, users]) => {
+        const def = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(spotName));
+        const dist = (currentCoordinates && def)
+          ? getDistanceMeters(currentCoordinates, { latitude: def.latitude, longitude: def.longitude })
+          : null;
+        return { name: spotName, count: users.size, distM: dist };
+      });
+
+      // Filter 25km, fallback nationaal
+      const nearby = withDist.filter(s => s.distM !== null && s.distM <= 25000);
+      const pool = nearby.length >= 3 ? nearby : withDist;
+
+      const top5 = pool
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5)
+        .map(s => ({
+          name: s.name.length > 10 ? s.name.split(' ').pop() ?? s.name : s.name,
+          shortName: s.name,
+          count: s.count,
+          dist: s.distM !== null ? (s.distM < 1000 ? `${Math.round(s.distM)} m` : `${(s.distM / 1000).toFixed(0)} km`) : '',
+        }));
+
+      setTopSpotsData(top5);
+    })();
+  }, [activeDay, activeAppUserId, currentCoordinates, verifiedSpotDefinitions]);
 
   useEffect(() => {
     if (!activeAppUserId || spotNames.length === 0) {
@@ -10942,21 +10992,9 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        {/* 🔥 MOCK: Activity cluster */}
-        {(() => {
-          const mockSpots = activeDay === 'today' ? [
-            { name: 'KZVS', fullName: 'Scheveningen KZVS', count: 6, dist: '2.1 km' },
-            { name: 'Noordwijk', fullName: 'Noordwijk KSN', count: 4, dist: '18 km' },
-            { name: 'IJmuiden', fullName: 'IJmuiden', count: 2, dist: '22 km' },
-            { name: 'Bdam', fullName: 'Brouwersdam', count: 1, dist: '24 km' },
-            { name: 'Hoek v H', fullName: 'Hoek van Holland', count: 1, dist: '25 km' },
-          ] : [
-            { name: 'Bdam', fullName: 'Brouwersdam', count: 5, dist: '24 km' },
-            { name: 'KZVS', fullName: 'Scheveningen KZVS', count: 3, dist: '2.1 km' },
-            { name: 'Workum', fullName: 'Workum', count: 2, dist: '20 km' },
-            { name: 'Hoek v H', fullName: 'Hoek van Holland', count: 2, dist: '25 km' },
-            { name: 'IJmuiden', fullName: 'IJmuiden', count: 1, dist: '22 km' },
-          ];
+        {/* Top spots — echte data */}
+        {topSpotsData.length > 0 ? (() => {
+          const mockSpots = topSpotsData.map(s => ({ name: s.name, fullName: s.shortName, count: s.count, dist: s.dist }));
           const max = Math.max(...mockSpots.map(s => s.count), 1);
           const total = mockSpots.reduce((a, s) => a + s.count, 0);
           const BAR_W = 16;
@@ -10991,7 +11029,7 @@ const handleSave = async () => {
               </View>
             </View>
           );
-        })()}
+        })() : null}
 
         {visibleSpots.length === 0 ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16 }}>
