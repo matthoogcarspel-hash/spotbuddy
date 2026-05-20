@@ -352,7 +352,7 @@ export async function joinSession(input: {
 
   const { data: sourceSessionForJoin, error: sourceSessionForJoinError } = await supabase
     .from('sessions')
-    .select('intent')
+    .select('intent, source_session_id')
     .eq('id', input.sessionId)
     .maybeSingle();
 
@@ -361,12 +361,14 @@ export async function joinSession(input: {
   }
 
   const inheritedIntent: SessionIntent = sourceSessionForJoin?.intent === 'maybe' ? 'maybe' : 'definitely';
+  // Altijd de ROOT sessie als source gebruiken (niet een joiner sessie)
+  const rootSessionId = (sourceSessionForJoin as any)?.source_session_id ?? input.sessionId;
 
   const { data: existingJoinedSession, error: existingJoinedSessionError } = await supabase
     .from('sessions')
     .select('id')
     .eq('user_id', sessionIdentity.user_id)
-    .eq('source_session_id', input.sessionId)
+    .eq('source_session_id', rootSessionId)
     .maybeSingle();
 
   if (existingJoinedSessionError) {
@@ -377,7 +379,6 @@ export async function joinSession(input: {
     });
   }
 
-  console.log('JOIN_EXISTING_CHECK', { existingId: existingJoinedSession?.id, sourceSessionId: input.sessionId });
   if (existingJoinedSession?.id) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', {
       ok: true,
@@ -396,10 +397,9 @@ export async function joinSession(input: {
     intent: inheritedIntent,
     checked_in_at: null,
     checked_out_at: null,
-    source_session_id: input.sessionId,
+    source_session_id: rootSessionId,
   };
 
-  console.log('JOIN_INSERT_PAYLOAD', { session_day: joinPayload.session_day, spot: joinPayload.spot_name, source: joinPayload.source_session_id });
   const writeResult = await supabase
     .from('sessions')
     .insert(joinPayload)
