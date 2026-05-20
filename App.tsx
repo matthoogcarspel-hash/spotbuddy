@@ -9018,9 +9018,25 @@ export default function App() {
     const filteredSuggestions = normalizedBuddySearch
       ? suggestions.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
       : suggestions;
-    const filteredBuddies = normalizedBuddySearch
+    const getBuddySession = (userId: string) => {
+      for (const [spotName, sessions] of Object.entries(daySessionsBySpot)) {
+        for (const s of sessions) {
+          if (s.userId !== userId) continue;
+          const st = getCleanSessionStatus(s);
+          if (st === 'live' || st === 'going' || st === 'maybe') {
+            return { type: st, spot: spotName, start: s.start, end: s.end };
+          }
+        }
+      }
+      return null;
+    };
+
+    const statusRank = (type: string | undefined) => type === 'live' ? 0 : type === 'going' ? 1 : type === 'maybe' ? 2 : 3;
+
+    const filteredBuddies = (normalizedBuddySearch
       ? followedUsers.filter((u) => normalizeSearch(u.display_name).includes(normalizedBuddySearch))
-      : followedUsers;
+      : followedUsers
+    ).slice().sort((a, b) => statusRank(getBuddySession(a.id)?.type) - statusRank(getBuddySession(b.id)?.type));
 
     const UserRow = ({ avatar, name, sub, right, onAvatarPress, skillLevel }: { avatar: string | null; name: string; sub?: string; right: React.ReactNode; onAvatarPress?: () => void; skillLevel?: number | null }) => (
       <View style={{ flexDirection: 'row', alignItems: 'center', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', gap: 12 }}>
@@ -9146,11 +9162,22 @@ export default function App() {
                 <Text style={{ color: theme.textMuted, fontSize: 13 }}>No buddies match "{normalizedBuddySearch}"</Text>
               ) : (
                 <>
-                  {filteredBuddies.map((u) => (
+                  {filteredBuddies.map((u) => {
+                    const bs = getBuddySession(u.id);
+                    const spotShort = bs ? (bs.spot.length > 18 ? bs.spot.slice(0, 17) + '…' : bs.spot) : null;
+                    const bsSub = bs
+                      ? bs.type === 'live'
+                        ? `⚡ Live · ${spotShort}`
+                        : bs.type === 'going'
+                        ? `● Going · ${spotShort} · ${bs.start}–${bs.end}`
+                        : `○ Maybe · ${spotShort} · ${bs.start}–${bs.end}`
+                      : undefined;
+                    return (
                     <UserRow
                       key={`buddy-list-${u.id}`}
                       avatar={u.avatar_url}
                       name={u.display_name}
+                      sub={bsSub}
                       skillLevel={u.skill_level}
                       onAvatarPress={() => { setViewingOtherProfile({ id: u.id, display_name: u.display_name, avatar_url: u.avatar_url ?? null }); setViewingOtherUserId(u.id); }}
                       right={
@@ -9180,7 +9207,7 @@ export default function App() {
                         </View>
                       }
                     />
-                  ))}
+                  );})}
                   <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 8 }}>Tap "Profile" to view or remove a buddy</Text>
                 </>
               )}
