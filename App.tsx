@@ -11048,21 +11048,26 @@ const handleSave = async () => {
         {renderNativeTopBar()}
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: isWebPlatform ? homeTopPadding : 18, paddingBottom: homeBottomPadding }}
+          contentContainerStyle={{ paddingHorizontal: homeHorizontalPadding, paddingTop: 0, paddingBottom: homeBottomPadding }}
           refreshControl={
             <RefreshControl
               refreshing={isRefreshingWind}
               onRefresh={() => void refreshWindForFollowedSpots(true)}
               tintColor="rgba(255,255,255,0.4)"
-              title={windLastFetched
-                ? `Wind updated ${Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0 ? 'just now' : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`}`
-                : 'Pull to load wind data'}
-              titleColor="rgba(255,255,255,0.45)"
             />
           }
         >
 
-        <View style={{ marginBottom: 0 }}>
+        {/* Verborgen boven de viewport — zichtbaar bij pull-down */}
+        <View style={{ height: 36, justifyContent: 'center', alignItems: 'center', marginTop: isWebPlatform ? homeTopPadding : -36 }}>
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+            {windLastFetched
+              ? `Wind updated ${Math.floor((Date.now() - windLastFetched.getTime()) / 60000) === 0 ? 'just now' : `${Math.floor((Date.now() - windLastFetched.getTime()) / 60000)} min ago`}`
+              : 'Pull to load wind'}
+          </Text>
+        </View>
+
+        <View style={{ marginBottom: 0, paddingTop: isWebPlatform ? 0 : 18 }}>
           <View style={{ display: isWebPlatform ? 'flex' : 'none', flexDirection: 'row', alignItems: 'center', marginBottom: -20, paddingTop: 8 }}>
             <View style={{ width: homeLogoBoxSize, height: homeLogoBoxSize, overflow: 'hidden', marginRight: -12, marginLeft: -4, justifyContent: 'center', alignItems: 'center' }}>
               <Image source={require('./assets/logo.png')} style={{ width: homeLogoImageSize, height: homeLogoImageSize, marginLeft: 8 }} resizeMode="contain" />
