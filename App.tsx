@@ -2503,6 +2503,7 @@ export default function App() {
     messageRequests: boolean;
   }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; otherSkillLevel?: number | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
+  const loadDmConversationsRef = useRef<(() => Promise<void>) | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -4551,7 +4552,7 @@ export default function App() {
       void loadMySessionsForChatTab();
     }
     // DMs altijd laden als chat opent (niet alleen bij tab-switch)
-    void loadDmConversations();
+    void loadDmConversationsRef.current?.();
   }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -4974,7 +4975,7 @@ export default function App() {
               if (isDup) return prev;
               return { ...prev, [convId]: [...existing, newMsg] };
             });
-            void loadDmConversations();
+            void loadDmConversationsRef.current?.();
             return;
           } else if (!typeRow?.type) {
             return; // onbekend type — negeer
@@ -6005,7 +6006,7 @@ export default function App() {
                     const convId = await openDmWithUser(viewingOtherUserId);
                     if (!convId) return;
                     void loadDmMessages(convId);
-                    void loadDmConversations();
+                    void loadDmConversationsRef.current?.();
                     setViewingOtherUserId(null);
                     setChatSubTab('dm');
                     setExpandedDmId(convId);
@@ -7491,6 +7492,7 @@ export default function App() {
     for (const c of result) myConvIdsRef.current.add(c.id);
     setDmConversations(result);
   };
+  loadDmConversationsRef.current = loadDmConversations;
 
   const loadDmMessages = async (conversationId: string) => {
     const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
