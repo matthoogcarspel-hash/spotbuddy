@@ -162,14 +162,14 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
                 }} />
               </View>
               <Callout onPress={() => onOpenSpot(spot.name)}>
-                <View style={{ padding: 6, minWidth: 140 }}>
-                  <Text style={{ fontWeight: '700', fontSize: 13, marginBottom: 6 }}>{spot.name}</Text>
-                  <Pressable
-                    onPress={() => onOpenSpot(spot.name)}
-                    style={{ backgroundColor: '#007AFF', borderRadius: 8, paddingVertical: 5, paddingHorizontal: 10, alignItems: 'center' }}
-                  >
-                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Open spot</Text>
-                  </Pressable>
+                <View
+                  style={{ padding: 8, minWidth: 150 }}
+                  {...({ onClick: () => onOpenSpot(spot.name) } as any)}
+                >
+                  <Text style={{ fontWeight: '800', fontSize: 14, marginBottom: 4, color: '#07111F' }}>{spot.name}</Text>
+                  <View style={{ backgroundColor: '#07111F', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center' }}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Open spot →</Text>
+                  </View>
                 </View>
               </Callout>
             </Marker>

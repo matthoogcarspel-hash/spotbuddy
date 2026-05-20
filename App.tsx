@@ -4637,12 +4637,15 @@ export default function App() {
       return;
     }
 
+    console.log('SPOT_EFFECT', { selectedSpot, inNames: spotNames.includes(selectedSpot), defsLen: spotDefinitions.length });
+
     if (!spotNames.includes(selectedSpot)) {
       const selectedCanonicalName = normalizeSpotName(selectedSpot);
       const knownSpot = spotDefinitions.find((spot) =>
         spot.canonicalName === selectedCanonicalName
         || normalizeSpotName(spot.spot) === selectedCanonicalName
       );
+      console.log('SPOT_DETAIL_CHECK', { selectedSpot, spotDefsLen: spotDefinitions.length, knownSpot: knownSpot?.spot ?? null, spotNamesLen: spotNames.length });
       // Spot bestaat in spotDefinitions maar wordt niet gevolgd — toch tonen (bijv. vanuit Discover)
       if (knownSpot) {
         if (knownSpot.spot !== selectedSpot) setSelectedSpot(knownSpot.spot);
@@ -7723,6 +7726,7 @@ export default function App() {
             spots={discoverSpots}
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
+              console.log('OPEN_SPOT_FROM_DISCOVER', spotName);
               setSelectedSpot(spotName);
               setShowDiscoverSpotsPage(false);
               setHomeSpotSearchQuery('');
