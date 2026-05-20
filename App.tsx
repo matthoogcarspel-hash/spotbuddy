@@ -10945,50 +10945,70 @@ const handleSave = async () => {
         {/* 🔥 MOCK: Activity cluster — top actieve spots in de buurt */}
         {(() => {
           const mockSpots = [
-            { name: 'Scheveningen KZVS', live: 4, going: 2, dist: '2.1 km' },
-            { name: 'Noordwijk KSN', live: 1, going: 3, dist: '18 km' },
-            { name: 'IJmuiden', live: 0, going: 2, dist: '22 km' },
-            { name: 'Brouwersdam', live: 0, going: 1, dist: '24 km' },
+            { name: 'KZVS', fullName: 'Scheveningen KZVS', live: 4, going: 2, dist: '2.1 km' },
+            { name: 'Noordwijk', fullName: 'Noordwijk KSN', live: 1, going: 3, dist: '18 km' },
+            { name: 'IJmuiden', fullName: 'IJmuiden', live: 0, going: 2, dist: '22 km' },
+            { name: 'Brouwersdam', fullName: 'Brouwersdam', live: 0, going: 1, dist: '24 km' },
           ];
-          const maxScore = Math.max(...mockSpots.map(s => s.live * 2 + s.going));
+          const totalLive = mockSpots.reduce((a, s) => a + s.live, 0);
+          const totalGoing = mockSpots.reduce((a, s) => a + s.going, 0);
+          const maxScore = Math.max(...mockSpots.map(s => s.live * 2 + s.going), 1);
+          const BAR_MAX_H = 56;
           return (
-            <View style={{ marginBottom: 18 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 10 }}>
-                Activity near you
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+            <Pressable style={{ marginBottom: 18, backgroundColor: '#071c2e', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(94,240,208,0.18)', padding: 14, overflow: 'hidden' }}>
+              {/* Header */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <View>
+                  <Text style={{ color: '#5EF0D0', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 }}>🤙 Riders near you</Text>
+                  <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', marginTop: 2 }}>
+                    {totalLive > 0 ? `${totalLive} live` : ''}{totalLive > 0 && totalGoing > 0 ? '  · ' : ''}{totalGoing > 0 ? `${totalGoing} going` : ''}
+                  </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 1 }}>Don't miss out — get on the water</Text>
+                </View>
+                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(94,240,208,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 18 }}>🪁</Text>
+                </View>
+              </View>
+
+              {/* Bars + labels in één container */}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
                 {mockSpots.map((spot) => {
                   const score = spot.live * 2 + spot.going;
-                  const barHeight = Math.max(6, Math.round((score / maxScore) * 52));
-                  const liveH = Math.round((spot.live * 2 / score) * barHeight);
-                  const goingH = barHeight - liveH;
+                  const barH = Math.max(8, Math.round((score / maxScore) * BAR_MAX_H));
+                  const liveH = score > 0 ? Math.round((spot.live * 2 / score) * barH) : 0;
+                  const goingH = barH - liveH;
                   return (
-                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.name as any)}
-                      style={{ marginHorizontal: 4, width: 90, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: 10, alignItems: 'center' }}>
-                      {/* Stacked bar */}
-                      <View style={{ width: 28, height: 60, justifyContent: 'flex-end', marginBottom: 8 }}>
-                        {spot.going > 0 || spot.live > 0 ? (
-                          <View style={{ width: '100%', borderRadius: 4, overflow: 'hidden' }}>
-                            {spot.going > 0 && <View style={{ height: goingH, backgroundColor: '#4DB8FF', opacity: 0.7 }} />}
-                            {spot.live > 0 && <View style={{ height: liveH, backgroundColor: '#5EF0D0' }} />}
-                          </View>
-                        ) : (
-                          <View style={{ height: 6, width: '100%', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3 }} />
-                        )}
-                      </View>
-                      <Text style={{ color: theme.text, fontSize: 10, fontWeight: '800', textAlign: 'center' }} numberOfLines={2}>{spot.name}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 9, marginTop: 2 }}>{spot.dist}</Text>
-                      {(spot.live > 0 || spot.going > 0) && (
-                        <View style={{ flexDirection: 'row', gap: 4, marginTop: 4 }}>
-                          {spot.live > 0 && <Text style={{ color: '#5EF0D0', fontSize: 9, fontWeight: '800' }}>⚡{spot.live}</Text>}
-                          {spot.going > 0 && <Text style={{ color: '#4DB8FF', fontSize: 9, fontWeight: '800' }}>→{spot.going}</Text>}
+                    <Pressable key={spot.name} onPress={() => setSelectedSpot(spot.fullName as any)} style={{ flex: 1, alignItems: 'center' }}>
+                      <View style={{ width: '100%', height: BAR_MAX_H, justifyContent: 'flex-end' }}>
+                        <View style={{ width: '100%', borderRadius: 6, overflow: 'hidden' }}>
+                          {goingH > 0 && <View style={{ height: goingH, backgroundColor: '#4DB8FF', opacity: 0.7 }} />}
+                          {liveH > 0 && <View style={{ height: liveH, backgroundColor: '#5EF0D0' }} />}
+                          {score === 0 && <View style={{ height: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 3 }} />}
                         </View>
+                      </View>
+                      <Text style={{ color: score > 0 ? '#ffffff' : theme.textMuted, fontSize: 10, fontWeight: '800', marginTop: 6, textAlign: 'center' }} numberOfLines={1}>{spot.name}</Text>
+                      {score > 0 ? (
+                        <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 9, marginTop: 1 }}>{spot.dist}</Text>
+                      ) : (
+                        <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 9, marginTop: 1 }}>quiet</Text>
                       )}
                     </Pressable>
                   );
                 })}
-              </ScrollView>
-            </View>
+              </View>
+
+              {/* Legenda */}
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#5EF0D0' }} />
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>Live</Text>
+                </View>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <View style={{ width: 10, height: 10, borderRadius: 2, backgroundColor: '#4DB8FF', opacity: 0.7 }} />
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10 }}>Going</Text>
+                </View>
+              </View>
+            </Pressable>
           );
         })()}
 
