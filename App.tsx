@@ -1117,6 +1117,39 @@ const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: num
 const getDistanceMeters = (start: SpotCoordinates, end: SpotCoordinates) => {
   return getDistanceInMeters(start.latitude, start.longitude, end.latitude, end.longitude);
 };
+type WindData = { speed: number; direction: number; gusts: number };
+
+async function fetchWind(latitude: number, longitude: number): Promise<WindData | null> {
+  try {
+    const res = await fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn`
+    );
+    const json = await res.json();
+    const c = json?.current;
+    if (!c) return null;
+    return {
+      speed: Math.round(c.wind_speed_10m ?? 0),
+      direction: Math.round(c.wind_direction_10m ?? 0),
+      gusts: Math.round(c.wind_gusts_10m ?? 0),
+    };
+  } catch {
+    return null;
+  }
+}
+
+function degreesToCompass(deg: number): string {
+  const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  return dirs[Math.round(deg / 45) % 8];
+}
+
+function windColor(kn: number): string {
+  if (kn < 8) return '#5F83A6';
+  if (kn < 15) return '#4DB8FF';
+  if (kn < 25) return '#5EF0D0';
+  if (kn < 35) return '#FFB347';
+  return '#FF6B6B';
+}
+
 const formatDistance = (distanceMeters: number) => {
   if (distanceMeters < 1000) {
     return `${Math.round(distanceMeters)} m`;
@@ -2572,6 +2605,7 @@ export default function App() {
   const [locationPermissionStatus, setLocationPermissionStatus] = useState<Location.PermissionStatus | null>(null);
   const [isResolvingNearestSpot, setIsResolvingNearestSpot] = useState(false);
   const [nearestSpotResult, setNearestSpotResult] = useState<NearestSpotResult | null>(null);
+  const [windBySpot, setWindBySpot] = useState<Record<string, WindData | null>>({});
   const [currentCoordinates, setCurrentCoordinates] = useState<SpotCoordinates | null>(null);
   const [topSpotsData, setTopSpotsData] = useState<{ name: string; shortName: string; count: number; dist: string }[]>([]);
   const [favoriteSpots, setFavoriteSpots] = useState<SpotName[]>([]);
@@ -4669,6 +4703,15 @@ export default function App() {
     }
   }, [selectedSpot, spotDefinitions, spotNames]);
 
+  useEffect(() => {
+    if (!selectedSpot) return;
+    if (windBySpot[selectedSpot] !== undefined) return;
+    const def = spotDefinitions.find((s) => s.spot === selectedSpot);
+    if (!def || !Number.isFinite(def.latitude) || !Number.isFinite(def.longitude)) return;
+    void fetchWind(def.latitude, def.longitude).then((data) =>
+      setWindBySpot((prev) => ({ ...prev, [selectedSpot]: data }))
+    );
+  }, [selectedSpot, spotDefinitions]);
 
   useEffect(() => {
     if (!activeAppUserId || spotNames.length === 0) {
@@ -4908,6 +4951,20 @@ export default function App() {
   useEffect(() => { chatMySessionsRef.current = chatMySessions; }, [chatMySessions]);
   useEffect(() => { unreadBySessionRef.current = unreadBySession; }, [unreadBySession]);
   useEffect(() => { favoriteSpotsRef.current = favoriteSpots; }, [favoriteSpots]);
+
+  useEffect(() => {
+    if (spotDefinitions.length === 0 || favoriteSpots.length === 0) return;
+    const spotsToFetch = spotDefinitions.filter((s) =>
+      favoriteSpots.includes(s.spot) && Number.isFinite(s.latitude) && Number.isFinite(s.longitude)
+    );
+    void Promise.all(
+      spotsToFetch.map(async (s) => {
+        const data = await fetchWind(s.latitude, s.longitude);
+        setWindBySpot((prev) => ({ ...prev, [s.spot]: data }));
+      })
+    );
+  }, [favoriteSpots, spotDefinitions]);
+
   useEffect(() => { expandedChatSpotRef.current = expandedChatSpot; }, [expandedChatSpot]);
   useEffect(() => {
     const ids = new Set<string>();
@@ -10087,6 +10144,25 @@ const handleSave = async () => {
               <Text style={{ color: liveCount > 0 ? '#5EF0D0' : theme.textMuted, fontSize: 13, fontWeight: '800', marginTop: 5 }}>
                 {liveCount > 0 ? 'Live now' : 'No one live now'}
               </Text>
+              {(() => {
+                const wind = windBySpot[selectedSpot];
+                if (!wind) return null;
+                const color = windColor(wind.speed);
+                return (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10, flexWrap: 'wrap' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 4 }}>
+                      <Text style={{ color, fontSize: 22, fontWeight: '900' }}>{wind.speed}</Text>
+                      <Text style={{ color, fontSize: 13, fontWeight: '700' }}>kn</Text>
+                      <Text style={{ color, fontSize: 15, fontWeight: '800', marginLeft: 4 }}>{degreesToCompass(wind.direction)}</Text>
+                    </View>
+                    {wind.gusts > wind.speed + 3 ? (
+                      <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
+                        <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '700' }}>gusts {wind.gusts} kn</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                );
+              })()}
             </View>
             <Pressable
               onPress={() => {
@@ -11482,6 +11558,30 @@ const handleSave = async () => {
                   <Text style={{ color: 'rgba(255,255,255,0.52)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
                     {spot.distanceMeters === null ? 'DISTANCE UNKNOWN' : `${formatDistance(spot.distanceMeters)} AWAY`}
                   </Text>
+
+                  {(() => {
+                    const wind = windBySpot[spot.name];
+                    if (!wind) return null;
+                    const color = windColor(wind.speed);
+                    const isNearest = spot.name === nearestSpotName;
+                    return (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8 }}>
+                        <Text style={{ color, fontSize: isNearest ? 15 : 13, fontWeight: isNearest ? '900' : '700' }}>
+                          {wind.speed} kn {degreesToCompass(wind.direction)}
+                        </Text>
+                        {wind.gusts > wind.speed + 3 ? (
+                          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+                            gusts {wind.gusts} kn
+                          </Text>
+                        ) : null}
+                        {isNearest ? (
+                          <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 9, fontWeight: '800', letterSpacing: 0.5 }}>NEAREST</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })()}
                 </View>
 
                 <View style={{ alignItems: isWebPlatform ? 'flex-end' : 'flex-start', minWidth: isWebPlatform ? 150 : 0 }}>
