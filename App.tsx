@@ -7396,7 +7396,7 @@ export default function App() {
       convId = created?.id ?? null;
     }
     if (!convId) {
-      setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: null, messages: [], loaded: true } }));
+      setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: null, messages: [], loaded: true } }));
       return;
     }
     myConvIdsRef.current.add(convId);
@@ -7436,7 +7436,7 @@ export default function App() {
     setTimeout(() => chatSessionScrollRef.current?.scrollToEnd({ animated: true }), 50);
     // Gebruik het echte DB-ID zodat realtime dedup correct werkt (geen verdubbeling)
     const newMsg = { id: inserted?.id ?? `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
-    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
+    setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
   };
 
   // DM group_key = 'dm_SMALLERID_LARGERID' (geen participant kolommen nodig)
