@@ -10480,6 +10480,13 @@ const handleSave = async () => {
                 >
                   <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>＋ Add session</Text>
                 </Pressable>
+                <Pressable
+                  onPress={() => { if (selectedSpot) { setActiveChatSpot(selectedSpot); setActiveChatDayKey(selectedDayKey); setShowChat(true); setChatSubTab('spot'); setSelectedSpot(null); } }}
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingVertical: 6, paddingHorizontal: 4 }}
+                >
+                  <Ionicons name="chatbubble" size={13} color="#ffffff" />
+                  <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800' }}>Spot Chat</Text>
+                </Pressable>
                 {showManageSessions ? (
                   <Pressable onPress={() => setShowManageSessions(false)} style={{ paddingVertical: 6, paddingHorizontal: 8 }}>
                     <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Close</Text>
@@ -10602,7 +10609,6 @@ const handleSave = async () => {
               })}
             </View>
           ) : null}
-          <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 12 : 13, marginTop: 8, lineHeight: 18 }}>{headerHelperText}</Text>
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
 
           {showForm ? (
