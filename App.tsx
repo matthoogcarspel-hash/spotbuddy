@@ -4641,7 +4641,6 @@ export default function App() {
       return;
     }
 
-    console.log('SPOT_EFFECT', { selectedSpot, inNames: spotNames.includes(selectedSpot), defsLen: spotDefinitions.length });
 
     if (!spotNames.includes(selectedSpot)) {
       const selectedCanonicalName = normalizeSpotName(selectedSpot);
@@ -9500,7 +9499,7 @@ export default function App() {
     );
   }
 
-  console.log('PRE_SPOT_DETAIL', { selectedSpot, showDiscover: showDiscoverSpotsPage, showChat, showBuddies, showProfile });
+
   if (selectedSpot) {
     const spotSessions = (daySessionsBySpot[selectedSpot] ?? []).filter((s) => getCleanSessionStatus(s) !== 'finished');
 
