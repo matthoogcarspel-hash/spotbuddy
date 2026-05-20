@@ -8712,6 +8712,34 @@ export default function App() {
           {/* Bottom nav alleen in lijst-modus */}
           {!isAnyConvOpen && renderNativeBottomNav()}
           {renderOtherUserProfileModal()}
+          {isNotificationInboxExpanded && (
+            <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
+              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+              <View style={{ gap: 2 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+                  <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                    <Ionicons name="close" size={16} color={theme.textMuted} />
+                  </Pressable>
+                </View>
+                {notificationRows.length === 0
+                  ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
+                  : notificationRows.slice(0, 8).map((row) => {
+                    const summaryText = getNotificationInboxSummary(row);
+                    if (!summaryText) return null;
+                    return (
+                      <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                        </View>
+                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700', flex: 1 }} numberOfLines={2}>{summaryText}</Text>
+                        {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            </View>
+          )}
         </SafeAreaView>
       );
     }
@@ -10809,7 +10837,7 @@ const handleSave = async () => {
           </Pressable>
 
           <Pressable
-            onPress={() => setShowChat(true)}
+            onPress={() => { setShowChat(true); setChatSubTab('spot'); }}
             style={{
               width: homeActionButtonWidth,
               backgroundColor: 'rgba(255,255,255,0.075)',
@@ -11063,9 +11091,18 @@ const handleSave = async () => {
         })() : null}
 
         {visibleSpots.length === 0 ? (
-          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 16 }}>
-            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>No spots selected yet</Text>
-            <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Manage your list from Your spots.</Text>
+          <View style={{ backgroundColor: theme.card, borderRadius: 16, padding: 20, alignItems: 'flex-start', gap: 12 }}>
+            <View>
+              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>Add your favourite spots</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>Follow spots to see who's riding and plan sessions together.</Text>
+            </View>
+            <Pressable
+              onPress={() => setShowYourSpotsPage(true)}
+              style={{ backgroundColor: '#ffffff', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 18, flexDirection: 'row', alignItems: 'center', gap: 6 }}
+            >
+              <Ionicons name="location" size={15} color="#071421" />
+              <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Set up your spots</Text>
+            </Pressable>
           </View>
         ) : null}
 
