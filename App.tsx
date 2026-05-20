@@ -7751,6 +7751,10 @@ export default function App() {
               if (!spotName) return;
               openedFromDiscoverRef.current = true;
               setShowDiscoverSpotsPage(false);
+              setShowYourSpotsPage(false);
+              setShowChat(false);
+              setShowBuddies(false);
+              setShowProfile(false);
               setHomeSpotSearchQuery('');
               setSelectedSpot(spotName as any);
             }}
