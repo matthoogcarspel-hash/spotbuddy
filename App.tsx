@@ -7747,9 +7747,11 @@ export default function App() {
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
               if (!spotName) return;
-              setPendingSpotFromDiscover(spotName);
               setShowDiscoverSpotsPage(false);
               setHomeSpotSearchQuery('');
+              requestAnimationFrame(() => {
+                setSelectedSpot(spotName as any);
+              });
             }}
             onAddSpot={(spotName) => addSelectedSpot(spotName)}
             onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
