@@ -24,9 +24,6 @@ export async function sendExpoPushNotification(input: {
 
   const json = await response.json().catch(() => null);
 
-  // Log Expo push response for debugging
-  console.log('PUSH_RESPONSE', JSON.stringify({ status: response.status, to: input.to.slice(0, 20), json }));
-
   if (!response.ok) {
     return { ok: false, status: response.status, json };
   }
