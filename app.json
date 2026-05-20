@@ -39,6 +39,14 @@
     },
     "plugins": [
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/appicoon.png",
+          "color": "#071421",
+          "sounds": []
+        }
+      ],
+      [
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "SpotBuddy uses your location to find nearby kite spots and auto check-out when you leave."

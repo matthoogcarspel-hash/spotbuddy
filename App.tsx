@@ -3254,6 +3254,7 @@ export default function App() {
         }
 
         const { status } = await Buzz.requestPermissionsAsync();
+        if (status !== 'granted') return;
 
         const projectId =
           Constants?.expoConfig?.extra?.eas?.projectId ??

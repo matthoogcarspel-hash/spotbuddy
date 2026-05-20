@@ -17,6 +17,8 @@ export async function sendExpoPushNotification(input: {
       body: input.body,
       data: input.data ?? {},
       sound: 'default',
+      priority: 'high',
+      badge: 1,
     }),
   });
 
