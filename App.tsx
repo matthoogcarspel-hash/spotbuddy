@@ -11880,7 +11880,7 @@ const handleSave = async () => {
                 onPress={() => { setShowPlanModal(false); setSelectedSpot(spotName as SpotName); }}
                 style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 15, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', opacity: pressed ? 0.7 : 1 })}
               >
-                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+                <Ionicons name="location-outline" size={20} color="#ffffff" />
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', flex: 1 }}>{spotName}</Text>
               </Pressable>
             ))}
