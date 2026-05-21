@@ -2507,6 +2507,7 @@ export default function App() {
   const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
+  const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
   const [activeChatDayKey, setActiveChatDayKey] = useState<string | null>(null);
   const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; dayKey?: string }>>({});
@@ -8648,19 +8649,20 @@ export default function App() {
                       const day = dayFromChatKey(activeKey);
                       void loadSpotChatForTab(spotName, day);
                     }
-                  }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
+                  }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="location" size={22} color="rgba(255,255,255,0.45)" />
                     </View>
                     <View style={{ flex: 1 }}>
-                      <Text style={{ color: theme.text, fontSize: 15, fontWeight: unread > 0 ? '900' : '700' }}>{spotName}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{dayLabel}</Text>
-                      {lastMsg ? <Text style={{ color: unread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: unread > 0 ? '700' : '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{spotName}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                        {unread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>}
+                      </View>
                     </View>
-                    {unread > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>
-                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    }
                   </Pressable>
                 );
                 }); // einde rows.map
@@ -8697,22 +8699,20 @@ export default function App() {
                       setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk);
                       setUnreadBySession(p => ({ ...p, [gk]: 0 }));
                       if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
-                    }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
+                    }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people" size={22} color="rgba(255,255,255,0.45)" />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: lastMsg ? 2 : 0 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)} – ${data.sessionEnd.slice(0,5)}` : ''}</Text>
-                        {lastMsg
-                          ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
-                          : null
-                        }
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{data.spotName}</Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)}–${data.sessionEnd.slice(0,5)}` : ''}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                          {sessionUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>}
+                        </View>
                       </View>
-                      {sessionUnread > 0
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
-                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      }
                     </Pressable>
                   );
                 });
@@ -8726,37 +8726,35 @@ export default function App() {
               {dmConversations.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
                   <Text style={{ fontSize: 32 }}>✉️</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>
-                    No direct messages yet.
-                  </Text>
-                  <Pressable
-                    onPress={() => {
-                      setShowChat(false);
-                      setShowBuddies(true);
-                      setBuddiesTab('myBuddies');
-                    }}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
-                  >
+                  <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>No direct messages yet.</Text>
+                  <Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
                     <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text>
                   </Pressable>
                 </View>
               )}
-              {dmConversations.map((dm) => {
-                const isBuddy = followingUserIds.includes(dm.otherUserId);
+              {dmConversations.length > 0 && (
+                <View style={{ marginBottom: 8, paddingHorizontal: 0 }}>
+                  <TextInput value={dmSearchQuery} onChangeText={setDmSearchQuery} placeholder="Search" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+                </View>
+              )}
+              {dmConversations.filter(dm => !dmSearchQuery.trim() || dm.otherName?.toLowerCase().includes(dmSearchQuery.toLowerCase())).map((dm) => {
+                const dmUnread = unreadByDm[dm.id] ?? 0;
+                const lastTs = dm.lastMessageAt ? formatToHourMinute(dm.lastMessageAt) : '';
                 return (
-                  <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} name={dm.otherName} /></Pressable>
+                  <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}>
+                      <Avatar uri={dm.otherAvatar} size={50} skillLevel={dm.otherSkillLevel} name={dm.otherName} />
+                    </Pressable>
                     <View style={{ flex: 1 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
-                        {isBuddy ? <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>Buddy</Text></View> : <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2 }}><Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '800' }}>REQUEST</Text></View>}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{dm.otherName}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>{lastTs}</Text>
                       </View>
-                      {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage || 'No messages yet'}</Text>
+                        {dmUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>}
+                      </View>
                     </View>
-                    {(unreadByDm[dm.id] ?? 0) > 0
-                      ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unreadByDm[dm.id]}</Text></View>
-                      : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                    }
                   </Pressable>
                 );
               })}
@@ -8896,19 +8894,20 @@ export default function App() {
                     const spotUnreadCount = spotsWithUnread[spotName.toLowerCase()] ?? 0;
                     const hasUnread = spotUnreadCount > 0;
                     const nativeDayLabel = dayFromChatKey(chatKey) === todayN ? 'Today' : 'Tomorrow';
-                    return <Pressable key={chatKey} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="location" size={18} color="rgba(255,255,255,0.35)" />
+                    return <Pressable key={chatKey} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="location" size={22} color="rgba(255,255,255,0.45)" />
                       </View>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{spotName}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{nativeDayLabel}</Text>
-                        {lastMsg ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '400' }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{spotName}</Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 12 }}>{nativeDayLabel}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                          {hasUnread && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>}
+                        </View>
                       </View>
-                      {hasUnread
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>
-                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      }
                     </Pressable>;
                     }); // einde nativeRows.map
                   })()}
@@ -8939,22 +8938,20 @@ export default function App() {
                           setExpandedChatSpot(null); setExpandedDmId(null); setExpandedChatSession(gk);
                           setUnreadBySession(p => ({ ...p, [gk]: 0 }));
                           if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
-                        }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                          <View style={{ width: 32, height: 32, alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="people" size={18} color="rgba(255,255,255,0.35)" />
+                        }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                          <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name="people" size={22} color="rgba(255,255,255,0.45)" />
                           </View>
                           <View style={{ flex: 1 }}>
-                            <Text style={{ color: theme.text, fontSize: 15, fontWeight: sessionUnread > 0 ? '900' : '700' }}>{data.spotName}</Text>
-                            <Text style={{ color: theme.textMuted, fontSize: 11, marginBottom: lastMsg ? 2 : 0 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)} – ${data.sessionEnd.slice(0,5)}` : ''}</Text>
-                            {lastMsg
-                              ? <Text style={{ color: sessionUnread > 0 ? theme.textSoft : theme.textMuted, fontSize: 12, fontWeight: sessionUnread > 0 ? '700' : '400' }} numberOfLines={1}><Text style={{ fontWeight: '700' }}>{lastMsg.display_name}: </Text>{lastMsg.text}</Text>
-                              : null
-                            }
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{data.spotName}</Text>
+                              <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)}–${data.sessionEnd.slice(0,5)}` : ''}</Text>
+                            </View>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                              {sessionUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>}
+                            </View>
                           </View>
-                          {sessionUnread > 0
-                            ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>
-                            : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                          }
                         </Pressable>
                       );
                     });
@@ -8962,18 +8959,28 @@ export default function App() {
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
-                  {dmConversations.map((dm) => {
+                  {dmConversations.length > 0 && (
+                    <View style={{ marginBottom: 8 }}>
+                      <TextInput value={dmSearchQuery} onChangeText={setDmSearchQuery} placeholder="Search" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
+                    </View>
+                  )}
+                  {dmConversations.filter(dm => !dmSearchQuery.trim() || dm.otherName?.toLowerCase().includes(dmSearchQuery.toLowerCase())).map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
-                    return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 14, paddingVertical: 12, gap: 12 }}>
-                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}><Avatar uri={dm.otherAvatar} size={42} skillLevel={dm.otherSkillLevel} name={dm.otherName} /></Pressable>
+                    const lastTs = dm.lastMessageAt ? formatToHourMinute(dm.lastMessageAt) : '';
+                    return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}>
+                        <Avatar uri={dm.otherAvatar} size={50} skillLevel={dm.otherSkillLevel} name={dm.otherName} />
+                      </Pressable>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{dm.otherName}</Text>
-                        {dm.lastMessage ? <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{dm.otherName}</Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 12 }}>{lastTs}</Text>
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage || 'No messages yet'}</Text>
+                          {dmUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>}
+                        </View>
                       </View>
-                      {dmUnread > 0
-                        ? <View style={{ minWidth: 22, height: 22, borderRadius: 11, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>
-                        : <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
-                      }
                     </Pressable>;
                   })}
                 </View>}
