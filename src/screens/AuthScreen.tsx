@@ -145,9 +145,9 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
         {mode === 'login' && (
           <View style={{ gap: 12 }}>
             {/* Welcome */}
-            <View style={{ alignItems: 'center', marginBottom: 8 }}>
-              <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800', textAlign: 'center' }}>Welcome back 👋</Text>
-              <Text style={{ color: MUTED, fontSize: 14, marginTop: 4, textAlign: 'center' }}>Log in to see who's going</Text>
+            <View style={{ alignItems: 'center', marginBottom: 12 }}>
+              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center', lineHeight: 28 }}>See who's going.{'\n'}Ride together.</Text>
+              <Text style={{ color: MUTED, fontSize: 14, marginTop: 10, textAlign: 'center', lineHeight: 20 }}>SpotBuddy connects kitesurfers at spots around the world. Find out who's riding today, plan sessions and meet your next kite buddy.</Text>
             </View>
 
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
@@ -204,8 +204,8 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
         {mode === 'signup' && (
           <View style={{ gap: 10 }}>
             <View style={{ marginBottom: 8 }}>
-              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>Join the community 🤙</Text>
-              <Text style={{ color: MUTED, fontSize: 14, marginTop: 4 }}>Free forever · No credit card needed</Text>
+              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>Stoked you're joining 🤙</Text>
+              <Text style={{ color: MUTED, fontSize: 14, marginTop: 4, lineHeight: 20 }}>Welcome to the SpotBuddy community. We hope it gets you on the water more often.</Text>
             </View>
 
             {/* Avatar */}
