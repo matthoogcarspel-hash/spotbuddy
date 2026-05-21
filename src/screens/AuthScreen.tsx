@@ -10,7 +10,16 @@ const BG = '#07111F';
 const CARD = 'rgba(255,255,255,0.06)';
 const BORDER = 'rgba(255,255,255,0.08)';
 const MUTED = 'rgba(255,255,255,0.32)';
-const INPUT_STYLE = { backgroundColor: CARD, color: '#ffffff' as const, borderRadius: 12, padding: 14, fontSize: 15, borderWidth: 1, borderColor: BORDER };
+const INPUT_STYLE = {
+  backgroundColor: CARD,
+  color: '#ffffff' as const,
+  borderRadius: 999,
+  paddingVertical: 11,
+  paddingHorizontal: 18,
+  fontSize: 14,
+  borderWidth: 1,
+  borderColor: BORDER,
+};
 
 const SKILL_LEVELS = [
   { level: 1, name: 'Beginner ★' },
@@ -38,14 +47,12 @@ type Mode = 'login' | 'signup' | 'reset';
 export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>('login');
 
-  // Auth fields
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Profile fields (signup only)
   const [displayName, setDisplayName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [nationality, setNationality] = useState<string | null>(null);
@@ -81,7 +88,6 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
     setLoading(true); reset();
 
-    // SpotBuddy naam: alleen toestaan als er nog geen bestaat
     const normalizedUsername = trimmedName.toLowerCase().replace(/[^a-z0-9]/g, '');
     if (normalizedUsername.includes('spotbuddy')) {
       const { data: sbExists } = await supabase.from('profiles').select('id').ilike('display_name', '%spotbuddy%').limit(1).maybeSingle();
@@ -128,40 +134,64 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
 
         {/* Wordmark */}
-        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 32 : 52, marginBottom: mode === 'signup' ? 20 : 40 }}>
-          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: 120 }} />
+        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 56, marginBottom: mode === 'signup' ? 16 : 32 }}>
+          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: mode === 'signup' ? 100 : 160 }} />
         </View>
 
         {/* LOGIN */}
         {mode === 'login' && (
-          <View style={{ gap: 10 }}>
+          <View style={{ gap: 12 }}>
+            {/* Welcome */}
+            <View style={{ alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '800', textAlign: 'center' }}>Welcome back 👋</Text>
+              <Text style={{ color: MUTED, fontSize: 14, marginTop: 4, textAlign: 'center' }}>Log in to see who's going</Text>
+            </View>
+
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
             <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor={MUTED} style={INPUT_STYLE} />
+
             <Pressable onPress={() => { setMode('reset'); reset(); }} style={{ paddingVertical: 2 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.38)', fontSize: 13 }}>Forgot password?</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Forgot password?</Text>
             </Pressable>
+
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
+
             <TouchableOpacity disabled={loading} onPress={handleLogin} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 6, opacity: loading ? 0.6 : 1 }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 4, opacity: loading ? 0.6 : 1 }}>
               <Text style={{ color: BG, fontSize: 15, fontWeight: '900' }}>{loading ? 'Logging in...' : 'Log in'}</Text>
             </TouchableOpacity>
-            <Pressable onPress={() => { setMode('signup'); reset(); }} style={{ paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>New here? <Text style={{ color: '#ffffff', fontWeight: '700' }}>Create account →</Text></Text>
-            </Pressable>
+
+            {/* Divider */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.07)' }} />
+              <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>or</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.07)' }} />
+            </View>
+
+            {/* Join CTA */}
+            <View style={{ alignItems: 'center', gap: 6 }}>
+              <Text style={{ color: MUTED, fontSize: 13, textAlign: 'center' }}>New to the community?</Text>
+              <Pressable onPress={() => { setMode('signup'); reset(); }}
+                style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center' }}>
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800' }}>Join for free →</Text>
+              </Pressable>
+              <Text style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11 }}>No credit card needed</Text>
+            </View>
           </View>
         )}
 
         {/* RESET */}
         {mode === 'reset' && (
           <View style={{ gap: 10 }}>
+            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800', marginBottom: 4 }}>Reset password</Text>
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
             {successMessage ? <Text style={{ color: '#5EF0D0', fontSize: 13 }}>{successMessage}</Text> : null}
             <TouchableOpacity disabled={loading} onPress={handleReset} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginTop: 6, opacity: loading ? 0.6 : 1 }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 4, opacity: loading ? 0.6 : 1 }}>
               <Text style={{ color: BG, fontSize: 15, fontWeight: '900' }}>{loading ? 'Sending...' : 'Send reset link'}</Text>
             </TouchableOpacity>
             <Pressable onPress={() => { setMode('login'); reset(); }} style={{ paddingVertical: 14, alignItems: 'center' }}>
@@ -173,23 +203,25 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
         {/* SIGNUP */}
         {mode === 'signup' && (
           <View style={{ gap: 10 }}>
-            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 4 }}>Create your account</Text>
+            <View style={{ marginBottom: 8 }}>
+              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900' }}>Join the community 🤙</Text>
+              <Text style={{ color: MUTED, fontSize: 14, marginTop: 4 }}>Free forever · No credit card needed</Text>
+            </View>
 
             {/* Avatar */}
             <Pressable onPress={pickAvatar} style={{ alignItems: 'center', marginBottom: 4 }}>
               {avatarUri ? (
-                <View style={{ width: 88, height: 88, borderRadius: 44, overflow: 'hidden' }}>
+                <View style={{ width: 80, height: 80, borderRadius: 40, overflow: 'hidden' }}>
                   <Image source={{ uri: avatarUri }} style={{ width: '100%', height: '100%' }} />
                 </View>
               ) : (
-                <View style={{ width: 88, height: 88, borderRadius: 44, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' }}>
-                  <Text style={{ fontSize: 34 }}>📷</Text>
+                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: CARD, borderWidth: 1, borderColor: BORDER, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ fontSize: 30 }}>📷</Text>
                 </View>
               )}
-              <Text style={{ color: MUTED, fontSize: 12, marginTop: 6 }}>Tap to add photo (optional)</Text>
+              <Text style={{ color: MUTED, fontSize: 12, marginTop: 6 }}>Add photo (optional)</Text>
             </Pressable>
 
-            {/* Fields */}
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
             <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Password (min. 6 characters)" placeholderTextColor={MUTED} style={INPUT_STYLE} />
             <TextInput value={displayName} onChangeText={setDisplayName} autoCapitalize="none" placeholder="Display name" placeholderTextColor={MUTED} style={INPUT_STYLE} />
@@ -242,8 +274,8 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
 
             <TouchableOpacity disabled={loading} onPress={handleSignup} activeOpacity={0.85}
-              style={{ backgroundColor: '#ffffff', borderRadius: 14, paddingVertical: 15, alignItems: 'center', opacity: loading ? 0.6 : 1, marginTop: 4 }}>
-              <Text style={{ color: BG, fontSize: 16, fontWeight: '900' }}>{loading ? 'Creating account...' : 'Create account'}</Text>
+              style={{ backgroundColor: '#ffffff', borderRadius: 999, paddingVertical: 14, alignItems: 'center', opacity: loading ? 0.6 : 1, marginTop: 4 }}>
+              <Text style={{ color: BG, fontSize: 15, fontWeight: '900' }}>{loading ? 'Creating account...' : 'Create free account'}</Text>
             </TouchableOpacity>
 
             <Pressable onPress={() => { setMode('login'); reset(); }} style={{ paddingVertical: 14, alignItems: 'center' }}>
