@@ -137,14 +137,14 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
 
         {/* Wordmark */}
-        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 48, marginBottom: mode === 'signup' ? 16 : 28 }}>
-          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: mode === 'signup' ? 100 : 320 }} />
+        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 32, marginBottom: mode === 'signup' ? 16 : 4 }}>
+          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: mode === 'signup' ? 100 : 220 }} />
         </View>
 
         {/* LOGIN */}
         {mode === 'login' && (
           <View style={{ alignItems: 'center', gap: 8 }}>
-            <Text style={{ color: '#ffffff', fontSize: 32, fontWeight: '900', textAlign: 'center', marginBottom: 16 }}>Welcome!</Text>
+            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center', marginBottom: 12 }}>Welcome!</Text>
 
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={[INPUT_STYLE, { width: 280 }]} />
             <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor={MUTED} style={[INPUT_STYLE, { width: 280 }]} />
