@@ -8650,16 +8650,14 @@ export default function App() {
                       void loadSpotChatForTab(spotName, day);
                     }
                   }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                    <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="location" size={22} color="rgba(255,255,255,0.45)" />
-                    </View>
+                    <Ionicons name="location-outline" size={22} color="rgba(255,255,255,0.5)" />
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                         <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{spotName}</Text>
                         <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                        {lastMsg ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                         {unread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{unread}</Text></View>}
                       </View>
                     </View>
@@ -8700,16 +8698,14 @@ export default function App() {
                       setUnreadBySession(p => ({ ...p, [gk]: 0 }));
                       if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
                     }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                      <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="people" size={22} color="rgba(255,255,255,0.45)" />
-                      </View>
+                      <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.5)" />
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                           <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{data.spotName}</Text>
                           <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)}–${data.sessionEnd.slice(0,5)}` : ''}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                          {lastMsg ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                           {sessionUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>}
                         </View>
                       </View>
@@ -8751,7 +8747,7 @@ export default function App() {
                         <Text style={{ color: theme.textMuted, fontSize: 12 }}>{lastTs}</Text>
                       </View>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                        <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage || 'No messages yet'}</Text>
+                        {dm.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
                         {dmUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>}
                       </View>
                     </View>
@@ -8895,16 +8891,14 @@ export default function App() {
                     const hasUnread = spotUnreadCount > 0;
                     const nativeDayLabel = dayFromChatKey(chatKey) === todayN ? 'Today' : 'Tomorrow';
                     return <Pressable key={chatKey} onPress={() => { setExpandedChatSession(null); setExpandedDmId(null); setExpandedChatSpot(activeNativeKey); setSpotsWithUnread(p => { const n = { ...p }; delete n[spotName.toLowerCase()]; return n; }); if (!chatSpotMessages[activeNativeKey]?.loaded) void loadSpotChatForTab(spotName, dayFromChatKey(activeNativeKey)); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                      <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="location" size={22} color="rgba(255,255,255,0.45)" />
-                      </View>
+                      <Ionicons name="location-outline" size={22} color="rgba(255,255,255,0.5)" />
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                           <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{spotName}</Text>
                           <Text style={{ color: theme.textMuted, fontSize: 12 }}>{nativeDayLabel}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                          {lastMsg ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                           {hasUnread && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{spotUnreadCount}</Text></View>}
                         </View>
                       </View>
@@ -8939,16 +8933,14 @@ export default function App() {
                           setUnreadBySession(p => ({ ...p, [gk]: 0 }));
                           if (!data.loaded || !msgs.length) void loadSessionChatForTab(gk, data.spotName ?? '', data.sessionDay ?? today);
                         }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                          <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                            <Ionicons name="people" size={22} color="rgba(255,255,255,0.45)" />
-                          </View>
+                          <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.5)" />
                           <View style={{ flex: 1 }}>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
                               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{data.spotName}</Text>
                               <Text style={{ color: theme.textMuted, fontSize: 12 }}>{dayLabel}{data.sessionStart && data.sessionEnd ? ` · ${data.sessionStart.slice(0,5)}–${data.sessionEnd.slice(0,5)}` : ''}</Text>
                             </View>
                             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg ? `${lastMsg.display_name}: ${lastMsg.text}` : 'No messages yet'}</Text>
+                              {lastMsg ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{lastMsg.display_name}: {lastMsg.text}</Text> : null}
                               {sessionUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{sessionUnread}</Text></View>}
                             </View>
                           </View>
@@ -8977,7 +8969,7 @@ export default function App() {
                           <Text style={{ color: theme.textMuted, fontSize: 12 }}>{lastTs}</Text>
                         </View>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Text style={{ color: theme.textMuted, fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage || 'No messages yet'}</Text>
+                          {dm.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{dm.lastMessage}</Text> : null}
                           {dmUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{dmUnread}</Text></View>}
                         </View>
                       </View>
