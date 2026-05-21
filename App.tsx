@@ -11860,43 +11860,35 @@ const handleSave = async () => {
           onPress={() => setShowPlanModal(false)}
           style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 200, justifyContent: 'flex-end' }}
         >
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>Plan a session</Text>
-              <Pressable onPress={() => setShowPlanModal(false)}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingBottom: 40, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            {/* Drag handle */}
+            <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 4 }}>
+              <View style={{ width: 36, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.15)' }} />
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 20 }}>
+              <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900' }}>Plan a session</Text>
+              <Pressable onPress={() => setShowPlanModal(false)} hitSlop={10}>
                 <Ionicons name="close" size={22} color={theme.textMuted} />
               </Pressable>
             </View>
-            <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 }}>My spots</Text>
             {favoriteSpots.length === 0 && (
-              <Text style={{ color: theme.textMuted, fontSize: 14, marginBottom: 12 }}>Add spots first in the Spots tab.</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 14, paddingHorizontal: 24, marginBottom: 12 }}>Add spots first in the Spots tab.</Text>
             )}
             {favoriteSpots.map((spotName) => (
               <Pressable
                 key={`plan-modal-${spotName}`}
-                onPress={() => {
-                  setShowPlanModal(false);
-                  setSelectedSpot(spotName as SpotName);
-                }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}
+                onPress={() => { setShowPlanModal(false); setSelectedSpot(spotName as SpotName); }}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 15, paddingHorizontal: 24, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)', opacity: pressed ? 0.7 : 1 })}
               >
-                <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="location-outline" size={16} color={theme.primary} />
-                </View>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '600', flex: 1 }}>{spotName}</Text>
-                <Ionicons name="chevron-forward" size={16} color={theme.textMuted} />
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.35)' }} />
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '700', flex: 1 }}>{spotName}</Text>
               </Pressable>
             ))}
             <Pressable
-              onPress={() => {
-                setShowPlanModal(false);
-                navigateNative('spots');
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12, marginTop: 4 }}
+              onPress={() => { setShowPlanModal(false); navigateNative('spots'); }}
+              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 15, paddingHorizontal: 24, marginTop: 4, opacity: pressed ? 0.7 : 1 })}
             >
-              <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="search-outline" size={16} color={theme.textMuted} />
-              </View>
+              <Ionicons name="search-outline" size={16} color={theme.textMuted} />
               <Text style={{ color: theme.textMuted, fontSize: 15, fontWeight: '600' }}>Search other spots</Text>
             </Pressable>
           </Pressable>
