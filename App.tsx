@@ -2701,6 +2701,7 @@ export default function App() {
   const authenticatedUserId = authUser?.id ?? null;
   const authenticatedUserEmail = normalizeEmail(authUser?.email ?? '');
   const isAccountSwitcherVisible = authenticatedUserEmail === adminAccountSwitcherEmail;
+  const effectiveSpotsLimit = authenticatedUserEmail === adminAccountSwitcherEmail ? 20 : HOME_SPOTS_LIMIT;
   const normalizeSearch = (value: unknown) => {
     return String(value || '')
       .toLowerCase()
@@ -3385,7 +3386,7 @@ export default function App() {
         const loadedFavoriteSpotsRaw = Array.isArray(parsedFavoriteSpots)
           ? (Array.isArray(parsedFavoriteSpots) ? parsedFavoriteSpots : []).filter((value): value is SpotName => typeof value === 'string')
           : [];
-        const loadedFavoriteSpots = loadedFavoriteSpotsRaw.slice(0, HOME_SPOTS_LIMIT);
+        const loadedFavoriteSpots = loadedFavoriteSpotsRaw.slice(0, effectiveSpotsLimit);
         if (loadedFavoriteSpotsRaw.length !== loadedFavoriteSpots.length) {
           void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(loadedFavoriteSpots)).catch((error) => {
             console.error('Failed to persist favorite spots', error);
@@ -3458,9 +3459,8 @@ export default function App() {
       }
 
       
-      if (currentCount >= HOME_SPOTS_LIMIT) {
-        
-        setHomeSpotsLimitMessage('Your home screen can show up to 5 spots. Remove one to add another.');
+      if (currentCount >= effectiveSpotsLimit) {
+        setHomeSpotsLimitMessage(`Your home screen can show up to ${effectiveSpotsLimit} spots. Remove one to add another.`);
         return previousFavoriteSpots;
       }
 
@@ -5977,7 +5977,7 @@ export default function App() {
     return (spot as { name?: string | null })?.name === currentSpot?.name;
   });
   const isSelectedSpotSaved = isAlreadyAdded;
-  const canAddSelectedSpotToMySpots = Boolean(currentSpot && !isAlreadyAdded && safeMySpots.length < HOME_SPOTS_LIMIT);
+  const canAddSelectedSpotToMySpots = Boolean(currentSpot && !isAlreadyAdded && safeMySpots.length < effectiveSpotsLimit);
   const selectedSpotDefinition = useMemo(
     () => (selectedSpot ? spotDefinitions.find((spot) => spot.spot === selectedSpot) ?? null : null),
     [selectedSpot, spotDefinitions],
@@ -11804,14 +11804,14 @@ const handleSave = async () => {
               <View style={{ flex: 1 }}>
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800' }}>Follow {followPromptSpot}?</Text>
                 <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 2 }}>
-                  {favoriteSpots.length >= 5
-                    ? "You're following 5 spots. Remove one first in the Spots tab."
+                  {favoriteSpots.length >= effectiveSpotsLimit
+                    ? `You're following ${effectiveSpotsLimit} spots. Remove one first in the Spots tab.`
                     : 'Get session alerts and spot chat for this spot.'}
                 </Text>
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 10 }}>
-              {favoriteSpots.length < 5 ? (
+              {favoriteSpots.length < effectiveSpotsLimit ? (
                 <Pressable
                   onPress={() => {
                     addSelectedSpot(followPromptSpot as any);
