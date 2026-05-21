@@ -9523,7 +9523,8 @@ export default function App() {
           </Pressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48 }}>
+        <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 48, alignItems: isWebPlatform ? 'center' : undefined }}>
+        <View style={{ width: '100%', maxWidth: isWebPlatform ? 480 : undefined }}>
 
         {/* Avatar + naam */}
         <View style={{ alignItems: 'center', marginVertical: 20 }}>
@@ -9722,6 +9723,7 @@ export default function App() {
           </Pressable>
         </View>
 
+        </View>
         </ScrollView>
       </SafeAreaView>
     );
