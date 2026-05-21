@@ -8376,14 +8376,11 @@ export default function App() {
             ) : null}
 
             <View style={{ maxWidth: '78%', backgroundColor: own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: 12, paddingVertical: 7 }}>
-              {/* Naam: alleen op eerste bericht van reeks, niet bij eigen berichten, niet in DM */}
               {!own && isFirst && showSenderName ? (
                 <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>
               ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, flex: 1, lineHeight: 21 }}>{msg.text ?? ''}</Text>
-                {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, flexShrink: 0, marginBottom: 1 }}>{time}</Text> : null}
-              </View>
+              <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21 }}>{msg.text ?? ''}</Text>
+              {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2 }}>{time}</Text> : null}
             </View>
           </View>
         );
