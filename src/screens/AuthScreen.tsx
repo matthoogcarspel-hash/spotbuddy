@@ -14,9 +14,9 @@ const INPUT_STYLE = {
   backgroundColor: CARD,
   color: '#ffffff' as const,
   borderRadius: 999,
-  paddingVertical: 11,
-  paddingHorizontal: 18,
-  fontSize: 14,
+  paddingVertical: 8,
+  paddingHorizontal: 16,
+  fontSize: 13,
   borderWidth: 1,
   borderColor: BORDER,
 };
@@ -137,17 +137,21 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
       <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
 
         {/* Wordmark */}
-        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 56, marginBottom: mode === 'signup' ? 16 : 32 }}>
-          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: mode === 'signup' ? 100 : 160 }} />
+        <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 48, marginBottom: mode === 'signup' ? 16 : 28 }}>
+          <Image source={require('../../assets/wordmark.png')} resizeMode="contain" style={{ width: '100%', height: mode === 'signup' ? 100 : 320 }} />
         </View>
 
         {/* LOGIN */}
         {mode === 'login' && (
-          <View style={{ gap: 12 }}>
+          <View style={{ gap: 8 }}>
             {/* Welcome */}
-            <View style={{ alignItems: 'center', marginBottom: 12 }}>
-              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center', lineHeight: 28 }}>See who's going.{'\n'}Ride together.</Text>
-              <Text style={{ color: MUTED, fontSize: 14, marginTop: 10, textAlign: 'center', lineHeight: 20 }}>SpotBuddy connects kitesurfers at spots around the world. Find out who's riding today, plan sessions and meet your next kite buddy.</Text>
+            <View style={{ marginBottom: 20 }}>
+              <Text style={{ color: MUTED, fontSize: 15, lineHeight: 24, textAlign: 'left' }}>
+                {'Welcome to SpotBuddy!\n\n'}
+                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'You know the feeling: the group chat explodes, nobody knows who\'s actually going, and you end up on the beach alone.\n\n'}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'No more. See who\'s heading to your spots today or tomorrow — back home or on an unknown beach.\n\n'}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'Less chaos, more time on the water!'}</Text>
+              </Text>
             </View>
 
             <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
@@ -160,8 +164,8 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
 
             <TouchableOpacity disabled={loading} onPress={handleLogin} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 4, opacity: loading ? 0.6 : 1 }}>
-              <Text style={{ color: BG, fontSize: 15, fontWeight: '900' }}>{loading ? 'Logging in...' : 'Log in'}</Text>
+              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 9, alignItems: 'center', marginTop: 2, opacity: loading ? 0.6 : 1 }}>
+              <Text style={{ color: BG, fontSize: 13, fontWeight: '900' }}>{loading ? 'Logging in...' : 'Log in'}</Text>
             </TouchableOpacity>
 
             {/* Divider */}
