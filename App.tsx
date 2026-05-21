@@ -8332,22 +8332,58 @@ export default function App() {
       { key: 'dm' as const, label: 'DMs', badge: unreadDmTotal },
     ];
 
+    const chatNameColors = ['#5EF0D0', '#4DB8FF', '#FFB347', '#B8A0FF', '#7EE8A2', '#FF8C8C'];
+    const chatColorForUser = (uid: string) => {
+      let h = 0;
+      for (let i = 0; i < uid.length; i++) h = uid.charCodeAt(i) + ((h << 5) - h);
+      return chatNameColors[Math.abs(h) % chatNameColors.length];
+    };
+
     const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean) =>
-      messages.map((msg) => {
+      messages.map((msg, index) => {
         const own = isOwn(msg.userId ?? msg.user_id);
         const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
         const msgUserId = msg.userId ?? msg.user_id;
+        const prev = index > 0 ? messages[index - 1] : null;
+        const next = index < messages.length - 1 ? messages[index + 1] : null;
+        const sameAsPrev = prev && (prev.userId ?? prev.user_id) === msgUserId;
+        const sameAsNext = next && (next.userId ?? next.user_id) === msgUserId;
+        const isFirst = !sameAsPrev;
+        const isLast = !sameAsNext;
+        const nameColor = chatColorForUser(msgUserId ?? '');
+
+        // Bubble radius: staartje op het laatste bericht
+        const br = 18;
+        const tail = 4;
+        const bubbleRadius = {
+          borderTopLeftRadius: own ? br : isFirst ? br : 6,
+          borderTopRightRadius: own ? (isFirst ? br : 6) : br,
+          borderBottomLeftRadius: own ? br : isLast ? tail : 6,
+          borderBottomRightRadius: own ? (isLast ? tail : 6) : br,
+        };
+
         return (
-          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8, gap: 6 }}>
-            {!own && (
-              <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}>
-                <Avatar uri={msg.avatar_url} size={28} name={msg.display_name} />
-              </Pressable>
-            )}
-            <View style={{ maxWidth: '75%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
-              {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>}
-              <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
-              {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
+          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}>
+            {/* Avatar: links, alleen op laatste bericht van reeks */}
+            {!own ? (
+              isLast ? (
+                <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}>
+                  <Avatar uri={msg.avatar_url} size={30} name={msg.display_name} />
+                </Pressable>
+              ) : (
+                <View style={{ width: 30 }} />
+              )
+            ) : null}
+
+            <View style={{ maxWidth: '78%', backgroundColor: own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: 12, paddingVertical: 7 }}>
+              {/* Naam: alleen op eerste bericht van reeks, niet bij eigen berichten */}
+              {!own && isFirst ? (
+                <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>
+              ) : null}
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
+                <Text style={{ color: '#ffffff', fontSize: 15, flex: 1, lineHeight: 21 }}>{msg.text}</Text>
+                {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, flexShrink: 0, marginBottom: 1 }}>{time}</Text> : null}
+              </View>
             </View>
           </View>
         );
@@ -8795,25 +8831,6 @@ export default function App() {
                 >
                   {!openMessages.length
                     ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
-                    : expandedDmId
-                    ? openMessages.map((msg: any) => {
-                        const own = (msg.userId ?? msg.user_id) === (activeProfile?.id ?? activeAppUserId);
-                        const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
-                        return (
-                          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: 8, gap: 6 }}>
-                            {!own && (
-                              <Pressable onPress={() => (msg.userId ?? msg.user_id) && setViewingOtherUserId(msg.userId ?? msg.user_id)}>
-                                <Avatar uri={msg.avatar_url} size={28} name={msg.display_name} />
-                              </Pressable>
-                            )}
-                            <View style={{ maxWidth: '75%', backgroundColor: own ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.045)', borderRadius: 14, borderBottomLeftRadius: own ? 14 : 4, borderBottomRightRadius: own ? 4 : 14, paddingHorizontal: 10, paddingVertical: 7, borderWidth: 1, borderColor: own ? 'rgba(255,255,255,0.15)' : 'rgba(255,255,255,0.065)' }}>
-                              {!own && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>}
-                              <Text style={{ color: theme.text, fontSize: 14 }}>{msg.text}</Text>
-                              {time ? <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 10, marginTop: 2, textAlign: own ? 'right' : 'left' }}>{time}</Text> : null}
-                            </View>
-                          </View>
-                        );
-                      })
                     : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
                   }
                 </ScrollView>
