@@ -143,47 +143,34 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
         {/* LOGIN */}
         {mode === 'login' && (
-          <View style={{ gap: 8 }}>
-            {/* Welcome */}
-            <View style={{ marginBottom: 20 }}>
-              <Text style={{ color: MUTED, fontSize: 15, lineHeight: 24, textAlign: 'left' }}>
-                {'Welcome to SpotBuddy!\n\n'}
-                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'You know the feeling: the group chat explodes, nobody knows who\'s actually going, and you end up on the beach alone.\n\n'}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'No more. See who\'s heading to your spots today or tomorrow — back home or on an unknown beach.\n\n'}</Text>
-                <Text style={{ color: 'rgba(255,255,255,0.55)' }}>{'Less chaos, more time on the water!'}</Text>
-              </Text>
-            </View>
+          <View style={{ alignItems: 'center', gap: 8 }}>
+            <Text style={{ color: '#ffffff', fontSize: 32, fontWeight: '900', textAlign: 'center', marginBottom: 16 }}>Welcome!</Text>
 
-            <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
-            <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor={MUTED} style={INPUT_STYLE} />
+            <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={[INPUT_STYLE, { width: 280 }]} />
+            <TextInput value={password} onChangeText={setPassword} secureTextEntry placeholder="Password" placeholderTextColor={MUTED} style={[INPUT_STYLE, { width: 280 }]} />
 
             <Pressable onPress={() => { setMode('reset'); reset(); }} style={{ paddingVertical: 2 }}>
               <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>Forgot password?</Text>
             </Pressable>
 
-            {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
+            {error ? <Text style={{ color: '#ff7e7e', fontSize: 13, textAlign: 'center' }}>{error}</Text> : null}
 
             <TouchableOpacity disabled={loading} onPress={handleLogin} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 9, alignItems: 'center', marginTop: 2, opacity: loading ? 0.6 : 1 }}>
+              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 40, alignItems: 'center', opacity: loading ? 0.6 : 1 }}>
               <Text style={{ color: BG, fontSize: 13, fontWeight: '900' }}>{loading ? 'Logging in...' : 'Log in'}</Text>
             </TouchableOpacity>
 
-            {/* Divider */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, width: 280, marginVertical: 4 }}>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.07)' }} />
               <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 12 }}>or</Text>
               <View style={{ flex: 1, height: 1, backgroundColor: 'rgba(255,255,255,0.07)' }} />
             </View>
 
-            {/* Join CTA */}
-            <View style={{ alignItems: 'center', gap: 6 }}>
-              <Text style={{ color: MUTED, fontSize: 13, textAlign: 'center' }}>New to the community?</Text>
-              <Pressable onPress={() => { setMode('signup'); reset(); }}
-                style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 28, alignItems: 'center' }}>
-                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '800' }}>Join for free →</Text>
-              </Pressable>
-              <Text style={{ color: 'rgba(255,255,255,0.22)', fontSize: 11 }}>No credit card needed</Text>
-            </View>
+            <Text style={{ color: MUTED, fontSize: 13 }}>New to the community?</Text>
+            <Pressable onPress={() => { setMode('signup'); reset(); }}
+              style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 32 }}>
+              <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Join for free →</Text>
+            </Pressable>
           </View>
         )}
 
