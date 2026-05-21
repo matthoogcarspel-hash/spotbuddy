@@ -8381,7 +8381,7 @@ export default function App() {
                 <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2 }}>{msg.display_name}</Text>
               ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 8 }}>
-                <Text style={{ color: '#ffffff', fontSize: 15, flex: 1, lineHeight: 21 }}>{msg.text}</Text>
+                <Text style={{ color: '#ffffff', fontSize: 15, flex: 1, lineHeight: 21 }}>{msg.text ?? ''}</Text>
                 {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, flexShrink: 0, marginBottom: 1 }}>{time}</Text> : null}
               </View>
             </View>
@@ -8811,7 +8811,7 @@ export default function App() {
                 >
                   {!openMessages.length
                     ? <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center', marginTop: 40 }}>No messages yet. Say something!</Text>
-                    : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId))
+                    : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId), !expandedDmId)
                   }
                 </ScrollView>
                 {/* Invoerbalk */}
