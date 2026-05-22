@@ -42,7 +42,7 @@ type AuthScreenProps = {
   onPasswordResetRequest: (email: string) => Promise<{ error: string | null }>;
 };
 
-type Mode = 'login' | 'signup' | 'reset';
+type Mode = 'login' | 'signup' | 'reset' | 'verify';
 
 export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: AuthScreenProps) {
   const [mode, setMode] = useState<Mode>('login');
@@ -52,6 +52,9 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  const [otpCode, setOtpCode] = useState('');
+  const [pendingEmail, setPendingEmail] = useState('');
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -115,7 +118,8 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
     setLoading(false);
     if (profileError) { setError('Account created, but profile save failed. Please try again.'); return; }
-    onSignupSuccess();
+    setPendingEmail(normalizedEmail);
+    setMode('verify');
   };
 
   const handleReset = async () => {
@@ -171,6 +175,54 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
               style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', borderRadius: 999, paddingVertical: 9, paddingHorizontal: 32 }}>
               <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '800' }}>Join for free →</Text>
             </Pressable>
+          </View>
+        )}
+
+        {/* VERIFY — OTP na signup */}
+        {mode === 'verify' && (
+          <View style={{ gap: 12, alignItems: 'center' }}>
+            <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center' }}>Check your email</Text>
+            <Text style={{ color: MUTED, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+              We sent a 6-digit code to{'\n'}<Text style={{ color: '#ffffff', fontWeight: '700' }}>{pendingEmail}</Text>
+            </Text>
+            <TextInput
+              value={otpCode}
+              onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, '').slice(0, 6))}
+              placeholder="000000"
+              placeholderTextColor={MUTED}
+              keyboardType="number-pad"
+              maxLength={6}
+              autoFocus
+              style={{ ...INPUT_STYLE, width: 200, textAlign: 'center', fontSize: 28, fontWeight: '900', letterSpacing: 8 }}
+            />
+            {error ? <Text style={{ color: '#ff7e7e', fontSize: 13, textAlign: 'center' }}>{error}</Text> : null}
+            <TouchableOpacity
+              disabled={otpCode.length < 6 || loading}
+              onPress={async () => {
+                setLoading(true); reset();
+                const { error: verifyError } = await supabase.auth.verifyOtp({
+                  email: pendingEmail,
+                  token: otpCode,
+                  type: 'signup',
+                });
+                setLoading(false);
+                if (verifyError) { setError('Invalid code. Please try again.'); return; }
+                onSignupSuccess();
+              }}
+              activeOpacity={0.85}
+              style={{ backgroundColor: otpCode.length === 6 ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 40, opacity: loading ? 0.6 : 1 }}
+            >
+              <Text style={{ color: otpCode.length === 6 ? BG : MUTED, fontSize: 15, fontWeight: '900' }}>
+                {loading ? 'Verifying...' : 'Verify'}
+              </Text>
+            </TouchableOpacity>
+            <Pressable onPress={async () => {
+              await supabase.auth.resend({ type: 'signup', email: pendingEmail });
+              setSuccessMessage('New code sent!');
+            }} style={{ paddingVertical: 8 }}>
+              <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>Didn't receive it? Resend</Text>
+            </Pressable>
+            {successMessage ? <Text style={{ color: '#5EF0D0', fontSize: 13 }}>{successMessage}</Text> : null}
           </View>
         )}
 
