@@ -2617,6 +2617,8 @@ export default function App() {
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const spotDetailScrollRef = useRef<ScrollView | null>(null);
+  const [stickyTimelineVisible, setStickyTimelineVisible] = useState(false);
+  const timelineNaturalY = useRef(0);
   const spotChatScrollRef = useRef<ScrollView | null>(null);
   const groupChatScrollRef = useRef<ScrollView | null>(null);
   const realtimeRefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -10171,6 +10173,11 @@ const handleSave = async () => {
           contentInset={Platform.OS === 'ios' ? { bottom: 90 } : undefined}
           style={{ flex: 1, backgroundColor: theme.bg }}
           contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 0 }}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            const y = e.nativeEvent.contentOffset.y;
+            setStickyTimelineVisible(timelineNaturalY.current > 0 && y > timelineNaturalY.current - 10);
+          }}
         >
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
@@ -10828,7 +10835,10 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}>
+        <View
+          style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}
+          onLayout={(e) => { timelineNaturalY.current = e.nativeEvent.layout.y; }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
             <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -11067,6 +11077,59 @@ const handleSave = async () => {
         </View>
 
         </ScrollView>
+
+        {/* Sticky timeline overlay — verschijnt zodra je voorbij de natuurlijke positie scrollt */}
+        {stickyTimelineVisible ? (
+          <View style={{ position: 'absolute', left: 0, right: 0, top: isWebPlatform ? 0 : 88, backgroundColor: theme.bg, paddingHorizontal: isWebPlatform ? 20 : 14, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', zIndex: 10 }}>
+            <SessionTimeline
+              groupedSessions={spotState.groupedSessions}
+              joinStateBySession={spotState.joinStateBySession}
+              selectedTimelineSessionId={selectedTimelineSessionId}
+              currentProfileId={activeProfile?.id ?? activeAppUserId}
+              selectedSpot={selectedSpot}
+              ownSessionForSpotDay={spotState.ownSessionForSpotDay}
+              currentLocalMinutes={activeDay === 'today' ? currentLocalMinutes : timelineStartMinutes}
+              timelineWindowStartMinutes={timelineWindow.startMinutes}
+              timelineWindowEndMinutes={timelineWindow.endMinutes}
+              timelineFilter={timelineFilter}
+              showNowMarker={activeDay === 'today'}
+              activeDay={activeDay}
+              onSelectSession={(sessionId) => setSelectedTimelineSessionId(sessionId)}
+              onClearSelection={() => setSelectedTimelineSessionId(null)}
+              onJoinSession={(joinRequest) => { void joinSession(joinRequest); }}
+              onOpenGroupChat={(groupKey) => {
+                if (!selectedSpot || !selectedDayKey) return;
+                void loadSessionChatForTab(groupKey, selectedSpot, selectedDayKey);
+                setActiveChatSpot(null);
+                setExpandedChatSpot(null);
+                setExpandedDmId(null);
+                setChatSubTab('session');
+                setExpandedChatSession(groupKey);
+                setChatSessionMessages((prev) => prev[groupKey] ? prev : { ...prev, [groupKey]: { conversationId: null, messages: [], loaded: false, spotName: selectedSpot, sessionDay: selectedDayKey } });
+                setShowChat(true);
+                setSelectedSpot(null);
+              }}
+              activeGroupChatKey={activeGroupChatKey}
+              onAvatarPress={(userId) => { if (userId !== activeAppUserId) setViewingOtherUserId(userId); }}
+              onEditSession={(s) => {
+                const parsed = parseHourMinuteParts(s.start ?? '');
+                const parsedEnd = parseHourMinuteParts(s.end ?? '');
+                setEditingSessionId(s.id);
+                setStartHour(parsed.hour);
+                setStartMinute(parsed.minute);
+                setEndHour(parsedEnd.hour);
+                setEndMinute(parsedEnd.minute);
+                setIntent(resolveSessionIntent(s.intent));
+                setShowForm(true);
+                setShowManageSessions(false);
+                setActivePicker(null);
+                setFormError('');
+                setSaveError(null);
+              }}
+            />
+          </View>
+        ) : null}
+
         {renderNativeBottomNav()}
         {renderOtherUserProfileModal()}
       </SafeAreaView>
