@@ -4756,7 +4756,7 @@ export default function App() {
 
       const top5 = pool
         .sort((a, b) => b.count - a.count)
-        .slice(0, 5)
+        .slice(0, isWebPlatform ? 10 : 7)
         .map(s => ({
           name: s.name.length > 10 ? s.name.split(' ').pop() ?? s.name : s.name,
           shortName: s.name,
@@ -11486,15 +11486,18 @@ const handleSave = async () => {
           const mockSpots = topSpotsData.map(s => ({ name: s.name, fullName: s.shortName, count: s.count, dist: s.dist }));
           const max = Math.max(...mockSpots.map(s => s.count), 1);
           const total = mockSpots.reduce((a, s) => a + s.count, 0);
-          const BAR_W = 16;
+          const BAR_W = isWebPlatform ? 14 : 10;
           const BAR_MAX_H = 52;
-          // Kleur: felgroen bij max, vervaagt naar donkerblauwgroen bij min
+          const HEATMAP = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
           const barColor = (count: number) => {
-            const t = count / max; // 0..1
-            const r = Math.round(30 + t * (94 - 30));
-            const g = Math.round(60 + t * (240 - 60));
-            const b = Math.round(80 + t * (208 - 80));
-            return `rgb(${r},${g},${b})`;
+            if (count <= 0) return 'rgba(255,255,255,0.08)';
+            if (count <= 2) return HEATMAP[0];
+            if (count <= 5) return HEATMAP[1];
+            if (count <= 10) return HEATMAP[2];
+            if (count <= 18) return HEATMAP[3];
+            if (count <= 28) return HEATMAP[4];
+            if (count <= 40) return HEATMAP[5];
+            return HEATMAP[6];
           };
           return (
             <View style={{ marginBottom: 18 }}>
