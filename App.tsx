@@ -11547,64 +11547,41 @@ const handleSave = async () => {
           const activeRiderSessions = [...liveSessions, ...goingSessions, ...maybeSessions].slice(0, 5);
           const totalActiveRiders = activeCount + goingCount + maybeCount;
 
-          const forecastHours = Array.from({ length: 16 }).map((_, hourIndex) => {
-            const hour = 7 + hourIndex;
+          const HEATMAP_COLORS = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
+          const getHeatColor = (count: number): string | null => {
+            if (count <= 0) return null;
+            if (count <= 2) return HEATMAP_COLORS[0];
+            if (count <= 5) return HEATMAP_COLORS[1];
+            if (count <= 10) return HEATMAP_COLORS[2];
+            if (count <= 18) return HEATMAP_COLORS[3];
+            if (count <= 28) return HEATMAP_COLORS[4];
+            if (count <= 40) return HEATMAP_COLORS[5];
+            return HEATMAP_COLORS[6];
+          };
 
+          const hourCounts = Array.from({ length: 16 }).map((_, hourIndex) => {
+            const hour = 7 + hourIndex;
             const sessionsInHour = cleanDaySpotSessions.filter((sessionItem) => {
               const [startHourRaw, startMinuteRaw] = String(sessionItem.start || '0:00').split(':');
               const [endHourRaw, endMinuteRaw] = String(sessionItem.end || '0:00').split(':');
-
-              const startMinutes =
-                (Number(startHourRaw) * 60) + Number(startMinuteRaw || 0);
-              const endMinutes =
-                (Number(endHourRaw) * 60) + Number(endMinuteRaw || 0);
-
-              const hourStartMinutes = hour * 60;
-              const hourEndMinutes = hourStartMinutes + 60;
-
-              return startMinutes < hourEndMinutes && endMinutes > hourStartMinutes;
+              const startMinutes = (Number(startHourRaw) * 60) + Number(startMinuteRaw || 0);
+              const endMinutes = (Number(endHourRaw) * 60) + Number(endMinuteRaw || 0);
+              return startMinutes < (hour * 60 + 60) && endMinutes > hour * 60;
             });
+            const liveHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'live').length;
+            const goingHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'going').length;
+            const maybeHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'maybe').length;
+            const totalHourCount = (liveHourCount * 1.6) + (goingHourCount * 1.25) + (maybeHourCount * 0.85);
+            return { hour, liveHourCount, goingHourCount, maybeHourCount, totalHourCount };
+          });
 
+          const maxHourCount = Math.max(...hourCounts.map(h => h.totalHourCount), 1);
+          const BAR_MAX_H = 82;
 
-
-            const liveHourCount = sessionsInHour.filter(
-              (sessionItem) => getCleanSessionStatus(sessionItem) === 'live'
-            ).length;
-
-            const goingHourCount = sessionsInHour.filter(
-              (sessionItem) => getCleanSessionStatus(sessionItem) === 'going'
-            ).length;
-
-            const maybeHourCount = sessionsInHour.filter(
-              (sessionItem) => getCleanSessionStatus(sessionItem) === 'maybe'
-            ).length;
-
-            const totalHourCount =
-              (liveHourCount * 1.6) +
-              (goingHourCount * 1.25) +
-              (maybeHourCount * 0.85);
-
-            let color = 'rgba(255,255,255,0.10)';
-
-            if (liveHourCount > 0) {
-              color = '#5EF0D0';
-            } else if (goingHourCount > 0) {
-              color = '#4DB8FF';
-            } else if (maybeHourCount > 0) {
-              color = '#5F83A6';
-            }
-
-            return {
-              hour,
-              liveHourCount,
-              goingHourCount,
-              maybeHourCount,
-              totalHourCount,
-              color,
-              height: totalHourCount > 0
-                ? Math.max(34, Math.min(82, totalHourCount * 24))
-                : 8,
-            };
+          const forecastHours = hourCounts.map(({ hour, liveHourCount, goingHourCount, maybeHourCount, totalHourCount }) => {
+            const color = getHeatColor(totalHourCount);
+            const height = totalHourCount > 0 ? Math.max(6, Math.round((totalHourCount / maxHourCount) * BAR_MAX_H)) : 0;
+            return { hour, liveHourCount, goingHourCount, maybeHourCount, totalHourCount, color, height };
           });
 
           const bestForecastHour = [...forecastHours]
@@ -11728,26 +11705,17 @@ const handleSave = async () => {
                     paddingHorizontal: 2,
                   }}
                 >
-                  {Array.from({ length: 16 }).map((_, index) => {
-                    const bars = forecastHours.map((forecastHour) => ({
-                          h: forecastHour.height,
-                          c: forecastHour.color,
-                        }));
-
-                    const item = bars[index];
-
-                    return (
-                      <View
-                        key={`forecast-bar-${spot.name}-${index}`}
-                        style={{
-                          width: homeForecastBarWidth,
-                          height: isWebPlatform ? item.h : Math.min(item.h, 60),
-                          borderRadius: 6,
-                          backgroundColor: item.c,
-                        }}
-                      />
-                    );
-                  })}
+                  {forecastHours.map((fh) => (
+                    <View
+                      key={`forecast-bar-${spot.name}-${fh.hour}`}
+                      style={{
+                        width: homeForecastBarWidth,
+                        height: fh.height > 0 ? (isWebPlatform ? fh.height : Math.min(fh.height, 60)) : 0,
+                        borderRadius: 6,
+                        backgroundColor: fh.color ?? 'transparent',
+                      }}
+                    />
+                  ))}
 
                   <View
                     pointerEvents="none"
