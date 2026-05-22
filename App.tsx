@@ -11419,14 +11419,25 @@ const handleSave = async () => {
                 getSessionState,
               });
               const liveCount = nearestStatus.activeCount;
+              // Bereken dezelfde totalHourCount als de heatmap bars voor het huidige uur
+              const nowH = new Date().getHours();
+              const nowSessions = nearestSessions.filter((s) => {
+                const sh = Number(String(s.start || '0:00').split(':')[0]);
+                const eh = Number(String(s.end || '0:00').split(':')[0]);
+                return sh <= nowH && eh > nowH;
+              });
+              const nowLive = nowSessions.filter(s => getCleanSessionStatus(s) === 'live').length;
+              const nowGoing = nowSessions.filter(s => getCleanSessionStatus(s) === 'going').length;
+              const nowMaybe = nowSessions.filter(s => getCleanSessionStatus(s) === 'maybe').length;
+              const nowTotal = nowLive * 1.6 + nowGoing * 1.25 + nowMaybe * 0.85;
               const HEATMAP_COLORS_HOME = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
-              const nearestHeatColor = liveCount <= 0 ? theme.primary
-                : liveCount <= 2 ? HEATMAP_COLORS_HOME[0]
-                : liveCount <= 5 ? HEATMAP_COLORS_HOME[1]
-                : liveCount <= 10 ? HEATMAP_COLORS_HOME[2]
-                : liveCount <= 18 ? HEATMAP_COLORS_HOME[3]
-                : liveCount <= 28 ? HEATMAP_COLORS_HOME[4]
-                : liveCount <= 40 ? HEATMAP_COLORS_HOME[5]
+              const nearestHeatColor = nowTotal <= 0 ? theme.primary
+                : nowTotal <= 2 ? HEATMAP_COLORS_HOME[0]
+                : nowTotal <= 5 ? HEATMAP_COLORS_HOME[1]
+                : nowTotal <= 10 ? HEATMAP_COLORS_HOME[2]
+                : nowTotal <= 18 ? HEATMAP_COLORS_HOME[3]
+                : nowTotal <= 28 ? HEATMAP_COLORS_HOME[4]
+                : nowTotal <= 40 ? HEATMAP_COLORS_HOME[5]
                 : HEATMAP_COLORS_HOME[6];
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
