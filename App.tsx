@@ -11729,9 +11729,9 @@ const handleSave = async () => {
                         <View
                           style={{
                             width: homeForecastBarWidth,
-                            height: fh.height > 0 ? (isWebPlatform ? fh.height : Math.min(fh.height, 60)) : 0,
+                            height: fh.height > 0 ? (isWebPlatform ? fh.height : Math.min(fh.height, 60)) : 8,
                             borderRadius: 6,
-                            backgroundColor: fh.color ?? 'transparent',
+                            backgroundColor: fh.color ?? 'rgba(255,255,255,0.08)',
                           }}
                         />
                       </View>
