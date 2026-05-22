@@ -7481,23 +7481,17 @@ export default function App() {
     setTimeout(() => chatSpotScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [chatKey]: { conversationId: convId, messages: [...(prev[chatKey]?.messages ?? []), newMsg], loaded: true } }));
-    // Push naar spot-volgers — GEEN create_chat_notification (dat gaat naar bell, niet Messages)
-    void (async () => {
-      const { data: followers } = await supabase
-        .from('spot_followers')
-        .select('user_id')
-        .eq('spot_name', spotName)
-        .neq('user_id', activeAppUserId ?? '');
-      const followerUids = (followers ?? []).map((f) => f.user_id).filter(Boolean);
-      if (!followerUids.length) return;
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id')
-        .in('owner_uid', followerUids);
-      const ids = (profiles ?? []).map((p) => p.id).filter(Boolean);
-      const actorName = activeProfile?.display_name?.trim() || 'Someone';
-      void sendPushToRecipients(ids, `${actorName} · ${spotName}`, text, { type: 'chat_message', spotName });
-    })();
+    // Push naar spot-volgers via SECURITY DEFINER RPC (bypast RLS op spot_followers)
+    if (activeProfile?.id) {
+      const actorName = activeProfile.display_name?.trim() || 'Someone';
+      supabase.rpc('send_spot_chat_push', {
+        spot_name_param: spotName,
+        actor_profile_id: activeProfile.id,
+        title: `${actorName} · ${spotName}`,
+        body: text,
+        data: { type: 'chat_message', spotName },
+      }).then(({ error }) => { if (error) console.error('SPOT_CHAT_PUSH_ERROR', error); });
+    }
   };
 
   const loadMySessionsForChatTab = async () => {
@@ -9842,7 +9836,7 @@ export default function App() {
         }).then(({ data: recipients, error: rpcError }) => {
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
-          void sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
+          if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
         });
       }
 
@@ -9928,7 +9922,7 @@ export default function App() {
           message_preview_param: messageText,
         }).then(({ data: recipients, error: rpcError }) => {
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
-          void sendPushToRecipients(ids, `New message at ${selectedSpot}`, messageText, { type: 'chat_message', spotName: selectedSpot });
+          if (ids.length) sendPushToRecipients(ids, `New message at ${selectedSpot}`, messageText, { type: 'chat_message', spotName: selectedSpot });
         });
       }
 
@@ -10133,7 +10127,7 @@ const handleSave = async () => {
         }).then(({ data: recipients }) => {
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
-          void sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot });
+          if (ids.length) sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot });
         });
       }
     };
