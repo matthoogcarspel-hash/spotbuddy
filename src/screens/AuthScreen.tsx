@@ -233,18 +233,34 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
         {/* RESET */}
         {mode === 'reset' && (
-          <View style={{ gap: 10 }}>
-            <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '800', marginBottom: 4 }}>Reset password</Text>
-            <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={INPUT_STYLE} />
-            {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
-            {successMessage ? <Text style={{ color: '#5EF0D0', fontSize: 13 }}>{successMessage}</Text> : null}
-            <TouchableOpacity disabled={loading} onPress={handleReset} activeOpacity={0.85}
-              style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 13, alignItems: 'center', marginTop: 4, opacity: loading ? 0.6 : 1 }}>
-              <Text style={{ color: BG, fontSize: 15, fontWeight: '900' }}>{loading ? 'Sending...' : 'Send reset link'}</Text>
-            </TouchableOpacity>
-            <Pressable onPress={() => { setMode('login'); reset(); }} style={{ paddingVertical: 14, alignItems: 'center' }}>
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>← Back to login</Text>
-            </Pressable>
+          <View style={{ gap: 10, alignItems: 'center' }}>
+            {successMessage ? (
+              <View style={{ alignItems: 'center', gap: 12, paddingVertical: 8 }}>
+                <Text style={{ fontSize: 40 }}>📬</Text>
+                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', textAlign: 'center' }}>Check your inbox</Text>
+                <Text style={{ color: MUTED, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
+                  We sent a reset link to{'\n'}<Text style={{ color: '#ffffff', fontWeight: '700' }}>{email}</Text>
+                </Text>
+                <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, textAlign: 'center' }}>Didn't get it? Check your spam folder.</Text>
+                <Pressable onPress={() => { setMode('login'); reset(); }} style={{ paddingVertical: 14 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>← Back to login</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <>
+                <Text style={{ color: '#ffffff', fontSize: 20, fontWeight: '900', alignSelf: 'flex-start' }}>Forgot your password?</Text>
+                <Text style={{ color: MUTED, fontSize: 14, alignSelf: 'flex-start' }}>No worries — we'll send you a reset link.</Text>
+                <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="Email" placeholderTextColor={MUTED} style={{ ...INPUT_STYLE, width: '100%' }} />
+                {error ? <Text style={{ color: '#ff7e7e', fontSize: 13 }}>{error}</Text> : null}
+                <TouchableOpacity disabled={loading} onPress={handleReset} activeOpacity={0.85}
+                  style={{ backgroundColor: 'rgba(255,255,255,0.92)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 40, alignItems: 'center', opacity: loading ? 0.6 : 1 }}>
+                  <Text style={{ color: BG, fontSize: 14, fontWeight: '900' }}>{loading ? 'Sending...' : 'Send reset link'}</Text>
+                </TouchableOpacity>
+                <Pressable onPress={() => { setMode('login'); reset(); }} style={{ paddingVertical: 10 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 14 }}>← Back to login</Text>
+                </Pressable>
+              </>
+            )}
           </View>
         )}
 
