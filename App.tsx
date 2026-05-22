@@ -2991,8 +2991,7 @@ export default function App() {
     setIsSavingResetPassword(false);
 
     if (error) {
-      console.error('RESET_PASSWORD_UPDATE_ERROR', error);
-      setResetPasswordError('Could not update password. Please request a new reset link.');
+      setResetPasswordError(error.message ?? 'Could not update password.');
       return;
     }
 
