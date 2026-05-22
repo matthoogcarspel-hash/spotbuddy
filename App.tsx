@@ -10170,10 +10170,8 @@ const handleSave = async () => {
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentInset={Platform.OS === 'ios' ? { bottom: 90 } : undefined}
           style={{ flex: 1, backgroundColor: theme.bg }}
-          contentContainerStyle={{ paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 0 }}
-          stickyHeaderIndices={[1]}
+          contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 0 }}
         >
-        <View style={{ paddingHorizontal: isWebPlatform ? 20 : 14 }}>
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
         </Pressable>
@@ -10829,9 +10827,8 @@ const handleSave = async () => {
             </View>
           ) : null}
         </View>
-        </View>{/* end pre-timeline wrapper */}
 
-        <View style={{ backgroundColor: theme.bg, paddingHorizontal: isWebPlatform ? 20 : 14, paddingBottom: 8 }}>
+        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
             <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -10941,7 +10938,6 @@ const handleSave = async () => {
 
         </View>
 
-        <View style={{ paddingHorizontal: isWebPlatform ? 20 : 14 }}>
         {false && shouldShowNowAtSpotPanel ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 10,  borderColor: theme.border }}>
             <Text style={{ color: theme.text, fontSize: 16, fontWeight: '700', marginBottom: 6 }}>Now at the spot</Text>
@@ -11069,7 +11065,6 @@ const handleSave = async () => {
             </View>
           </View>
         </View>
-        </View>{/* end post-timeline wrapper */}
 
         </ScrollView>
         {renderNativeBottomNav()}
