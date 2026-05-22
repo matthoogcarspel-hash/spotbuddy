@@ -2859,13 +2859,13 @@ export default function App() {
     data: Record<string, unknown>,
   ) => {
     if (recipientIds.length === 0) return;
-    // Server-side via Supabase RPC (geen CORS issue op web of native)
-    void supabase.rpc('send_push_to_users', {
+    const { error } = await supabase.rpc('send_push_to_users', {
       recipient_ids: recipientIds,
       title,
       body,
       data,
     });
+    if (error) console.error('PUSH_RPC_ERROR', error);
   };
 
   const markAllBuzzAsRead = async () => {
@@ -7660,17 +7660,19 @@ export default function App() {
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
     // Push notificatie naar de andere deelnemer — haal otherUserId op uit DB (betrouwbaarder dan state)
     void (async () => {
-      const { data: convData } = await supabase
+      const { data: convData, error: convError } = await supabase
         .from('conversations')
         .select('participant_a_id, participant_b_id')
         .eq('id', conversationId)
         .single();
+      if (convError) { console.error('DM_PUSH_CONV_ERROR', convError); return; }
       const otherUserId = convData?.participant_a_id === senderId
         ? convData?.participant_b_id
         : convData?.participant_a_id ?? null;
-      if (!otherUserId) return;
+      console.log('DM_PUSH_DEBUG', { senderId, otherUserId, participant_a: convData?.participant_a_id, participant_b: convData?.participant_b_id });
+      if (!otherUserId) { console.error('DM_PUSH: otherUserId is null'); return; }
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
-      void sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
+      await sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
     })();
   };
 
