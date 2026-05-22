@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as ImagePicker from 'expo-image-picker';
-import { Image, Pressable, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Image, Platform, Pressable, SafeAreaView, ScrollView, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { normalizeEmail, hasEmoji, hasRestrictedWord } from '../lib/userValidation';
 import { uploadAvatar } from '../lib/avatar';
@@ -136,9 +136,12 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
     ? COUNTRIES.filter(c => c.name.toLowerCase().includes(nationalitySearch.trim().toLowerCase()))
     : COUNTRIES;
 
+  const isWeb = Platform.OS === 'web';
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: BG }}>
-      <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 48 }} keyboardShouldPersistTaps="handled">
+      <ScrollView contentContainerStyle={{ paddingHorizontal: 28, paddingBottom: 48, alignItems: isWeb ? 'center' : undefined }} keyboardShouldPersistTaps="handled">
+        <View style={{ width: '100%', maxWidth: isWeb ? 480 : undefined }}>
 
         {/* Wordmark */}
         <View style={{ alignItems: 'center', marginTop: mode === 'signup' ? 28 : 32, marginBottom: mode === 'signup' ? 16 : 4 }}>
@@ -327,6 +330,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
           </View>
         )}
 
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
