@@ -102,7 +102,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
     if (existing && existing.length > 0) { setLoading(false); setError('This name is already taken'); return; }
 
     const { data: authData, error: signUpError } = await supabase.auth.signUp({ email: normalizedEmail, password });
-    if (signUpError || !authData.user) { setLoading(false); setError(signUpError?.message ?? 'No user returned'); return; }
+    if (signUpError || !authData.user) { setLoading(false); setError(toEnglishAuthError(signUpError?.message ?? '')); return; }
 
     // Sla profieldata op — we maken het profiel pas aan na OTP verificatie (dan is de user authenticated)
     setPendingProfile({ displayName: trimmedName, avatarUri, nationality: nationality ?? null, skillLevel: skillLevel ?? null });
