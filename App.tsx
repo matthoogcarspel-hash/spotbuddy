@@ -11572,9 +11572,13 @@ const handleSave = async () => {
             return HEATMAP_COLORS[6];
           };
 
+          const nowHour = new Date().getHours();
           const hourCounts = Array.from({ length: 16 }).map((_, hourIndex) => {
             const hour = 7 + hourIndex;
-            const sessionsInHour = cleanDaySpotSessions.filter((sessionItem) => {
+            // Verleden (>2u geleden): gebruik alle sessies incl. verlopen voor historische activiteit
+            const isOldHistory = hour < nowHour - 2;
+            const sourceSessions = isOldHistory ? daySpotSessions : cleanDaySpotSessions;
+            const sessionsInHour = sourceSessions.filter((sessionItem) => {
               const [startHourRaw, startMinuteRaw] = String(sessionItem.start || '0:00').split(':');
               const [endHourRaw, endMinuteRaw] = String(sessionItem.end || '0:00').split(':');
               const startMinutes = (Number(startHourRaw) * 60) + Number(startMinuteRaw || 0);
@@ -11583,7 +11587,9 @@ const handleSave = async () => {
             });
             const liveHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'live').length;
             const goingHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'going').length;
-            const maybeHourCount = sessionsInHour.filter(s => getCleanSessionStatus(s) === 'maybe').length;
+            const maybeHourCount = isOldHistory
+              ? sessionsInHour.length - liveHourCount - goingHourCount
+              : sessionsInHour.filter(s => getCleanSessionStatus(s) === 'maybe').length;
             const totalHourCount = (liveHourCount * 1.6) + (goingHourCount * 1.25) + (maybeHourCount * 0.85);
             return { hour, liveHourCount, goingHourCount, maybeHourCount, totalHourCount };
           });
