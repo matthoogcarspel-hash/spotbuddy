@@ -183,13 +183,13 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
               placeholder="000000"
               placeholderTextColor={MUTED}
               keyboardType="number-pad"
-              maxLength={6}
+              maxLength={8}
               autoFocus
-              style={{ ...INPUT_STYLE, width: 200, textAlign: 'center', fontSize: 28, fontWeight: '900', letterSpacing: 8 }}
+              style={{ ...INPUT_STYLE, width: 220, textAlign: 'center', fontSize: 28, fontWeight: '900', letterSpacing: 6 }}
             />
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13, textAlign: 'center' }}>{error}</Text> : null}
             <TouchableOpacity
-              disabled={otpCode.length < 6 || loading}
+              disabled={otpCode.length < 6 || loading || otpCode.length > 8}
               onPress={async () => {
                 setLoading(true); reset();
                 const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
@@ -216,9 +216,9 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
                 onSignupSuccess();
               }}
               activeOpacity={0.85}
-              style={{ backgroundColor: otpCode.length === 6 ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 40, opacity: loading ? 0.6 : 1 }}
+              style={{ backgroundColor: otpCode.length >= 6 ? 'rgba(255,255,255,0.92)' : 'rgba(255,255,255,0.15)', borderRadius: 999, paddingVertical: 11, paddingHorizontal: 40, opacity: loading ? 0.6 : 1 }}
             >
-              <Text style={{ color: otpCode.length === 6 ? BG : MUTED, fontSize: 15, fontWeight: '900' }}>
+              <Text style={{ color: otpCode.length >= 6 ? BG : MUTED, fontSize: 15, fontWeight: '900' }}>
                 {loading ? 'Verifying...' : 'Verify'}
               </Text>
             </TouchableOpacity>
