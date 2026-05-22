@@ -180,11 +180,11 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
             <TextInput
               value={otpCode}
               onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, ''))}
-              placeholder="Voer je code in"
+              placeholder="——————"
               placeholderTextColor={MUTED}
               keyboardType="number-pad"
               autoFocus
-              style={{ ...INPUT_STYLE, width: 220, textAlign: 'center', fontSize: 28, fontWeight: '900', letterSpacing: 6 }}
+              style={{ ...INPUT_STYLE, width: 220, textAlign: 'center', fontSize: 22, fontWeight: '900', letterSpacing: 4 }}
             />
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13, textAlign: 'center' }}>{error}</Text> : null}
             <TouchableOpacity
