@@ -4750,8 +4750,8 @@ export default function App() {
         return { name: spotName, count: users.size, distM: dist };
       });
 
-      // Filter 25km, fallback nationaal
-      const nearby = withDist.filter(s => s.distM !== null && s.distM <= 25000);
+      // Filter 50km, fallback nationaal
+      const nearby = withDist.filter(s => s.distM !== null && s.distM <= 50000);
       const pool = nearby.length >= 3 ? nearby : withDist;
 
       const top5 = pool
