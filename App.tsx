@@ -4756,7 +4756,7 @@ export default function App() {
 
       const top5 = pool
         .sort((a, b) => b.count - a.count)
-        .slice(0, isWebPlatform ? 10 : 7)
+        .slice(0, 5)
         .map(s => ({
           name: s.name.length > 10 ? s.name.split(' ').pop() ?? s.name : s.name,
           shortName: s.name,
@@ -11677,24 +11677,13 @@ const handleSave = async () => {
                 </View>
               </View>
 
-              {(() => {
-                const nowHourIndex = Math.max(0, Math.min(15, new Date().getHours() - 7));
-                const scrollOffsetX = Math.max(0, (nowHourIndex - 2) * (homeForecastBarWidth + 4));
-                return (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentOffset={{ x: scrollOffsetX, y: 0 }}
-                style={{ marginTop: 26 }}
-                contentContainerStyle={{ paddingHorizontal: 2 }}
-                scrollEnabled={true}
-              >
-                <View style={{ flexDirection: 'column', width: 16 * (homeForecastBarWidth + 4) }}>
+              <View style={{ marginTop: 26 }}>
                 <View
                   style={{
                     flexDirection: 'row',
-                    gap: 4,
+                    justifyContent: 'space-between',
                     marginBottom: 8,
+                    paddingHorizontal: 2,
                   }}
                 >
                   {Array.from({ length: 16 }).map((_, hourIndex) => {
@@ -11720,9 +11709,10 @@ const handleSave = async () => {
                     height: homeForecastHeight,
                     flexDirection: 'row',
                     alignItems: 'flex-end',
-                    gap: 4,
+                    justifyContent: 'space-between',
                     borderBottomWidth: 1,
                     borderBottomColor: 'rgba(255,255,255,0.12)',
+                    paddingHorizontal: 2,
                   }}
                 >
                   {forecastHours.map((fh) => {
@@ -11749,7 +11739,7 @@ const handleSave = async () => {
                     pointerEvents="none"
                     style={{
                       position: 'absolute',
-                      left: Math.max(0, Math.min(15, new Date().getHours() + new Date().getMinutes() / 60 - 7)) * (homeForecastBarWidth + 4),
+                      left: `${Math.max(0, Math.min(100, (((new Date().getHours() + new Date().getMinutes() / 60) - 7) / 15) * 100))}%`,
                       bottom: -31,
                       alignItems: 'center',
                       transform: [{ translateX: -24 }],
@@ -11783,11 +11773,8 @@ const handleSave = async () => {
                     </View>
                   </View>
                 </View>
-                </View>
-              </ScrollView>
-              );})()}
 
-              <View
+                <View
                   style={{
                     flexDirection: 'row',
                     alignItems: 'center',
@@ -11810,6 +11797,7 @@ const handleSave = async () => {
                     ● {maybeCount} maybe
                   </Text>
                 </View>
+              </View>
             </Pressable>
           );
         })}
