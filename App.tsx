@@ -5892,7 +5892,7 @@ export default function App() {
   const startHourOptions = useMemo(
     () =>
       hours
-        .filter((hour) => hour >= 7 && hour <= 20)
+        .filter((hour) => hour >= 7 && hour <= 21)
         .filter((hour) => {
           if (!planningNowReference.isToday) {
             return true;
@@ -10701,7 +10701,7 @@ const handleSave = async () => {
                   )}
                   {activePicker === 'endMinute' && (
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                      {minuteOptions.map((m) => (
+                      {(endHour === 22 ? [0] : minuteOptions).map((m) => (
                         <Pressable key={`em-${m}`} onPress={() => setEndMinute(m)} style={{ backgroundColor: endMinute === m ? theme.primary : theme.bgElevated, borderColor: theme.border, borderRadius: 10, paddingVertical: 9, paddingHorizontal: 12, marginRight: 6, marginBottom: 6 }}>
                           <Text style={{ color: theme.text }}>{formatTimePart(m)}</Text>
                         </Pressable>
@@ -10731,9 +10731,9 @@ const handleSave = async () => {
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
                       <WheelColumn values={minuteOptions} selected={startMinute} onSelect={setStartMinute} formatVal={formatTimePart} />
                       <Text style={{ color: 'rgba(255,255,255,0.2)', fontSize: 18, fontWeight: '300', paddingHorizontal: 6, paddingBottom: 2 }}>–</Text>
-                      <WheelColumn values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 7 && h <= 22)} selected={endHour} onSelect={setEndHour} formatVal={formatTimePart} />
+                      <WheelColumn values={(Array.isArray(hours) ? hours : []).filter((h) => h >= 7 && h <= 22)} selected={endHour} onSelect={(h) => { setEndHour(h); if (h === 22) setEndMinute(0); }} formatVal={formatTimePart} />
                       <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 24, fontWeight: '300', paddingBottom: 4 }}>:</Text>
-                      <WheelColumn values={minuteOptions} selected={endMinute} onSelect={setEndMinute} formatVal={formatTimePart} />
+                      <WheelColumn values={endHour === 22 ? [0] : minuteOptions} selected={endMinute} onSelect={(m) => setEndMinute(endHour === 22 ? 0 : m)} formatVal={formatTimePart} />
                     </View>
                   </View>
                 </View>
