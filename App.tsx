@@ -3460,10 +3460,10 @@ export default function App() {
         console.error('Failed to persist favorite spots', error);
       });
       if (activeAppUserId) {
-        void supabase.from('spot_followers').upsert(
+        supabase.from('spot_followers').upsert(
           { user_id: activeAppUserId, spot_name: spotName },
           { onConflict: 'user_id,spot_name' }
-        );
+        ).then(({ error }) => { if (error) console.error('SPOT_FOLLOWERS_UPSERT_ERROR', error, { userId: activeAppUserId, spotName }); });
       }
       setHomeSpotSearchQuery('');
       return nextSelectedSpots;
