@@ -11705,17 +11705,25 @@ const handleSave = async () => {
                     paddingHorizontal: 2,
                   }}
                 >
-                  {forecastHours.map((fh) => (
-                    <View
-                      key={`forecast-bar-${spot.name}-${fh.hour}`}
-                      style={{
-                        width: homeForecastBarWidth,
-                        height: fh.height > 0 ? (isWebPlatform ? fh.height : Math.min(fh.height, 60)) : 0,
-                        borderRadius: 6,
-                        backgroundColor: fh.color ?? 'transparent',
-                      }}
-                    />
-                  ))}
+                  {forecastHours.map((fh) => {
+                    const riderCount = fh.liveHourCount + fh.goingHourCount + fh.maybeHourCount;
+                    const showCount = fh.height >= Math.round(BAR_MAX_H * 0.3) && riderCount > 0;
+                    return (
+                      <View key={`forecast-bar-${spot.name}-${fh.hour}`} style={{ alignItems: 'center', justifyContent: 'flex-end' }}>
+                        {showCount ? (
+                          <Text style={{ color: 'rgba(255,255,255,0.65)', fontSize: 8, fontWeight: '700', marginBottom: 2, lineHeight: 9 }}>{riderCount}</Text>
+                        ) : null}
+                        <View
+                          style={{
+                            width: homeForecastBarWidth,
+                            height: fh.height > 0 ? (isWebPlatform ? fh.height : Math.min(fh.height, 60)) : 0,
+                            borderRadius: 6,
+                            backgroundColor: fh.color ?? 'transparent',
+                          }}
+                        />
+                      </View>
+                    );
+                  })}
 
                   <View
                     pointerEvents="none"
