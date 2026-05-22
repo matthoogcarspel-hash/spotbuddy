@@ -2414,10 +2414,13 @@ export default function App() {
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
       return false;
     }
-
+    const href = window.location.href;
+    const hash = window.location.hash;
     return (
       window.location.pathname === '/reset-password'
-      || window.location.href.includes('/reset-password#')
+      || href.includes('/reset-password#')
+      || hash.includes('type=recovery')
+      || href.includes('type=recovery')
     );
   });
   const [resetPasswordInput, setResetPasswordInput] = useState('');
@@ -4496,6 +4499,11 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        setIsPasswordResetRoute(true);
+        return;
+      }
+
       setSession(nextSession);
 
       if (!nextSession) {
