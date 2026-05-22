@@ -9828,12 +9828,13 @@ export default function App() {
 
       const groupSenderId = activeProfile?.id ?? activeAppUserId ?? null;
       if (groupSenderId && selectedSpot && selectedDayKey) {
-        void supabase.rpc('create_chat_notification', {
+        supabase.rpc('create_chat_notification', {
           actor_profile_id: groupSenderId,
           spot_name_param: selectedSpot,
           session_day_param: selectedDayKey,
           message_preview_param: messageText,
         }).then(({ data: recipients, error: rpcError }) => {
+          console.log('GROUP_CHAT_PUSH', { recipients, rpcError, spot: selectedSpot, day: selectedDayKey, sender: groupSenderId });
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
           if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
