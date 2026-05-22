@@ -179,7 +179,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
             </Text>
             <TextInput
               value={otpCode}
-              onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, '').slice(0, 6))}
+              onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, '').slice(0, 8))}
               placeholder="000000"
               placeholderTextColor={MUTED}
               keyboardType="number-pad"
