@@ -9,7 +9,7 @@ import {
   REAL_SESSION_SCHEMA_FIELDS,
 } from '../../lib/sessionHelpers';
 import { buildSpotNotificationPreferenceKey, normalizeSpotNotificationMode } from '../../lib/spotNotificationPreferences';
-import { sendExpoPushNotification } from '../../lib/pushNotifications';
+
 import { supabase } from '../../lib/supabase';
 
 type SessionIntent = 'maybe' | 'likely' | 'definitely';
@@ -494,35 +494,13 @@ export async function joinSession(input: {
       session_id: input.sessionId,
       spot_name: spotName,
     });
-    if (!notificationRpcError) {
-
-      const { data: pushTokenRows, error: pushTokenFetchError } = await supabase
-        .from('push_tokens')
-        .select('expo_push_token')
-        .or(`profile_id.eq.${sessionOwnerId}`);
-
-      if (pushTokenFetchError) {
-        console.error('PUSH_TOKEN_FETCH_ERROR', pushTokenFetchError);
-      } else {
-        const uniqueTokens = Array.from(
-          new Set((pushTokenRows ?? []).map((row) => row.expo_push_token).filter(Boolean))
-        );
-
-
-        for (const expoPushToken of uniqueTokens) {
-          const pushResult = await sendExpoPushNotification({
-            to: expoPushToken,
-            title: 'Someone joined your session',
-            body: spotName ? `Someone joined your session at ${spotName}.` : 'Someone joined your session.',
-            data: {
-              type: 'session_joined',
-              sessionId: input.sessionId,
-              spotName,
-            },
-          });
-
-        }
-      }
+    if (!notificationRpcError && sessionOwnerId) {
+      supabase.rpc('send_push_to_users', {
+        recipient_ids: [sessionOwnerId],
+        title: 'Someone joined your session',
+        body: spotName ? `Someone joined your session at ${spotName}.` : 'Someone joined your session.',
+        data: { type: 'session_joined', sessionId: input.sessionId, spotName },
+      }).then(({ error }) => { if (error) console.error('JOIN_PUSH_ERROR', error); });
     }
 
 
