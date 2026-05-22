@@ -7662,11 +7662,12 @@ export default function App() {
     void (async () => {
       const { data: convData } = await supabase
         .from('conversations')
-        .select('participants')
+        .select('participant_a_id, participant_b_id')
         .eq('id', conversationId)
         .single();
-      const participants = (convData?.participants ?? []) as string[];
-      const otherUserId = participants.find((p: string) => p !== senderId) ?? null;
+      const otherUserId = convData?.participant_a_id === senderId
+        ? convData?.participant_b_id
+        : convData?.participant_a_id ?? null;
       if (!otherUserId) return;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
       void sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
