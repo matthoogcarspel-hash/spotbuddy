@@ -11418,31 +11418,23 @@ const handleSave = async () => {
                 now: new Date(),
                 getSessionState,
               });
-              const nowHour = new Date().getHours();
-              const nearestHourSessions = nearestSessions.filter((s) => {
-                const [sh] = String(s.start || '0:00').split(':');
-                const [eh] = String(s.end || '0:00').split(':');
-                return Number(sh) <= nowHour && Number(eh) > nowHour;
-              });
-              const nearestLiveNow = new Set(nearestHourSessions.filter(s => getCleanSessionStatus(s) === 'live').map(s => s.userId).filter(Boolean)).size;
-              const nearestGoingNow = new Set(nearestHourSessions.filter(s => getCleanSessionStatus(s) === 'going').map(s => s.userId).filter(Boolean)).size;
-              const nearestTotalNow = nearestLiveNow + nearestGoingNow;
+              const liveCount = nearestStatus.activeCount;
               const HEATMAP_COLORS_HOME = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
-              const nearestHeatColor = nearestTotalNow <= 0 ? theme.primary
-                : nearestTotalNow <= 2 ? HEATMAP_COLORS_HOME[0]
-                : nearestTotalNow <= 5 ? HEATMAP_COLORS_HOME[1]
-                : nearestTotalNow <= 10 ? HEATMAP_COLORS_HOME[2]
-                : nearestTotalNow <= 18 ? HEATMAP_COLORS_HOME[3]
-                : nearestTotalNow <= 28 ? HEATMAP_COLORS_HOME[4]
-                : nearestTotalNow <= 40 ? HEATMAP_COLORS_HOME[5]
+              const nearestHeatColor = liveCount <= 0 ? theme.primary
+                : liveCount <= 2 ? HEATMAP_COLORS_HOME[0]
+                : liveCount <= 5 ? HEATMAP_COLORS_HOME[1]
+                : liveCount <= 10 ? HEATMAP_COLORS_HOME[2]
+                : liveCount <= 18 ? HEATMAP_COLORS_HOME[3]
+                : liveCount <= 28 ? HEATMAP_COLORS_HOME[4]
+                : liveCount <= 40 ? HEATMAP_COLORS_HOME[5]
                 : HEATMAP_COLORS_HOME[6];
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
                   <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start' }}>
                     <Text style={{ color: theme.textMuted, fontSize: 13 }}>
                       Nearest spot · <Text style={{ color: nearestHeatColor, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
-                      {nearestTotalNow > 0 ? (
-                        <Text> · <Text style={{ color: nearestHeatColor, fontWeight: '800' }}>● {nearestTotalNow} active</Text></Text>
+                      {liveCount > 0 ? (
+                        <Text> · <Text style={{ color: nearestHeatColor, fontWeight: '800' }}>● {liveCount} live</Text></Text>
                       ) : nearestStatus.plannedCount > 0 ? (
                         <Text style={{ color: theme.textMuted }}> · {nearestStatus.plannedCount} going</Text>
                       ) : null}
