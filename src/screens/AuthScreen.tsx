@@ -179,17 +179,16 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
             </Text>
             <TextInput
               value={otpCode}
-              onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, '').slice(0, 8))}
-              placeholder="000000"
+              onChangeText={(v) => setOtpCode(v.replace(/[^0-9]/g, ''))}
+              placeholder="Voer je code in"
               placeholderTextColor={MUTED}
               keyboardType="number-pad"
-              maxLength={8}
               autoFocus
               style={{ ...INPUT_STYLE, width: 220, textAlign: 'center', fontSize: 28, fontWeight: '900', letterSpacing: 6 }}
             />
             {error ? <Text style={{ color: '#ff7e7e', fontSize: 13, textAlign: 'center' }}>{error}</Text> : null}
             <TouchableOpacity
-              disabled={otpCode.length < 6 || loading || otpCode.length > 8}
+              disabled={otpCode.length < 6 || loading}
               onPress={async () => {
                 setLoading(true); reset();
                 const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
