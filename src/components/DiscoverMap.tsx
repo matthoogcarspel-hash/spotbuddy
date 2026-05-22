@@ -117,7 +117,7 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
               <View style={{
                 width: 18, height: 18, borderRadius: 9,
                 backgroundColor: dotColor,
-                borderWidth: 2, borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                borderWidth: 2, borderColor: isSelected ? '#ffffff' : (total <= 0 ? '#888fa0' : 'rgba(255,255,255,0.4)'),
                 shadowColor: dotColor, shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.8, shadowRadius: 6, elevation: 6,
               }} />
