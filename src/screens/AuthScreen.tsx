@@ -55,6 +55,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
 
   const [otpCode, setOtpCode] = useState('');
   const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingProfile, setPendingProfile] = useState<{ displayName: string; avatarUri: string | null; nationality: string | null; skillLevel: number | null } | null>(null);
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
@@ -103,21 +104,9 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
     const { data: authData, error: signUpError } = await supabase.auth.signUp({ email: normalizedEmail, password });
     if (signUpError || !authData.user) { setLoading(false); setError(toEnglishAuthError(signUpError?.message ?? '')); return; }
 
-    const userId = authData.user.id;
-    let avatarUrl: string | null = null;
-    if (avatarUri) {
-      const { error: uploadError, publicUrl } = await uploadAvatar(userId, avatarUri);
-      if (!uploadError && publicUrl) avatarUrl = publicUrl;
-    }
-
-    const { error: profileError } = await supabase.from('profiles').upsert({
-      id: userId, owner_uid: userId, display_name: trimmedName,
-      avatar_url: avatarUrl, nationality: nationality ?? null, skill_level: skillLevel ?? null,
-      created_at: new Date().toISOString(),
-    }, { onConflict: 'id' });
-
+    // Sla profieldata op — we maken het profiel pas aan na OTP verificatie (dan is de user authenticated)
+    setPendingProfile({ displayName: trimmedName, avatarUri, nationality: nationality ?? null, skillLevel: skillLevel ?? null });
     setLoading(false);
-    if (profileError) { setError('Account created, but profile save failed. Please try again.'); return; }
     setPendingEmail(normalizedEmail);
     setMode('verify');
   };
@@ -203,13 +192,27 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
               disabled={otpCode.length < 6 || loading}
               onPress={async () => {
                 setLoading(true); reset();
-                const { error: verifyError } = await supabase.auth.verifyOtp({
+                const { data: verifyData, error: verifyError } = await supabase.auth.verifyOtp({
                   email: pendingEmail,
                   token: otpCode,
                   type: 'signup',
                 });
+                if (verifyError) { setLoading(false); setError('Invalid code. Please try again.'); return; }
+                // Nu authenticated — maak profiel aan
+                if (pendingProfile && verifyData.user) {
+                  const userId = verifyData.user.id;
+                  let avatarUrl: string | null = null;
+                  if (pendingProfile.avatarUri) {
+                    const { error: uploadError, publicUrl } = await uploadAvatar(userId, pendingProfile.avatarUri);
+                    if (!uploadError && publicUrl) avatarUrl = publicUrl;
+                  }
+                  await supabase.from('profiles').upsert({
+                    id: userId, owner_uid: userId, display_name: pendingProfile.displayName,
+                    avatar_url: avatarUrl, nationality: pendingProfile.nationality, skill_level: pendingProfile.skillLevel,
+                    created_at: new Date().toISOString(),
+                  }, { onConflict: 'id' });
+                }
                 setLoading(false);
-                if (verifyError) { setError('Invalid code. Please try again.'); return; }
                 onSignupSuccess();
               }}
               activeOpacity={0.85}
