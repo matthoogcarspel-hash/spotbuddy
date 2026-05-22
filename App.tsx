@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Animated, Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -2617,6 +2617,8 @@ export default function App() {
   const webDragOverIndexRef = useRef<number | null>(null);
   const [messageInput, setMessageInput] = useState('');
   const spotDetailScrollRef = useRef<ScrollView | null>(null);
+  const spotScrollY = useRef(new Animated.Value(0)).current;
+  const timelineAnimatedOffset = useRef(new Animated.Value(9999)).current;
   const spotChatScrollRef = useRef<ScrollView | null>(null);
   const groupChatScrollRef = useRef<ScrollView | null>(null);
   const realtimeRefetchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -10163,14 +10165,16 @@ const handleSave = async () => {
       <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
         {renderNativeTopBar()}
-        <ScrollView
-          ref={spotDetailScrollRef}
+        <Animated.ScrollView
+          ref={spotDetailScrollRef as any}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           automaticallyAdjustKeyboardInsets={Platform.OS === 'ios'}
           contentInset={Platform.OS === 'ios' ? { bottom: 90 } : undefined}
           style={{ flex: 1, backgroundColor: theme.bg }}
           contentContainerStyle={{ paddingHorizontal: isWebPlatform ? 20 : 14, paddingTop: isWebPlatform ? 10 : 16, paddingBottom: isWebPlatform ? 120 : 0 }}
+          scrollEventThrottle={1}
+          onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: spotScrollY } } }], { useNativeDriver: true })}
         >
         <Pressable onPress={() => setSelectedSpot(null)} style={{ marginBottom: 10 }}>
           <Text style={{ color: theme.textSoft, fontSize: 15, letterSpacing: 0.2 }}>← Back to spots</Text>
@@ -10828,7 +10832,23 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}>
+        <Animated.View
+          style={{
+            backgroundColor: theme.bg,
+            padding: 0,
+            marginBottom: isWebPlatform ? 14 : 18,
+            zIndex: 5,
+            transform: [{
+              translateY: Animated.diffClamp(
+                Animated.subtract(spotScrollY, timelineAnimatedOffset),
+                0, 9999
+              )
+            }]
+          }}
+          onLayout={(e) => {
+            timelineAnimatedOffset.setValue(e.nativeEvent.layout.y);
+          }}
+        >
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
             <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
@@ -10936,7 +10956,7 @@ const handleSave = async () => {
             }}
           />
 
-        </View>
+        </Animated.View>
 
         {false && shouldShowNowAtSpotPanel ? (
           <View style={{ backgroundColor: theme.card, borderRadius: 18, padding: 16, marginBottom: 10,  borderColor: theme.border }}>
@@ -11066,7 +11086,7 @@ const handleSave = async () => {
           </View>
         </View>
 
-        </ScrollView>
+        </Animated.ScrollView>
         {renderNativeBottomNav()}
         {renderOtherUserProfileModal()}
       </SafeAreaView>
