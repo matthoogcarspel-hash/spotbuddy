@@ -7665,12 +7665,11 @@ export default function App() {
         .select('participant_a_id, participant_b_id')
         .eq('id', conversationId)
         .single();
-      if (convError) { console.error('DM_PUSH_CONV_ERROR', convError); return; }
+      if (convError) return;
       const otherUserId = convData?.participant_a_id === senderId
         ? convData?.participant_b_id
         : convData?.participant_a_id ?? null;
-      console.log('DM_PUSH_DEBUG', { senderId, otherUserId, participant_a: convData?.participant_a_id, participant_b: convData?.participant_b_id });
-      if (!otherUserId) { console.error('DM_PUSH: otherUserId is null'); return; }
+      if (!otherUserId) return;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
       await sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
     })();
