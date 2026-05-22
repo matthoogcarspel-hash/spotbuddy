@@ -29,7 +29,7 @@ const DEFAULT_DELTA = 0.5;
 
 const HEATMAP = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
 const getDotColor = (total: number): string => {
-  if (total <= 0) return 'rgba(255,255,255,0.3)';
+  if (total <= 0) return '#ffffff';
   if (total <= 2) return HEATMAP[0];
   if (total <= 5) return HEATMAP[1];
   if (total <= 10) return HEATMAP[2];
