@@ -4741,21 +4741,25 @@ export default function App() {
 
       const nowMinutes = getCurrentLocalMinutes();
 
-      // Tel unieke users per spot, sla verlopen sessies over
+      // Tel unieke users per spot, sla verlopen sessies over — normaliseer naam als key
       const countMap: Record<string, Set<string>> = {};
+      const canonicalNameMap: Record<string, string> = {};
       for (const row of data) {
         if (!row.spot_name || !row.user_id) continue;
         if (row.end_time) {
           const endMinutes = toMinutes(row.end_time);
           if (!Number.isNaN(endMinutes) && endMinutes < nowMinutes) continue;
         }
-        if (!countMap[row.spot_name]) countMap[row.spot_name] = new Set();
-        countMap[row.spot_name].add(row.user_id);
+        const key = normalizeSpotName(row.spot_name);
+        if (!countMap[key]) countMap[key] = new Set();
+        if (!canonicalNameMap[key]) canonicalNameMap[key] = row.spot_name;
+        countMap[key].add(row.user_id);
       }
 
       // Koppel aan spotDefinitions voor afstand
-      const withDist = Object.entries(countMap).map(([spotName, users]) => {
-        const def = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(spotName));
+      const withDist = Object.entries(countMap).map(([key, users]) => {
+        const def = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === key);
+        const spotName = def?.spot ?? canonicalNameMap[key] ?? key;
         const dist = (currentCoordinates && def)
           ? getDistanceMeters(currentCoordinates, { latitude: def.latitude, longitude: def.longitude })
           : null;
