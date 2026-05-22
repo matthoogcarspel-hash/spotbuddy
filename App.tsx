@@ -2852,20 +2852,21 @@ export default function App() {
     return () => clearInterval(interval);
   }, [activeAppUserId]);
 
-  const sendPushToRecipients = async (
+  const sendPushToRecipients = (
     recipientIds: string[],
     title: string,
     body: string,
     data: Record<string, unknown>,
   ) => {
     if (recipientIds.length === 0) return;
-    const { error } = await supabase.rpc('send_push_to_users', {
+    supabase.rpc('send_push_to_users', {
       recipient_ids: recipientIds,
       title,
       body,
       data,
+    }).then(({ error }) => {
+      if (error) console.error('PUSH_RPC_ERROR', error);
     });
-    if (error) console.error('PUSH_RPC_ERROR', error);
   };
 
   const markAllBuzzAsRead = async () => {
