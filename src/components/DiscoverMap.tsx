@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, Pressable, Text, View } from 'react-native';
-import MapView, { Callout, Marker } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 
 type SpotMarker = {
   name: string;
@@ -10,6 +10,7 @@ type SpotMarker = {
   coordinateStatus: 'unverified' | 'review' | 'verified';
   liveCount?: number;
   goingCount?: number;
+  totalCount?: number;
 };
 
 type Props = {
@@ -25,15 +26,24 @@ type Props = {
 const LAT_CLAMP = 85;
 const LNG_CLAMP = 179;
 const DEFAULT_DELTA = 0.5;
-// Namen verdwijnen als latitudeDelta groter is dan deze waarde (verder uitgezoomd)
-const LABEL_HIDE_THRESHOLD = 0.8;
 
-export default function DiscoverMap({ center, flyToTarget, spots, userLocation, onOpenSpot, onMapClick }: Props) {
+const HEATMAP = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
+const getDotColor = (total: number): string => {
+  if (total <= 0) return 'rgba(255,255,255,0.3)';
+  if (total <= 2) return HEATMAP[0];
+  if (total <= 5) return HEATMAP[1];
+  if (total <= 10) return HEATMAP[2];
+  if (total <= 18) return HEATMAP[3];
+  if (total <= 28) return HEATMAP[4];
+  if (total <= 40) return HEATMAP[5];
+  return HEATMAP[6];
+};
+
+export default function DiscoverMap({ center, flyToTarget, spots, userLocation, onOpenSpot, onAddSpot, onMapClick }: Props) {
   const mapRef = useRef<MapView>(null);
   const hasCenteredOnGps = useRef(false);
   const pulseAnim = useRef(new Animated.Value(0)).current;
-  const [latDelta, setLatDelta] = useState(DEFAULT_DELTA);
-  const showLabels = latDelta < LABEL_HIDE_THRESHOLD;
+  const [selectedSpot, setSelectedSpot] = useState<SpotMarker | null>(null);
 
   const isDefaultCenter =
     Math.abs(center.latitude - 52.3676) < 0.001 &&
@@ -89,47 +99,28 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
           latitudeDelta: DEFAULT_DELTA,
           longitudeDelta: DEFAULT_DELTA,
         }}
-        onRegionChangeComplete={(region) => setLatDelta(region.latitudeDelta)}
+        onRegionChangeComplete={() => {}}
         onPress={(e) => {
           const coordinate = e.nativeEvent.coordinate;
           if (!coordinate) return;
+          setSelectedSpot(null);
           onMapClick?.(Number(coordinate.latitude.toFixed(6)), Number(coordinate.longitude.toFixed(6)));
         }}
       >
         {validSpots.map((spot) => {
-          const isAdded = spot.isAdded;
-          const label = spot.name.length > 16 ? spot.name.slice(0, 15) + '…' : spot.name;
-          const live = spot.liveCount ?? 0;
-          const going = spot.goingCount ?? 0;
-          const hasActivity = live > 0 || going > 0;
-          const activityColor = live > 0 ? '#5EF0D0' : '#4DB8FF';
-          const activityLabel = live > 0 ? `⚡${live}` : `${going}`;
-          const pinBg = isAdded ? '#007AFF' : '#ffffff';
-          const pinBorder = isAdded ? 'rgba(255,255,255,0.4)' : '#007AFF';
-          const pinTextColor = isAdded ? '#ffffff' : '#007AFF';
-          const dotColor = isAdded ? 'rgba(255,255,255,0.8)' : '#007AFF';
+          const total = spot.totalCount ?? 0;
+          const dotColor = getDotColor(total);
+          const isSelected = selectedSpot?.name === spot.name;
 
-          const pinView = (
-            <View style={{ alignItems: 'center' }}>
-              <View style={{ position: 'relative' }}>
-                <View style={{
-                  backgroundColor: pinBg, borderRadius: 999,
-                  paddingHorizontal: showLabels ? 10 : 6, paddingVertical: showLabels ? 5 : 6,
-                  borderWidth: 1.5, borderColor: pinBorder,
-                  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.25, shadowRadius: 4, elevation: 5,
-                  flexDirection: 'row', alignItems: 'center', gap: showLabels ? 4 : 0,
-                }}>
-                  <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: dotColor }} />
-                  {showLabels ? <Text style={{ color: pinTextColor, fontSize: 11, fontWeight: '800' }}>{label}</Text> : null}
-                </View>
-                {hasActivity ? (
-                  <View style={{ position: 'absolute', top: -7, right: -7, backgroundColor: activityColor, borderRadius: 999, paddingHorizontal: 5, paddingVertical: 2, minWidth: 18, alignItems: 'center' }}>
-                    <Text style={{ color: '#061421', fontSize: 9, fontWeight: '900' }}>{activityLabel}</Text>
-                  </View>
-                ) : null}
-              </View>
-              <View style={{ width: 0, height: 0, borderLeftWidth: 4, borderRightWidth: 4, borderTopWidth: 6, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: isAdded ? '#007AFF' : '#007AFF', marginTop: -1 }} />
+          const dotView = (
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{
+                width: 18, height: 18, borderRadius: 9,
+                backgroundColor: dotColor,
+                borderWidth: 2, borderColor: isSelected ? '#ffffff' : 'rgba(255,255,255,0.4)',
+                shadowColor: dotColor, shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 0.8, shadowRadius: 6, elevation: 6,
+              }} />
             </View>
           );
 
@@ -137,25 +128,13 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
             <Marker
               key={spot.name}
               coordinate={{ latitude: spot.latitude, longitude: spot.longitude }}
-              anchor={{ x: 0.5, y: 1 }}
+              anchor={{ x: 0.5, y: 0.5 }}
               tracksViewChanges={false}
-              onPress={Platform.OS !== 'web' ? () => onOpenSpot(spot.name) : undefined}
+              onPress={Platform.OS !== 'web' ? () => setSelectedSpot(isSelected ? null : spot) : undefined}
             >
-              {Platform.OS !== 'web' ? (
-                // Native: tap pin → direct open, geen Callout nodig
-                pinView
-              ) : (
-                // Web: Callout met click handler (Leaflet blokkeert marker onPress)
+              {Platform.OS !== 'web' ? dotView : (
                 <>
-                  {pinView}
-                  <Callout onPress={() => onOpenSpot(spot.name)}>
-                    <View style={{ padding: 8, minWidth: 150 }} {...({ onClick: () => onOpenSpot(spot.name) } as any)}>
-                      <Text style={{ fontWeight: '800', fontSize: 14, marginBottom: 4, color: '#07111F' }}>{spot.name}</Text>
-                      <View style={{ backgroundColor: '#07111F', borderRadius: 8, paddingVertical: 6, paddingHorizontal: 12, alignItems: 'center' }}>
-                        <Text style={{ color: '#fff', fontSize: 12, fontWeight: '700' }}>Open spot →</Text>
-                      </View>
-                    </View>
-                  </Callout>
+                  {dotView}
                 </>
               )}
             </Marker>
@@ -180,6 +159,47 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
           </Marker>
         )}
       </MapView>
+
+      {/* Spot actie popup */}
+      {selectedSpot ? (
+        <View style={{
+          position: 'absolute', bottom: 100, left: 20, right: 20,
+          backgroundColor: '#0d1b2a', borderRadius: 20,
+          padding: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+          shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.4, shadowRadius: 12, elevation: 10,
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+            <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: getDotColor(selectedSpot.totalCount ?? 0) }} />
+            <Text style={{ color: '#ffffff', fontSize: 17, fontWeight: '900', flex: 1 }} numberOfLines={1}>
+              {selectedSpot.name}
+            </Text>
+            <Pressable onPress={() => setSelectedSpot(null)} hitSlop={10}>
+              <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18 }}>×</Text>
+            </Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <Pressable
+              onPress={() => { setSelectedSpot(null); onOpenSpot(selectedSpot.name); }}
+              style={{ flex: 1, backgroundColor: '#ffffff', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+            >
+              <Text style={{ color: '#07111F', fontSize: 14, fontWeight: '900' }}>Open →</Text>
+            </Pressable>
+            {!selectedSpot.isAdded ? (
+              <Pressable
+                onPress={() => { setSelectedSpot(null); onAddSpot(selectedSpot.name); }}
+                style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '700' }}>+ Add</Text>
+              </Pressable>
+            ) : (
+              <View style={{ flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+                <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>✓ Added</Text>
+              </View>
+            )}
+          </View>
+        </View>
+      ) : null}
 
       {!isDefaultCenter ? (
         <Pressable

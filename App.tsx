@@ -7771,9 +7771,11 @@ export default function App() {
     const discoverSpots = spotDefinitions
       .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
       .map((s) => {
-        const spotSessions = (daySessionsBySpot[s.spot] ?? []).filter((ss) => getCleanSessionStatus(ss) !== 'finished');
+        const allSpotSessions = daySessionsBySpot[s.spot] ?? [];
+        const spotSessions = allSpotSessions.filter((ss) => getCleanSessionStatus(ss) !== 'finished');
         const liveCount = new Set(spotSessions.filter((ss) => getCleanSessionStatus(ss) === 'live').map((ss) => ss.userId).filter(Boolean)).size;
         const goingCount = new Set(spotSessions.filter((ss) => getCleanSessionStatus(ss) === 'going').map((ss) => ss.userId).filter(Boolean)).size;
+        const totalCount = new Set(allSpotSessions.map((ss) => ss.userId).filter(Boolean)).size;
         return {
           name: s.spot,
           latitude: s.latitude,
@@ -7782,6 +7784,7 @@ export default function App() {
           coordinateStatus: s.coordinateStatus,
           liveCount,
           goingCount,
+          totalCount,
         };
       });
 
