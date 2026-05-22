@@ -4501,6 +4501,7 @@ export default function App() {
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (_event === 'PASSWORD_RECOVERY') {
         setIsPasswordResetRoute(true);
+        setSession(nextSession);
         return;
       }
 
