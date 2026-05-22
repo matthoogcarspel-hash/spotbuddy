@@ -175,7 +175,7 @@ export default function AuthScreen({ onSignupSuccess, onPasswordResetRequest }: 
           <View style={{ gap: 12, alignItems: 'center' }}>
             <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', textAlign: 'center' }}>Check your email</Text>
             <Text style={{ color: MUTED, fontSize: 14, textAlign: 'center', lineHeight: 20 }}>
-              We sent a 6-digit code to{'\n'}<Text style={{ color: '#ffffff', fontWeight: '700' }}>{pendingEmail}</Text>
+              We sent a verification code to{'\n'}<Text style={{ color: '#ffffff', fontWeight: '700' }}>{pendingEmail}</Text>
             </Text>
             <TextInput
               value={otpCode}
