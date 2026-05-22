@@ -7,7 +7,6 @@ function CoordinateLogger({ onMapClick }: { onMapClick?: (latitude: number, long
     click(event) {
       const latitude = Number(event.latlng.lat.toFixed(6));
       const longitude = Number(event.latlng.lng.toFixed(6));
-      console.log('DISCOVER_MAP_CLICK_COORDS', { latitude, longitude });
       onMapClick?.(latitude, longitude);
     },
   });
@@ -22,6 +21,7 @@ type SpotMarker = {
   coordinateStatus: 'unverified' | 'review' | 'verified';
   liveCount?: number;
   goingCount?: number;
+  totalCount?: number;
 };
 
 type Props = {
@@ -31,6 +31,18 @@ type Props = {
   onOpenSpot: (spotName: string) => void;
   onAddSpot: (spotName: string) => void;
   onMapClick?: (latitude: number, longitude: number) => void;
+};
+
+const HEATMAP = ['#0D2C54','#1E63C6','#35B8E0','#2ECC71','#A8E063','#7B61FF','#E83E8C'];
+const getDotColor = (total: number): string => {
+  if (total <= 0) return '#ffffff';
+  if (total <= 2) return HEATMAP[0];
+  if (total <= 5) return HEATMAP[1];
+  if (total <= 10) return HEATMAP[2];
+  if (total <= 18) return HEATMAP[3];
+  if (total <= 28) return HEATMAP[4];
+  if (total <= 40) return HEATMAP[5];
+  return HEATMAP[6];
 };
 
 const PULSE_STYLE = `
@@ -70,45 +82,22 @@ export default function DiscoverMap({ center, spots, userLocation, onOpenSpot, o
       />
 
       {spots.map((spot) => {
-        const isAdded = spot.isAdded;
-        const label = spot.name.length > 16 ? spot.name.slice(0, 15) + '…' : spot.name;
-        const bg = isAdded ? '#007AFF' : '#ffffff';
-        const color = isAdded ? '#ffffff' : '#007AFF';
-        const border = isAdded ? 'rgba(255,255,255,0.4)' : '#007AFF';
-        const live = spot.liveCount ?? 0;
-        const going = spot.goingCount ?? 0;
-        const hasActivity = live > 0 || going > 0;
-        const activityBg = live > 0 ? '#5EF0D0' : '#4DB8FF';
-        const activityLabel = live > 0 ? `⚡${live}` : `${going}`;
+        const total = spot.totalCount ?? 0;
+        const dotColor = getDotColor(total);
+        const borderColor = total <= 0 ? '#888fa0' : 'rgba(255,255,255,0.6)';
 
         const pinIcon = new L.DivIcon({
           className: '',
           html: `
-            <div style="display:flex;flex-direction:column;align-items:center;position:relative;">
-              ${hasActivity ? `<div style="position:absolute;top:-7px;right:-7px;background:${activityBg};border-radius:999px;padding:2px 5px;font-size:9px;font-weight:900;color:#061421;font-family:system-ui,sans-serif;white-space:nowrap;z-index:1;">${activityLabel}</div>` : ''}
-              <div style="
-                background:${bg};
-                border-radius:999px;
-                padding:4px 10px;
-                border:1.5px solid ${border};
-                box-shadow:0 2px 6px rgba(0,0,0,0.22);
-                display:flex;align-items:center;gap:5px;
-                white-space:nowrap;
-              ">
-                <div style="width:6px;height:6px;border-radius:50%;background:${color};opacity:0.8;flex-shrink:0;"></div>
-                <span style="color:${color};font-size:11px;font-weight:800;font-family:system-ui,sans-serif;">${label}</span>
-              </div>
-              <div style="
-                width:0;height:0;
-                border-left:4px solid transparent;
-                border-right:4px solid transparent;
-                border-top:6px solid #007AFF;
-                margin-top:-1px;
-              "></div>
-            </div>
+            <div style="
+              width:18px;height:18px;border-radius:50%;
+              background:${dotColor};
+              border:2px solid ${borderColor};
+              box-shadow:0 0 8px ${dotColor}99, 0 2px 4px rgba(0,0,0,0.3);
+            "></div>
           `,
-          iconSize: [120, 30],
-          iconAnchor: [60, 30],
+          iconSize: [18, 18],
+          iconAnchor: [9, 9],
         });
 
         return (
@@ -118,28 +107,31 @@ export default function DiscoverMap({ center, spots, userLocation, onOpenSpot, o
             icon={pinIcon}
           >
             <Popup>
-              <div style={{ minWidth: 150 }}>
-                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 4 }}>
-                  {spot.name}
+              <div style={{ minWidth: 160, fontFamily: 'system-ui,sans-serif' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: '50%', background: dotColor, border: `1.5px solid ${borderColor}`, flexShrink: 0 }} />
+                  <div style={{ fontWeight: 800, fontSize: 14, color: '#111827' }}>{spot.name}</div>
                 </div>
-                <div style={{ fontSize: 11, marginBottom: 10, color: spot.coordinateStatus === 'verified' ? '#18794e' : spot.coordinateStatus === 'review' ? '#a15c00' : '#b42318' }}>
-                  {spot.coordinateStatus === 'verified' ? 'Verified launch location' : spot.coordinateStatus === 'review' ? 'Coordinate under review' : 'Unverified coordinate'}
-                </div>
+                {total > 0 && (
+                  <div style={{ fontSize: 11, color: '#6b7280', marginBottom: 10 }}>
+                    {total} rider{total !== 1 ? 's' : ''} today
+                  </div>
+                )}
                 <div style={{ display: 'flex', gap: 8 }}>
                   <button
                     type="button"
                     onClick={() => onOpenSpot(spot.name)}
-                    style={{ border: '1px solid #d6dbe3', background: '#ffffff', borderRadius: 999, padding: '6px 10px', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
+                    style={{ flex: 1, background: '#111827', color: '#ffffff', border: 'none', borderRadius: 8, padding: '7px 12px', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
                   >
-                    Open
+                    Open →
                   </button>
                   <button
                     type="button"
                     disabled={spot.isAdded}
-                    onClick={() => onAddSpot(spot.name)}
-                    style={{ border: '1px solid #d6dbe3', background: spot.isAdded ? '#eef1f5' : '#ffffff', color: spot.isAdded ? '#8a94a3' : '#111827', borderRadius: 999, padding: '6px 10px', cursor: spot.isAdded ? 'default' : 'pointer', fontWeight: 700, fontSize: 12 }}
+                    onClick={() => !spot.isAdded && onAddSpot(spot.name)}
+                    style={{ flex: 1, border: '1px solid #d1d5db', background: spot.isAdded ? '#f3f4f6' : '#ffffff', color: spot.isAdded ? '#9ca3af' : '#111827', borderRadius: 8, padding: '7px 12px', cursor: spot.isAdded ? 'default' : 'pointer', fontWeight: 700, fontSize: 12 }}
                   >
-                    {spot.isAdded ? 'Added' : 'Add'}
+                    {spot.isAdded ? '✓ Added' : '+ Add'}
                   </button>
                 </div>
               </div>
