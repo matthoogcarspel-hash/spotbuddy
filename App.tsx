@@ -7670,10 +7670,15 @@ export default function App() {
     const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
-    // Push notificatie naar de andere deelnemer
+    // Push notificatie naar de andere deelnemer — haal otherUserId op uit DB (betrouwbaarder dan state)
     void (async () => {
-      const dmConv = dmConversations.find(c => c.id === conversationId);
-      const otherUserId = dmConv?.otherUserId ?? null;
+      const { data: convData } = await supabase
+        .from('conversations')
+        .select('participants')
+        .eq('id', conversationId)
+        .single();
+      const participants = (convData?.participants ?? []) as string[];
+      const otherUserId = participants.find((p: string) => p !== senderId) ?? null;
       if (!otherUserId) return;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
       void sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
