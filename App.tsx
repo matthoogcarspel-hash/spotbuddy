@@ -3306,6 +3306,8 @@ export default function App() {
         setSelectedSpot(data.spotName as SpotName);
         setShowYourSpotsPage(false);
         setShowChat(false);
+        setShowBuddies(false);
+        setShowProfile(false);
       }
     });
 
@@ -10040,8 +10042,8 @@ export default function App() {
           supabase.from('sessions').select('user_id').eq('id', sessionId).single()
             .then(({ data: sessionData }) => {
               if (sessionData?.user_id && sessionData.user_id !== activeProfile.id) {
-                const actorName = activeProfile.display_name?.trim() || 'Someone';
-                sendPushToRecipients([sessionData.user_id], `${actorName} joined your session`, `${actorName} is joining you at ${selectedSpot}`, { type: 'session_joined', spotName: selectedSpot });
+                const actorName = activeProfile?.display_name?.trim() || 'Someone';
+                sendPushToRecipients([sessionData.user_id], `${actorName} joined your session`, `${actorName} is joining you at ${selectedSpot}`, { type: 'session_joined', spotName: selectedSpot, actorName });
               }
             });
         }
@@ -10173,7 +10175,7 @@ const handleSave = async () => {
         }).then(({ data: recipients }) => {
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
-          if (ids.length) sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot });
+          if (ids.length) sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot, actorName });
         });
       }
     };
