@@ -7596,6 +7596,17 @@ export default function App() {
     // Gebruik het echte DB-ID zodat realtime dedup correct werkt (geen verdubbeling)
     const newMsg = { id: inserted?.id ?? `${convId}-${Date.now()}`, text, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null };
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
+    supabase.rpc('create_chat_notification', {
+      actor_profile_id: senderId,
+      spot_name_param: spotName,
+      session_day_param: sessionDay,
+      message_preview_param: text,
+    }).then(({ data: recipients, error: rpcError }) => {
+      if (rpcError) console.error('SESSION_CHAT_PUSH_ERROR', rpcError);
+      const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
+      const actorName = activeProfile?.display_name?.trim() || 'Someone';
+      if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, text, { type: 'chat_message', spotName });
+    });
   };
 
   // DM group_key = 'dm_SMALLERID_LARGERID' (geen participant kolommen nodig)
@@ -9837,6 +9848,7 @@ export default function App() {
       }
 
       const groupSenderId = activeProfile?.id ?? activeAppUserId ?? null;
+      console.log('GROUP_CHAT_DEBUG', { groupSenderId, selectedSpot, selectedDayKey });
       if (groupSenderId && selectedSpot && selectedDayKey) {
         supabase.rpc('create_chat_notification', {
           actor_profile_id: groupSenderId,
