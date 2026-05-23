@@ -10038,10 +10038,11 @@ export default function App() {
         setSessionActionError('');
         setSelectedTimelineSessionId(null);
         await fetchSharedData({ skipLoadingState: true });
+        console.log('JOIN_PUSH_DEBUG', { activeProfileId: activeProfile?.id, sessionId, selectedSpot, displayName: activeProfile?.display_name });
         if (activeProfile?.id && sessionId && selectedSpot) {
           supabase.from('sessions').select('user_id').eq('id', sessionId).single()
             .then(({ data: sessionData }) => {
-              console.log('JOIN_PUSH_DEBUG', { sessionUserId: sessionData?.user_id, activeProfileId: activeProfile.id, displayName: activeProfile?.display_name });
+              console.log('JOIN_PUSH_DEBUG2', { sessionUserId: sessionData?.user_id, activeProfileId: activeProfile.id });
               if (sessionData?.user_id && sessionData.user_id !== activeProfile.id) {
                 const actorName = activeProfile?.display_name?.trim() || 'Someone';
                 sendPushToRecipients([sessionData.user_id], `${actorName} joined your session`, `${actorName} is joining you at ${selectedSpot}`, { type: 'session_joined', spotName: selectedSpot, actorName });
