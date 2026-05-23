@@ -3286,6 +3286,7 @@ export default function App() {
     // Navigeer naar het juiste gesprek als de gebruiker op een push tikt
     const subscription = Buzz.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, string> | null;
+      console.log('PUSH_TAP_DATA', JSON.stringify(data));
       if (!data) return;
       if (data.type === 'dm' && data.conversationId) {
         setShowChat(true);
