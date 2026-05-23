@@ -3299,11 +3299,11 @@ export default function App() {
         setExpandedChatSession(data.groupKey);
         void loadSessionChatForTabRef.current?.(data.groupKey, data.spotName ?? '', data.sessionDay ?? getTodayLocalDateKey());
       } else if (data.type === 'chat_message' && data.spotName) {
-        console.log('SPOT_CHAT_TAP_DEBUG', { spotName: data.spotName, subType: data.subType });
         setShowChat(true);
         setActiveChatSpot(data.spotName);
         setActiveChatDayKey(getTodayLocalDateKey());
       } else if ((data.type === 'session_planned' || data.type === 'session_joined') && data.spotName) {
+        console.log('SESSION_TAP_DEBUG', { type: data.type, spotName: data.spotName });
         setSelectedSpot(data.spotName as SpotName);
         setShowYourSpotsPage(false);
         setShowChat(false);
