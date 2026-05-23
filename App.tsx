@@ -3302,6 +3302,10 @@ export default function App() {
         setShowChat(true);
         setActiveChatSpot(data.spotName);
         setActiveChatDayKey(getTodayLocalDateKey());
+      } else if ((data.type === 'session_planned' || data.type === 'session_joined') && data.spotName) {
+        setSelectedSpot(data.spotName as SpotName);
+        setShowYourSpotsPage(false);
+        setShowChat(false);
       }
     });
 
@@ -10032,6 +10036,15 @@ export default function App() {
         setSessionActionError('');
         setSelectedTimelineSessionId(null);
         await fetchSharedData({ skipLoadingState: true });
+        if (activeProfile?.id && sessionId && selectedSpot) {
+          supabase.from('sessions').select('user_id').eq('id', sessionId).single()
+            .then(({ data: sessionData }) => {
+              if (sessionData?.user_id && sessionData.user_id !== activeProfile.id) {
+                const actorName = activeProfile.display_name?.trim() || 'Someone';
+                sendPushToRecipients([sessionData.user_id], `${actorName} joined your session`, `${actorName} is joining you at ${selectedSpot}`, { type: 'session_joined', spotName: selectedSpot });
+              }
+            });
+        }
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
         setSessionActionError('Joining the session failed. Please try again.');
