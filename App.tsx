@@ -10037,18 +10037,17 @@ export default function App() {
 
         setSessionActionError('');
         setSelectedTimelineSessionId(null);
-        await fetchSharedData({ skipLoadingState: true });
-        console.log('JOIN_PUSH_DEBUG', { activeProfileId: activeProfile?.id, sessionId, selectedSpot, displayName: activeProfile?.display_name });
         if (activeProfile?.id && sessionId && selectedSpot) {
+          const joinActorName = activeProfile.display_name?.trim() || 'Someone';
+          const joinSpot = selectedSpot;
           supabase.from('sessions').select('user_id').eq('id', sessionId).single()
             .then(({ data: sessionData }) => {
-              console.log('JOIN_PUSH_DEBUG2', { sessionUserId: sessionData?.user_id, activeProfileId: activeProfile.id });
               if (sessionData?.user_id && sessionData.user_id !== activeProfile.id) {
-                const actorName = activeProfile?.display_name?.trim() || 'Someone';
-                sendPushToRecipients([sessionData.user_id], `${actorName} joined your session`, `${actorName} is joining you at ${selectedSpot}`, { type: 'session_joined', spotName: selectedSpot, actorName });
+                sendPushToRecipients([sessionData.user_id], `${joinActorName} joined your session`, `${joinActorName} is joining you at ${joinSpot}`, { type: 'session_joined', spotName: joinSpot, actorName: joinActorName });
               }
             });
         }
+        await fetchSharedData({ skipLoadingState: true });
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
         setSessionActionError('Joining the session failed. Please try again.');
