@@ -4737,8 +4737,8 @@ export default function App() {
       return;
     }
 
-    void fetchSharedData();
-  }, [activeAppUserId, spotNames]);
+    void fetchSharedDataRef.current?.();
+  }, [activeAppUserId, selectedDayKey, spotNames]);
 
   // Top spots: laad activiteit van alle spots voor today/tomorrow
   useEffect(() => {
