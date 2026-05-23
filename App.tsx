@@ -2548,6 +2548,7 @@ export default function App() {
   const activeProfileOwnerUidRef = useRef<string | null>(null);
   const activeProfileIdRef = useRef<string | null>(null);
   const fetchSharedDataVersionRef = useRef(0);
+  const fetchSharedDataRef = useRef<(() => Promise<void>) | null>(null);
   const showChatRef = useRef(false);
   const chatSubTabRef = useRef<string>('spot');
   const expandedChatSessionRef2 = useRef<string | null>(null);
@@ -3311,6 +3312,7 @@ export default function App() {
         setShowProfile(false);
         if (data.activeDay === 'tomorrow') setActiveDay('tomorrow');
         else if (data.activeDay === 'today') setActiveDay('today');
+        void fetchSharedDataRef.current?.();
       }
     });
 
@@ -7671,6 +7673,7 @@ export default function App() {
     setDmConversations(result);
   };
   loadDmConversationsRef.current = loadDmConversations;
+  fetchSharedDataRef.current = () => fetchSharedData({ skipLoadingState: true });
 
   const loadDmMessages = async (conversationId: string) => {
     const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at').eq('conversation_id', conversationId).order('created_at', { ascending: true });
