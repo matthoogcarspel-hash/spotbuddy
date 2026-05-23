@@ -2519,6 +2519,7 @@ export default function App() {
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; otherSkillLevel?: number | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
   const loadDmConversationsRef = useRef<(() => Promise<void>) | null>(null);
   const loadDmMessagesRef = useRef<((conversationId: string) => Promise<void>) | null>(null);
+  const loadSessionChatForTabRef = useRef<((groupKey: string, spotName: string, sessionDay: string) => Promise<void>) | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -3292,10 +3293,15 @@ export default function App() {
         setExpandedDmId(data.conversationId);
         void loadDmConversationsRef.current?.();
         void loadDmMessagesRef.current?.(data.conversationId);
+      } else if (data.type === 'chat_message' && data.subType === 'group' && data.groupKey) {
+        setShowChat(true);
+        setChatSubTab('session');
+        setExpandedChatSession(data.groupKey);
+        void loadSessionChatForTabRef.current?.(data.groupKey, data.spotName ?? '', data.sessionDay ?? getTodayLocalDateKey());
       } else if (data.type === 'chat_message' && data.spotName) {
         setShowChat(true);
-        setChatSubTab('spot');
-        setExpandedChatSpot(spotChatKey(data.spotName, getTodayLocalDateKey()));
+        setActiveChatSpot(data.spotName);
+        setActiveChatDayKey(getTodayLocalDateKey());
       }
     });
 
@@ -7575,6 +7581,7 @@ export default function App() {
     }));
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: enriched, loaded: true } }));
   };
+  loadSessionChatForTabRef.current = loadSessionChatForTab;
 
   const sendSessionMessageInChatTab = async (groupKey: string, spotName: string, sessionDay: string) => {
     const text = sessionChatInput.trim();
@@ -7608,7 +7615,7 @@ export default function App() {
       if (rpcError) console.error('SESSION_CHAT_PUSH_ERROR', rpcError);
       const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
-      if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, text, { type: 'chat_message', spotName });
+      if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, text, { type: 'chat_message', subType: 'group', spotName, groupKey, sessionDay });
     });
   };
 
@@ -9862,7 +9869,7 @@ export default function App() {
           if (rpcError) console.error('GROUP_CHAT_PUSH_ERROR', rpcError);
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
-          if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
+          if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', subType: 'group', spotName: selectedSpot, groupKey: activeGroupChatKey, sessionDay: selectedDayKey });
         });
       }
 
