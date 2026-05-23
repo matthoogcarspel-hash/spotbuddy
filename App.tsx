@@ -2659,6 +2659,7 @@ export default function App() {
   const autoCheckoutOutsideSinceRef = useRef<number | null>(null);
   const autoCheckoutInFlightRef = useRef(false);
   const hasAutoCheckedOutRef = useRef(false);
+  const hasSyncedSpotFollowersRef = useRef(false);
   const gpsWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const gpsWatcherSessionIdRef = useRef<string | null>(null);
   const gpsWatcherStartTokenRef = useRef(0);
@@ -2851,6 +2852,15 @@ export default function App() {
     }, 15000);
     return () => clearInterval(interval);
   }, [activeAppUserId]);
+
+  useEffect(() => {
+    if (!activeAppUserId || favoriteSpots.length === 0 || hasSyncedSpotFollowersRef.current) return;
+    hasSyncedSpotFollowersRef.current = true;
+    void supabase.from('spot_followers').upsert(
+      favoriteSpots.map((spot) => ({ user_id: activeAppUserId, spot_name: spot })),
+      { onConflict: 'user_id,spot_name' }
+    );
+  }, [activeAppUserId, favoriteSpots]);
 
   const sendPushToRecipients = (
     recipientIds: string[],
@@ -3459,7 +3469,6 @@ export default function App() {
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
-      console.log('SPOT_FOLLOWERS_DEBUG', { activeAppUserId, spotName });
       if (activeAppUserId) {
         supabase.from('spot_followers').upsert(
           { user_id: activeAppUserId, spot_name: spotName },
