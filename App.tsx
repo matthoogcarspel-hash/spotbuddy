@@ -3308,6 +3308,12 @@ export default function App() {
         setShowChat(false);
         setShowBuddies(false);
         setShowProfile(false);
+        if (data.sessionDay) {
+          const today = getTodayLocalDateKey();
+          const tomorrow = getTomorrowLocalDateKey();
+          if (data.sessionDay === tomorrow) setActiveDay('tomorrow');
+          else if (data.sessionDay === today) setActiveDay('today');
+        }
       }
     });
 
@@ -10166,7 +10172,7 @@ const handleSave = async () => {
         }).then(({ data: recipients }) => {
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
-          if (ids.length) sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot, actorName });
+          if (ids.length) sendPushToRecipients(ids, `${actorName} planned a session`, `${actorName} is going to ${selectedSpot}`, { type: 'session_planned', spotName: selectedSpot, actorName, sessionDay: selectedPlanningDateKey });
         });
       }
     };
