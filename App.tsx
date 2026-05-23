@@ -3286,7 +3286,6 @@ export default function App() {
     // Navigeer naar het juiste gesprek als de gebruiker op een push tikt
     const subscription = Buzz.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data as Record<string, string> | null;
-      console.log('PUSH_TAP_RAW', JSON.stringify(data));
       if (!data) return;
       if (data.type === 'dm' && data.conversationId) {
         setShowChat(true);
@@ -3304,7 +3303,6 @@ export default function App() {
         setActiveChatSpot(data.spotName);
         setActiveChatDayKey(getTodayLocalDateKey());
       } else if ((data.type === 'session_planned' || data.type === 'session_joined') && data.spotName) {
-        console.log('SESSION_TAP_DEBUG', { type: data.type, spotName: data.spotName });
         setSelectedSpot(data.spotName as SpotName);
         setShowYourSpotsPage(false);
         setShowChat(false);
