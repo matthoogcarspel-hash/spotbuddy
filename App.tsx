@@ -9796,7 +9796,6 @@ export default function App() {
 
     const sendGroupChatMessage = async () => {
       const messageText = groupMessageInput.trim();
-      console.log('GROUP_CHAT_DEBUG', { messageText: messageText.slice(0, 20), activeGroupChatKey, selectedSpot, selectedDayKey });
       if (!messageText || !activeGroupChatKey) return;
 
       const existingConversationResponse = await supabase
@@ -9849,7 +9848,6 @@ export default function App() {
       }
 
       const groupSenderId = activeProfile?.id ?? activeAppUserId ?? null;
-      console.log('GROUP_CHAT_DEBUG', { groupSenderId, selectedSpot, selectedDayKey });
       if (groupSenderId && selectedSpot && selectedDayKey) {
         supabase.rpc('create_chat_notification', {
           actor_profile_id: groupSenderId,
@@ -9857,7 +9855,7 @@ export default function App() {
           session_day_param: selectedDayKey,
           message_preview_param: messageText,
         }).then(({ data: recipients, error: rpcError }) => {
-          console.log('GROUP_CHAT_PUSH', { recipients, rpcError, spot: selectedSpot, day: selectedDayKey, sender: groupSenderId });
+          if (rpcError) console.error('GROUP_CHAT_PUSH_ERROR', rpcError);
           const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
           const actorName = activeProfile?.display_name?.trim() || 'Someone';
           if (ids.length) sendPushToRecipients(ids, `${actorName} in group chat`, messageText, { type: 'chat_message', spotName: selectedSpot });
