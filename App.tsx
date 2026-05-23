@@ -9796,6 +9796,7 @@ export default function App() {
 
     const sendGroupChatMessage = async () => {
       const messageText = groupMessageInput.trim();
+      console.log('GROUP_CHAT_DEBUG', { messageText: messageText.slice(0, 20), activeGroupChatKey, selectedSpot, selectedDayKey });
       if (!messageText || !activeGroupChatKey) return;
 
       const existingConversationResponse = await supabase
