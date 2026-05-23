@@ -487,7 +487,8 @@ export async function joinSession(input: {
 
 
   if (shouldSend) {
-    const { data: joinerProfile } = await supabase.from('profiles').select('display_name').eq('id', joinedUserId).maybeSingle();
+    const { data: joinerProfile, error: joinerProfileError } = await supabase.from('profiles').select('display_name').eq('id', joinedUserId).maybeSingle();
+    console.log('JOIN_ACTOR_DEBUG', { joinedUserId, displayName: joinerProfile?.display_name, error: joinerProfileError?.message });
     const joinerName = joinerProfile?.display_name?.trim() || 'Someone';
 
     const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
