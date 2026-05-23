@@ -3299,6 +3299,7 @@ export default function App() {
         setExpandedChatSession(data.groupKey);
         void loadSessionChatForTabRef.current?.(data.groupKey, data.spotName ?? '', data.sessionDay ?? getTodayLocalDateKey());
       } else if (data.type === 'chat_message' && data.spotName) {
+        console.log('SPOT_CHAT_TAP_DEBUG', { spotName: data.spotName, subType: data.subType });
         setShowChat(true);
         setActiveChatSpot(data.spotName);
         setActiveChatDayKey(getTodayLocalDateKey());
