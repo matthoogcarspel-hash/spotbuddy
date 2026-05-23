@@ -2518,6 +2518,7 @@ export default function App() {
   }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; otherSkillLevel?: number | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
   const loadDmConversationsRef = useRef<(() => Promise<void>) | null>(null);
+  const loadDmMessagesRef = useRef<((conversationId: string) => Promise<void>) | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
@@ -3290,9 +3291,11 @@ export default function App() {
         setChatSubTab('dm');
         setExpandedDmId(data.conversationId);
         void loadDmConversationsRef.current?.();
+        void loadDmMessagesRef.current?.(data.conversationId);
       } else if (data.type === 'chat_message' && data.spotName) {
         setShowChat(true);
         setChatSubTab('spot');
+        setExpandedChatSpot(spotChatKey(data.spotName, getTodayLocalDateKey()));
       }
     });
 
@@ -7662,6 +7665,7 @@ export default function App() {
     const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null }));
     setDmMessages((prev) => ({ ...prev, [conversationId]: enriched }));
   };
+  loadDmMessagesRef.current = loadDmMessages;
 
   const sendDmMessage = async (conversationId: string) => {
     const text = dmInput.trim();
