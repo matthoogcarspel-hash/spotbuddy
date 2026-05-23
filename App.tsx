@@ -3459,6 +3459,7 @@ export default function App() {
       void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(nextSelectedSpots)).catch((error) => {
         console.error('Failed to persist favorite spots', error);
       });
+      console.log('SPOT_FOLLOWERS_DEBUG', { activeAppUserId, spotName });
       if (activeAppUserId) {
         supabase.from('spot_followers').upsert(
           { user_id: activeAppUserId, spot_name: spotName },
