@@ -487,6 +487,8 @@ export async function joinSession(input: {
 
 
   if (shouldSend) {
+    const { data: joinerProfile } = await supabase.from('profiles').select('display_name').eq('id', joinedUserId).maybeSingle();
+    const joinerName = joinerProfile?.display_name?.trim() || 'Someone';
 
     const { error: notificationRpcError } = await supabase.rpc('create_session_joined_notification', {
       recipient_profile_id: sessionOwnerId,
@@ -497,9 +499,9 @@ export async function joinSession(input: {
     if (!notificationRpcError && sessionOwnerId) {
       supabase.rpc('send_push_to_users', {
         recipient_ids: [sessionOwnerId],
-        title: 'Someone joined your session',
-        body: spotName ? `Someone joined your session at ${spotName}.` : 'Someone joined your session.',
-        data: { type: 'session_joined', sessionId: input.sessionId, spotName },
+        title: `${joinerName} joined your session`,
+        body: spotName ? `${joinerName} is joining you at ${spotName}.` : `${joinerName} joined your session.`,
+        data: { type: 'session_joined', sessionId: input.sessionId, spotName, actorName: joinerName },
       }).then(({ error }) => { if (error) console.error('JOIN_PUSH_ERROR', error); });
     }
 

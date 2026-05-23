@@ -10037,16 +10037,6 @@ export default function App() {
 
         setSessionActionError('');
         setSelectedTimelineSessionId(null);
-        if (activeProfile?.id && sessionId && selectedSpot) {
-          const joinActorName = activeProfile.display_name?.trim() || 'Someone';
-          const joinSpot = selectedSpot;
-          supabase.from('sessions').select('user_id').eq('id', sessionId).single()
-            .then(({ data: sessionData }) => {
-              if (sessionData?.user_id && sessionData.user_id !== activeProfile.id) {
-                sendPushToRecipients([sessionData.user_id], `${joinActorName} joined your session`, `${joinActorName} is joining you at ${joinSpot}`, { type: 'session_joined', spotName: joinSpot, actorName: joinActorName });
-              }
-            });
-        }
         await fetchSharedData({ skipLoadingState: true });
       } catch (error) {
         console.error('JOIN_HANDLER_ERROR', error);
