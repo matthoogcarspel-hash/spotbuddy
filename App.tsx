@@ -8417,7 +8417,7 @@ export default function App() {
     const chatTabs = [
       { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
       { key: 'session' as const, label: 'Session chats', badge: unreadSessionTotal },
-      { key: 'dm' as const, label: 'DMs', badge: unreadDmTotal },
+      { key: 'dm' as const, label: 'Direct chat', badge: unreadDmTotal },
     ];
 
     const chatNameColors = ['#5EF0D0', '#4DB8FF', '#FFB347', '#B8A0FF', '#7EE8A2', '#FF8C8C'];
@@ -8659,7 +8659,7 @@ export default function App() {
                   <Text style={{ fontSize: 16 }}>✉️</Text>
                   <View style={{ flex: 1 }}>
                     <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Message requests</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 11 }}>DMs from non-buddies</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 11 }}>Direct chats from non-buddies</Text>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -8678,7 +8678,7 @@ export default function App() {
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>💬</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct messages</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat</Text>
                 </View>
                 <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
                   <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700' }}>Always on</Text>
@@ -8831,7 +8831,7 @@ export default function App() {
               {dmConversations.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
                   <Text style={{ fontSize: 32 }}>✉️</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>No direct messages yet.</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', maxWidth: 280 }}>No direct chats yet.</Text>
                   <Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}>
                     <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text>
                   </Pressable>
@@ -9098,7 +9098,7 @@ export default function App() {
                       </Pressable>
                     </View>
                   )}
-                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
+                  {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No direct chats yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.length > 0 && (
                     <View style={{ marginBottom: 8 }}>
                       <TextInput value={dmSearchQuery} onChangeText={setDmSearchQuery} placeholder="Search" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 9, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }} />
