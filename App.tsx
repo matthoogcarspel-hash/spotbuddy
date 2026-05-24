@@ -11643,14 +11643,6 @@ const handleSave = async () => {
             return { hour, liveHourCount, goingHourCount, maybeHourCount, totalHourCount, color, height };
           });
 
-          const bestForecastHour = [...forecastHours]
-            .sort((a, b) => b.totalHourCount - a.totalHourCount)[0];
-
-          const bestWindowLabel =
-            bestForecastHour && bestForecastHour.totalHourCount > 0
-              ? `${String(bestForecastHour.hour).padStart(2, '0')}:00–${String(Math.min(22, bestForecastHour.hour + 2)).padStart(2, '0')}:00`
-              : null;
-
           return (
             <Pressable
               key={spot.name}
@@ -11721,7 +11713,7 @@ const handleSave = async () => {
                       marginTop: 5,
                     }}
                   >
-                    {bestWindowLabel ? `Best window ${bestWindowLabel}` : 'No sessions planned'}
+                    {totalActiveRiders > 0 ? `${totalActiveRiders} ${totalActiveRiders === 1 ? 'rider' : 'riders'} planned` : 'No sessions planned'}
                   </Text>
                 </View>
               </View>
