@@ -8415,9 +8415,9 @@ export default function App() {
   if (showChat) {
     const spotUnreadTotal = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0);
     const chatTabs = [
-      { key: 'spot' as const, label: 'Spot chats', badge: spotUnreadTotal },
-      { key: 'session' as const, label: 'Session chats', badge: unreadSessionTotal },
-      { key: 'dm' as const, label: 'Direct chat', badge: unreadDmTotal },
+      { key: 'spot' as const, label: 'Spot', badge: spotUnreadTotal },
+      { key: 'session' as const, label: 'Session', badge: unreadSessionTotal },
+      { key: 'dm' as const, label: 'Direct', badge: unreadDmTotal },
     ];
 
     const chatNameColors = ['#5EF0D0', '#4DB8FF', '#FFB347', '#B8A0FF', '#7EE8A2', '#FF8C8C'];
