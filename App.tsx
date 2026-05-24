@@ -10446,7 +10446,7 @@ const handleSave = async () => {
             >
               <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                 <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Turn them on <Text style={{ color: '#E06060', fontWeight: '700', textDecorationLine: 'underline' }}>per spot</Text> below.</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Turn them on <Text style={{ color: '#E06060', fontWeight: '700' }}>per spot</Text> below.</Text>
               </View>
 
               {spotNotificationPreferencesModel.map((preference, index) => {
