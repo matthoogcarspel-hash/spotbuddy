@@ -4353,6 +4353,7 @@ export default function App() {
       console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
     }
 
+    console.log('FETCH_SESSIONS_DEBUG', { selectedDayKey, count: sessionsWithDay.data?.length, error: sessionsWithDay.error, rows: sessionsWithDay.data?.map(r => ({ id: r.id, spot: r.spot_name, day: r.session_day })) });
     if (sessionsWithDay.error) {
       console.error('Failed to load sessions:', sessionsWithDay.error);
     } else {
