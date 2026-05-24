@@ -10231,33 +10231,6 @@ const handleSave = async () => {
           ) : null}
         </View>
 
-        {isWebPlatform && isNotificationInboxExpanded ? (
-          <View style={{ marginBottom: 14, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 10, gap: 2 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
-              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
-                <Ionicons name="close" size={16} color={theme.textMuted} />
-              </Pressable>
-            </View>
-            {notificationRows.length === 0 ? (
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
-            ) : (
-              notificationRows.map((notificationRow) => (
-                <View key={notificationRow.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 8 }}>
-                  <Text numberOfLines={1} style={{ flex: 1, color: notificationRow.read === false ? theme.text : theme.textSoft, fontSize: 12, fontWeight: notificationRow.read === false ? '700' : '500' }}>
-                    {getNotificationInboxSummary(notificationRow)}
-                  </Text>
-                  {notificationRow.created_at ? (
-                    <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>
-                      {new Date(notificationRow.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </Text>
-                  ) : null}
-                </View>
-              ))
-            )}
-          </View>
-        ) : null}
-
         {!isSelectedSpotSaved && canAddSelectedSpotToMySpots ? (
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
             <Pressable
@@ -11151,6 +11124,35 @@ const handleSave = async () => {
         </ScrollView>
         {renderNativeBottomNav()}
         {renderOtherUserProfileModal()}
+        {isNotificationInboxExpanded ? (
+          <View style={{ position: 'absolute', top: isWebPlatform ? 0 : 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
+            <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+            <View style={{ gap: 2 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+                <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={16} color={theme.textMuted} />
+                </Pressable>
+              </View>
+              {notificationRows.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
+              ) : (
+                notificationRows.map((notificationRow) => (
+                  <View key={notificationRow.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 8 }}>
+                    <Text numberOfLines={1} style={{ flex: 1, color: notificationRow.read === false ? theme.text : theme.textSoft, fontSize: 12, fontWeight: notificationRow.read === false ? '700' : '500' }}>
+                      {getNotificationInboxSummary(notificationRow)}
+                    </Text>
+                    {notificationRow.created_at ? (
+                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>
+                        {new Date(notificationRow.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </Text>
+                    ) : null}
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        ) : null}
       </SafeAreaView>
     );
   }
