@@ -4606,10 +4606,7 @@ export default function App() {
   }, [showProfile, isAccountSwitcherVisible]);
 
   useEffect(() => {
-    if (!showBuddies || !activeAppUserId) {
-      return;
-    }
-
+    if (!activeAppUserId) return;
     void fetchBuddiesData();
   }, [showBuddies, showChat, showBroadcastDm, activeAppUserId]);
 
@@ -8877,7 +8874,7 @@ export default function App() {
         const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
         const canSend = !broadcastSending && broadcastSelectedIds.length > 0 && !!broadcastMessage.trim();
         return (
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300 }}>
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
             {/* Header */}
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
               <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={10} style={{ padding: 4 }}>
@@ -9166,7 +9163,7 @@ export default function App() {
             const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
             const canSend = !broadcastSending && broadcastSelectedIds.length > 0 && !!broadcastMessage.trim();
             return (
-              <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300 }}>
+              <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
                   <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={10} style={{ padding: 4 }}>
