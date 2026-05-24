@@ -8903,7 +8903,7 @@ export default function App() {
               </View>
             </View>
             {/* Buddy list */}
-            <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
               {buddyList.map((u) => {
                 const selected = broadcastSelectedIds.includes(u.id);
                 return (
@@ -9190,7 +9190,7 @@ export default function App() {
                   </View>
                 </View>
                 {/* Buddy list */}
-                <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
                   {buddyList.map((u) => {
                     const selected = broadcastSelectedIds.includes(u.id);
                     return (
