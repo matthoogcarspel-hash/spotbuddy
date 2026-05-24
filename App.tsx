@@ -2528,6 +2528,10 @@ export default function App() {
   const loadSessionChatForTabRef = useRef<((groupKey: string, spotName: string, sessionDay: string) => Promise<void>) | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
   const [dmInput, setDmInput] = useState('');
+  const [showBroadcastDm, setShowBroadcastDm] = useState(false);
+  const [broadcastSelectedIds, setBroadcastSelectedIds] = useState<string[]>([]);
+  const [broadcastMessage, setBroadcastMessage] = useState('');
+  const [broadcastSending, setBroadcastSending] = useState(false);
   const [showAllSuggestions, setShowAllSuggestions] = useState(false);
   const [profileNameInput, setProfileNameInput] = useState('');
   const [profileAvatarInputUri, setProfileAvatarInputUri] = useState<string | null>(null);
@@ -7708,6 +7712,24 @@ export default function App() {
     })();
   };
 
+  const sendBroadcastDm = async () => {
+    const text = broadcastMessage.trim();
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!text || !senderId || broadcastSelectedIds.length === 0) return;
+    setBroadcastSending(true);
+    for (const userId of broadcastSelectedIds) {
+      const convId = await openDmWithUser(userId);
+      if (!convId) continue;
+      await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
+      const actorName = activeProfile?.display_name?.trim() || 'Someone';
+      await sendPushToRecipients([userId], actorName, text, { type: 'dm', conversationId: convId });
+    }
+    setBroadcastSending(false);
+    setBroadcastMessage('');
+    setShowBroadcastDm(false);
+    void loadDmConversationsRef.current?.();
+  };
+
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) {
       return null;
@@ -8801,6 +8823,12 @@ export default function App() {
           {/* DMs */}
           {chatSubTab === 'dm' && (
             <View style={{ gap: 8 }}>
+              {followingUserIds.length > 0 && (
+                <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>DM to all</Text>
+                  <Ionicons name="megaphone-outline" size={16} color={theme.textMuted} />
+                </Pressable>
+              )}
               {dmConversations.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
                   <Text style={{ fontSize: 32 }}>✉️</Text>
@@ -8842,6 +8870,49 @@ export default function App() {
         )}
         </KeyboardAvoidingView>
       {renderOtherUserProfileModal()}
+      {showBroadcastDm && (() => {
+        const followingSet = new Set(followingUserIds);
+        const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
+        return (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, paddingHorizontal: 16, paddingTop: isWebPlatform ? 20 : 88 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>DM to all</Text>
+              <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={8} style={{ padding: 4 }}>
+                <Ionicons name="close" size={20} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+              <View style={{ gap: 2, marginBottom: 16 }}>
+                {buddyList.map((u) => {
+                  const selected = broadcastSelectedIds.includes(u.id);
+                  return (
+                    <Pressable key={u.id} onPress={() => setBroadcastSelectedIds((prev) => selected ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                      <Avatar uri={u.avatar_url ?? null} size={38} skillLevel={u.skill_level} name={u.display_name} />
+                      <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '600' }}>{u.display_name}</Text>
+                      <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                        {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+              <TextInput
+                value={broadcastMessage}
+                onChangeText={setBroadcastMessage}
+                placeholder="Type your message..."
+                placeholderTextColor={theme.textMuted}
+                multiline
+                style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', minHeight: 80, marginBottom: 12 }}
+              />
+              <Pressable onPress={() => void sendBroadcastDm()} disabled={broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim()} style={{ backgroundColor: broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim() ? 'rgba(255,255,255,0.08)' : theme.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 40 }}>
+                <Text style={{ color: broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim() ? theme.textMuted : theme.bg, fontSize: 15, fontWeight: '900' }}>
+                  {broadcastSending ? 'Sending...' : `Send to ${broadcastSelectedIds.length} ${broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}`}
+                </Text>
+              </Pressable>
+            </ScrollView>
+          </View>
+        );
+      })()}
       </SafeAreaView>
     );
 
@@ -9013,6 +9084,12 @@ export default function App() {
                   })()}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
+                  {followingUserIds.length > 0 && (
+                    <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                      <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>DM to all</Text>
+                      <Ionicons name="megaphone-outline" size={16} color={theme.textMuted} />
+                    </Pressable>
+                  )}
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.length > 0 && (
                     <View style={{ marginBottom: 8 }}>
@@ -9073,6 +9150,49 @@ export default function App() {
               </View>
             </View>
           )}
+          {showBroadcastDm && (() => {
+            const followingSet = new Set(followingUserIds);
+            const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
+            return (
+              <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, paddingHorizontal: 16, paddingTop: 16 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <Text style={{ color: theme.text, fontSize: 18, fontWeight: '900' }}>DM to all</Text>
+                  <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={8} style={{ padding: 4 }}>
+                    <Ionicons name="close" size={20} color={theme.textMuted} />
+                  </Pressable>
+                </View>
+                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+                  <View style={{ gap: 2, marginBottom: 16 }}>
+                    {buddyList.map((u) => {
+                      const selected = broadcastSelectedIds.includes(u.id);
+                      return (
+                        <Pressable key={u.id} onPress={() => setBroadcastSelectedIds((prev) => selected ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, paddingHorizontal: 4, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                          <Avatar uri={u.avatar_url ?? null} size={38} skillLevel={u.skill_level} name={u.display_name} />
+                          <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '600' }}>{u.display_name}</Text>
+                          <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                            {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                  <TextInput
+                    value={broadcastMessage}
+                    onChangeText={setBroadcastMessage}
+                    placeholder="Type your message..."
+                    placeholderTextColor={theme.textMuted}
+                    multiline
+                    style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', minHeight: 80, marginBottom: 12 }}
+                  />
+                  <Pressable onPress={() => void sendBroadcastDm()} disabled={broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim()} style={{ backgroundColor: broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim() ? 'rgba(255,255,255,0.08)' : theme.primary, borderRadius: 12, paddingVertical: 14, alignItems: 'center', marginBottom: 40 }}>
+                    <Text style={{ color: broadcastSending || broadcastSelectedIds.length === 0 || !broadcastMessage.trim() ? theme.textMuted : theme.bg, fontSize: 15, fontWeight: '900' }}>
+                      {broadcastSending ? 'Sending...' : `Send to ${broadcastSelectedIds.length} ${broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}`}
+                    </Text>
+                  </Pressable>
+                </ScrollView>
+              </View>
+            );
+          })()}
         </SafeAreaView>
       );
     }
