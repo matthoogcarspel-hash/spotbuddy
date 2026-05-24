@@ -304,8 +304,6 @@ export async function joinSession(input: {
   if (ownSessionsForDayError) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'OWN_DAY_SESSIONS_QUERY_FAILED', error: ownSessionsForDayError });
   }
-  console.log('JOIN_OWN_SESSIONS', { dayKey: sessionIdentity.day_key, count: ownSessionsForDay?.length, ids: ownSessionsForDay?.map(s => s.id) });
-
   const toMinutes = (value: string | null | undefined) => {
     if (!value) return null;
     const time = value.includes('T') ? value.slice(11, 16) : value.slice(0, 5);
@@ -335,7 +333,6 @@ export async function joinSession(input: {
     })
     .map((session) => session.id);
 
-  console.log('JOIN_TO_DELETE', { count: sessionsToDeleteIds.length, ids: sessionsToDeleteIds });
   if (sessionsToDeleteIds.length > 0) {
     const deleteResult = await supabase
       .from('sessions')
@@ -343,7 +340,6 @@ export async function joinSession(input: {
       .eq('user_id', sessionIdentity.user_id)
       .in('id', sessionsToDeleteIds);
 
-    console.log('JOIN_DELETE_RESULT', { error: deleteResult.error });
     if (deleteResult.error) {
       return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'DELETE_OVERLAPPING_OWN_SESSIONS_FAILED', error: deleteResult.error });
     }
@@ -406,7 +402,6 @@ export async function joinSession(input: {
     .select('id')
     .single();
 
-  console.log('JOIN_INSERT_RESULT', { id: writeResult.data?.id, error: writeResult.error });
   if (writeResult.error) {
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
