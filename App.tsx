@@ -8625,7 +8625,7 @@ export default function App() {
             <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
               <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                 <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for chat messages</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Choose who can send you alerts per chat type.</Text>
               </View>
 
               {([
@@ -8984,7 +8984,7 @@ export default function App() {
                   <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
                     <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                       <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for chat messages</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Choose who can send you alerts per chat type.</Text>
                     </View>
                     {([{ key: 'spotChats' as const, label: 'Spot chats', icon: '📍' }, { key: 'sessionChats' as const, label: 'Session chats', icon: '👥' }]).map(({ key, label, icon }, index) => (
                       <View key={key} style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
@@ -10446,7 +10446,7 @@ const handleSave = async () => {
             >
               <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                 <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Choose who can trigger alerts for this spot</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Turn them on per spot below.</Text>
               </View>
 
               {spotNotificationPreferencesModel.map((preference, index) => {
@@ -11831,7 +11831,7 @@ const handleSave = async () => {
                     <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', letterSpacing: 0.2, flex: 1 }}>
                       {spot.name}
                     </Text>
-                    {(() => {
+                    {activeDay === 'today' && (() => {
                       const wind = windBySpot[spot.name];
                       if (!wind) return null;
                       return (
