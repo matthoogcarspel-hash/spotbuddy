@@ -9610,23 +9610,9 @@ export default function App() {
         {/* Avatar + naam */}
         <View style={{ alignItems: 'center', marginVertical: 20 }}>
           <Avatar uri={profile.avatar_url} size={90} nationality={profile.nationality} />
-          <TextInput
-            value={profileNameInput}
-            onChangeText={setProfileNameInput}
-            onEndEditing={async () => {
-              const trimmed = profileNameInput.trim();
-              if (trimmed && trimmed !== profile.display_name) {
-                await handleSaveProfile();
-              } else if (!trimmed) {
-                setProfileNameInput(profile.display_name);
-              }
-            }}
-            style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14, textAlign: 'center', minWidth: 100 }}
-            maxLength={20}
-            returnKeyType="done"
-            autoCorrect={false}
-            selectTextOnFocus
-          />
+          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginTop: 14, textAlign: 'center' }}>
+            {profile.display_name}
+          </Text>
 
           <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 4 }}>{session.user.email}</Text>
         </View>
@@ -10277,7 +10263,7 @@ const handleSave = async () => {
                 <Text style={{ color: theme.textSoft, fontSize: isWebPlatform ? 13 : 11, fontWeight: '700' }}>Alert settings</Text>
                 <View style={{ width: 6, height: 8, borderRadius: 999, backgroundColor: areAnySpotBuzzEnabled ? theme.primary : theme.textMuted }} />
               </Pressable>
-              {(() => {
+              {activeDay === 'today' && (() => {
                 const wind = windBySpot[selectedSpot];
                 if (!wind) return null;
                 return (
@@ -11798,43 +11784,45 @@ const handleSave = async () => {
                     );
                   })}
 
-                  <View
-                    pointerEvents="none"
-                    style={{
-                      position: 'absolute',
-                      left: `${Math.max(0, Math.min(100, (((new Date().getHours() + new Date().getMinutes() / 60) - 7) / 15) * 100))}%`,
-                      bottom: -31,
-                      alignItems: 'center',
-                      transform: [{ translateX: -24 }],
-                    }}
-                  >
+                  {activeDay === 'today' ? (
                     <View
+                      pointerEvents="none"
                       style={{
-                        width: 0,
-                        height: 0,
-                        borderLeftWidth: 7,
-                        borderRightWidth: 7,
-                        borderBottomWidth: 10,
-                        borderLeftColor: 'transparent',
-                        borderRightColor: 'transparent',
-                        borderBottomColor: 'rgba(255,255,255,0.9)',
-                        marginBottom: 4,
-                      }}
-                    />
-
-                    <View
-                      style={{
-                        backgroundColor: 'rgba(255,255,255,0.95)',
-                        paddingHorizontal: 9,
-                        paddingVertical: 3,
-                        borderRadius: 999,
+                        position: 'absolute',
+                        left: `${Math.max(0, Math.min(100, (((new Date().getHours() + new Date().getMinutes() / 60) - 7) / 15) * 100))}%`,
+                        bottom: -31,
+                        alignItems: 'center',
+                        transform: [{ translateX: -24 }],
                       }}
                     >
-                      <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
+                      <View
+                        style={{
+                          width: 0,
+                          height: 0,
+                          borderLeftWidth: 7,
+                          borderRightWidth: 7,
+                          borderBottomWidth: 10,
+                          borderLeftColor: 'transparent',
+                          borderRightColor: 'transparent',
+                          borderBottomColor: 'rgba(255,255,255,0.9)',
+                          marginBottom: 4,
+                        }}
+                      />
+
+                      <View
+                        style={{
+                          backgroundColor: 'rgba(255,255,255,0.95)',
+                          paddingHorizontal: 9,
+                          paddingVertical: 3,
+                          borderRadius: 999,
+                        }}
+                      >
+                        <Text style={{ color: '#061421', fontSize: 11, fontWeight: '900' }}>
+                          {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
+                  ) : null}
                 </View>
 
                 <View
