@@ -8887,7 +8887,7 @@ export default function App() {
               </View>
             </View>
             {/* Input + Send */}
-            <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
+            <View style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                 <TextInput
                   value={broadcastMessage}
@@ -8897,12 +8897,10 @@ export default function App() {
                   multiline
                   style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
                 />
+                <Pressable onPress={() => void sendBroadcastDm()} disabled={!canSend} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canSend ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: canSend ? 1 : 0.4 }}>
+                  <Ionicons name="arrow-up" size={17} color="#ffffff" />
+                </Pressable>
               </View>
-              <Pressable onPress={() => void sendBroadcastDm()} disabled={!canSend} style={{ marginTop: 8, backgroundColor: canSend ? theme.primary : 'rgba(255,255,255,0.06)', borderRadius: 24, paddingVertical: 11, alignItems: 'center', opacity: canSend ? 1 : 0.4 }}>
-                <Text style={{ color: canSend ? theme.bg : theme.textMuted, fontSize: 15, fontWeight: '900' }}>
-                  {broadcastSending ? 'Sending…' : `Send to ${broadcastSelectedIds.length} ${broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}`}
-                </Text>
-              </Pressable>
             </View>
             {/* Buddy list */}
             <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -9186,12 +9184,10 @@ export default function App() {
                       multiline
                       style={{ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15 }}
                     />
+                    <Pressable onPress={() => void sendBroadcastDm()} disabled={!canSend} style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: canSend ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: canSend ? 1 : 0.4 }}>
+                      <Ionicons name="arrow-up" size={17} color="#ffffff" />
+                    </Pressable>
                   </View>
-                  <Pressable onPress={() => void sendBroadcastDm()} disabled={!canSend} style={{ marginTop: 8, backgroundColor: canSend ? theme.primary : 'rgba(255,255,255,0.06)', borderRadius: 24, paddingVertical: 11, alignItems: 'center', opacity: canSend ? 1 : 0.4 }}>
-                    <Text style={{ color: canSend ? theme.bg : theme.textMuted, fontSize: 15, fontWeight: '900' }}>
-                      {broadcastSending ? 'Sending…' : `Send to ${broadcastSelectedIds.length} ${broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}`}
-                    </Text>
-                  </Pressable>
                 </View>
                 {/* Buddy list */}
                 <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
