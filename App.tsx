@@ -4611,7 +4611,7 @@ export default function App() {
     }
 
     void fetchBuddiesData();
-  }, [showBuddies, showChat, activeAppUserId]);
+  }, [showBuddies, showChat, showBroadcastDm, activeAppUserId]);
 
   useEffect(() => {
     if (!viewingOtherUserId) { setViewingOtherProfile(null); return; }
@@ -8824,10 +8824,12 @@ export default function App() {
           {chatSubTab === 'dm' && (
             <View style={{ gap: 8 }}>
               {followingUserIds.length > 0 && (
-                <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                  <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>DM to all</Text>
-                  <Ionicons name="megaphone-outline" size={16} color={theme.textMuted} />
-                </Pressable>
+                <View style={{ alignItems: 'flex-start' }}>
+                  <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                    <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
+                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>DM to all</Text>
+                  </Pressable>
+                </View>
               )}
               {dmConversations.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
@@ -9092,10 +9094,12 @@ export default function App() {
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
                   {followingUserIds.length > 0 && (
-                    <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                      <Text style={{ color: theme.textSoft, fontSize: 14, fontWeight: '700' }}>DM to all</Text>
-                      <Ionicons name="megaphone-outline" size={16} color={theme.textMuted} />
-                    </Pressable>
+                    <View style={{ alignItems: 'flex-start' }}>
+                      <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                        <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
+                        <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>DM to all</Text>
+                      </Pressable>
+                    </View>
                   )}
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No DMs yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.length > 0 && (
