@@ -891,18 +891,24 @@ const resolveSessionActorProfileId = (
   return sessionItem.userId ?? null;
 };
 const isSessionCreatedToday = (sessionItem: SpotSession) => isCreatedToday(sessionItem.createdAt);
-const getSessionStartTime = (sessionItem: SpotSession) => {
+const parseSessionBaseDate = (sessionItem: SpotSession): Date => {
+  if (sessionItem.sessionDay) {
+    const parts = sessionItem.sessionDay.split('-').map(Number);
+    if (parts.length === 3 && parts.every(Number.isFinite)) {
+      return new Date(parts[0], parts[1] - 1, parts[2]);
+    }
+  }
   const createdDate = sessionItem.createdAt ? new Date(sessionItem.createdAt) : new Date();
-  const fallbackDate = Number.isNaN(createdDate.getTime()) ? new Date() : createdDate;
-  const sessionDate = new Date(fallbackDate);
+  return Number.isNaN(createdDate.getTime()) ? new Date() : createdDate;
+};
+const getSessionStartTime = (sessionItem: SpotSession) => {
+  const sessionDate = new Date(parseSessionBaseDate(sessionItem));
   const { hour, minute } = parseHourMinuteParts(sessionItem.start);
   sessionDate.setHours(hour ?? 0, minute ?? 0, 0, 0);
   return sessionDate;
 };
 const getSessionEndTime = (sessionItem: SpotSession) => {
-  const createdDate = sessionItem.createdAt ? new Date(sessionItem.createdAt) : new Date();
-  const fallbackDate = Number.isNaN(createdDate.getTime()) ? new Date() : createdDate;
-  const sessionDate = new Date(fallbackDate);
+  const sessionDate = new Date(parseSessionBaseDate(sessionItem));
   const { hour, minute } = parseHourMinuteParts(sessionItem.end);
   sessionDate.setHours(hour ?? 0, minute ?? 0, 0, 0);
   return sessionDate;
@@ -4353,7 +4359,6 @@ export default function App() {
       console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
     }
 
-    console.log('FETCH_SESSIONS_DEBUG', { selectedDayKey, count: sessionsWithDay.data?.length, error: sessionsWithDay.error, rows: sessionsWithDay.data?.map(r => ({ id: r.id, spot: r.spot_name, day: r.session_day })) });
     if (sessionsWithDay.error) {
       console.error('Failed to load sessions:', sessionsWithDay.error);
     } else {
@@ -4419,7 +4424,6 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
-      console.log('SESSIONS_MAPPED_DEBUG', { total: loadedSessions.length, stale: myVersion !== fetchSharedDataVersionRef.current, myVersion, currentVersion: fetchSharedDataVersionRef.current, kzvs: nextSessionsBySpot['Scheveningen KZVS']?.length });
       // Stale fetch check: als een nieuwere fetch klaar is, negeer deze verouderde resultaten
       if (myVersion !== fetchSharedDataVersionRef.current) {
         if (!skipLoadingState) setLoadingData(false);
