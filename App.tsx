@@ -4611,7 +4611,7 @@ export default function App() {
     }
 
     void fetchBuddiesData();
-  }, [showBuddies, activeAppUserId]);
+  }, [showBuddies, showChat, activeAppUserId]);
 
   useEffect(() => {
     if (!viewingOtherUserId) { setViewingOtherProfile(null); return; }
