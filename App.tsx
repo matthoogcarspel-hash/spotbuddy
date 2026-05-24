@@ -7102,8 +7102,9 @@ export default function App() {
     
 
     const activeProfileId = activeProfile?.id ?? null;
-    
+
     if (!activeProfileId) {
+      setSessionActionError('Profile not loaded. Please wait and try again.');
       return;
     }
 
@@ -10568,6 +10569,7 @@ const handleSave = async () => {
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
           {/* Check in + Plan session + Spot Chat — altijd zichtbaar */}
+          {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 13, marginBottom: 6 }}>{sessionActionError}</Text> : null}
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {checkInCtaVisible ? (
               <Pressable
@@ -10848,8 +10850,6 @@ const handleSave = async () => {
               })}
             </View>
           ) : null}
-          {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 14, marginTop: 8 }}>{sessionActionError}</Text> : null}
-
           {showForm ? (
             <View
               style={{
