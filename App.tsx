@@ -8687,29 +8687,33 @@ export default function App() {
             </View>
           )}
 
-          {/* Sub-tabs */}
-          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 20, alignSelf: 'flex-start' }}>
-            {chatTabs.map((tab) => {
-              const active = chatSubTab === tab.key;
-              return (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => {
-                    setChatSubTab(tab.key);
-                    // Reset teller voor dit type bij openen
-                    // Badges individueel wissen bij openen van die specifieke chat — niet bulk hier
-                  }}
-                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
-                >
-                  <Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>
-                  {tab.badge > 0 && (
-                    <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text>
-                    </View>
-                  )}
-                </Pressable>
-              );
-            })}
+          {/* Sub-tabs + Broadcast */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+              {chatTabs.map((tab) => {
+                const active = chatSubTab === tab.key;
+                return (
+                  <Pressable
+                    key={tab.key}
+                    onPress={() => setChatSubTab(tab.key)}
+                    style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
+                  >
+                    <Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>
+                    {tab.badge > 0 && (
+                      <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
+                        <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text>
+                      </View>
+                    )}
+                  </Pressable>
+                );
+              })}
+            </View>
+            {followingUserIds.length > 0 && (
+              <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
+                <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Broadcast</Text>
+              </Pressable>
+            )}
           </View>
 
           {/* Spot chats */}
@@ -8820,14 +8824,6 @@ export default function App() {
           {/* DMs */}
           {chatSubTab === 'dm' && (
             <View style={{ gap: 8 }}>
-              {followingUserIds.length > 0 && (
-                <View style={{ alignItems: 'flex-start' }}>
-                  <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                    <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
-                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Broadcast</Text>
-                  </Pressable>
-                </View>
-              )}
               {dmConversations.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}>
                   <Text style={{ fontSize: 32 }}>✉️</Text>
@@ -9091,14 +9087,6 @@ export default function App() {
                   })()}
                 </View>}
                 {chatSubTab === 'dm' && <View style={{ gap: 8 }}>
-                  {followingUserIds.length > 0 && (
-                    <View style={{ alignItems: 'flex-start' }}>
-                      <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                        <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
-                        <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Broadcast</Text>
-                      </Pressable>
-                    </View>
-                  )}
                   {dmConversations.length === 0 && <View style={{ alignItems: 'center', paddingTop: 40, gap: 12 }}><Text style={{ fontSize: 32 }}>✉️</Text><Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center' }}>No direct chats yet.</Text><Pressable onPress={() => { setShowChat(false); setShowBuddies(true); setBuddiesTab('myBuddies'); }} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 20, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}><Text style={{ color: '#4DB8FF', fontSize: 14, fontWeight: '800' }}>Message a buddy →</Text></Pressable></View>}
                   {dmConversations.length > 0 && (
                     <View style={{ marginBottom: 8 }}>
