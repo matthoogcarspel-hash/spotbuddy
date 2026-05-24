@@ -8824,7 +8824,7 @@ export default function App() {
                 <View style={{ alignItems: 'flex-start' }}>
                   <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
                     <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
-                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>DM to all</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Broadcast</Text>
                   </Pressable>
                 </View>
               )}
@@ -8880,10 +8880,11 @@ export default function App() {
               <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={10} style={{ padding: 4 }}>
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>DM to all</Text>
-                <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{broadcastSelectedIds.length} {broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'} selected</Text>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Ionicons name="megaphone-outline" size={16} color={theme.text} />
+                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>Broadcast</Text>
               </View>
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>{broadcastSelectedIds.length} {broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}</Text>
             </View>
             {/* Input + Send */}
             <View style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
@@ -9094,7 +9095,7 @@ export default function App() {
                     <View style={{ alignItems: 'flex-start' }}>
                       <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 6, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
                         <Ionicons name="megaphone-outline" size={13} color={theme.textSoft} />
-                        <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>DM to all</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Broadcast</Text>
                       </Pressable>
                     </View>
                   )}
@@ -9169,10 +9170,11 @@ export default function App() {
                   <Pressable onPress={() => { setShowBroadcastDm(false); setBroadcastMessage(''); }} hitSlop={10} style={{ padding: 4 }}>
                     <Ionicons name="chevron-back" size={22} color={theme.text} />
                   </Pressable>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>DM to all</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{broadcastSelectedIds.length} {broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'} selected</Text>
+                  <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="megaphone-outline" size={16} color={theme.text} />
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>Broadcast</Text>
                   </View>
+                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>{broadcastSelectedIds.length} {broadcastSelectedIds.length === 1 ? 'buddy' : 'buddies'}</Text>
                 </View>
                 {/* Input + Send */}
                 <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }}>
