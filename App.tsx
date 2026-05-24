@@ -4419,6 +4419,7 @@ export default function App() {
       }
 
       const loadedSessions = Object.values(nextSessionsBySpot).flat();
+      console.log('SESSIONS_MAPPED_DEBUG', { total: loadedSessions.length, stale: myVersion !== fetchSharedDataVersionRef.current, myVersion, currentVersion: fetchSharedDataVersionRef.current, kzvs: nextSessionsBySpot['Scheveningen KZVS']?.length });
       // Stale fetch check: als een nieuwere fetch klaar is, negeer deze verouderde resultaten
       if (myVersion !== fetchSharedDataVersionRef.current) {
         if (!skipLoadingState) setLoadingData(false);
