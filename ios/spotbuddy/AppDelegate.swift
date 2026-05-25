@@ -23,13 +23,19 @@ public class AppDelegate: ExpoAppDelegate {
 
 #if os(iOS) || os(tvOS)
     window = UIWindow(frame: UIScreen.main.bounds)
+    window?.backgroundColor = UIColor(red: 7/255, green: 17/255, blue: 31/255, alpha: 1)
     factory.startReactNative(
       withModuleName: "main",
       in: window,
       launchOptions: launchOptions)
+    window?.rootViewController?.view.backgroundColor = UIColor(red: 7/255, green: 17/255, blue: 31/255, alpha: 1)
 #endif
 
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    DispatchQueue.main.async {
+      self.window?.rootViewController?.view.backgroundColor = UIColor(red: 7/255, green: 17/255, blue: 31/255, alpha: 1)
+    }
+    return result
   }
 
   // Linking API
