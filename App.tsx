@@ -7258,12 +7258,24 @@ export default function App() {
       setSpotRatingsMap((prev) => { const next = { ...prev }; delete next[spot]; return next; });
       return;
     }
-    const windData = data.filter((r) => r.wind_knots != null);
-    const crowdData = data.filter((r) => r.crowd_rating != null);
-    const windKnots = windData.length > 0 ? Math.round(windData.reduce((s, r) => s + (r.wind_knots ?? 0), 0) / windData.length) : null;
-    const crowdRating = crowdData.length > 0 ? Math.round(crowdData.reduce((s, r) => s + (r.crowd_rating ?? 0), 0) / crowdData.length) : null;
-    const windDirection = data.find((r) => r.wind_direction)?.wind_direction ?? null;
-    const waterConditions = data.find((r) => r.water_conditions)?.water_conditions ?? null;
+    const HALFLIFE_MINUTES = 30;
+    const now = Date.now();
+    const withWeight = data.map((r) => {
+      const ageMinutes = (now - new Date(r.created_at).getTime()) / 60000;
+      const weight = Math.exp(-ageMinutes / HALFLIFE_MINUTES);
+      return { ...r, weight };
+    });
+    const weightedAvg = (items: typeof withWeight, getValue: (r: typeof withWeight[0]) => number | null) => {
+      const valid = items.filter((r) => getValue(r) != null);
+      if (valid.length === 0) return null;
+      const sumWeights = valid.reduce((s, r) => s + r.weight, 0);
+      return Math.round(valid.reduce((s, r) => s + (getValue(r) ?? 0) * r.weight, 0) / sumWeights);
+    };
+    const windKnots = weightedAvg(withWeight, (r) => r.wind_knots);
+    const crowdRating = weightedAvg(withWeight, (r) => r.crowd_rating);
+    // For categorical values: pick the most recently rated (highest weight already first)
+    const windDirection = withWeight.find((r) => r.wind_direction)?.wind_direction ?? null;
+    const waterConditions = withWeight.find((r) => r.water_conditions)?.water_conditions ?? null;
     const ratedAt = data[0]?.created_at ?? null;
     setSpotRatingsMap((prev) => ({ ...prev, [spot]: { windKnots, crowdRating, windDirection, waterConditions, ratedAt } }));
   };
