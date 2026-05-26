@@ -10737,15 +10737,9 @@ const handleSave = async () => {
                   </View>
                   <Pressable
                     onPress={() => void handleUpdateSessionStatus('Uitchecken')}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingVertical: 6, paddingHorizontal: 14 }}
+                    style={{ backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, paddingHorizontal: 24 }}
                   >
-                    <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '600' }}>Check out</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => setShowReportCoords(true)}
-                    style={{ paddingVertical: 4, paddingHorizontal: 4 }}
-                  >
-                    <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11 }}>📍 Wrong location?</Text>
+                    <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check out</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -10855,6 +10849,9 @@ const handleSave = async () => {
                     <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Close</Text>
                   </Pressable>
                 ) : null}
+                <Pressable onPress={() => setShowReportCoords(true)} style={{ paddingVertical: 6, paddingHorizontal: 4 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: '500' }}>Wrong launch location?</Text>
+                </Pressable>
               </View>
             </View>
           ) : null}
