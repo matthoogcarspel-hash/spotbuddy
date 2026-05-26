@@ -10488,9 +10488,9 @@ const handleSave = async () => {
                 const r = spotRatingsMap[selectedSpot];
                 const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
                 const ratingParts: { emoji: string; label: string }[] = [];
-                if (r.ratedAt) ratingParts.push({ emoji: '🕐', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
+                if (r.ratedAt) ratingParts.push({ emoji: '', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
                 if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
-                if (r.windDirection) ratingParts.push({ emoji: '🧭', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                if (r.windDirection) ratingParts.push({ emoji: '➡️', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
                 if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
                 if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
                 if (ratingParts.length === 0) return null;
@@ -10499,8 +10499,8 @@ const handleSave = async () => {
                     {ratingParts.map((part, i) => (
                       <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {i > 0 && <View style={{ width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.18)', marginHorizontal: 10 }} />}
-                        <Text style={{ fontSize: 13 }}>{part.emoji}</Text>
-                        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800', marginLeft: 5 }}>{part.label}</Text>
+                        {part.emoji ? <Text style={{ fontSize: 13 }}>{part.emoji}</Text> : null}
+                        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800', marginLeft: part.emoji ? 5 : 0 }}>{part.label}</Text>
                       </View>
                     ))}
                   </View>
@@ -12119,9 +12119,9 @@ const handleSave = async () => {
                     const r = spotRatingsMap[spot.name];
                     const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
                     const ratingParts: { emoji: string; label: string }[] = [];
-                    if (r.ratedAt) ratingParts.push({ emoji: '🕐', label: formatToHourMinute(r.ratedAt) });
+                    if (r.ratedAt) ratingParts.push({ emoji: '', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
                     if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
-                    if (r.windDirection) ratingParts.push({ emoji: '🧭', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                    if (r.windDirection) ratingParts.push({ emoji: '➡️', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
                     if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
                     if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
                     if (ratingParts.length === 0) return null;
@@ -12130,8 +12130,8 @@ const handleSave = async () => {
                         {ratingParts.map((part, i) => (
                           <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {i > 0 && <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 6 }} />}
-                            <Text style={{ fontSize: 10 }}>{part.emoji}</Text>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginLeft: 3 }}>{part.label}</Text>
+                            {part.emoji ? <Text style={{ fontSize: 10 }}>{part.emoji}</Text> : null}
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginLeft: part.emoji ? 3 : 0 }}>{part.label}</Text>
                           </View>
                         ))}
                       </View>
