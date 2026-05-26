@@ -11370,13 +11370,19 @@ const handleSave = async () => {
                   <Ionicons name="close" size={20} color={theme.textMuted} />
                 </Pressable>
               </View>
+              <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 10 }}>
+                Sta je op de juiste launchlocatie? Druk dan op Submit — we gebruiken jouw GPS-coördinaten om de pin te verplaatsen.
+              </Text>
+              <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, lineHeight: 17, marginBottom: 18 }}>
+                Zorg dat je echt op de goede plek staat voordat je verstuurt. Zo helpen we de app accurater te maken voor alle riders.
+              </Text>
               {currentCoordinates ? (
-                <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 18 }}>
-                  Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginBottom: 18 }}>
+                  Jouw GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
                 </Text>
               ) : (
-                <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 18 }}>
-                  No GPS available. Submit to let us know the pin is wrong — we'll follow up.
+                <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginBottom: 18 }}>
+                  Geen GPS beschikbaar — we nemen contact op na je melding.
                 </Text>
               )}
               <View style={{ flexDirection: 'row', gap: 10 }}>
