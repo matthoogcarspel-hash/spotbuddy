@@ -1677,6 +1677,7 @@ const buildSpotDetailState = ({
   timelineSessions,
   timelineFilter,
   followingUserIds,
+  nowMinutes,
 }: {
   sessions: SpotSession[];
   selectedSpot: SpotName | null;
@@ -1685,6 +1686,7 @@ const buildSpotDetailState = ({
   timelineSessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
   timelineFilter: TimelineFilter;
   followingUserIds: string[];
+  nowMinutes?: number;
 }): SpotDetailState => {
   const sessionsForSpot = (Array.isArray(timelineSessions) ? timelineSessions : []).map((entry) => entry.item);
   const ownSessionForSpotDay = getOwnSessionForSpotDay({
@@ -1712,7 +1714,7 @@ const buildSpotDetailState = ({
     activeProfileId: activeProfile?.id ?? null,
     buddiesMode: timelineFilter,
     followingUserIds: Array.isArray(followingUserIds) ? followingUserIds : [],
-    nowMinutes: currentLocalMinutes,
+    nowMinutes,
   });
   const joinStateBySession = (Array.isArray(timelineSessions) ? timelineSessions : []).reduce((result, entry) => {
     if (!entry?.item?.id) {
@@ -5687,8 +5689,9 @@ export default function App() {
         timelineSessions,
         timelineFilter,
         followingUserIds,
+        nowMinutes: currentLocalMinutes,
       }),
-    [safeSessions, selectedSpot, activeDayKey, activeProfile, timelineSessions, timelineFilter, followingUserIds],
+    [safeSessions, selectedSpot, activeDayKey, activeProfile, timelineSessions, timelineFilter, followingUserIds, currentLocalMinutes],
   );
   const plannedSession = useMemo(() => {
     const currentUserId = activeAppUserId;
