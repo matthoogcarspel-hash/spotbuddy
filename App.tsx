@@ -10492,7 +10492,7 @@ const handleSave = async () => {
                 const ratingParts: { emoji: string; label: string }[] = [];
                 if (r.ratedAt) ratingParts.push({ emoji: '', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
                 if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
-                if (r.windDirection) ratingParts.push({ emoji: '➡️', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                if (r.windDirection) ratingParts.push({ emoji: '↗', label: r.windDirection });
                 if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
                 if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
                 if (ratingParts.length === 0) return null;
@@ -11453,9 +11453,9 @@ const handleSave = async () => {
 
               {/* Wind direction — 1 row */}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>➡️ Direction</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>↗ Direction</Text>
                 {(['onshore','side-on','side-shore','offshore'] as const).map((d) => {
-                  const dirLabel: Record<string, string> = { onshore: 'onshore', 'side-on': 'side-on', 'side-shore': '↗', offshore: 'offshore' };
+                  const dirLabel: Record<string, string> = { onshore: 'Onshore', 'side-on': 'Side-on', 'side-shore': 'Side-shore', offshore: 'Offshore' };
                   return (
                     <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
                       <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{dirLabel[d]}</Text>
@@ -11469,7 +11469,7 @@ const handleSave = async () => {
                 <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>🌊 Water</Text>
                 {(['flat','chop','waves'] as const).map((w) => (
                   <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWater === w ? '#202833' : 'transparent', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsWater === w ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{w}</Text>
+                    <Text style={{ color: conditionsWater === w ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{w.charAt(0).toUpperCase() + w.slice(1)}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -12096,7 +12096,7 @@ const handleSave = async () => {
                     const ratingParts: { emoji: string; label: string }[] = [];
                     if (r.ratedAt) ratingParts.push({ emoji: '', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
                     if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
-                    if (r.windDirection) ratingParts.push({ emoji: '➡️', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                    if (r.windDirection) ratingParts.push({ emoji: '↗', label: r.windDirection });
                     if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
                     if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
                     if (ratingParts.length === 0) return null;
