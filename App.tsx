@@ -10728,9 +10728,9 @@ const handleSave = async () => {
                   </View>
                   <Pressable
                     onPress={() => void handleUpdateSessionStatus('Uitchecken')}
-                    style={{ backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}
+                    style={{ backgroundColor: '#8b1f38', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}
                   >
-                    <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Check out</Text>
+                    <Text style={{ color: '#ffd7de', fontSize: 12, fontWeight: '900' }}>Check out</Text>
                   </Pressable>
                 </View>
               ) : null}
@@ -11929,9 +11929,9 @@ const handleSave = async () => {
             {isHomeCheckoutButtonVisible ? (
               <Pressable
                 onPress={() => void handleQuickCheckOut()}
-                style={{ backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' }}
+                style={{ backgroundColor: '#8b1f38', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' }}
               >
-                <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Check out · {activeCheckedInSession?.spot}</Text>
+                <Text style={{ color: '#ffd7de', fontSize: 12, fontWeight: '900' }}>Check out · {activeCheckedInSession?.spot}</Text>
               </Pressable>
             ) : null}
           </View>
