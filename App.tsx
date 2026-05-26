@@ -11371,18 +11371,18 @@ const handleSave = async () => {
                 </Pressable>
               </View>
               <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 10 }}>
-                Sta je op de juiste launchlocatie? Druk dan op Submit — we gebruiken jouw GPS-coördinaten om de pin te verplaatsen.
+                Are you standing at the correct launch spot? If so, tap Submit — we'll use your GPS coordinates to move the pin.
               </Text>
               <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, lineHeight: 17, marginBottom: 18 }}>
-                Zorg dat je echt op de goede plek staat voordat je verstuurt. Zo helpen we de app accurater te maken voor alle riders.
+                Make sure you're actually at the right location before submitting. This helps us keep the app accurate for all riders.
               </Text>
               {currentCoordinates ? (
                 <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginBottom: 18 }}>
-                  Jouw GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                  Your GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
                 </Text>
               ) : (
                 <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginBottom: 18 }}>
-                  Geen GPS beschikbaar — we nemen contact op na je melding.
+                  No GPS available — we'll follow up after your report.
                 </Text>
               )}
               <View style={{ flexDirection: 'row', gap: 10 }}>
