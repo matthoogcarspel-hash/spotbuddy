@@ -10745,26 +10745,31 @@ const handleSave = async () => {
               ) : null}
 
               {/* Coördinaten rapport modal */}
-              {showReportCoords && selectedSpot && currentCoordinates ? (
+              {showReportCoords && selectedSpot ? (
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginTop: 4 }}>
                   <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 4 }}>Report wrong coordinates</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
-                    Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
-                  </Text>
+                  {currentCoordinates ? (
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
+                      Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                    </Text>
+                  ) : (
+                    <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
+                      No GPS available. Submit to let us know the pin is wrong — we'll follow up.
+                    </Text>
+                  )}
                   <View style={{ flexDirection: 'row', gap: 8 }}>
                     <Pressable
                       onPress={async () => {
-                        if (!activeAppUserId || !currentCoordinates) return;
+                        if (!activeAppUserId) return;
                         const spotDef = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(selectedSpot));
                         await supabase.from('spot_coordinate_suggestions').insert({
                           spot_name: selectedSpot,
                           submitted_by: activeAppUserId,
                           current_latitude: spotDef?.latitude ?? null,
                           current_longitude: spotDef?.longitude ?? null,
-                          suggested_latitude: currentCoordinates.latitude,
-                          suggested_longitude: currentCoordinates.longitude,
+                          suggested_latitude: currentCoordinates?.latitude ?? null,
+                          suggested_longitude: currentCoordinates?.longitude ?? null,
                         });
-                        // Stuur push naar Matt
                         void sendPushToRecipients(
                           ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
                           '📍 Spot correction',
