@@ -11468,8 +11468,8 @@ const handleSave = async () => {
               </View>
 
               {/* Wind knots — prominent, left-aligned */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>💨 Wind</Text>
+              <View style={{ marginBottom: 16 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900', marginBottom: 8 }}>💨 Wind</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Pressable onPress={() => setConditionsWindKnots(Math.max(0, conditionsWindKnots - 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>−</Text>
@@ -11481,37 +11481,43 @@ const handleSave = async () => {
                 </View>
               </View>
 
-              {/* Wind direction — 1 row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>↗ Direction</Text>
-                {(['onshore','side-on','side-shore','offshore'] as const).map((d) => {
-                  const dirLabel: Record<string, string> = { onshore: 'Onshore', 'side-on': 'Side-on', 'side-shore': 'Side-shore', offshore: 'Offshore' };
-                  return (
-                    <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
-                      <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{dirLabel[d]}</Text>
+              {/* Wind direction */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900', marginBottom: 8 }}>↗ Direction</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['onshore','side-on','side-shore','offshore'] as const).map((d) => {
+                    const dirLabel: Record<string, string> = { onshore: 'Onshore', 'side-on': 'Side-on', 'side-shore': 'Side-shore', offshore: 'Offshore' };
+                    return (
+                      <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
+                        <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: 11, fontWeight: '600' }}>{dirLabel[d]}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Water */}
+              <View style={{ marginBottom: 14 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900', marginBottom: 8 }}>🌊 Water</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['flat','chop','waves'] as const).map((w) => (
+                    <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)', backgroundColor: conditionsWater === w ? '#202833' : 'transparent', alignItems: 'center' }}>
+                      <Text style={{ color: conditionsWater === w ? '#ffffff' : theme.textMuted, fontSize: 11, fontWeight: '600' }}>{w.charAt(0).toUpperCase() + w.slice(1)}</Text>
                     </Pressable>
-                  );
-                })}
+                  ))}
+                </View>
               </View>
 
-              {/* Water — 1 row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>🌊 Water</Text>
-                {(['flat','chop','waves'] as const).map((w) => (
-                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWater === w ? '#202833' : 'transparent', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsWater === w ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{w.charAt(0).toUpperCase() + w.slice(1)}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Crowd — 1 row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 20 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>👥 Crowd</Text>
-                {([['1','Empty'],['2','Quiet'],['3','Busy'],['4','Packed'],['5','Hectic']] as const).map(([v, label]) => (
-                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsCrowd === Number(v) ? '#202833' : 'transparent', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsCrowd === Number(v) ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '700' }}>{label}</Text>
-                  </Pressable>
-                ))}
+              {/* Crowd */}
+              <View style={{ marginBottom: 20 }}>
+                <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900', marginBottom: 8 }}>👥 Crowd</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {([['1','Empty'],['2','Quiet'],['3','Busy'],['4','Packed'],['5','Hectic']] as const).map(([v, label]) => (
+                    <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)', backgroundColor: conditionsCrowd === Number(v) ? '#202833' : 'transparent', alignItems: 'center' }}>
+                      <Text style={{ color: conditionsCrowd === Number(v) ? '#ffffff' : theme.textMuted, fontSize: 11, fontWeight: '600' }}>{label}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
