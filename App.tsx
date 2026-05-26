@@ -11459,7 +11459,7 @@ const handleSave = async () => {
             <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 36 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 20, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', marginBottom: 14 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Rank the spot</Text>
+                  <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900' }}>Rate The Spot</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '500', marginTop: 3 }}>Your best read counts — no instruments needed.</Text>
                 </View>
                 <Pressable onPress={skipConditionsRating} hitSlop={10} style={{ padding: 4 }}>
@@ -11467,16 +11467,16 @@ const handleSave = async () => {
                 </Pressable>
               </View>
 
-              {/* Wind knots — 1 row */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+              {/* Wind knots — prominent, left-aligned */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                 <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '800', width: 88 }}>💨 Wind</Text>
-                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
-                  <Pressable onPress={() => setConditionsWindKnots(Math.max(0, conditionsWindKnots - 1))} style={{ width: 36, height: 36, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>−</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.max(0, conditionsWindKnots - 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>−</Text>
                   </Pressable>
-                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '900', minWidth: 54, textAlign: 'center' }}>{conditionsWindKnots} kn</Text>
-                  <Pressable onPress={() => setConditionsWindKnots(Math.min(40, conditionsWindKnots + 1))} style={{ width: 36, height: 36, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>+</Text>
+                  <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', minWidth: 72, textAlign: 'center' }}>{conditionsWindKnots} kn</Text>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.min(40, conditionsWindKnots + 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>+</Text>
                   </Pressable>
                 </View>
               </View>
