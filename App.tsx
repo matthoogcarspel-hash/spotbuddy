@@ -2611,6 +2611,7 @@ export default function App() {
   const [sessionActionError, setSessionActionError] = useState('');
   const [summaryPopup, setSummaryPopup] = useState<{ label: string; color: string; helper: string; sessions: SpotSession[] } | null>(null);
   const [showConditionsRating, setShowConditionsRating] = useState(false);
+  const [planSessionBtnSize, setPlanSessionBtnSize] = useState<{ width: number; height: number } | null>(null);
   const [conditionsRatingSpot, setConditionsRatingSpot] = useState<SpotName | null>(null);
   const [conditionsWindKnots, setConditionsWindKnots] = useState<number>(15);
   const [conditionsCrowd, setConditionsCrowd] = useState<number | null>(null);
@@ -10718,7 +10719,7 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', borderColor: theme.primary }}
+                style={[{ borderRadius: 999, backgroundColor: '#123868', alignItems: 'center', justifyContent: 'center', borderColor: theme.primary }, planSessionBtnSize ?? { paddingVertical: 7, paddingHorizontal: 16 }]}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Check in</Text>
               </Pressable>
@@ -10726,6 +10727,7 @@ const handleSave = async () => {
             {topCtaMode === 'plan' && !showForm ? (
               <>
                 <Pressable
+                  onLayout={(e) => setPlanSessionBtnSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
                   onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
                   style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
                 >
