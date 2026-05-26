@@ -11392,43 +11392,56 @@ const handleSave = async () => {
                 </Pressable>
               </View>
 
-              {/* Wind knots wheel */}
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>💨 Wind (excl. gusts)</Text>
-              <View style={{ height: 132, overflow: 'hidden', position: 'relative', marginBottom: 18 }}>
-                <View style={{ position: 'absolute', top: 44, left: 0, right: 0, height: 44, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.12)', pointerEvents: 'none' as any }} />
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  snapToInterval={44}
-                  decelerationRate="fast"
-                  contentContainerStyle={{ paddingVertical: 44 }}
-                  onMomentumScrollEnd={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.y / 44);
-                    setConditionsWindKnots(Math.max(0, Math.min(40, index)));
-                  }}
-                  onScrollEndDrag={(e) => {
-                    const index = Math.round(e.nativeEvent.contentOffset.y / 44);
-                    setConditionsWindKnots(Math.max(0, Math.min(40, index)));
-                  }}
-                  ref={(ref) => {
-                    if (ref && showConditionsRating) {
-                      setTimeout(() => { (ref as any).scrollTo?.({ y: conditionsWindKnots * 44, animated: false }); }, 50);
-                    }
-                  }}
-                >
-                  {Array.from({ length: 41 }, (_, i) => i).map((knot) => (
-                    <View key={knot} style={{ height: 44, justifyContent: 'center', alignItems: 'center' }}>
-                      <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{knot} kn</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
+              {/* Wind knots */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 4 }}>💨 Wind (excl. gusts)</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '500', marginBottom: 10 }}>Geef je beste inschatting van de huidige windkracht</Text>
+              {isWebPlatform ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 18 }}>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.max(0, conditionsWindKnots - 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>−</Text>
+                  </Pressable>
+                  <Text style={{ color: theme.text, fontSize: 26, fontWeight: '900', minWidth: 70, textAlign: 'center' }}>{conditionsWindKnots} kn</Text>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.min(40, conditionsWindKnots + 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                    <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>+</Text>
+                  </Pressable>
+                </View>
+              ) : (
+                <View style={{ height: 132, overflow: 'hidden', position: 'relative', marginBottom: 18 }}>
+                  <View style={{ position: 'absolute', top: 44, left: 0, right: 0, height: 44, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.12)', pointerEvents: 'none' as any }} />
+                  <ScrollView
+                    showsVerticalScrollIndicator={false}
+                    snapToInterval={44}
+                    decelerationRate="fast"
+                    contentContainerStyle={{ paddingVertical: 44 }}
+                    onMomentumScrollEnd={(e) => {
+                      const index = Math.round(e.nativeEvent.contentOffset.y / 44);
+                      setConditionsWindKnots(Math.max(0, Math.min(40, index)));
+                    }}
+                    onScrollEndDrag={(e) => {
+                      const index = Math.round(e.nativeEvent.contentOffset.y / 44);
+                      setConditionsWindKnots(Math.max(0, Math.min(40, index)));
+                    }}
+                    ref={(ref) => {
+                      if (ref && showConditionsRating) {
+                        setTimeout(() => { (ref as any).scrollTo?.({ y: conditionsWindKnots * 44, animated: false }); }, 50);
+                      }
+                    }}
+                  >
+                    {Array.from({ length: 41 }, (_, i) => i).map((knot) => (
+                      <View key={knot} style={{ height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                        <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{knot} kn</Text>
+                      </View>
+                    ))}
+                  </ScrollView>
+                </View>
+              )}
 
               {/* Wind direction */}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🧭 Wind direction</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
                 {(['onshore','side-on','side-shore','offshore'] as const).map((d) => (
-                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? '#FFB74D' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsWindDir === d ? '#FFB74D' : theme.textMuted, fontSize: 10, fontWeight: '700' }}>{d}</Text>
+                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: 10, fontWeight: '700' }}>{d}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -11437,8 +11450,8 @@ const handleSave = async () => {
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🌊 Water</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
                 {(['flat','chop','waves'] as const).map((w) => (
-                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? '#A78BFA' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsWater === w ? '#A78BFA' : theme.textMuted, fontSize: 13, fontWeight: '700' }}>{w}</Text>
+                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWater === w ? '#202833' : 'transparent', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsWater === w ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '700' }}>{w}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -11447,8 +11460,8 @@ const handleSave = async () => {
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>👥 Crowd</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
                 {([['1','Empty'],['2','Quiet'],['3','Busy'],['4','Packed'],['5','Hectic']] as const).map(([v, label]) => (
-                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? '#4DB8FF' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsCrowd === Number(v) ? '#4DB8FF' : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsCrowd === Number(v) ? '#202833' : 'transparent', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsCrowd === Number(v) ? '#ffffff' : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{label}</Text>
                   </Pressable>
                 ))}
               </View>
