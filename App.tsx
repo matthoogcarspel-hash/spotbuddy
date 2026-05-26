@@ -10484,43 +10484,43 @@ const handleSave = async () => {
               {liveCount > 0 ? (
                 <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800', marginTop: 5 }}>Live now</Text>
               ) : null}
-              {activeDay === 'today' && selectedSpot && spotRatingsMap[selectedSpot] ? (
-                <View style={{ marginTop: 12, gap: 8 }}>
-                  {spotRatingsMap[selectedSpot].ratedAt ? (
-                    <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 12, fontWeight: '600' }}>
-                      Rated at {formatToHourMinute(spotRatingsMap[selectedSpot].ratedAt!)}
-                    </Text>
-                  ) : null}
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                    {spotRatingsMap[selectedSpot].windKnots != null ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                        <Text style={{ fontSize: 15 }}>💨</Text>
-                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].windKnots} kn</Text>
+              {activeDay === 'today' && selectedSpot && spotRatingsMap[selectedSpot] ? (() => {
+                const r = spotRatingsMap[selectedSpot];
+                const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
+                return (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 10 }}>
+                    {r.ratedAt ? (
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, fontWeight: '700' }}>
+                        Rated at {formatToHourMinute(r.ratedAt)}
+                      </Text>
+                    ) : null}
+                    {r.windKnots != null ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Text style={{ fontSize: 14 }}>💨</Text>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.windKnots} kn</Text>
                       </View>
                     ) : null}
-                    {spotRatingsMap[selectedSpot].windDirection ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                        <Text style={{ fontSize: 15 }}>🧭</Text>
-                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].windDirection === 'side-shore' ? '↗' : spotRatingsMap[selectedSpot].windDirection}</Text>
+                    {r.windDirection ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Text style={{ fontSize: 14 }}>🧭</Text>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.windDirection === 'side-shore' ? '↗' : r.windDirection}</Text>
                       </View>
                     ) : null}
-                    {spotRatingsMap[selectedSpot].waterConditions ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                        <Text style={{ fontSize: 15 }}>🌊</Text>
-                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].waterConditions}</Text>
+                    {r.waterConditions ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Text style={{ fontSize: 14 }}>🌊</Text>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.waterConditions}</Text>
                       </View>
                     ) : null}
-                    {spotRatingsMap[selectedSpot].crowdRating != null ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7 }}>
-                        <Text style={{ fontSize: 15 }}>👥</Text>
-                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }}>
-                          {'▮'.repeat(spotRatingsMap[selectedSpot].crowdRating!)}{'▯'.repeat(5 - spotRatingsMap[selectedSpot].crowdRating!)}
-                        </Text>
+                    {crowdLabel ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Text style={{ fontSize: 14 }}>👥</Text>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{crowdLabel}</Text>
                       </View>
                     ) : null}
                   </View>
-                </View>
-              ) : null}
+                );
+              })() : null}
             </View>
             <View style={{ alignItems: 'flex-end', gap: 8 }}>
               <Pressable
@@ -12130,28 +12130,38 @@ const handleSave = async () => {
                   <Text style={{ color: 'rgba(255,255,255,0.52)', marginTop: 5, fontSize: 11, fontWeight: '700', letterSpacing: 0.3 }}>
                     {spot.distanceMeters === null ? 'DISTANCE UNKNOWN' : `${formatDistance(spot.distanceMeters)} AWAY`}
                   </Text>
-                  {activeDay === 'today' && spotRatingsMap[spot.name] ? (
-                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                      {spotRatingsMap[spot.name].windKnots != null ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                          <Text style={{ fontSize: 10 }}>💨</Text>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[spot.name].windKnots} kn</Text>
-                        </View>
-                      ) : null}
-                      {spotRatingsMap[spot.name].windDirection ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                          <Text style={{ fontSize: 10 }}>🧭</Text>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[spot.name].windDirection === 'side-shore' ? '↗' : spotRatingsMap[spot.name].windDirection}</Text>
-                        </View>
-                      ) : null}
-                      {spotRatingsMap[spot.name].waterConditions ? (
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                          <Text style={{ fontSize: 10 }}>🌊</Text>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[spot.name].waterConditions}</Text>
-                        </View>
-                      ) : null}
-                    </View>
-                  ) : null}
+                  {activeDay === 'today' && spotRatingsMap[spot.name] ? (() => {
+                    const r = spotRatingsMap[spot.name];
+                    const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
+                    return (
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
+                        {r.windKnots != null ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10 }}>💨</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.windKnots} kn</Text>
+                          </View>
+                        ) : null}
+                        {r.windDirection ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10 }}>🧭</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.windDirection === 'side-shore' ? '↗' : r.windDirection}</Text>
+                          </View>
+                        ) : null}
+                        {r.waterConditions ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10 }}>🌊</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.waterConditions}</Text>
+                          </View>
+                        ) : null}
+                        {crowdLabel ? (
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10 }}>👥</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{crowdLabel}</Text>
+                          </View>
+                        ) : null}
+                      </View>
+                    );
+                  })() : null}
                 </View>
 
                 <View style={{ alignItems: isWebPlatform ? 'flex-end' : 'flex-start', minWidth: isWebPlatform ? 150 : 0 }}>
