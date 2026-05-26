@@ -836,9 +836,7 @@ const getCurrentUserActiveCheckedInSessionForDay = ({
     .filter((sessionItem) => Boolean(sessionItem.checkedInAt))
     .filter((sessionItem) => !sessionItem.checkedOutAt)
     .filter((sessionItem) => sessionItem.status === 'Is er al' || sessionItem.status === 'live')
-    .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd))
-    .filter((sessionItem) => isLiveSession(sessionItem))
-    .filter((sessionItem) => !isSessionExpired(sessionItem));
+    .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd));
 
   const dedupedActiveSessions = dedupeActiveCheckedInSessionsByUser(activeSessions);
   return getMostRecentSessionByCreatedAt(dedupedActiveSessions);
@@ -2593,6 +2591,14 @@ export default function App() {
   const [saveError, setSaveError] = useState<SaveDebugError>(null);
   const planningHelperText = 'You go live at the spot after check-in.';
   const [sessionActionError, setSessionActionError] = useState('');
+  const [summaryPopup, setSummaryPopup] = useState<{ label: string; color: string; helper: string; sessions: SpotSession[] } | null>(null);
+  const [showConditionsRating, setShowConditionsRating] = useState(false);
+  const [conditionsRatingSpot, setConditionsRatingSpot] = useState<SpotName | null>(null);
+  const [conditionsWindStars, setConditionsWindStars] = useState<number | null>(null);
+  const [conditionsCrowd, setConditionsCrowd] = useState<number | null>(null);
+  const [conditionsWindDir, setConditionsWindDir] = useState<string | null>(null);
+  const [conditionsWater, setConditionsWater] = useState<string | null>(null);
+  const [latestSpotRating, setLatestSpotRating] = useState<{ windStars: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null } | null>(null);
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -4966,6 +4972,14 @@ export default function App() {
   // Profiel modal sluiten bij schermwissel
   useEffect(() => { setViewingOtherUserId(null); }, [selectedSpot, showBuddies, showChat, showProfile, showYourSpotsPage, showDiscoverSpotsPage]);
 
+  useEffect(() => {
+    if (selectedSpot && activeDay === 'today') {
+      void fetchSpotRating(selectedSpot, getTodayLocalDateKey());
+    } else {
+      setLatestSpotRating(null);
+    }
+  }, [selectedSpot, activeDay]);
+
   // Open spot nadat Discover gesloten is (pending spot van Discover kaart klik)
   useEffect(() => {
     if (pendingSpotFromDiscover && !showDiscoverSpotsPage) {
@@ -5334,7 +5348,13 @@ export default function App() {
 
   const gpsActiveCheckedInSession = useMemo(() => {
     const allSessions = Object.values(sessionsBySpot).flat();
-    return getCurrentUserLiveSession(allSessions, activeAppUserId);
+    const userId = activeAppUserId;
+    if (!userId) return null;
+    const openCheckedInSessions = allSessions
+      .filter((s) => s.userId === userId)
+      .filter((s) => Boolean(s.checkedInAt) && !s.checkedOutAt)
+      .filter((s) => s.status === 'Is er al' || s.status === 'live');
+    return getMostRecentSessionByCreatedAt(openCheckedInSessions);
   }, [activeAppUserId, sessionsBySpot]);
 
   useEffect(() => {
@@ -5582,8 +5602,6 @@ export default function App() {
         .filter((sessionItem) => !sessionItem.checkedOutAt)
         .filter((sessionItem) => sessionItem.status === 'Is er al' || sessionItem.status === 'live')
         .filter((sessionItem) => Boolean(sessionItem.checkedInAt) && isIsoInRange(sessionItem.checkedInAt, activeDateStart, activeDateEnd))
-        .filter((sessionItem) => isLiveSession(sessionItem))
-        .filter((sessionItem) => !isSessionExpired(sessionItem))
       : [];
     const duplicateCount = activeUserSessions.length > 1 ? activeUserSessions.length - 1 : 0;
     if (userId && chosenSession) {
@@ -6220,7 +6238,7 @@ export default function App() {
           </View>
         </Pressable>
         <Pressable
-          onPress={() => setShowProfile(true)}
+          onPress={() => { goHomeFromNativeSwipe(); setShowProfile(true); }}
           style={{ width: 60, height: 88, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
         >
           <Avatar uri={profile?.avatar_url ?? null} size={32} nationality={profile?.nationality} />
@@ -6953,10 +6971,16 @@ export default function App() {
     const latestOpenSession = latestOpenSessionResponse.data;
     if (latestOpenSession?.status === 'Is er al') {
       if (normalizeSpotName(latestOpenSession.spot_name) === normalizeSpotName(canonicalSpot)) {
-        return { ok: false, reason: 'already_checked_in_same_spot' };
+        // Stale check-in at same spot (e.g. auto-checkout missed) — checkout old session and create fresh check-in
+        await supabase
+          .from('sessions')
+          .update({ status: 'Uitchecken', checked_out_at: new Date().toISOString() })
+          .eq('id', latestOpenSession.id)
+          .eq('user_id', activeProfileId);
+        // Fall through to create new check-in below
+      } else {
+        return { ok: false, reason: `already_checked_in_other_spot:${latestOpenSession.spot_name}` };
       }
-
-      return { ok: false, reason: `already_checked_in_other_spot:${latestOpenSession.spot_name}` };
     }
 
     if (latestOpenSession?.status === 'Gaat') {
@@ -7139,6 +7163,8 @@ export default function App() {
         return;
       }
       setSessionActionError('');
+      setConditionsRatingSpot(selectedSpot);
+      setShowConditionsRating(true);
       return;
     }
 
@@ -7175,6 +7201,43 @@ export default function App() {
     
     await fetchSharedData();
     setSessionActionError('');
+  };
+
+  const fetchSpotRating = async (spot: SpotName, dayKey: string) => {
+    const { data } = await supabase
+      .from('spot_ratings')
+      .select('wind_stars, crowd_rating, wind_direction, water_conditions, created_at')
+      .eq('spot_name', spot)
+      .eq('session_day', dayKey)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (!data || data.length === 0) { setLatestSpotRating(null); return; }
+    const windData = data.filter((r) => r.wind_stars != null);
+    const crowdData = data.filter((r) => r.crowd_rating != null);
+    const windStars = windData.length > 0 ? Math.round(windData.reduce((s, r) => s + (r.wind_stars ?? 0), 0) / windData.length) : null;
+    const crowdRating = crowdData.length > 0 ? Math.round(crowdData.reduce((s, r) => s + (r.crowd_rating ?? 0), 0) / crowdData.length) : null;
+    const windDirection = data.find((r) => r.wind_direction)?.wind_direction ?? null;
+    const waterConditions = data.find((r) => r.water_conditions)?.water_conditions ?? null;
+    setLatestSpotRating({ windStars, crowdRating, windDirection, waterConditions });
+  };
+
+  const saveConditionsRating = async () => {
+    if (!conditionsRatingSpot || !activeProfile?.id) { setShowConditionsRating(false); return; }
+    await supabase.from('spot_ratings').insert({
+      spot_name: conditionsRatingSpot,
+      session_day: selectedDayKey,
+      user_id: activeProfile.id,
+      wind_stars: conditionsWindStars,
+      crowd_rating: conditionsCrowd,
+      wind_direction: conditionsWindDir,
+      water_conditions: conditionsWater,
+    });
+    void fetchSpotRating(conditionsRatingSpot, selectedDayKey);
+    setShowConditionsRating(false);
+    setConditionsWindStars(null);
+    setConditionsCrowd(null);
+    setConditionsWindDir(null);
+    setConditionsWater(null);
   };
 
   const resetForm = () => {
@@ -9320,14 +9383,14 @@ export default function App() {
               {incomingFollowRequests.length > 0 && (
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 14, marginBottom: 16 }}>
                   <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
-                    BUDDY REQUESTS · {incomingFollowRequests.length}
+                    Wants to buddy up · {incomingFollowRequests.length}
                   </Text>
                   {incomingFollowRequests.map((req) => (
                     <UserRow
                       key={`mybuddies-req-${req.id}`}
                       avatar={req.requester?.avatar_url ?? null}
                       name={req.requester?.display_name ?? 'Someone'}
-                      sub="wants to buddy up"
+                      sub="accept or decline"
                       right={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
                           <Pressable
@@ -9413,14 +9476,14 @@ export default function App() {
               {incomingFollowRequests.length > 0 ? (
                 <View style={{ backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 14, marginBottom: 16 }}>
                   <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '900', marginBottom: 8, letterSpacing: 0.4 }}>
-                    REQUESTS · {incomingFollowRequests.length}
+                    Wants to buddy up · {incomingFollowRequests.length}
                   </Text>
                   {incomingFollowRequests.map((req) => (
                     <UserRow
                       key={`req-${req.id}`}
                       avatar={req.requester?.avatar_url ?? null}
                       name={req.requester?.display_name ?? 'Someone'}
-                      sub="wants to buddy up"
+                      sub="accept or decline"
                       onAvatarPress={() => { if (!req.requester?.id) return; setViewingOtherProfile({ id: req.requester.id, display_name: req.requester.display_name ?? 'Someone', avatar_url: req.requester.avatar_url ?? null }); setViewingOtherUserId(req.requester.id); }}
                       right={
                         <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -10524,9 +10587,9 @@ const handleSave = async () => {
 {isWebPlatform ? (
           <TargetSpotSummaryCards
             metrics={[
-              ...(activeDay === 'today' ? [{ icon: '⚡', label: 'LIVE' as const, helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions }] : []),
-              { icon: '👥', label: 'GOING' as const, helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
-              { icon: '◌', label: 'MAYBE' as const, helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
+              ...(activeDay === 'today' ? [{ icon: '⚡', label: 'LIVE' as const, helper: 'Checked in', value: liveCount, color: '#5EF0D0', sessions: liveSessions, onPress: () => liveCount > 0 ? setSummaryPopup({ label: 'LIVE', color: '#5EF0D0', helper: 'Checked in', sessions: liveSessions }) : undefined }] : []),
+              { icon: '👥', label: 'GOING' as const, helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions, onPress: () => goingCount > 0 ? setSummaryPopup({ label: 'GOING', color: '#4DB8FF', helper: 'Definitely coming', sessions: goingSessions }) : undefined },
+              { icon: '◌', label: 'MAYBE' as const, helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions, onPress: () => maybeCount > 0 ? setSummaryPopup({ label: 'MAYBE', color: '#5F83A6', helper: 'Might come', sessions: maybeSessions }) : undefined },
             ]}
           />
         ) : (
@@ -10537,8 +10600,9 @@ const handleSave = async () => {
               { label: 'GOING', helper: 'Definitely coming', value: goingCount, color: '#4DB8FF', sessions: goingSessions },
               { label: 'MAYBE', helper: 'Might come', value: maybeCount, color: '#5F83A6', sessions: maybeSessions },
             ].map((metric) => (
-              <View
+              <Pressable
                 key={`mobile-summary-${metric.label}`}
+                onPress={() => metric.value > 0 ? setSummaryPopup({ label: metric.label, color: metric.color, helper: metric.helper, sessions: metric.sessions }) : null}
                 style={{
                   width: '48.5%',
                   minHeight: 84,
@@ -10558,13 +10622,49 @@ const handleSave = async () => {
                   <Text style={{ color: metric.color, fontSize: 11, fontWeight: '900' }}>{metric.label}</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginTop: 3 }}>{metric.helper}</Text>
                 </View>
-              </View>
+              </Pressable>
             ))}
           </View>
 
           </>
         )}
 
+        {/* Conditions card — only shown for today when there's data */}
+        {activeDay === 'today' && latestSpotRating ? (
+          <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)', backgroundColor: 'rgba(8,24,39,0.52)', padding: 12, marginBottom: 14 }}>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Conditions now</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {latestSpotRating.windStars != null ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 12 }}>💨</Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                    {'★'.repeat(latestSpotRating.windStars)}{'☆'.repeat(5 - latestSpotRating.windStars)}
+                  </Text>
+                </View>
+              ) : null}
+              {latestSpotRating.crowdRating != null ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 12 }}>👥</Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
+                    {'▮'.repeat(latestSpotRating.crowdRating)}{'▯'.repeat(5 - latestSpotRating.crowdRating)}
+                  </Text>
+                </View>
+              ) : null}
+              {latestSpotRating.windDirection ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 12 }}>🧭</Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{latestSpotRating.windDirection}</Text>
+                </View>
+              ) : null}
+              {latestSpotRating.waterConditions ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
+                  <Text style={{ fontSize: 12 }}>🌊</Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{latestSpotRating.waterConditions}</Text>
+                </View>
+              ) : null}
+            </View>
+          </View>
+        ) : null}
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
@@ -10574,7 +10674,7 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 16, backgroundColor: '#5EF0D0', paddingVertical: 14, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                style={{ borderRadius: 999, backgroundColor: '#5EF0D0', paddingVertical: 14, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}
               >
                 <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
               </Pressable>
@@ -11253,6 +11353,99 @@ const handleSave = async () => {
         </ScrollView>
         {renderNativeBottomNav()}
         {renderOtherUserProfileModal()}
+
+        {/* Summary popup — wie is er ingecheckt / going / maybe */}
+        {summaryPopup ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
+            <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setSummaryPopup(null)} />
+            <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, maxHeight: '70%' }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
+                <Text style={{ color: summaryPopup.color, fontSize: 13, fontWeight: '900', flex: 1 }}>{summaryPopup.label} · {summaryPopup.helper}</Text>
+                <Pressable onPress={() => setSummaryPopup(null)} hitSlop={10} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={20} color={theme.textMuted} />
+                </Pressable>
+              </View>
+              <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+                {Array.from(new Map(summaryPopup.sessions.map((s) => [s.userId, s])).values()).map((session, i) => (
+                  <View key={session.userId ?? i} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    {session.userAvatarUrl ? (
+                      <Image source={{ uri: session.userAvatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                    ) : (
+                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person" size={20} color="rgba(255,255,255,0.4)" />
+                      </View>
+                    )}
+                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{session.userName || 'Rider'}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Conditions rating overlay — getoond na check-in */}
+        {showConditionsRating ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+            <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 36 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', marginBottom: 18 }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900', flex: 1 }}>How are conditions?</Text>
+                <Pressable onPress={() => setShowConditionsRating(false)} hitSlop={10} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={20} color={theme.textMuted} />
+                </Pressable>
+              </View>
+
+              {/* Wind strength */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>💨 Wind strength</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
+                {[1,2,3,4,5].map((v) => (
+                  <Pressable key={v} onPress={() => setConditionsWindStars(v)} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: conditionsWindStars === v ? '#5EF0D0' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindStars === v ? 'rgba(94,240,208,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 16 }}>{'★'.repeat(v)}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Wind direction */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🧭 Wind direction</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
+                {(['onshore','side-on','side-shore','offshore'] as const).map((d) => (
+                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: conditionsWindDir === d ? '#FFB74D' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? 'rgba(255,183,77,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsWindDir === d ? '#FFB74D' : theme.textMuted, fontSize: 10, fontWeight: '700' }}>{d}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Water conditions */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🌊 Water</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
+                {(['flat','chop','waves'] as const).map((w) => (
+                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: conditionsWater === w ? '#A78BFA' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWater === w ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsWater === w ? '#A78BFA' : theme.textMuted, fontSize: 13, fontWeight: '700' }}>{w}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Crowd */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>👥 Crowd</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
+                {([['1','Empty'],['2','Quiet'],['3','Busy'],['4','Packed'],['5','Hectic']] as const).map(([v, label]) => (
+                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? '#4DB8FF' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsCrowd === Number(v) ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                    <Text style={{ color: conditionsCrowd === Number(v) ? '#4DB8FF' : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
+                  <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Submit</Text>
+                </Pressable>
+                <Pressable onPress={() => setShowConditionsRating(false)} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Skip</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
         {isNotificationInboxExpanded ? (
           <View style={{ position: 'absolute', top: isWebPlatform ? 0 : 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
             <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />

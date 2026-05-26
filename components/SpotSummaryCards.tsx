@@ -1,5 +1,5 @@
 import React from 'react';
-import { Image, Text, View } from 'react-native';
+import { Image, Pressable, Text, View } from 'react-native';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
 type SummarySession = {
@@ -16,6 +16,7 @@ type Metric = {
   value: number;
   color: string;
   sessions?: SummarySession[];
+  onPress?: () => void;
 };
 
 function uniqueSessionsByUser(sessions: SummarySession[] = []) {
@@ -82,11 +83,11 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
         const uniqueAvatars = uniqueSessionsByUser(metric.sessions);
         const visibleAvatars = uniqueAvatars.slice(0, 5);
         const hiddenCount = Math.max(uniqueAvatars.length - visibleAvatars.length, 0);
-        const isLive = metric.label === 'LIVE';
 
         return (
-          <View
+          <Pressable
             key={metric.label}
+            onPress={metric.onPress}
             style={{
               flex: 1,
               minHeight: 158,
@@ -165,7 +166,7 @@ export function SpotSummaryCards({ metrics }: { metrics: Metric[] }) {
                 </View>
               ) : null}
             </View>
-          </View>
+          </Pressable>
         );
       })}
     </View>
