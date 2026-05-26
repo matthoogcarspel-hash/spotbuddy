@@ -10706,9 +10706,9 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: '#00C896', paddingVertical: 9, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                style={{ borderRadius: 999, backgroundColor: '#5EF0D0', paddingVertical: 6, paddingHorizontal: 10 }}
               >
-                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Check in</Text>
+                <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Check in</Text>
               </Pressable>
             ) : null}
             {topCtaMode === 'plan' && !showForm ? (
@@ -11501,8 +11501,8 @@ const handleSave = async () => {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#00C896', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}>
-                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Submit</Text>
+                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}>
+                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Submit</Text>
                 </Pressable>
                 <Pressable onPress={skipConditionsRating} style={{ flex: 1, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
                   <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Skip</Text>
