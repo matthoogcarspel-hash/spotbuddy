@@ -7213,13 +7213,14 @@ export default function App() {
   };
 
   const fetchSpotRating = async (spot: SpotName, dayKey: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('spot_ratings')
       .select('wind_knots, crowd_rating, wind_direction, water_conditions, created_at')
       .eq('spot_name', spot)
       .eq('session_day', dayKey)
       .order('created_at', { ascending: false })
       .limit(20);
+    if (error) { console.error('fetchSpotRating error:', error); return; }
     if (!data || data.length === 0) {
       setSpotRatingsMap((prev) => { const next = { ...prev }; delete next[spot]; return next; });
       return;
