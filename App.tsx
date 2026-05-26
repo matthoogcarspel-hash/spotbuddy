@@ -10744,51 +10744,6 @@ const handleSave = async () => {
                 </View>
               ) : null}
 
-              {/* Coördinaten rapport modal */}
-              {showReportCoords && selectedSpot ? (
-                <View style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', marginTop: 4 }}>
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800', marginBottom: 4 }}>Report wrong coordinates</Text>
-                  {currentCoordinates ? (
-                    <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
-                      Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
-                    </Text>
-                  ) : (
-                    <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>
-                      No GPS available. Submit to let us know the pin is wrong — we'll follow up.
-                    </Text>
-                  )}
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <Pressable
-                      onPress={async () => {
-                        if (!activeAppUserId) return;
-                        const spotDef = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(selectedSpot));
-                        await supabase.from('spot_coordinate_suggestions').insert({
-                          spot_name: selectedSpot,
-                          submitted_by: activeAppUserId,
-                          current_latitude: spotDef?.latitude ?? null,
-                          current_longitude: spotDef?.longitude ?? null,
-                          suggested_latitude: currentCoordinates?.latitude ?? null,
-                          suggested_longitude: currentCoordinates?.longitude ?? null,
-                        });
-                        void sendPushToRecipients(
-                          ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
-                          '📍 Spot correction',
-                          `${activeProfile?.display_name} reported wrong coordinates for ${selectedSpot}`,
-                          { type: 'admin' }
-                        );
-                        setShowReportCoords(false);
-                        alert('Thank you! We\'ll review your suggestion.');
-                      }}
-                      style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 10, paddingVertical: 8, alignItems: 'center' }}
-                    >
-                      <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Submit</Text>
-                    </Pressable>
-                    <Pressable onPress={() => setShowReportCoords(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingVertical: 8, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }}>
-                      <Text style={{ color: theme.textMuted, fontSize: 13 }}>Cancel</Text>
-                    </Pressable>
-                  </View>
-                </View>
-              ) : null}
 
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <Pressable
@@ -11400,6 +11355,60 @@ const handleSave = async () => {
                   </View>
                 ))}
               </ScrollView>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Wrong launch location bottom sheet */}
+        {showReportCoords && selectedSpot ? (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
+            <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setShowReportCoords(false)} />
+            <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 36 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', marginBottom: 18 }}>
+                <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900', flex: 1 }}>Wrong launch location?</Text>
+                <Pressable onPress={() => setShowReportCoords(false)} hitSlop={10} style={{ padding: 4 }}>
+                  <Ionicons name="close" size={20} color={theme.textMuted} />
+                </Pressable>
+              </View>
+              {currentCoordinates ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 18 }}>
+                  Your current GPS: {currentCoordinates.latitude.toFixed(5)}, {currentCoordinates.longitude.toFixed(5)}
+                </Text>
+              ) : (
+                <Text style={{ color: theme.textMuted, fontSize: 13, marginBottom: 18 }}>
+                  No GPS available. Submit to let us know the pin is wrong — we'll follow up.
+                </Text>
+              )}
+              <View style={{ flexDirection: 'row', gap: 10 }}>
+                <Pressable
+                  onPress={async () => {
+                    if (!activeAppUserId) return;
+                    const spotDef = verifiedSpotDefinitions.find(s => normalizeSpotName(s.spot) === normalizeSpotName(selectedSpot));
+                    await supabase.from('spot_coordinate_suggestions').insert({
+                      spot_name: selectedSpot,
+                      submitted_by: activeAppUserId,
+                      current_latitude: spotDef?.latitude ?? null,
+                      current_longitude: spotDef?.longitude ?? null,
+                      suggested_latitude: currentCoordinates?.latitude ?? null,
+                      suggested_longitude: currentCoordinates?.longitude ?? null,
+                    });
+                    void sendPushToRecipients(
+                      ['1a6cf03f-48ea-4907-b5ee-6594a44465a6'],
+                      '📍 Spot correction',
+                      `${activeProfile?.display_name} reported wrong coordinates for ${selectedSpot}`,
+                      { type: 'admin' }
+                    );
+                    setShowReportCoords(false);
+                    alert('Thank you! We\'ll review your suggestion.');
+                  }}
+                  style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}
+                >
+                  <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Submit</Text>
+                </Pressable>
+                <Pressable onPress={() => setShowReportCoords(false)} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         ) : null}
