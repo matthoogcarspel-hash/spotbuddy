@@ -10718,9 +10718,9 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, borderColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}
+                style={{ borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, borderColor: theme.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
               >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Check in</Text>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800', lineHeight: 16 }}>Check in</Text>
               </Pressable>
             ) : null}
             {topCtaMode === 'plan' && !showForm ? (
