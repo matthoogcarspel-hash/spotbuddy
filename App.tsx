@@ -10714,20 +10714,20 @@ const handleSave = async () => {
 
           {/* Check in + Plan session + Spot Chat — altijd zichtbaar */}
           {sessionActionError ? <Text style={{ color: '#ff7e7e', fontSize: 13, marginBottom: 6 }}>{sessionActionError}</Text> : null}
-          <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ flex: 1, borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, borderColor: theme.primary, alignItems: 'center', justifyContent: 'center', flexDirection: 'row' }}
+                style={{ borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center', borderColor: theme.primary }}
               >
-                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800', lineHeight: 16 }}>Check in</Text>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Check in</Text>
               </Pressable>
             ) : null}
             {topCtaMode === 'plan' && !showForm ? (
               <>
                 <Pressable
                   onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
-                  style={{ flex: 1, borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
+                  style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
                 >
                   <Ionicons name="add-circle" size={16} color="#071421" />
                   <Text style={{ color: '#071421', fontSize: 12, fontWeight: '800' }}>Plan a session</Text>
