@@ -10698,19 +10698,19 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: '#5EF0D0', paddingVertical: 14, paddingHorizontal: 24, flexDirection: 'row', alignItems: 'center', gap: 8 }}
+                style={{ borderRadius: 999, backgroundColor: '#00C896', paddingVertical: 9, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', gap: 8 }}
               >
-                <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in</Text>
+                <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Check in</Text>
               </Pressable>
             ) : null}
             {topCtaMode === 'plan' && !showForm ? (
               <>
                 <Pressable
                   onPress={() => { if (!hasOwnSessionOnSelectedSpotDay) openEmptyPlanningForm(); }}
-                  style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 9, paddingHorizontal: 18, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
+                  style={{ borderRadius: 999, backgroundColor: '#ffffff', paddingVertical: 7, paddingHorizontal: 16, alignItems: 'center', flexDirection: 'row', gap: 6, justifyContent: 'center' }}
                 >
-                  <Ionicons name="add-circle" size={20} color="#071421" />
-                  <Text style={{ color: '#071421', fontSize: 13, fontWeight: '800' }}>Plan a session</Text>
+                  <Ionicons name="add-circle" size={16} color="#071421" />
+                  <Text style={{ color: '#071421', fontSize: 12, fontWeight: '800' }}>Plan a session</Text>
                 </Pressable>
                 <Pressable
                   onPress={() => { if (selectedSpot) { setActiveChatSpot(selectedSpot); setActiveChatDayKey(selectedDayKey); setShowChat(true); setChatSubTab('spot'); setSelectedSpot(null); } }}
