@@ -630,20 +630,21 @@ const getCleanSessionStatus = (sessionItem: SpotSession): CleanSessionStatus => 
 };
 
 const getSessionState = (sessionItem: SpotSession, now = new Date()): DeterministicSessionState => {
+  if (sessionItem.checkedOutAt) {
+    return 'finished';
+  }
+
   const startDate = getSessionStartTime(sessionItem);
   const endDate = getSessionEndTime(sessionItem);
 
   if (endDate < now) {
-    
     return 'finished';
   }
 
   if (startDate <= now && now <= endDate) {
-    
     return 'active';
   }
 
-  
   return 'planned';
 };
 const isLiveSession = (sessionItem: SpotSession) =>
