@@ -8436,12 +8436,11 @@ export default function App() {
                                     void handleQuickCheckIn(spot);
                                   }}
                                   style={{
-                                    backgroundColor: theme.cardStrong,
+                                    backgroundColor: '#123868',
                                     paddingHorizontal: 10,
                                     paddingVertical: 6,
                                     borderRadius: 999,
-                                    borderWidth: 1,
-                                    borderColor: theme.border,
+                                    borderColor: theme.primary,
                                   }}
                                 >
                                   <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
@@ -10719,7 +10718,7 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: theme.cardStrong, paddingVertical: 7, paddingHorizontal: 16, borderWidth: 1, borderColor: theme.border }}
+                style={{ borderRadius: 999, backgroundColor: '#123868', paddingVertical: 7, paddingHorizontal: 16, borderColor: theme.primary }}
               >
                 <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Check in</Text>
               </Pressable>
@@ -11514,7 +11513,7 @@ const handleSave = async () => {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
+                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 999, paddingVertical: 12, alignItems: 'center', borderColor: theme.primary }}>
                   <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Submit</Text>
                 </Pressable>
                 <Pressable onPress={skipConditionsRating} style={{ flex: 1, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
