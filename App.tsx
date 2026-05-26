@@ -7243,20 +7243,22 @@ export default function App() {
   };
 
   const saveConditionsRating = async () => {
-    if (!conditionsRatingSpot || !activeProfile?.id) {
+    const ratingUserId = activeProfile?.id ?? activeAppUserId;
+    if (!conditionsRatingSpot || !ratingUserId) {
       fireCheckinPush(pendingCheckinPush, []);
       setShowConditionsRating(false);
       return;
     }
-    await supabase.from('spot_ratings').insert({
+    const { error: insertError } = await supabase.from('spot_ratings').insert({
       spot_name: conditionsRatingSpot,
       session_day: selectedDayKey,
-      user_id: activeProfile.id,
+      user_id: ratingUserId,
       wind_knots: conditionsWindKnots,
       crowd_rating: conditionsCrowd,
       wind_direction: conditionsWindDir,
       water_conditions: conditionsWater,
     });
+    if (insertError) console.error('spot_ratings insert error:', insertError);
     void fetchSpotRating(conditionsRatingSpot, selectedDayKey);
     const parts: string[] = [];
     if (conditionsWindKnots != null) parts.push(`${conditionsWindKnots} kn`);
@@ -7332,11 +7334,9 @@ export default function App() {
 
     const resolvedSpot = checkedInSpot ?? spot;
     setSelectedSpot(resolvedSpot);
-    
-    
     setHomeQuickCheckInError('');
-    
-    
+    setConditionsRatingSpot(resolvedSpot);
+    setShowConditionsRating(true);
   };
   const handleAutoCheckInDismiss = () => {
     setAutoCheckInPromptDismissed(true);
