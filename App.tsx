@@ -2599,6 +2599,7 @@ export default function App() {
   const [conditionsWindDir, setConditionsWindDir] = useState<string | null>(null);
   const [conditionsWater, setConditionsWater] = useState<string | null>(null);
   const [latestSpotRating, setLatestSpotRating] = useState<{ windKnots: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null } | null>(null);
+  const [pendingCheckinPush, setPendingCheckinPush] = useState<{ ids: string[]; actorName: string; spotName: string } | null>(null);
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -7113,7 +7114,7 @@ export default function App() {
       }).then(({ data: recipients }) => {
         const ids = (recipients ?? []).map((r: { recipient_profile_id: string }) => r.recipient_profile_id).filter(Boolean);
         const actorName = activeProfile?.display_name?.trim() || 'Someone';
-        void sendPushToRecipients(ids, `${actorName} checked in`, `${actorName} checked in at ${checkInResult.spot}`, { type: 'checkin', spotName: checkInResult.spot });
+        setPendingCheckinPush({ ids, actorName, spotName: checkInResult.spot });
       });
     }
 
@@ -7221,8 +7222,21 @@ export default function App() {
     setLatestSpotRating({ windKnots, crowdRating, windDirection, waterConditions });
   };
 
+  const fireCheckinPush = (push: { ids: string[]; actorName: string; spotName: string } | null, conditionsParts: string[]) => {
+    if (!push || !push.ids.length) return;
+    const body = conditionsParts.length > 0
+      ? `${push.actorName} checked in at ${push.spotName} · ${conditionsParts.join(' · ')}`
+      : `${push.actorName} checked in at ${push.spotName}`;
+    void sendPushToRecipients(push.ids, `${push.actorName} checked in`, body, { type: 'checkin', spotName: push.spotName });
+    setPendingCheckinPush(null);
+  };
+
   const saveConditionsRating = async () => {
-    if (!conditionsRatingSpot || !activeProfile?.id) { setShowConditionsRating(false); return; }
+    if (!conditionsRatingSpot || !activeProfile?.id) {
+      fireCheckinPush(pendingCheckinPush, []);
+      setShowConditionsRating(false);
+      return;
+    }
     await supabase.from('spot_ratings').insert({
       spot_name: conditionsRatingSpot,
       session_day: selectedDayKey,
@@ -7233,11 +7247,21 @@ export default function App() {
       water_conditions: conditionsWater,
     });
     void fetchSpotRating(conditionsRatingSpot, selectedDayKey);
+    const parts: string[] = [];
+    if (conditionsWindKnots != null) parts.push(`${conditionsWindKnots} kn`);
+    if (conditionsWindDir) parts.push(conditionsWindDir);
+    if (conditionsWater) parts.push(conditionsWater);
+    fireCheckinPush(pendingCheckinPush, parts);
     setShowConditionsRating(false);
     setConditionsWindKnots(15);
     setConditionsCrowd(null);
     setConditionsWindDir(null);
     setConditionsWater(null);
+  };
+
+  const skipConditionsRating = () => {
+    fireCheckinPush(pendingCheckinPush, []);
+    setShowConditionsRating(false);
   };
 
   const resetForm = () => {
@@ -10632,7 +10656,7 @@ const handleSave = async () => {
         {/* Conditions card — only shown for today when there's data */}
         {activeDay === 'today' && latestSpotRating ? (
           <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)', backgroundColor: 'rgba(8,24,39,0.52)', padding: 12, marginBottom: 14 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Conditions now</Text>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Conditions · rated by riders</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
               {latestSpotRating.windKnots != null ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
@@ -11387,7 +11411,7 @@ const handleSave = async () => {
             <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingBottom: 36 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingTop: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', marginBottom: 18 }}>
                 <Text style={{ color: theme.text, fontSize: 17, fontWeight: '900', flex: 1 }}>How are conditions?</Text>
-                <Pressable onPress={() => setShowConditionsRating(false)} hitSlop={10} style={{ padding: 4 }}>
+                <Pressable onPress={skipConditionsRating} hitSlop={10} style={{ padding: 4 }}>
                   <Ionicons name="close" size={20} color={theme.textMuted} />
                 </Pressable>
               </View>
@@ -11470,7 +11494,7 @@ const handleSave = async () => {
                 <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
                   <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Submit</Text>
                 </Pressable>
-                <Pressable onPress={() => setShowConditionsRating(false)} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
+                <Pressable onPress={skipConditionsRating} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
                   <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Skip</Text>
                 </Pressable>
               </View>
