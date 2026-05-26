@@ -1125,9 +1125,11 @@ type WindData = { speed: number; direction: number; gusts: number };
 
 async function fetchWind(latitude: number, longitude: number): Promise<WindData | null> {
   try {
-    const res = await fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn`
-    );
+    const isWeb = typeof document !== 'undefined';
+    const url = isWeb
+      ? `/api/weather?latitude=${latitude}&longitude=${longitude}`
+      : `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=kn`;
+    const res = await fetch(url);
     const json = await res.json();
     const c = json?.current;
     if (!c) return null;
