@@ -10487,37 +10487,22 @@ const handleSave = async () => {
               {activeDay === 'today' && selectedSpot && spotRatingsMap[selectedSpot] ? (() => {
                 const r = spotRatingsMap[selectedSpot];
                 const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
+                const ratingParts: { emoji: string; label: string }[] = [];
+                if (r.ratedAt) ratingParts.push({ emoji: '🕐', label: `Rated at ${formatToHourMinute(r.ratedAt)}` });
+                if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
+                if (r.windDirection) ratingParts.push({ emoji: '🧭', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
+                if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
+                if (ratingParts.length === 0) return null;
                 return (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginTop: 10 }}>
-                    {r.ratedAt ? (
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 15, fontWeight: '700' }}>
-                        Rated at {formatToHourMinute(r.ratedAt)}
-                      </Text>
-                    ) : null}
-                    {r.windKnots != null ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                        <Text style={{ fontSize: 14 }}>💨</Text>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.windKnots} kn</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 0, marginTop: 10 }}>
+                    {ratingParts.map((part, i) => (
+                      <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        {i > 0 && <View style={{ width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.18)', marginHorizontal: 10 }} />}
+                        <Text style={{ fontSize: 13 }}>{part.emoji}</Text>
+                        <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800', marginLeft: 5 }}>{part.label}</Text>
                       </View>
-                    ) : null}
-                    {r.windDirection ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                        <Text style={{ fontSize: 14 }}>🧭</Text>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.windDirection === 'side-shore' ? '↗' : r.windDirection}</Text>
-                      </View>
-                    ) : null}
-                    {r.waterConditions ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                        <Text style={{ fontSize: 14 }}>🌊</Text>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{r.waterConditions}</Text>
-                      </View>
-                    ) : null}
-                    {crowdLabel ? (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 }}>
-                        <Text style={{ fontSize: 14 }}>👥</Text>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800' }}>{crowdLabel}</Text>
-                      </View>
-                    ) : null}
+                    ))}
                   </View>
                 );
               })() : null}
@@ -12133,32 +12118,22 @@ const handleSave = async () => {
                   {activeDay === 'today' && spotRatingsMap[spot.name] ? (() => {
                     const r = spotRatingsMap[spot.name];
                     const crowdLabel = r.crowdRating != null ? (['','Empty','Quiet','Busy','Packed','Hectic'][r.crowdRating] ?? null) : null;
+                    const ratingParts: { emoji: string; label: string }[] = [];
+                    if (r.ratedAt) ratingParts.push({ emoji: '🕐', label: formatToHourMinute(r.ratedAt) });
+                    if (r.windKnots != null) ratingParts.push({ emoji: '💨', label: `${r.windKnots} kn` });
+                    if (r.windDirection) ratingParts.push({ emoji: '🧭', label: r.windDirection === 'side-shore' ? '↗' : r.windDirection });
+                    if (r.waterConditions) ratingParts.push({ emoji: '🌊', label: r.waterConditions });
+                    if (crowdLabel) ratingParts.push({ emoji: '👥', label: crowdLabel });
+                    if (ratingParts.length === 0) return null;
                     return (
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 8 }}>
-                        {r.windKnots != null ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                            <Text style={{ fontSize: 10 }}>💨</Text>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.windKnots} kn</Text>
+                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 0, marginTop: 7 }}>
+                        {ratingParts.map((part, i) => (
+                          <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            {i > 0 && <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 6 }} />}
+                            <Text style={{ fontSize: 10 }}>{part.emoji}</Text>
+                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginLeft: 3 }}>{part.label}</Text>
                           </View>
-                        ) : null}
-                        {r.windDirection ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                            <Text style={{ fontSize: 10 }}>🧭</Text>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.windDirection === 'side-shore' ? '↗' : r.windDirection}</Text>
-                          </View>
-                        ) : null}
-                        {r.waterConditions ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                            <Text style={{ fontSize: 10 }}>🌊</Text>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{r.waterConditions}</Text>
-                          </View>
-                        ) : null}
-                        {crowdLabel ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
-                            <Text style={{ fontSize: 10 }}>👥</Text>
-                            <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{crowdLabel}</Text>
-                          </View>
-                        ) : null}
+                        ))}
                       </View>
                     );
                   })() : null}
