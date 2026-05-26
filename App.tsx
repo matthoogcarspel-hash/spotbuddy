@@ -10500,7 +10500,7 @@ const handleSave = async () => {
                   {spotRatingsMap[selectedSpot].windDirection ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                       <Text style={{ fontSize: 10 }}>🧭</Text>
-                      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[selectedSpot].windDirection}</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[selectedSpot].windDirection === 'side-shore' ? '↗' : spotRatingsMap[selectedSpot].windDirection}</Text>
                     </View>
                   ) : null}
                   {spotRatingsMap[selectedSpot].waterConditions ? (
@@ -11484,11 +11484,14 @@ const handleSave = async () => {
               {/* Wind direction */}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🧭 Wind direction</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
-                {(['onshore','side-on','side-shore','offshore'] as const).map((d) => (
-                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
-                    <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: 10, fontWeight: '700' }}>{d}</Text>
-                  </Pressable>
-                ))}
+                {(['onshore','side-on','side-shore','offshore'] as const).map((d) => {
+                  const dirLabel: Record<string, string> = { onshore: 'onshore', 'side-on': 'side-on', 'side-shore': '↗', offshore: 'offshore' };
+                  return (
+                    <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? '#202833' : 'transparent', alignItems: 'center' }}>
+                      <Text style={{ color: conditionsWindDir === d ? '#ffffff' : theme.textMuted, fontSize: d === 'side-shore' ? 16 : 10, fontWeight: '700' }}>{dirLabel[d]}</Text>
+                    </Pressable>
+                  );
+                })}
               </View>
 
               {/* Water conditions */}
@@ -12164,7 +12167,7 @@ const handleSave = async () => {
                       {spotRatingsMap[spot.name].windDirection ? (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
                           <Text style={{ fontSize: 10 }}>🧭</Text>
-                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[spot.name].windDirection}</Text>
+                          <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[spot.name].windDirection === 'side-shore' ? '↗' : spotRatingsMap[spot.name].windDirection}</Text>
                         </View>
                       ) : null}
                       {spotRatingsMap[spot.name].waterConditions ? (
