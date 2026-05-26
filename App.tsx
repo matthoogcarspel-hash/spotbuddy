@@ -10849,9 +10849,6 @@ const handleSave = async () => {
                     <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Close</Text>
                   </Pressable>
                 ) : null}
-                <Pressable onPress={() => setShowReportCoords(true)} style={{ paddingVertical: 6, paddingHorizontal: 4 }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 12, fontWeight: '500' }}>Wrong launch location?</Text>
-                </Pressable>
               </View>
             </View>
           ) : null}
@@ -11358,15 +11355,15 @@ const handleSave = async () => {
         {/* How to contribute */}
         <View style={{ marginTop: 32, paddingTop: 20, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', gap: 12 }}>
           <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 }}>Help improve this spot</Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+          <Pressable onPress={() => setShowReportCoords(true)} style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
             <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' }}>
               <Text style={{ fontSize: 14 }}>📍</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: 'rgba(255,255,255,0.55)', fontSize: 12, fontWeight: '700', marginBottom: 2 }}>Wrong launch location?</Text>
-              <Text style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, lineHeight: 16 }}>Check in at this spot, then tap "Wrong location?" to submit your GPS coordinates. We'll review and update it.</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.30)', fontSize: 11, lineHeight: 16 }}>Tap here to submit your GPS coordinates. We'll review and update it.</Text>
             </View>
-          </View>
+          </Pressable>
         </View>
 
         </ScrollView>
