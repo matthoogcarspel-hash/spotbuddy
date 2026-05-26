@@ -9022,8 +9022,8 @@ export default function App() {
                 </Pressable>
               </View>
               {broadcastSelectedIds.length > 0 ? (
-                <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}>
-                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Deselect all</Text>
+                <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#123868', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderColor: theme.primary }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Deselect all</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -9315,8 +9315,8 @@ export default function App() {
                     </Pressable>
                   </View>
                   {broadcastSelectedIds.length > 0 ? (
-                    <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}>
-                      <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Deselect all</Text>
+                    <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#123868', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, borderColor: theme.primary }}>
+                      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Deselect all</Text>
                     </Pressable>
                   ) : null}
                 </View>
