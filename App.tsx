@@ -11935,7 +11935,7 @@ const handleSave = async () => {
             {isHomeCheckoutButtonVisible ? (
               <Pressable
                 onPress={() => void handleQuickCheckOut()}
-                style={{ borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)', paddingVertical: 6, paddingHorizontal: 14, alignSelf: 'flex-start' }}
+                style={{ backgroundColor: 'rgba(255,255,255,0.045)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12, alignSelf: 'flex-start' }}
               >
                 <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Check out · {activeCheckedInSession?.spot}</Text>
               </Pressable>
