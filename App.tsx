@@ -8428,7 +8428,7 @@ export default function App() {
                             Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
                           </Text>
 
-                          {isHomeSpotWithinCheckInRadius ? (
+                          {(activeDay === 'today' && (!hasActiveCheckedInSession || isCheckedInAtThisSpot)) ? (
                             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
                               {!hasActiveCheckedInSession ? (
                                 <Pressable
@@ -8436,13 +8436,15 @@ export default function App() {
                                     void handleQuickCheckIn(spot);
                                   }}
                                   style={{
-                                    backgroundColor: '#5EF0D0',
+                                    backgroundColor: theme.cardStrong,
                                     paddingHorizontal: 10,
                                     paddingVertical: 6,
                                     borderRadius: 999,
+                                    borderWidth: 1,
+                                    borderColor: theme.border,
                                   }}
                                 >
-                                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>
+                                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>
                                     Check in
                                   </Text>
                                 </Pressable>
@@ -10717,9 +10719,9 @@ const handleSave = async () => {
             {checkInCtaVisible ? (
               <Pressable
                 onPress={() => void handleUpdateSessionStatus('Is er al')}
-                style={{ borderRadius: 999, backgroundColor: '#5EF0D0', paddingVertical: 6, paddingHorizontal: 10 }}
+                style={{ borderRadius: 999, backgroundColor: theme.cardStrong, paddingVertical: 7, paddingHorizontal: 16, borderWidth: 1, borderColor: theme.border }}
               >
-                <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Check in</Text>
+                <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Check in</Text>
               </Pressable>
             ) : null}
             {topCtaMode === 'plan' && !showForm ? (
@@ -11512,8 +11514,8 @@ const handleSave = async () => {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 12, alignItems: 'center' }}>
-                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Submit</Text>
+                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: theme.cardStrong, borderRadius: 999, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: theme.border }}>
+                  <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Submit</Text>
                 </Pressable>
                 <Pressable onPress={skipConditionsRating} style={{ flex: 1, paddingVertical: 12, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
                   <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Skip</Text>
