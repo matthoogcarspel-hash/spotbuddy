@@ -1378,6 +1378,7 @@ type SessionGroup = {
   endTime: string;
   startMinutes: number;
   endMinutes: number;
+  hasPlannedWindow: boolean;
   sessions: SessionGroupEntry[];
 };
 
@@ -1523,7 +1524,7 @@ const buildPlanActionInput = ({
 const roundMinutesToNearestFive = (minutes: number) => Math.round(minutes / 5) * 5;
 const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
-const getRoundedSessionWindow = (sessionItem: SpotSession) => {
+const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
   const plannedStartMinutes = hasPlannedWindow ? toMinutes(sessionItem.start) : null;
@@ -1531,9 +1532,11 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
   const rawStartMinutes = plannedStartMinutes !== null
     ? (checkedInMinutes !== null && checkedInMinutes < plannedStartMinutes ? checkedInMinutes : plannedStartMinutes)
     : (checkedInMinutes ?? timelineStartMinutes);
+  const currentMinutes = nowMinutes ?? getCurrentLocalMinutes();
   const rawEndMinutes = hasPlannedWindow
     ? toMinutes(sessionItem.end)
-    : Math.min((checkedInMinutes ?? timelineStartMinutes) + 45, timelineEndMinutes);
+    // Geen planning: balk eindigt op now+60, groeit mee totdat iemand uitcheckt
+    : Math.min(currentMinutes + 60, timelineEndMinutes);
   const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
   const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
   return {
@@ -1541,6 +1544,7 @@ const getRoundedSessionWindow = (sessionItem: SpotSession) => {
     endMinutes: roundedEndMinutes,
     startTime: formatMinutesAsHourMinuteFull(roundedStartMinutes),
     endTime: formatMinutesAsHourMinuteFull(roundedEndMinutes),
+    hasPlannedWindow,
   };
 };
 
@@ -1561,6 +1565,7 @@ const groupTimelineSessions = ({
   activeProfileId,
   buddiesMode,
   followingUserIds,
+  nowMinutes,
 }: {
   sessions: Array<{ item: SpotSession; state: TimelineState; isBuddy: boolean }>;
   activeDayKey: string;
@@ -1568,6 +1573,7 @@ const groupTimelineSessions = ({
   activeProfileId: string | null | undefined;
   buddiesMode: TimelineFilter;
   followingUserIds: string[];
+  nowMinutes?: number;
 }) => {
 
   const safeSessions = Array.isArray(sessions) ? sessions : [];
@@ -1590,7 +1596,8 @@ const groupTimelineSessions = ({
       endMinutes: roundedEndMinutes,
       startTime,
       endTime,
-    } = getRoundedSessionWindow(timelineSession.item);
+      hasPlannedWindow,
+    } = getRoundedSessionWindow(timelineSession.item, nowMinutes);
     const groupRootId = timelineSession.item.sourceSessionId
       ? findRoot(timelineSession.item.sourceSessionId)
       : timelineSession.item.id;
@@ -1613,6 +1620,7 @@ const groupTimelineSessions = ({
         endTime,
         startMinutes: roundedStartMinutes,
         endMinutes: roundedEndMinutes,
+        hasPlannedWindow,
         sessions: [entry],
       });
     } else {
@@ -1704,6 +1712,7 @@ const buildSpotDetailState = ({
     activeProfileId: activeProfile?.id ?? null,
     buddiesMode: timelineFilter,
     followingUserIds: Array.isArray(followingUserIds) ? followingUserIds : [],
+    nowMinutes: currentLocalMinutes,
   });
   const joinStateBySession = (Array.isArray(timelineSessions) ? timelineSessions : []).reduce((result, entry) => {
     if (!entry?.item?.id) {
@@ -1883,7 +1892,7 @@ function SessionRow({
                 onSelect(group.key);
               }
             }}
-            label={`${group.startTime} – ${group.endTime}`}
+            label={group.hasPlannedWindow ? `${group.startTime} – ${group.endTime}` : group.startTime}
             onJoin={() => {
               if (!joinTarget) return;
               onJoin({
@@ -2172,7 +2181,7 @@ function SessionTimeline({
                           {(group.visibleSessions ?? []).map(({ item }) => item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim()).filter(Boolean).join(' · ')}
                         </Text>
                         <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', marginTop: 1 }}>
-                          {group.startTime} – {group.endTime}
+                          {group.hasPlannedWindow ? `${group.startTime} – ${group.endTime}` : group.startTime}
                         </Text>
                       </View>
 
@@ -6683,7 +6692,7 @@ export default function App() {
 
     return {
       title: selectedSpot ? `${selectedSpot}` : 'Group Chat',
-      subtitle: `${group.startTime} – ${group.endTime} · ${riderCount} rider${riderCount === 1 ? '' : 's'}`,
+      subtitle: `${group.hasPlannedWindow ? `${group.startTime} – ${group.endTime}` : group.startTime} · ${riderCount} rider${riderCount === 1 ? '' : 's'}`,
     };
   }, [activeGroupChatKey, selectedSpot, spotState.groupedSessions]);
 
