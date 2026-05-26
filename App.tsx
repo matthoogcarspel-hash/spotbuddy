@@ -1721,14 +1721,27 @@ const buildSpotDetailState = ({
     followingUserIds: Array.isArray(followingUserIds) ? followingUserIds : [],
     nowMinutes,
   });
+  // Build lookup: sessionId → all participant userIds in the same group
+  const sessionToGroupUserIds = new Map<string, string[]>();
+  for (const group of groupedSessions) {
+    const groupUserIds = group.sessions.map((e) => e.item?.userId).filter((id): id is string => Boolean(id));
+    for (const entry of group.sessions) {
+      if (entry.item?.id) sessionToGroupUserIds.set(entry.item.id, groupUserIds);
+    }
+  }
+  const safeFollowingUserIds = Array.isArray(followingUserIds) ? followingUserIds : [];
+
   const joinStateBySession = (Array.isArray(timelineSessions) ? timelineSessions : []).reduce((result, entry) => {
     if (!entry?.item?.id) {
       return result;
     }
+    const groupUserIds = sessionToGroupUserIds.get(entry.item.id) ?? (entry.item.userId ? [entry.item.userId] : []);
     const joinState = getJoinState({
       session: entry.item,
       ownSessionForSpotDay: ownSessionStateForBlocking,
       activeDayKey,
+      followingUserIds: safeFollowingUserIds,
+      groupParticipantUserIds: groupUserIds,
     });
     result[entry.item.id] = {
       allowed: joinState.allowed,

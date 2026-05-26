@@ -204,12 +204,16 @@ type CanJoinSlotArgs = {
   session: SessionLike | null | undefined;
   ownSessionForSpotDay: { hasOwnSession?: boolean; hasBlockingOwnSession?: boolean } | null | undefined;
   activeDayKey: string | null | undefined;
+  followingUserIds?: string[];
+  groupParticipantUserIds?: string[];
 };
 
 export const getJoinState = ({
   session,
   ownSessionForSpotDay,
   activeDayKey,
+  followingUserIds = [],
+  groupParticipantUserIds = [],
 }: CanJoinSlotArgs) => {
   if (getSessionDayKey(session) !== normalizeSessionDay(activeDayKey)) {
     return { allowed: false, reason: 'NON_JOINABLE_DAY' as const };
@@ -219,6 +223,13 @@ export const getJoinState = ({
     : '';
   if (sessionStatus === 'finished' || sessionStatus === 'uitchecken') {
     return { allowed: false, reason: 'SESSION_FINISHED' as const };
+  }
+  // Buddy check: current user must be a buddy of at least one participant in the group
+  if (followingUserIds.length > 0 || groupParticipantUserIds.length > 0) {
+    const isBuddyOfParticipant = groupParticipantUserIds.some((uid) => followingUserIds.includes(uid));
+    if (!isBuddyOfParticipant) {
+      return { allowed: false, reason: 'NOT_BUDDY' as const };
+    }
   }
   return { allowed: true, reason: null };
 };
