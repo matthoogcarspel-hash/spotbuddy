@@ -7948,7 +7948,7 @@ export default function App() {
           const dLat = (s.latitude - currentCoordinates.latitude) * Math.PI / 180;
           const dLon = (s.longitude - currentCoordinates.longitude) * Math.PI / 180;
           const a = Math.sin(dLat / 2) ** 2 + Math.cos(currentCoordinates.latitude * Math.PI / 180) * Math.cos(s.latitude * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
-          return R * 2 * Math.asin(Math.sqrt(a)) < 250;
+          return R * 2 * Math.asin(Math.sqrt(a)) < 500;
         }) ?? null
       : null;
 
@@ -8070,7 +8070,7 @@ export default function App() {
                   />
                   {nearbyExistingSpot ? (
                     <Text style={{ color: '#FF6B6B', fontSize: 12, marginBottom: 12 }}>
-                      "{nearbyExistingSpot.spot}" is already within 250m of your location. Move to a new spot to suggest one.
+                      "{nearbyExistingSpot.spot}" is already within 500m of your location. Move to a new spot to suggest one.
                     </Text>
                   ) : null}
                   <View style={{ flexDirection: 'row', gap: 8 }}>
