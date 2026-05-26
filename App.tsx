@@ -2594,11 +2594,11 @@ export default function App() {
   const [summaryPopup, setSummaryPopup] = useState<{ label: string; color: string; helper: string; sessions: SpotSession[] } | null>(null);
   const [showConditionsRating, setShowConditionsRating] = useState(false);
   const [conditionsRatingSpot, setConditionsRatingSpot] = useState<SpotName | null>(null);
-  const [conditionsWindStars, setConditionsWindStars] = useState<number | null>(null);
+  const [conditionsWindKnots, setConditionsWindKnots] = useState<number>(15);
   const [conditionsCrowd, setConditionsCrowd] = useState<number | null>(null);
   const [conditionsWindDir, setConditionsWindDir] = useState<string | null>(null);
   const [conditionsWater, setConditionsWater] = useState<string | null>(null);
-  const [latestSpotRating, setLatestSpotRating] = useState<{ windStars: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null } | null>(null);
+  const [latestSpotRating, setLatestSpotRating] = useState<{ windKnots: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null } | null>(null);
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
   const [quickCheckInSpotInFlight, setQuickCheckInSpotInFlight] = useState<SpotName | null>(null);
@@ -7206,19 +7206,19 @@ export default function App() {
   const fetchSpotRating = async (spot: SpotName, dayKey: string) => {
     const { data } = await supabase
       .from('spot_ratings')
-      .select('wind_stars, crowd_rating, wind_direction, water_conditions, created_at')
+      .select('wind_knots, crowd_rating, wind_direction, water_conditions, created_at')
       .eq('spot_name', spot)
       .eq('session_day', dayKey)
       .order('created_at', { ascending: false })
       .limit(20);
     if (!data || data.length === 0) { setLatestSpotRating(null); return; }
-    const windData = data.filter((r) => r.wind_stars != null);
+    const windData = data.filter((r) => r.wind_knots != null);
     const crowdData = data.filter((r) => r.crowd_rating != null);
-    const windStars = windData.length > 0 ? Math.round(windData.reduce((s, r) => s + (r.wind_stars ?? 0), 0) / windData.length) : null;
+    const windKnots = windData.length > 0 ? Math.round(windData.reduce((s, r) => s + (r.wind_knots ?? 0), 0) / windData.length) : null;
     const crowdRating = crowdData.length > 0 ? Math.round(crowdData.reduce((s, r) => s + (r.crowd_rating ?? 0), 0) / crowdData.length) : null;
     const windDirection = data.find((r) => r.wind_direction)?.wind_direction ?? null;
     const waterConditions = data.find((r) => r.water_conditions)?.water_conditions ?? null;
-    setLatestSpotRating({ windStars, crowdRating, windDirection, waterConditions });
+    setLatestSpotRating({ windKnots, crowdRating, windDirection, waterConditions });
   };
 
   const saveConditionsRating = async () => {
@@ -7227,14 +7227,14 @@ export default function App() {
       spot_name: conditionsRatingSpot,
       session_day: selectedDayKey,
       user_id: activeProfile.id,
-      wind_stars: conditionsWindStars,
+      wind_knots: conditionsWindKnots,
       crowd_rating: conditionsCrowd,
       wind_direction: conditionsWindDir,
       water_conditions: conditionsWater,
     });
     void fetchSpotRating(conditionsRatingSpot, selectedDayKey);
     setShowConditionsRating(false);
-    setConditionsWindStars(null);
+    setConditionsWindKnots(15);
     setConditionsCrowd(null);
     setConditionsWindDir(null);
     setConditionsWater(null);
@@ -10634,12 +10634,10 @@ const handleSave = async () => {
           <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)', backgroundColor: 'rgba(8,24,39,0.52)', padding: 12, marginBottom: 14 }}>
             <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Conditions now</Text>
             <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {latestSpotRating.windStars != null ? (
+              {latestSpotRating.windKnots != null ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
                   <Text style={{ fontSize: 12 }}>💨</Text>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-                    {'★'.repeat(latestSpotRating.windStars)}{'☆'.repeat(5 - latestSpotRating.windStars)}
-                  </Text>
+                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{latestSpotRating.windKnots} kn</Text>
                 </View>
               ) : null}
               {latestSpotRating.crowdRating != null ? (
@@ -11394,21 +11392,42 @@ const handleSave = async () => {
                 </Pressable>
               </View>
 
-              {/* Wind strength */}
-              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>💨 Wind strength</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
-                {[1,2,3,4,5].map((v) => (
-                  <Pressable key={v} onPress={() => setConditionsWindStars(v)} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: conditionsWindStars === v ? '#5EF0D0' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindStars === v ? 'rgba(94,240,208,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 16 }}>{'★'.repeat(v)}</Text>
-                  </Pressable>
-                ))}
+              {/* Wind knots wheel */}
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>💨 Wind (excl. gusts)</Text>
+              <View style={{ height: 132, overflow: 'hidden', position: 'relative', marginBottom: 18 }}>
+                <View style={{ position: 'absolute', top: 44, left: 0, right: 0, height: 44, borderTopWidth: 1, borderBottomWidth: 1, borderColor: 'rgba(255,255,255,0.12)', pointerEvents: 'none' as any }} />
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  snapToInterval={44}
+                  decelerationRate="fast"
+                  contentContainerStyle={{ paddingVertical: 44 }}
+                  onMomentumScrollEnd={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.y / 44);
+                    setConditionsWindKnots(Math.max(0, Math.min(40, index)));
+                  }}
+                  onScrollEndDrag={(e) => {
+                    const index = Math.round(e.nativeEvent.contentOffset.y / 44);
+                    setConditionsWindKnots(Math.max(0, Math.min(40, index)));
+                  }}
+                  ref={(ref) => {
+                    if (ref && showConditionsRating) {
+                      setTimeout(() => { (ref as any).scrollTo?.({ y: conditionsWindKnots * 44, animated: false }); }, 50);
+                    }
+                  }}
+                >
+                  {Array.from({ length: 41 }, (_, i) => i).map((knot) => (
+                    <View key={knot} style={{ height: 44, justifyContent: 'center', alignItems: 'center' }}>
+                      <Text style={{ color: theme.text, fontSize: 18, fontWeight: '800' }}>{knot} kn</Text>
+                    </View>
+                  ))}
+                </ScrollView>
               </View>
 
               {/* Wind direction */}
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🧭 Wind direction</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
                 {(['onshore','side-on','side-shore','offshore'] as const).map((d) => (
-                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: conditionsWindDir === d ? '#FFB74D' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWindDir === d ? 'rgba(255,183,77,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                  <Pressable key={d} onPress={() => setConditionsWindDir(d)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWindDir === d ? '#FFB74D' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
                     <Text style={{ color: conditionsWindDir === d ? '#FFB74D' : theme.textMuted, fontSize: 10, fontWeight: '700' }}>{d}</Text>
                   </Pressable>
                 ))}
@@ -11418,7 +11437,7 @@ const handleSave = async () => {
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>🌊 Water</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 18 }}>
                 {(['flat','chop','waves'] as const).map((w) => (
-                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 12, borderWidth: 1, borderColor: conditionsWater === w ? '#A78BFA' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsWater === w ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                  <Pressable key={w} onPress={() => setConditionsWater(w)} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsWater === w ? '#A78BFA' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
                     <Text style={{ color: conditionsWater === w ? '#A78BFA' : theme.textMuted, fontSize: 13, fontWeight: '700' }}>{w}</Text>
                   </Pressable>
                 ))}
@@ -11428,7 +11447,7 @@ const handleSave = async () => {
               <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 }}>👥 Crowd</Text>
               <View style={{ flexDirection: 'row', gap: 8, marginBottom: 24 }}>
                 {([['1','Empty'],['2','Quiet'],['3','Busy'],['4','Packed'],['5','Hectic']] as const).map(([v, label]) => (
-                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? '#4DB8FF' : 'rgba(255,255,255,0.1)', backgroundColor: conditionsCrowd === Number(v) ? 'rgba(77,184,255,0.15)' : 'rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                  <Pressable key={v} onPress={() => setConditionsCrowd(Number(v))} style={{ flex: 1, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: conditionsCrowd === Number(v) ? '#4DB8FF' : 'rgba(255,255,255,0.1)', alignItems: 'center' }}>
                     <Text style={{ color: conditionsCrowd === Number(v) ? '#4DB8FF' : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{label}</Text>
                   </Pressable>
                 ))}
