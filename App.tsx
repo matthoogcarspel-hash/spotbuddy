@@ -4979,13 +4979,6 @@ export default function App() {
     }
   }, [selectedSpot, activeDay]);
 
-  useEffect(() => {
-    if (activeDay !== 'today') return;
-    const dayKey = getTodayLocalDateKey();
-    for (const spot of visibleSpots) {
-      void fetchSpotRating(spot.name as SpotName, dayKey);
-    }
-  }, [visibleSpots.map(s => s.name).join(','), activeDay]);
 
   // Open spot nadat Discover gesloten is (pending spot van Discover kaart klik)
   useEffect(() => {
@@ -6567,6 +6560,15 @@ export default function App() {
     
     return orderedSpots;
   }, [currentCoordinates, favoriteSpots, manualOrder, orderMode, spotDefinitions]);
+
+  useEffect(() => {
+    if (activeDay !== 'today') return;
+    const dayKey = getTodayLocalDateKey();
+    for (const card of homeSpotCards) {
+      void fetchSpotRating(card.spot as SpotName, dayKey);
+    }
+  }, [homeSpotCards.map(c => c.spot).join(','), activeDay]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const homeLiveCountBySpot = useMemo(
     () =>
       spotNames.reduce((result, spot) => {
