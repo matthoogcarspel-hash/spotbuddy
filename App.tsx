@@ -11370,11 +11370,8 @@ const handleSave = async () => {
                   <Ionicons name="close" size={20} color={theme.textMuted} />
                 </Pressable>
               </View>
-              <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 10 }}>
-                Are you standing at the correct launch spot? If so, tap Submit — we'll use your GPS coordinates to move the pin.
-              </Text>
-              <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, lineHeight: 17, marginBottom: 18 }}>
-                Make sure you're actually at the right location before submitting. This helps us keep the app accurate for all riders.
+              <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20, marginBottom: 18 }}>
+                Move to the exact launch spot, then tap Submit — we'll use your GPS to pin the location. Thanks for helping keep SpotBuddy accurate for everyone!
               </Text>
               {currentCoordinates ? (
                 <Text style={{ color: 'rgba(255,255,255,0.25)', fontSize: 11, marginBottom: 18 }}>
