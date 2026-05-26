@@ -9005,6 +9005,11 @@ export default function App() {
                   <Ionicons name="arrow-up" size={17} color="#ffffff" />
                 </Pressable>
               </View>
+              {broadcastSelectedIds.length > 0 ? (
+                <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}>
+                  <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Deselect all</Text>
+                </Pressable>
+              ) : null}
             </View>
             {/* Buddy list */}
             <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
@@ -9293,6 +9298,11 @@ export default function App() {
                       <Ionicons name="arrow-up" size={17} color="#ffffff" />
                     </Pressable>
                   </View>
+                  {broadcastSelectedIds.length > 0 ? (
+                    <Pressable onPress={() => setBroadcastSelectedIds([])} style={{ alignSelf: 'flex-start', marginTop: 8, backgroundColor: '#5EF0D0', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}>
+                      <Text style={{ color: '#061421', fontSize: 12, fontWeight: '900' }}>Deselect all</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
                 {/* Buddy list */}
                 <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
