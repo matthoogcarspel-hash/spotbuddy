@@ -11333,18 +11333,31 @@ const handleSave = async () => {
                 </Pressable>
               </View>
               <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
-                {Array.from(new Map(summaryPopup.sessions.map((s) => [s.userId, s])).values()).map((session, i) => (
-                  <View key={session.userId ?? i} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                    {session.userAvatarUrl ? (
-                      <Image source={{ uri: session.userAvatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
-                    ) : (
-                      <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="person" size={20} color="rgba(255,255,255,0.4)" />
+                {Array.from(new Map(summaryPopup.sessions.map((s) => [s.userId, s])).values()).map((session, i) => {
+                  let timeLabel: string | null = null;
+                  if (summaryPopup.label === 'LIVE' && session.checkedInAt) {
+                    timeLabel = `Checked in at ${formatToHourMinute(session.checkedInAt)}`;
+                  } else if (summaryPopup.label === 'GOING' && session.start) {
+                    timeLabel = `Going at ${session.start}`;
+                  } else if (summaryPopup.label === 'MAYBE' && session.start) {
+                    timeLabel = `Maybe going at ${session.start}`;
+                  }
+                  return (
+                    <View key={session.userId ?? i} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                      {session.userAvatarUrl ? (
+                        <Image source={{ uri: session.userAvatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
+                      ) : (
+                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
+                          <Ionicons name="person" size={20} color="rgba(255,255,255,0.4)" />
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{session.userName || 'Rider'}</Text>
+                        {timeLabel ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '500', marginTop: 2 }}>{timeLabel}</Text> : null}
                       </View>
-                    )}
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{session.userName || 'Rider'}</Text>
-                  </View>
-                ))}
+                    </View>
+                  );
+                })}
               </ScrollView>
             </View>
           </View>
