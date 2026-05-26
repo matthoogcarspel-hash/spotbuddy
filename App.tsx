@@ -11405,7 +11405,7 @@ const handleSave = async () => {
                 >
                   <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>Submit</Text>
                 </Pressable>
-                <Pressable onPress={() => setShowReportCoords(false)} style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,107,107,0.3)', alignItems: 'center' }}>
+                <Pressable onPress={() => setShowReportCoords(false)} style={{ paddingVertical: 8, paddingHorizontal: 16, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
                   <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Cancel</Text>
                 </Pressable>
               </View>
