@@ -2598,7 +2598,7 @@ export default function App() {
   const [conditionsCrowd, setConditionsCrowd] = useState<number | null>(null);
   const [conditionsWindDir, setConditionsWindDir] = useState<string | null>(null);
   const [conditionsWater, setConditionsWater] = useState<string | null>(null);
-  const [spotRatingsMap, setSpotRatingsMap] = useState<Record<string, { windKnots: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null }>>({});
+  const [spotRatingsMap, setSpotRatingsMap] = useState<Record<string, { windKnots: number | null; crowdRating: number | null; windDirection: string | null; waterConditions: string | null; ratedAt: string | null }>>({});
   const [pendingCheckinPush, setPendingCheckinPush] = useState<{ ids: string[]; actorName: string; spotName: string } | null>(null);
   const [joinInFlightSessionId, setJoinInFlightSessionId] = useState<string | null>(null);
   const [homeQuickCheckInError, setHomeQuickCheckInError] = useState('');
@@ -7231,7 +7231,8 @@ export default function App() {
     const crowdRating = crowdData.length > 0 ? Math.round(crowdData.reduce((s, r) => s + (r.crowd_rating ?? 0), 0) / crowdData.length) : null;
     const windDirection = data.find((r) => r.wind_direction)?.wind_direction ?? null;
     const waterConditions = data.find((r) => r.water_conditions)?.water_conditions ?? null;
-    setSpotRatingsMap((prev) => ({ ...prev, [spot]: { windKnots, crowdRating, windDirection, waterConditions } }));
+    const ratedAt = data[0]?.created_at ?? null;
+    setSpotRatingsMap((prev) => ({ ...prev, [spot]: { windKnots, crowdRating, windDirection, waterConditions, ratedAt } }));
   };
 
   const fireCheckinPush = (push: { ids: string[]; actorName: string; spotName: string } | null, conditionsParts: string[]) => {
@@ -10483,6 +10484,33 @@ const handleSave = async () => {
               {liveCount > 0 ? (
                 <Text style={{ color: '#5EF0D0', fontSize: 13, fontWeight: '800', marginTop: 5 }}>Live now</Text>
               ) : null}
+              {activeDay === 'today' && selectedSpot && spotRatingsMap[selectedSpot] ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, marginTop: 6 }}>
+                  {spotRatingsMap[selectedSpot].ratedAt ? (
+                    <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, fontWeight: '600' }}>
+                      Rated at {formatToHourMinute(spotRatingsMap[selectedSpot].ratedAt!)}
+                    </Text>
+                  ) : null}
+                  {spotRatingsMap[selectedSpot].windKnots != null ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10 }}>💨</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[selectedSpot].windKnots} kn</Text>
+                    </View>
+                  ) : null}
+                  {spotRatingsMap[selectedSpot].windDirection ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10 }}>🧭</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[selectedSpot].windDirection}</Text>
+                    </View>
+                  ) : null}
+                  {spotRatingsMap[selectedSpot].waterConditions ? (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3 }}>
+                      <Text style={{ fontSize: 10 }}>🌊</Text>
+                      <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{spotRatingsMap[selectedSpot].waterConditions}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
             <View style={{ alignItems: 'flex-end', gap: 8 }}>
               <Pressable
@@ -10656,40 +10684,6 @@ const handleSave = async () => {
           </>
         )}
 
-        {/* Conditions card — only shown for today when there's data */}
-        {activeDay === 'today' && selectedSpot && spotRatingsMap[selectedSpot] ? (
-          <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.075)', backgroundColor: 'rgba(8,24,39,0.52)', padding: 12, marginBottom: 14 }}>
-            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 8 }}>Conditions · rated by riders</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-              {spotRatingsMap[selectedSpot].windKnots != null ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-                  <Text style={{ fontSize: 12 }}>💨</Text>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].windKnots} kn</Text>
-                </View>
-              ) : null}
-              {spotRatingsMap[selectedSpot].crowdRating != null ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-                  <Text style={{ fontSize: 12 }}>👥</Text>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>
-                    {'▮'.repeat(spotRatingsMap[selectedSpot].crowdRating!)}{'▯'.repeat(5 - spotRatingsMap[selectedSpot].crowdRating!)}
-                  </Text>
-                </View>
-              ) : null}
-              {spotRatingsMap[selectedSpot].windDirection ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-                  <Text style={{ fontSize: 12 }}>🧭</Text>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].windDirection}</Text>
-                </View>
-              ) : null}
-              {spotRatingsMap[selectedSpot].waterConditions ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 }}>
-                  <Text style={{ fontSize: 12 }}>🌊</Text>
-                  <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>{spotRatingsMap[selectedSpot].waterConditions}</Text>
-                </View>
-              ) : null}
-            </View>
-          </View>
-        ) : null}
 
 <View style={{ marginTop: isWebPlatform ? 10 : 6, marginBottom: isWebPlatform ? 18 : 14, gap: 10 }}>
 
