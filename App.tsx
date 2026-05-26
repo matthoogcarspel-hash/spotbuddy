@@ -11517,8 +11517,8 @@ const handleSave = async () => {
               </View>
 
               <View style={{ flexDirection: 'row', gap: 10 }}>
-                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}>
-                  <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Submit</Text>
+                <Pressable onPress={() => void saveConditionsRating()} style={{ flex: 1, backgroundColor: '#00C896', borderRadius: 999, paddingVertical: 9, alignItems: 'center' }}>
+                  <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '900' }}>Submit</Text>
                 </Pressable>
                 <Pressable onPress={skipConditionsRating} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
                   <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Skip</Text>
