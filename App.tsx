@@ -10501,7 +10501,7 @@ const handleSave = async () => {
                     {ratingParts.map((part, i) => (
                       <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
                         {i > 0 && <View style={{ width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.18)', marginHorizontal: 10 }} />}
-                        {part.emoji ? <Text style={{ fontSize: 13 }}>{part.emoji}</Text> : null}
+                        {part.emoji ? <Text style={{ fontSize: 13, color: '#ffffff' }}>{part.emoji}</Text> : null}
                         <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800', marginLeft: part.emoji ? 5 : 0 }}>{part.label}</Text>
                       </View>
                     ))}
@@ -12105,7 +12105,7 @@ const handleSave = async () => {
                         {ratingParts.map((part, i) => (
                           <View key={part.label} style={{ flexDirection: 'row', alignItems: 'center' }}>
                             {i > 0 && <View style={{ width: 1, height: 10, backgroundColor: 'rgba(255,255,255,0.15)', marginHorizontal: 6 }} />}
-                            {part.emoji ? <Text style={{ fontSize: 10 }}>{part.emoji}</Text> : null}
+                            {part.emoji ? <Text style={{ fontSize: 10, color: '#ffffff' }}>{part.emoji}</Text> : null}
                             <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700', marginLeft: part.emoji ? 3 : 0 }}>{part.label}</Text>
                           </View>
                         ))}
