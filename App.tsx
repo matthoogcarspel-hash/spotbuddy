@@ -11401,12 +11401,12 @@ const handleSave = async () => {
                     setShowReportCoords(false);
                     alert('Thank you! We\'ll review your suggestion.');
                   }}
-                  style={{ flex: 1, backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 14, alignItems: 'center' }}
+                  style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
                 >
-                  <Text style={{ color: '#061421', fontSize: 15, fontWeight: '900' }}>Submit</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>Submit</Text>
                 </Pressable>
-                <Pressable onPress={() => setShowReportCoords(false)} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center' }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Cancel</Text>
+                <Pressable onPress={() => setShowReportCoords(false)} style={{ paddingVertical: 14, paddingHorizontal: 20, borderRadius: 999, alignItems: 'center' }}>
+                  <Text style={{ color: '#ff6b6b', fontSize: 12, fontWeight: '400' }}>× Cancel</Text>
                 </Pressable>
               </View>
             </View>
