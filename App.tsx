@@ -915,12 +915,12 @@ const isSessionExpired = (sessionItem: SpotSession, now = new Date()) => {
   if (!hasPlannedTimeWindow(sessionItem)) {
     return false;
   }
-
+  // Ingecheckte sessies verlopen nooit — ze lopen door tot uitchecken
+  if (sessionItem.checkedInAt && !sessionItem.checkedOutAt) {
+    return false;
+  }
   const sessionEndTime = getSessionEndTime(sessionItem);
-  const isExpired = sessionEndTime.getTime() < now.getTime();
-  const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
-  
-  return isExpired;
+  return sessionEndTime.getTime() < now.getTime();
 };
 const isGoingLaterSession = (sessionItem: SpotSession, currentLocalMinutes: number) => {
   const sessionWithOptionalTimes = sessionItem as SpotSession & { startTime?: string; endTime?: string };
@@ -1533,9 +1533,13 @@ const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) 
     ? (checkedInMinutes !== null && checkedInMinutes < plannedStartMinutes ? checkedInMinutes : plannedStartMinutes)
     : (checkedInMinutes ?? timelineStartMinutes);
   const currentMinutes = nowMinutes ?? getCurrentLocalMinutes();
-  const rawEndMinutes = hasPlannedWindow
-    ? toMinutes(sessionItem.end)
-    // Geen planning: balk eindigt op now+60, groeit mee totdat iemand uitcheckt
+  const plannedEndMinutes = hasPlannedWindow ? toMinutes(sessionItem.end) : null;
+  const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
+  // Toon geplande eindtijd alleen als die nog niet voorbij is
+  const showPlannedEnd = hasPlannedWindow && plannedEndMinutes !== null
+    && (!checkedInAndActive || currentMinutes < plannedEndMinutes);
+  const rawEndMinutes = showPlannedEnd
+    ? plannedEndMinutes!
     : Math.min(currentMinutes + 60, timelineEndMinutes);
   const roundedStartMinutes = roundMinutesToNearestFive(rawStartMinutes);
   const roundedEndMinutes = roundMinutesToNearestFive(rawEndMinutes);
@@ -1544,7 +1548,7 @@ const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) 
     endMinutes: roundedEndMinutes,
     startTime: formatMinutesAsHourMinuteFull(roundedStartMinutes),
     endTime: formatMinutesAsHourMinuteFull(roundedEndMinutes),
-    hasPlannedWindow,
+    hasPlannedWindow: showPlannedEnd,
   };
 };
 
