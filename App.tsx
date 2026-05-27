@@ -4678,27 +4678,31 @@ export default function App() {
   useEffect(() => {
     if (!showProfile || !isAccountSwitcherVisible) return;
     void (async () => {
-      const { data } = await supabase
-        .from('pending_spots')
-        .select('id, name, latitude, longitude, submitted_by')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: true });
-      if (!data) return;
-      const userIds = [...new Set(data.map((r: any) => r.submitted_by).filter(Boolean))];
-      const { data: profiles } = userIds.length
-        ? await supabase.from('profiles').select('id, display_name').in('id', userIds)
-        : { data: [] };
-      const nameById: Record<string, string> = {};
-      for (const p of (profiles ?? [])) nameById[p.id] = p.display_name ?? p.id;
-      setPendingSpots(data.map((r: any) => ({
-        id: r.id,
-        name: r.name,
-        latitude: r.latitude,
-        longitude: r.longitude,
-        submittedBy: r.submitted_by,
-        submitterName: nameById[r.submitted_by] ?? r.submitted_by,
-      })));
-      setPendingSpotsLoaded(true);
+      try {
+        const { data, error } = await supabase
+          .from('pending_spots')
+          .select('id, name, latitude, longitude, submitted_by')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: true });
+        if (error) console.error('PENDING_SPOTS_FETCH_ERROR', error);
+        const rows = data ?? [];
+        const userIds = [...new Set(rows.map((r: any) => r.submitted_by).filter(Boolean))];
+        const { data: profiles } = userIds.length
+          ? await supabase.from('profiles').select('id, display_name').in('id', userIds)
+          : { data: [] };
+        const nameById: Record<string, string> = {};
+        for (const p of (profiles ?? [])) nameById[p.id] = p.display_name ?? p.id;
+        setPendingSpots(rows.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          latitude: r.latitude,
+          longitude: r.longitude,
+          submittedBy: r.submitted_by,
+          submitterName: nameById[r.submitted_by] ?? r.submitted_by,
+        })));
+      } finally {
+        setPendingSpotsLoaded(true);
+      }
     })();
   }, [showProfile, isAccountSwitcherVisible]);
 
@@ -10145,12 +10149,14 @@ export default function App() {
 
           {profileEditError ? <Text style={{ color: '#ff7e7e', fontSize: 12, textAlign: 'center' }}>{profileEditError}</Text> : null}
 
-          {isAccountSwitcherVisible && pendingSpotsLoaded ? (
+          {isAccountSwitcherVisible ? (
             <View style={{ marginTop: 24, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14 }}>
               <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
                 Pending spot suggestions {pendingSpots.length > 0 ? `(${pendingSpots.length})` : ''}
               </Text>
-              {pendingSpots.length === 0 ? (
+              {!pendingSpotsLoaded ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading…</Text>
+              ) : pendingSpots.length === 0 ? (
                 <Text style={{ color: theme.textMuted, fontSize: 13 }}>No pending suggestions.</Text>
               ) : pendingSpots.map((ps) => (
                 <View key={ps.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
