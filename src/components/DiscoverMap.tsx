@@ -74,10 +74,13 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
 
   useEffect(() => {
     if (!flyToTarget || !Number.isFinite(flyToTarget.latitude) || !Number.isFinite(flyToTarget.longitude)) return;
-    mapRef.current?.animateToRegion(
-      { latitude: flyToTarget.latitude, longitude: flyToTarget.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 },
-      600
-    );
+    const t = setTimeout(() => {
+      mapRef.current?.animateToRegion(
+        { latitude: flyToTarget.latitude, longitude: flyToTarget.longitude, latitudeDelta: 0.04, longitudeDelta: 0.04 },
+        600
+      );
+    }, 350);
+    return () => clearTimeout(t);
   }, [flyToTarget?.latitude, flyToTarget?.longitude]);
 
   const validSpots = spots.filter(

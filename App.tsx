@@ -8130,7 +8130,7 @@ export default function App() {
               latitude: discoverMapCenter?.latitude ?? 52.3676,
               longitude: discoverMapCenter?.longitude ?? 4.9041,
             }}
-            flyToTarget={discoverFlyTarget}
+            flyToTarget={discoverMapCenter ?? discoverFlyTarget}
             spots={discoverSpots}
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
@@ -10163,7 +10163,17 @@ export default function App() {
                   <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', marginBottom: 2 }}>{ps.name}</Text>
                   <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 2 }}>By: <Text style={{ color: '#4DB8FF' }}>{ps.submitterName}</Text></Text>
                   <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 10 }}>{ps.latitude.toFixed(6)}, {ps.longitude.toFixed(6)}</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <Pressable
+                      onPress={() => {
+                        setDiscoverMapCenter({ latitude: ps.latitude, longitude: ps.longitude });
+                        setShowProfile(false);
+                        setShowDiscoverSpotsPage(true);
+                      }}
+                      style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 13, fontWeight: '700' }}>View on map</Text>
+                    </Pressable>
                     <Pressable
                       onPress={async () => {
                         await supabase.from('spots').insert({ name: ps.name, latitude: ps.latitude, longitude: ps.longitude, coordinate_status: 'verified' });
