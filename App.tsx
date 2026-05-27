@@ -8169,6 +8169,18 @@ export default function App() {
             onAddSpot={(spotName) => addSelectedSpot(spotName)}
             onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
           />
+          {discoverMapCenter?.pendingName ? (
+            <View pointerEvents="none" style={{ position: 'absolute', bottom: 110, left: 16, right: 16, backgroundColor: '#1a2a3a', borderRadius: 14, padding: 14, borderWidth: 2, borderColor: '#F5A623', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#F5A623', alignItems: 'center', justifyContent: 'center' }}>
+                <Text style={{ color: '#07111F', fontSize: 16, fontWeight: '900' }}>?</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={{ color: '#F5A623', fontSize: 11, fontWeight: '700' }}>PENDING SPOT SUGGESTION</Text>
+                <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '900' }}>{discoverMapCenter.pendingName}</Text>
+                <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11 }}>{discoverMapCenter.latitude.toFixed(5)}, {discoverMapCenter.longitude.toFixed(5)}</Text>
+              </View>
+            </View>
+          ) : null}
         </View>
 
         {/* Spot toevoegen knop */}
