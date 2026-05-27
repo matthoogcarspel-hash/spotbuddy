@@ -98,10 +98,10 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
         ref={mapRef}
         style={{ flex: 1 }}
         initialRegion={{
-          latitude: Math.max(-LAT_CLAMP, Math.min(LAT_CLAMP, center.latitude)),
-          longitude: Math.max(-LNG_CLAMP, Math.min(LNG_CLAMP, center.longitude)),
-          latitudeDelta: DEFAULT_DELTA,
-          longitudeDelta: DEFAULT_DELTA,
+          latitude: Math.max(-LAT_CLAMP, Math.min(LAT_CLAMP, pendingMarker ? pendingMarker.latitude : center.latitude)),
+          longitude: Math.max(-LNG_CLAMP, Math.min(LNG_CLAMP, pendingMarker ? pendingMarker.longitude : center.longitude)),
+          latitudeDelta: pendingMarker ? 0.04 : DEFAULT_DELTA,
+          longitudeDelta: pendingMarker ? 0.04 : DEFAULT_DELTA,
         }}
         onRegionChangeComplete={() => {}}
         onPress={(e) => {

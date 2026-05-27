@@ -8060,6 +8060,19 @@ export default function App() {
         };
       });
 
+    if (discoverPendingMarker && !discoverSpots.some((s) => s.name === discoverPendingMarker.name)) {
+      discoverSpots.push({
+        name: discoverPendingMarker.name,
+        latitude: discoverPendingMarker.latitude,
+        longitude: discoverPendingMarker.longitude,
+        isAdded: false,
+        coordinateStatus: 'review' as const,
+        liveCount: 0,
+        goingCount: 0,
+        totalCount: 0,
+      });
+    }
+
     const discoverQuery = (homeSpotSearchQuery ?? '').trim().toLowerCase();
     const discoverSuggestions = discoverQuery.length >= 1
       ? spotDefinitions
