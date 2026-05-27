@@ -163,7 +163,7 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
           </Marker>
         )}
 
-        {pendingMarker && (
+        {pendingMarker && Platform.OS !== 'web' && (
           <Marker
             coordinate={{ latitude: pendingMarker.latitude, longitude: pendingMarker.longitude }}
             tracksViewChanges
@@ -184,6 +184,23 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
           </Marker>
         )}
       </MapView>
+
+      {pendingMarker && Platform.OS === 'web' && (
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+          <View style={{
+            backgroundColor: '#F5A623',
+            borderRadius: 20,
+            width: 44, height: 44,
+            alignItems: 'center', justifyContent: 'center',
+            borderWidth: 3, borderColor: '#ffffff',
+            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+            shadowOpacity: 0.5, shadowRadius: 8, elevation: 10,
+            marginBottom: 8,
+          }}>
+            <Text style={{ color: '#07111F', fontSize: 22, fontWeight: '900' }}>?</Text>
+          </View>
+        </View>
+      )}
 
       {/* Spot actie popup */}
       {selectedSpot ? (
@@ -226,7 +243,7 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
         </View>
       ) : null}
 
-      {pendingMarker && !selectedSpot ? (
+      {pendingMarker ? (
         <View style={{
           position: 'absolute', bottom: 100, left: 20, right: 20,
           backgroundColor: '#1a2a3a', borderRadius: 14,
