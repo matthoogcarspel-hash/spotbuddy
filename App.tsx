@@ -12018,6 +12018,14 @@ const handleSave = async () => {
                       ) : null}
                     </Text>
                   </Pressable>
+                  {nearestSpotCanCheckIn ? (
+                    <Pressable
+                      onPress={() => void handleQuickCheckIn(nearestSpotResult!.spot)}
+                      style={{ backgroundColor: '#123868', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.primary }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Check in</Text>
+                    </Pressable>
+                  ) : null}
                 </View>
               );
             })()
@@ -12026,25 +12034,15 @@ const handleSave = async () => {
           )}
         </View>
 
-        {/* Check in / Check out strip */}
-        {(nearestSpotCanCheckIn || isHomeCheckoutButtonVisible) ? (
-          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14, flexWrap: 'wrap' }}>
-            {nearestSpotCanCheckIn ? (
-              <Pressable
-                onPress={() => void handleQuickCheckIn(nearestSpotResult!.spot)}
-                style={{ backgroundColor: '#5EF0D0', borderRadius: 999, paddingVertical: 7, paddingHorizontal: 16, alignSelf: 'flex-start' }}
-              >
-                <Text style={{ color: '#061421', fontSize: 14, fontWeight: '900' }}>Check in · {nearestSpotResult!.spot}</Text>
-              </Pressable>
-            ) : null}
-            {isHomeCheckoutButtonVisible ? (
-              <Pressable
-                onPress={() => void handleQuickCheckOut()}
-                style={{ backgroundColor: '#8b1f38', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, alignSelf: 'flex-start' }}
-              >
-                <Text style={{ color: '#ffd7de', fontSize: 12, fontWeight: '900' }}>Check out · {activeCheckedInSession?.spot}</Text>
-              </Pressable>
-            ) : null}
+        {/* Check out strip */}
+        {isHomeCheckoutButtonVisible ? (
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 14 }}>
+            <Pressable
+              onPress={() => void handleQuickCheckOut()}
+              style={{ backgroundColor: '#8b1f38', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999 }}
+            >
+              <Text style={{ color: '#ffd7de', fontSize: 12, fontWeight: '900' }}>Check out · {activeCheckedInSession?.spot}</Text>
+            </Pressable>
           </View>
         ) : null}
 
