@@ -1531,16 +1531,13 @@ const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) 
   const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
   if (checkedInAndActive) {
     const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt) ?? currentMinutes;
-    const plannedEndMinutes = hasPlannedWindow ? toMinutes(sessionItem.end) : null;
-    const showPlannedEnd = hasPlannedWindow && plannedEndMinutes !== null && currentMinutes < plannedEndMinutes;
-    const rawEnd = showPlannedEnd ? plannedEndMinutes! : Math.min(currentMinutes + 60, timelineEndMinutes);
-    const roundedEnd = roundMinutesToNearestFive(rawEnd);
+    const roundedEnd = roundMinutesToNearestFive(Math.min(currentMinutes + 60, timelineEndMinutes));
     return {
       startMinutes: checkedInMinutes,
       endMinutes: roundedEnd,
       startTime: formatMinutesAsHourMinuteFull(checkedInMinutes),
       endTime: formatMinutesAsHourMinuteFull(roundedEnd),
-      hasPlannedWindow: showPlannedEnd,
+      hasPlannedWindow: false,
     };
   }
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -2325,8 +2322,8 @@ function SessionTimeline({
             pointerEvents="none"
             style={{
               position: 'absolute',
-              left: 0,
-              right: 0,
+              left: 126,
+              right: 126,
               top: 0,
               bottom: 0,
               zIndex: 10,
@@ -2403,7 +2400,7 @@ function SessionTimeline({
                     </Text>
                   </View>
 
-                  <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, top: 42, bottom: 10 }}>
+                  <View pointerEvents="none" style={{ position: 'absolute', left: 126, right: 126, top: 42, bottom: 10 }}>
                     {timelineHourMarks.map((hourMinutes) => (
                       <View key={`hour-line-${section.key}-${hourMinutes}`} style={{
                         position: 'absolute',
@@ -11182,7 +11179,7 @@ const handleSave = async () => {
             </View>
           </View>
           <View style={{ marginBottom: isWebPlatform ? 14 : 8 }}>
-            <View style={{ height: 16, position: 'relative', overflow: 'hidden', marginHorizontal: isWebPlatform ? 114 : 10 }}>
+            <View style={{ height: 16, position: 'relative', overflow: 'hidden', marginHorizontal: isWebPlatform ? 126 : 0 }}>
               {(() => {
                 const totalMinutes = Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1);
                 const useEveryTwoHours = !isWebPlatform && totalMinutes > 600;
