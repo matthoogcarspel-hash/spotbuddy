@@ -12008,7 +12008,15 @@ const handleSave = async () => {
                 : HEATMAP_COLORS_HOME[6];
               return (
                 <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8, paddingVertical: 6 }}>
-                  <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)} style={{ alignSelf: 'flex-start' }}>
+                  {nearestSpotCanCheckIn ? (
+                    <Pressable
+                      onPress={() => void handleQuickCheckIn(nearestSpotResult!.spot)}
+                      style={{ backgroundColor: '#123868', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 }}
+                    >
+                      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Check in</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable onPress={() => setSelectedSpot(nearestSpotResult.spot)}>
                     <Text style={{ color: theme.textMuted, fontSize: 13 }}>
                       Nearest spot · <Text style={{ color: nearestHeatColor, fontWeight: '800' }}>{nearestSpotResult.spot}</Text> · {nearestSpotDistanceLabel}
                       {liveCount > 0 ? (
@@ -12018,14 +12026,6 @@ const handleSave = async () => {
                       ) : null}
                     </Text>
                   </Pressable>
-                  {nearestSpotCanCheckIn ? (
-                    <Pressable
-                      onPress={() => void handleQuickCheckIn(nearestSpotResult!.spot)}
-                      style={{ backgroundColor: '#123868', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10, borderWidth: 1, borderColor: theme.primary }}
-                    >
-                      <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Check in</Text>
-                    </Pressable>
-                  ) : null}
                 </View>
               );
             })()
