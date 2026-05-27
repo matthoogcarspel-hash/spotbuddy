@@ -10757,7 +10757,7 @@ const handleSave = async () => {
                 return (
                   <View style={{ marginTop: 8, gap: 3 }}>
                     {r.ratedAt ? (
-                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '600' }}>Rated at {formatToHourMinute(r.ratedAt)}</Text>
+                      <Text style={{ color: '#ffffff', fontSize: 13, fontWeight: '700' }}>Rated at {formatToHourMinute(r.ratedAt)}</Text>
                     ) : null}
                     <View style={{ flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 0 }}>
                       {condParts.map((part, i) => (
