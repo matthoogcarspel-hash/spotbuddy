@@ -4681,7 +4681,7 @@ export default function App() {
       try {
         const { data, error } = await supabase
           .from('pending_spots')
-          .select('nid, name, latitude, longitude, submitted_by')
+          .select('id, name, latitude, longitude, submitted_by')
           .eq('status', 'pending')
           .order('created_at', { ascending: true });
         if (error) console.error('PENDING_SPOTS_FETCH_ERROR', error);
@@ -4693,7 +4693,7 @@ export default function App() {
         const nameById: Record<string, string> = {};
         for (const p of (profiles ?? [])) nameById[p.id] = p.display_name ?? p.id;
         setPendingSpots(rows.map((r: any) => ({
-          id: r.nid,
+          id: r.id,
           name: r.name,
           latitude: r.latitude,
           longitude: r.longitude,
@@ -10167,7 +10167,7 @@ export default function App() {
                     <Pressable
                       onPress={async () => {
                         await supabase.from('spots').insert({ name: ps.name, latitude: ps.latitude, longitude: ps.longitude, coordinate_status: 'verified' });
-                        await supabase.from('pending_spots').update({ status: 'approved' }).eq('nid', ps.id);
+                        await supabase.from('pending_spots').update({ status: 'approved' }).eq('id', ps.id);
                         setPendingSpots((prev) => prev.filter((s) => s.id !== ps.id));
                       }}
                       style={{ backgroundColor: '#00C896', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
@@ -10176,7 +10176,7 @@ export default function App() {
                     </Pressable>
                     <Pressable
                       onPress={async () => {
-                        await supabase.from('pending_spots').update({ status: 'rejected' }).eq('nid', ps.id);
+                        await supabase.from('pending_spots').update({ status: 'rejected' }).eq('id', ps.id);
                         setPendingSpots((prev) => prev.filter((s) => s.id !== ps.id));
                       }}
                       style={{ backgroundColor: '#8b1f38', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
