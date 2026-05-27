@@ -3124,7 +3124,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, owner_uid, created_at, nationality')
+        .select('id, display_name, avatar_url, owner_uid, created_at, nationality, dm_push_enabled')
         .eq('owner_uid', authUser.id)
         .order('created_at', { ascending: true });
       
@@ -7865,6 +7865,8 @@ export default function App() {
         ? convData?.participant_b_id
         : convData?.participant_a_id ?? null;
       if (!otherUserId) return;
+      const { data: recipPref } = await supabase.from('profiles').select('dm_push_enabled').eq('id', otherUserId).single();
+      if (recipPref?.dm_push_enabled === false) return;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
       await sendPushToRecipients([otherUserId], `${actorName}`, text, { type: 'dm', conversationId });
     })();
@@ -7879,6 +7881,8 @@ export default function App() {
       const convId = await openDmWithUser(userId);
       if (!convId) continue;
       await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
+      const { data: recipPref } = await supabase.from('profiles').select('dm_push_enabled').eq('id', userId).single();
+      if (recipPref?.dm_push_enabled === false) continue;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
       await sendPushToRecipients([userId], actorName, text, { type: 'dm', conversationId: convId });
     }
@@ -8827,14 +8831,26 @@ export default function App() {
                 </View>
               </View>
 
-              {/* DMs always on */}
+              {/* DMs toggle */}
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>💬</Text>
                   <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat</Text>
                 </View>
-                <View style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' }}>
-                  <Text style={{ color: 'rgba(255,255,255,0.3)', fontSize: 11, fontWeight: '700' }}>Always on</Text>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['on', 'off'] as const).map((opt) => {
+                    const dmEnabled = activeProfile?.dm_push_enabled !== false;
+                    const selected = (opt === 'on') === dmEnabled;
+                    return (
+                      <Pressable key={opt} onPress={async () => {
+                        const newVal = opt === 'on';
+                        setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
+                        await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
+                      }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
             </View>
@@ -9158,6 +9174,28 @@ export default function App() {
                         </View>
                       </View>
                     ))}
+                    {/* DMs toggle */}
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <Text style={{ fontSize: 16 }}>💬</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {(['on', 'off'] as const).map((opt) => {
+                          const dmEnabled = activeProfile?.dm_push_enabled !== false;
+                          const selected = (opt === 'on') === dmEnabled;
+                          return (
+                            <Pressable key={opt} onPress={async () => {
+                              const newVal = opt === 'on';
+                              setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
+                              await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
+                            }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                              <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
                   </View>
                 )}
                 <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>

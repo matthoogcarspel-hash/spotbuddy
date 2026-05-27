@@ -18,6 +18,7 @@ export type Profile = {
   created_at?: string;
   nationality?: string | null;
   skill_level?: number | null;
+  dm_push_enabled?: boolean | null;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
