@@ -8126,20 +8126,31 @@ export default function App() {
           {discoverSuggestions.length > 0 ? (
             <View style={{ backgroundColor: theme.card, borderRadius: 12, borderWidth: 1, borderColor: theme.border, marginTop: 4, overflow: 'hidden' }}>
               {discoverSuggestions.map((s) => (
-                <Pressable
-                  key={s.spot}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    openedFromDiscoverRef.current = true;
-                    setShowDiscoverSpotsPage(false);
-                    setHomeSpotSearchQuery('');
-                    requestAnimationFrame(() => setSelectedSpot(s.spot as any));
-                  }}
-                  style={{ paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
-                >
-                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600' }}>{s.spot}</Text>
-                  <Text style={{ color: theme.textMuted, fontSize: 12 }}>Open →</Text>
-                </Pressable>
+                <View key={s.spot} style={{ paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '600', flex: 1 }}>{s.spot}</Text>
+                  <Pressable
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      setDiscoverMapCenter({ latitude: s.latitude, longitude: s.longitude });
+                      setHomeSpotSearchQuery('');
+                    }}
+                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Show on map</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => {
+                      Keyboard.dismiss();
+                      openedFromDiscoverRef.current = true;
+                      setShowDiscoverSpotsPage(false);
+                      setHomeSpotSearchQuery('');
+                      requestAnimationFrame(() => setSelectedSpot(s.spot as any));
+                    }}
+                    style={{ backgroundColor: theme.primary, borderRadius: 999, paddingVertical: 5, paddingHorizontal: 12 }}
+                  >
+                    <Text style={{ color: theme.text, fontSize: 12, fontWeight: '700' }}>Open →</Text>
+                  </Pressable>
+                </View>
               ))}
             </View>
           ) : null}
@@ -8257,13 +8268,13 @@ export default function App() {
                         setAddSpotSubmitting(false);
                         setAddSpotSuccess(true);
                       }}
-                      style={{ flex: 1, backgroundColor: addSpotName.trim() ? '#5EF0D0' : 'rgba(255,255,255,0.06)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', opacity: addSpotSubmitting ? 0.6 : 1 }}
+                      style={{ flex: 1, backgroundColor: addSpotName.trim() && !addSpotSubmitting ? '#00C896' : 'rgba(255,255,255,0.06)', borderRadius: 999, paddingVertical: 12, alignItems: 'center', opacity: addSpotSubmitting ? 0.6 : 1 }}
                     >
-                      <Text style={{ color: addSpotName.trim() ? '#071421' : theme.textMuted, fontSize: 14, fontWeight: '900' }}>
+                      <Text style={{ color: addSpotName.trim() ? '#061421' : theme.textMuted, fontSize: 14, fontWeight: '900' }}>
                         {addSpotSubmitting ? 'Submitting...' : 'Submit'}
                       </Text>
                     </Pressable>
-                    <Pressable onPress={() => setShowAddSpot(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+                    <Pressable onPress={() => setShowAddSpot(false)} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 999, paddingVertical: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
                       <Text style={{ color: theme.textMuted, fontSize: 14 }}>Cancel</Text>
                     </Pressable>
                   </View>
