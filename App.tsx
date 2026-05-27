@@ -8884,7 +8884,6 @@ export default function App() {
           {chatSubTab === 'spot' && (
             <View style={{ gap: 8 }}>
               {(() => {
-                // Alleen spots tonen met actieve berichten (vandaag of morgen)
                 const today = getTodayLocalDateKey();
                 const tomorrow = getTomorrowLocalDateKey();
                 const rows: Array<{ spotName: string; chatKey: string; chatData: typeof chatSpotMessages[string] | null }> = [];
@@ -8892,7 +8891,7 @@ export default function App() {
                   for (const day of [today, tomorrow]) {
                     const cKey = spotChatKey(spotName, day);
                     const data = chatSpotMessages[cKey] ?? null;
-                    if (data && data.messages.length > 0) {
+                    if (day === today || data) {
                       rows.push({ spotName, chatKey: cKey, chatData: data });
                     }
                   }
@@ -8900,8 +8899,8 @@ export default function App() {
                 if (rows.length === 0) {
                   return <View style={{ alignItems: 'center', paddingTop: 40, gap: 8 }}>
                     <Text style={{ fontSize: 32 }}>💬</Text>
-                    <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No open chats yet</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Start a chat from one of your spots</Text>
+                    <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No spots followed yet</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Follow spots in My Spots to start chatting</Text>
                   </View>;
                 }
                 return rows.map(({ spotName, chatKey, chatData }) => {
