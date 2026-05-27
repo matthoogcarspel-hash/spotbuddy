@@ -1529,15 +1529,18 @@ const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) 
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
   const currentMinutes = nowMinutes ?? getCurrentLocalMinutes();
   const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
-  // Zodra ingecheckt en live: balk = now → now+60, geen eindtijd label
   if (checkedInAndActive) {
-    const roundedEnd = roundMinutesToNearestFive(Math.min(currentMinutes + 60, timelineEndMinutes));
+    const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt) ?? currentMinutes;
+    const plannedEndMinutes = hasPlannedWindow ? toMinutes(sessionItem.end) : null;
+    const showPlannedEnd = hasPlannedWindow && plannedEndMinutes !== null && currentMinutes < plannedEndMinutes;
+    const rawEnd = showPlannedEnd ? plannedEndMinutes! : Math.min(currentMinutes + 60, timelineEndMinutes);
+    const roundedEnd = roundMinutesToNearestFive(rawEnd);
     return {
-      startMinutes: currentMinutes,
+      startMinutes: checkedInMinutes,
       endMinutes: roundedEnd,
-      startTime: formatMinutesAsHourMinuteFull(currentMinutes),
+      startTime: formatMinutesAsHourMinuteFull(checkedInMinutes),
       endTime: formatMinutesAsHourMinuteFull(roundedEnd),
-      hasPlannedWindow: false,
+      hasPlannedWindow: showPlannedEnd,
     };
   }
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
@@ -1643,7 +1646,7 @@ const groupTimelineSessions = ({
         existing.startTime = startTime;
         existing.endMinutes = roundedEndMinutes;
         existing.endTime = endTime;
-        existing.hasPlannedWindow = false;
+        existing.hasPlannedWindow = hasPlannedWindow;
       }
     }
   }
@@ -11179,7 +11182,7 @@ const handleSave = async () => {
             </View>
           </View>
           <View style={{ marginBottom: isWebPlatform ? 14 : 8 }}>
-            <View style={{ height: 16, position: 'relative', overflow: 'hidden' }}>
+            <View style={{ height: 16, position: 'relative', overflow: 'hidden', marginHorizontal: isWebPlatform ? 114 : 10 }}>
               {(() => {
                 const totalMinutes = Math.max(timelineWindow.endMinutes - timelineWindow.startMinutes, 1);
                 const useEveryTwoHours = !isWebPlatform && totalMinutes > 600;
