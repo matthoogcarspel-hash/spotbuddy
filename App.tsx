@@ -8469,9 +8469,9 @@ export default function App() {
                             Distance: {distanceMeters === null ? 'Unknown' : formatDistance(distanceMeters)}
                           </Text>
 
-                          {(activeDay === 'today' && (!hasActiveCheckedInSession || isCheckedInAtThisSpot)) ? (
+                          {(activeDay === 'today' && ((!hasActiveCheckedInSession && isHomeSpotWithinCheckInRadius) || isCheckedInAtThisSpot)) ? (
                             <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
-                              {!hasActiveCheckedInSession ? (
+                              {!hasActiveCheckedInSession && isHomeSpotWithinCheckInRadius ? (
                                 <Pressable
                                   onPress={() => {
                                     void handleQuickCheckIn(spot);
