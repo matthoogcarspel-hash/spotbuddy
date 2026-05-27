@@ -5752,7 +5752,10 @@ export default function App() {
       .filter((sessionItem) => sessionItem.userId === currentUserId)
       .filter((sessionItem) => isSessionOnDayKey(sessionItem, activeDayKey));
     const userSessions = allCandidateSessions
-      .filter((sessionItem) => getSessionViewState(sessionItem) !== 'live')
+      .filter((sessionItem) => {
+        const state = getSessionViewState(sessionItem);
+        return state === 'going' || state === 'maybe';
+      })
       .filter((sessionItem) => !isSessionExpired(sessionItem));
     
 
