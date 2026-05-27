@@ -121,10 +121,28 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
       >
         {validSpots.map((spot) => {
           const total = spot.totalCount ?? 0;
-          const dotColor = getDotColor(total);
+          const isPending = spot.coordinateStatus === 'review';
+          const dotColor = isPending ? '#F5A623' : getDotColor(total);
           const isSelected = selectedSpot?.name === spot.name;
 
-          const dotView = (
+          const dotView = isPending ? (
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                width: 0, height: 0,
+                borderLeftWidth: 8, borderRightWidth: 8, borderBottomWidth: 14,
+                borderLeftColor: 'transparent', borderRightColor: 'transparent',
+                borderBottomColor: '#F5A623',
+                marginBottom: 2,
+              }} />
+              <View style={{
+                width: 22, height: 22, borderRadius: 11,
+                backgroundColor: '#F5A623',
+                borderWidth: 2.5, borderColor: '#ffffff',
+                shadowColor: '#F5A623', shadowOffset: { width: 0, height: 0 },
+                shadowOpacity: 1, shadowRadius: 8, elevation: 10,
+              }} />
+            </View>
+          ) : (
             <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <View style={{
                 width: 18, height: 18, borderRadius: 9,
