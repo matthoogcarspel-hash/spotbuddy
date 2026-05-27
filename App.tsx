@@ -2683,6 +2683,7 @@ export default function App() {
   const [pendingSpotFromDiscover, setPendingSpotFromDiscover] = useState<string | null>(null);
   const openedFromDiscoverRef = useRef(false);
   const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
+  const [discoverPendingMarker, setDiscoverPendingMarker] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
   const [coordinateReviewSpotName, setCoordinateReviewSpotName] = useState<SpotName | null>(null);
   const [coordinateReviewPoint, setCoordinateReviewPoint] = useState<SpotCoordinates | null>(null);
   const [yourSpotsMode, setYourSpotsMode] = useState<'search' | 'discover'>('search');
@@ -5081,6 +5082,13 @@ export default function App() {
       setPendingSpotFromDiscover(null);
     }
   }, [pendingSpotFromDiscover, showDiscoverSpotsPage]);
+
+  useEffect(() => {
+    if (!showDiscoverSpotsPage) {
+      setDiscoverMapCenter(null);
+      setDiscoverPendingMarker(null);
+    }
+  }, [showDiscoverSpotsPage]);
 
   // Refs bijhouden voor gebruik in realtime callbacks (stale closure vermijden)
   useEffect(() => { showChatRef.current = showChat; }, [showChat]);
@@ -8131,6 +8139,7 @@ export default function App() {
               longitude: discoverMapCenter?.longitude ?? 4.9041,
             }}
             flyToTarget={discoverMapCenter ?? discoverFlyTarget}
+            pendingMarker={discoverPendingMarker}
             spots={discoverSpots}
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
@@ -10167,6 +10176,7 @@ export default function App() {
                     <Pressable
                       onPress={() => {
                         setDiscoverMapCenter({ latitude: ps.latitude, longitude: ps.longitude });
+                        setDiscoverPendingMarker({ latitude: ps.latitude, longitude: ps.longitude, name: ps.name });
                         setShowProfile(false);
                         setShowDiscoverSpotsPage(true);
                       }}

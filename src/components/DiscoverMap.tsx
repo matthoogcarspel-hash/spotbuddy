@@ -16,6 +16,7 @@ type SpotMarker = {
 type Props = {
   center: { latitude: number; longitude: number };
   flyToTarget?: { latitude: number; longitude: number } | null;
+  pendingMarker?: { latitude: number; longitude: number; name: string } | null;
   spots: SpotMarker[];
   userLocation?: { latitude: number; longitude: number } | null;
   onOpenSpot: (spotName: string) => void;
@@ -39,7 +40,7 @@ const getDotColor = (total: number): string => {
   return HEATMAP[6];
 };
 
-export default function DiscoverMap({ center, flyToTarget, spots, userLocation, onOpenSpot, onAddSpot, onMapClick }: Props) {
+export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots, userLocation, onOpenSpot, onAddSpot, onMapClick }: Props) {
   const mapRef = useRef<MapView>(null);
   const hasCenteredOnGps = useRef(false);
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -158,6 +159,27 @@ export default function DiscoverMap({ center, flyToTarget, spots, userLocation, 
                 shadowColor: '#007AFF', shadowOffset: { width: 0, height: 0 },
                 shadowOpacity: 0.6, shadowRadius: 4, elevation: 6,
               }} />
+            </View>
+          </Marker>
+        )}
+
+        {pendingMarker && (
+          <Marker
+            coordinate={{ latitude: pendingMarker.latitude, longitude: pendingMarker.longitude }}
+            anchor={{ x: 0.5, y: 1 }}
+            tracksViewChanges={false}
+          >
+            <View style={{ alignItems: 'center' }}>
+              <View style={{
+                backgroundColor: '#F5A623', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
+                borderWidth: 2, borderColor: '#ffffff',
+                shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.4, shadowRadius: 4, elevation: 8,
+                marginBottom: 4,
+              }}>
+                <Text style={{ color: '#07111F', fontSize: 12, fontWeight: '900' }}>? {pendingMarker.name}</Text>
+              </View>
+              <View style={{ width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5A623' }} />
             </View>
           </Marker>
         )}
