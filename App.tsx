@@ -1527,18 +1527,27 @@ const isSessionOnDayKey = (session: SpotSession, dayKey: string) =>
   getSessionDayKey(session) === dayKey;
 const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) => {
   const hasPlannedWindow = hasPlannedTimeWindow(sessionItem);
+  const currentMinutes = nowMinutes ?? getCurrentLocalMinutes();
+  const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
+  // Zodra ingecheckt en live: balk = now → now+60, geen eindtijd label
+  if (checkedInAndActive) {
+    const roundedStart = roundMinutesToNearestFive(currentMinutes);
+    const roundedEnd = roundMinutesToNearestFive(Math.min(currentMinutes + 60, timelineEndMinutes));
+    return {
+      startMinutes: roundedStart,
+      endMinutes: roundedEnd,
+      startTime: formatMinutesAsHourMinuteFull(roundedStart),
+      endTime: formatMinutesAsHourMinuteFull(roundedEnd),
+      hasPlannedWindow: false,
+    };
+  }
   const checkedInMinutes = getLocalMinutesFromIso(sessionItem.checkedInAt);
   const plannedStartMinutes = hasPlannedWindow ? toMinutes(sessionItem.start) : null;
-  // Als ingecheckt vóór geplande starttijd → balk begint op check-in tijdstip
   const rawStartMinutes = plannedStartMinutes !== null
     ? (checkedInMinutes !== null && checkedInMinutes < plannedStartMinutes ? checkedInMinutes : plannedStartMinutes)
     : (checkedInMinutes ?? timelineStartMinutes);
-  const currentMinutes = nowMinutes ?? getCurrentLocalMinutes();
   const plannedEndMinutes = hasPlannedWindow ? toMinutes(sessionItem.end) : null;
-  const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
-  // Toon geplande eindtijd alleen als die nog niet voorbij is
-  const showPlannedEnd = hasPlannedWindow && plannedEndMinutes !== null
-    && (!checkedInAndActive || currentMinutes < plannedEndMinutes);
+  const showPlannedEnd = hasPlannedWindow && plannedEndMinutes !== null;
   const rawEndMinutes = showPlannedEnd
     ? plannedEndMinutes!
     : Math.min(currentMinutes + 60, timelineEndMinutes);
