@@ -2682,8 +2682,7 @@ export default function App() {
   const [showDiscoverSpotsPage, setShowDiscoverSpotsPage] = useState(false);
   const [pendingSpotFromDiscover, setPendingSpotFromDiscover] = useState<string | null>(null);
   const openedFromDiscoverRef = useRef(false);
-  const [discoverMapCenter, setDiscoverMapCenter] = useState<SpotCoordinates | null>(null);
-  const [discoverPendingMarker, setDiscoverPendingMarker] = useState<{ latitude: number; longitude: number; name: string } | null>(null);
+  const [discoverMapCenter, setDiscoverMapCenter] = useState<{ latitude: number; longitude: number; pendingName?: string } | null>(null);
   const [coordinateReviewSpotName, setCoordinateReviewSpotName] = useState<SpotName | null>(null);
   const [coordinateReviewPoint, setCoordinateReviewPoint] = useState<SpotCoordinates | null>(null);
   const [yourSpotsMode, setYourSpotsMode] = useState<'search' | 'discover'>('search');
@@ -5086,7 +5085,6 @@ export default function App() {
   useEffect(() => {
     if (!showDiscoverSpotsPage) {
       setDiscoverMapCenter(null);
-      setDiscoverPendingMarker(null);
     }
   }, [showDiscoverSpotsPage]);
 
@@ -8060,17 +8058,19 @@ export default function App() {
         };
       });
 
-    if (discoverPendingMarker && !discoverSpots.some((s) => s.name === discoverPendingMarker.name)) {
-      discoverSpots.push({
-        name: discoverPendingMarker.name,
-        latitude: discoverPendingMarker.latitude,
-        longitude: discoverPendingMarker.longitude,
-        isAdded: false,
-        coordinateStatus: 'review' as const,
-        liveCount: 0,
-        goingCount: 0,
-        totalCount: 0,
-      });
+    for (const ps of pendingSpots) {
+      if (!discoverSpots.some((s) => s.name === ps.name)) {
+        discoverSpots.push({
+          name: ps.name,
+          latitude: ps.latitude,
+          longitude: ps.longitude,
+          isAdded: false,
+          coordinateStatus: 'review' as const,
+          liveCount: 0,
+          goingCount: 0,
+          totalCount: 0,
+        });
+      }
     }
 
     const discoverQuery = (homeSpotSearchQuery ?? '').trim().toLowerCase();
@@ -8152,7 +8152,7 @@ export default function App() {
               longitude: discoverMapCenter?.longitude ?? 4.9041,
             }}
             flyToTarget={discoverMapCenter ?? discoverFlyTarget}
-            pendingMarker={discoverPendingMarker}
+            pendingMarker={discoverMapCenter?.pendingName ? { latitude: discoverMapCenter.latitude, longitude: discoverMapCenter.longitude, name: discoverMapCenter.pendingName } : null}
             spots={discoverSpots}
             userLocation={currentCoordinates}
             onOpenSpot={(spotName) => {
@@ -10188,8 +10188,7 @@ export default function App() {
                   <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
                     <Pressable
                       onPress={() => {
-                        setDiscoverMapCenter({ latitude: ps.latitude, longitude: ps.longitude });
-                        setDiscoverPendingMarker({ latitude: ps.latitude, longitude: ps.longitude, name: ps.name });
+                        setDiscoverMapCenter({ latitude: ps.latitude, longitude: ps.longitude, pendingName: ps.name });
                         setShowProfile(false);
                         setShowDiscoverSpotsPage(true);
                       }}
