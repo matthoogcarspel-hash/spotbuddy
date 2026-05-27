@@ -186,7 +186,7 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
       </MapView>
 
       {pendingMarker && Platform.OS === 'web' && (
-        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, alignItems: 'center', justifyContent: 'center' }}>
           <View style={{
             backgroundColor: '#F5A623',
             borderRadius: 20,
