@@ -103,6 +103,14 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
           latitudeDelta: pendingMarker ? 0.04 : DEFAULT_DELTA,
           longitudeDelta: pendingMarker ? 0.04 : DEFAULT_DELTA,
         }}
+        {...(Platform.OS === 'web' && pendingMarker ? {
+          region: {
+            latitude: pendingMarker.latitude,
+            longitude: pendingMarker.longitude,
+            latitudeDelta: 0.04,
+            longitudeDelta: 0.04,
+          }
+        } : {})}
         onRegionChangeComplete={() => {}}
         onPress={(e) => {
           const coordinate = e.nativeEvent.coordinate;
