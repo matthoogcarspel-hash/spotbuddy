@@ -1531,12 +1531,11 @@ const getRoundedSessionWindow = (sessionItem: SpotSession, nowMinutes?: number) 
   const checkedInAndActive = Boolean(sessionItem.checkedInAt) && !sessionItem.checkedOutAt;
   // Zodra ingecheckt en live: balk = now → now+60, geen eindtijd label
   if (checkedInAndActive) {
-    const roundedStart = roundMinutesToNearestFive(currentMinutes);
     const roundedEnd = roundMinutesToNearestFive(Math.min(currentMinutes + 60, timelineEndMinutes));
     return {
-      startMinutes: roundedStart,
+      startMinutes: currentMinutes,
       endMinutes: roundedEnd,
-      startTime: formatMinutesAsHourMinuteFull(roundedStart),
+      startTime: formatMinutesAsHourMinuteFull(currentMinutes),
       endTime: formatMinutesAsHourMinuteFull(roundedEnd),
       hasPlannedWindow: false,
     };
@@ -1642,7 +1641,8 @@ const groupTimelineSessions = ({
       if (timelineSession.state === 'live') {
         existing.startMinutes = roundedStartMinutes;
         existing.startTime = startTime;
-        existing.endMinutes = Math.max(existing.endMinutes, roundedEndMinutes);
+        existing.endMinutes = roundedEndMinutes;
+        existing.endTime = endTime;
         existing.hasPlannedWindow = false;
       }
     }
