@@ -8814,7 +8814,7 @@ export default function App() {
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>💬</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from buddies</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct Chat: Buddies</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {(['on', 'off'] as const).map((opt) => {
@@ -8833,11 +8833,11 @@ export default function App() {
                 </View>
               </View>
 
-              {/* Direct chat from non-buddies */}
+              {/* Direct Chat: Other Riders */}
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>💬</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from non-buddies</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct Chat: Other Riders</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {(['on', 'off'] as const).map((opt) => {
@@ -9175,7 +9175,7 @@ export default function App() {
                     <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                         <Text style={{ fontSize: 16 }}>💬</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from buddies</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct Chat: Buddies</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {(['on', 'off'] as const).map((opt) => {
@@ -9196,7 +9196,7 @@ export default function App() {
                     <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                         <Text style={{ fontSize: 16 }}>💬</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from non-buddies</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct Chat: Other Riders</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {(['on', 'off'] as const).map((opt) => {
