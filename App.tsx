@@ -2205,27 +2205,25 @@ function SessionTimeline({
                   >
                     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 10 }}>
                       {/* Avatars: stacked for groups */}
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
-                          <Pressable key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
-                            <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} skillLevel={item.userSkillLevel} name={item.userName} />
-                          </Pressable>
-                        ))}
-                        {(group.visibleSessions?.length ?? 0) > 3 ? (
-                          <View style={{ marginLeft: -12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', zIndex: 0 }}>
-                            <Text style={{ color: theme.text, fontSize: 11, fontWeight: '900' }}>+{(group.visibleSessions?.length ?? 0) - 3}</Text>
-                          </View>
+                      <View style={{ alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          {(group.visibleSessions ?? []).slice(0, 3).map(({ item }, avatarIndex) => (
+                            <Pressable key={`avatar-${group.key}-${item.id}`} style={{ marginLeft: avatarIndex === 0 ? 0 : -12, zIndex: 3 - avatarIndex }} onPress={() => item.userId && item.userId !== currentProfileId && onAvatarPress?.(item.userId)}>
+                              <Avatar uri={item.userAvatarUrl ?? null} size={38} nationality={item.userNationality} skillLevel={item.userSkillLevel} name={item.userName} />
+                            </Pressable>
+                          ))}
+                          {(group.visibleSessions?.length ?? 0) > 3 ? (
+                            <View style={{ marginLeft: -12, width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', zIndex: 0 }}>
+                              <Text style={{ color: theme.text, fontSize: 11, fontWeight: '900' }}>+{(group.visibleSessions?.length ?? 0) - 3}</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        {(group.visibleSessions?.length ?? 0) > 1 ? (
+                          <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700', marginTop: 3 }}>{group.visibleSessions?.length} riders</Text>
                         ) : null}
                       </View>
 
                       <View style={{ flex: 1 }}>
-                        {(group.visibleSessions?.length ?? 0) > 1 ? (
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                            <View style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, paddingHorizontal: 7, paddingVertical: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                              <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '700' }}>👥 Group · {group.visibleSessions?.length} riders</Text>
-                            </View>
-                          </View>
-                        ) : null}
                         <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }} numberOfLines={1}>
                           {(group.visibleSessions ?? []).map(({ item }) => item.userName?.replace(/\s*-\s*(Buddy|You|Other)\s*$/i, '').trim()).filter(Boolean).join(' · ')}
                         </Text>
