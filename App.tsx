@@ -11907,6 +11907,12 @@ const handleSave = async () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+      {!isWebPlatform ? (
+        <View style={{ position: 'absolute', width: 0, height: 0, overflow: 'hidden' }} pointerEvents="none">
+          <Image source={require('./assets/logo.png')} style={{ width: 1, height: 1 }} />
+          <Image source={require('./assets/wordmark.png')} style={{ width: 1, height: 1 }} />
+        </View>
+      ) : null}
       <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
       <View style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
         {renderNativeTopBar()}
