@@ -6083,7 +6083,7 @@ export default function App() {
     : false;
   
   const withinRange = selectedSpotWithinCheckInRadius;
-  const shouldShowSpotCheckIn = activeDay === 'today' && !isCheckedInAtSelectedSpot;
+  const shouldShowSpotCheckIn = activeDay === 'today' && !hasActiveCheckedInSession;
   const shouldShowSpotCheckOut = activeDay === 'today' && isCheckedInAtSelectedSpot;
   const canCheckIn = shouldShowSpotCheckIn && withinRange;
   const checkInCtaVisible = canCheckIn;
@@ -6965,8 +6965,6 @@ export default function App() {
         .eq('user_id', activeProfileId)
         .is('checked_out_at', null)
         .in('status', ['Is er al', 'live'])
-        .gte('checked_in_at', activeDateStart.toISOString())
-        .lt('checked_in_at', activeDateEnd.toISOString())
         .order('checked_in_at', { ascending: false });
     const deleteGhostSessionsForUser = async (userId: string) => {
       const payload = { user_id: userId };
@@ -6997,13 +6995,11 @@ export default function App() {
     const existingCheckedInSessionsForDay = (
       existingCheckedInSessionsForDayResponse.data ?? []
     ).filter((session) => {
-      const checkedInAt = session.checked_in_at
-        ? new Date(session.checked_in_at).getTime()
-        : 0;
-
-      const ageHours = (Date.now() - checkedInAt) / (1000 * 60 * 60);
-
-      return ageHours < 12;
+      const referenceIso = session.checked_in_at ?? session.created_at;
+      const referenceMs = referenceIso ? new Date(referenceIso).getTime() : null;
+      if (referenceMs === null || Number.isNaN(referenceMs)) return false;
+      const ageHours = (Date.now() - referenceMs) / (1000 * 60 * 60);
+      return ageHours < 24;
     });
     
     const activeSession = existingCheckedInSessionsForDay
