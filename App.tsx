@@ -4716,11 +4716,9 @@ export default function App() {
         const submitterName = profiles?.[0]?.display_name ?? r.submitted_by;
         setPendingSpots((prev) => [...prev, { id: r.id, name: r.name, latitude: r.latitude, longitude: r.longitude, submittedBy: r.submitted_by, submitterName }]);
       })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pending_spots' }, (payload) => {
-        const r = payload.new as any;
-        if (r.status !== 'pending') {
-          setPendingSpots((prev) => prev.filter((s) => s.id !== r.id));
-        }
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'pending_spots' }, (payload) => {
+        const r = payload.old as any;
+        setPendingSpots((prev) => prev.filter((s) => s.id !== r.id));
       })
       .subscribe();
 
@@ -10311,7 +10309,7 @@ export default function App() {
                     <Pressable
                       onPress={async () => {
                         await supabase.from('spots').insert({ name: ps.name, latitude: ps.latitude, longitude: ps.longitude, coordinate_status: 'verified' });
-                        await supabase.from('pending_spots').update({ status: 'approved' }).eq('id', ps.id);
+                        await supabase.from('pending_spots').delete().eq('id', ps.id);
                         setPendingSpots((prev) => prev.filter((s) => s.id !== ps.id));
                       }}
                       style={{ backgroundColor: '#00C896', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
@@ -10320,7 +10318,7 @@ export default function App() {
                     </Pressable>
                     <Pressable
                       onPress={async () => {
-                        await supabase.from('pending_spots').update({ status: 'rejected' }).eq('id', ps.id);
+                        await supabase.from('pending_spots').delete().eq('id', ps.id);
                         setPendingSpots((prev) => prev.filter((s) => s.id !== ps.id));
                       }}
                       style={{ backgroundColor: '#8b1f38', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
