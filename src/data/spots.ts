@@ -74,6 +74,66 @@ export const spots = [
     latitude: 51.921233,
     longitude: 4.0398344,
   },
+  {
+    spot: 'Langebaan',
+    latitude: -33.0894,
+    longitude: 18.0364,
+  },
+  {
+    spot: 'Dakhla Lagoon',
+    latitude: 23.7167,
+    longitude: -15.9333,
+  },
+  {
+    spot: 'Sotavento Fuerteventura',
+    latitude: 28.0501,
+    longitude: -14.3247,
+  },
+  {
+    spot: 'Cabarete',
+    latitude: 19.7597,
+    longitude: -70.4095,
+  },
+  {
+    spot: 'Cumbuco',
+    latitude: -3.4936,
+    longitude: -38.7289,
+  },
+  {
+    spot: 'La Ventana',
+    latitude: 24.0461,
+    longitude: -109.9828,
+  },
+  {
+    spot: 'Hood River',
+    latitude: 45.7074,
+    longitude: -121.5212,
+  },
+  {
+    spot: 'Boracay Bulabog Beach',
+    latitude: 11.9674,
+    longitude: 121.9282,
+  },
+  {
+    spot: 'Mui Ne',
+    latitude: 10.9333,
+    longitude: 108.2833,
+  },
+  {
+    spot: 'Nyang Nyang Bali',
+    latitude: -8.8258,
+    longitude: 115.1014,
+  },
+  {
+    spot: 'Aruba Hadicurari Beach',
+    latitude: 12.5992,
+    longitude: -70.0549,
+  },
+  {
+    spot: 'Turks and Caicos Long Bay',
+    latitude: 21.7992,
+    longitude: -72.2310,
+  },
  ] as const;
 
 export type SpotDefinition = (typeof spots)[number];
