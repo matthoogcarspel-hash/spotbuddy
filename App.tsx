@@ -5904,9 +5904,8 @@ export default function App() {
       
       
 
-      await handleQuickCheckOut();
-      const autoCheckoutFailed = activeCheckedInSession?.id === gpsActiveCheckedInSession.id;
-      if (autoCheckoutFailed) {
+      const checkoutSucceeded = await handleQuickCheckOut();
+      if (!checkoutSucceeded) {
         autoCheckoutInFlightRef.current = false;
         hasAutoCheckedOutRef.current = false;
         console.error('AUTO_CHECKOUT_ERROR', {
@@ -7443,25 +7442,25 @@ export default function App() {
     await fetchSpotDefinitions();
   };
 
-  const handleQuickCheckOut = async () => {
-    
+  const handleQuickCheckOut = async (): Promise<boolean> => {
+
     setHomeQuickCheckInError('');
 
     const activeProfileId = activeProfile?.id ?? null;
-    
+
     if (!activeProfileId) {
-      return;
+      return false;
     }
 
     if (!activeCheckedInSession) {
       setHomeQuickCheckInError('Check eerst in');
-      
-      return;
+
+      return false;
     }
 
     setHomeQuickCheckOutInFlight(true);
     const payload = { user_id: activeProfileId };
-    
+
     const result = await supabase
       .from('sessions')
       .update({
@@ -7474,16 +7473,17 @@ export default function App() {
     setHomeQuickCheckOutInFlight(false);
 
     if (result.error) {
-      
+
       setHomeQuickCheckInError('Check-out failed. Please try again.');
-      
-      return;
+
+      return false;
     }
 
-    
-    
+
+
     setHomeQuickCheckInError('');
     await fetchSharedData();
+    return true;
   };
 
   useEffect(() => {
