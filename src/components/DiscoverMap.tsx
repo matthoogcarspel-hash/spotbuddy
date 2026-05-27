@@ -166,20 +166,20 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
         {pendingMarker && (
           <Marker
             coordinate={{ latitude: pendingMarker.latitude, longitude: pendingMarker.longitude }}
-            anchor={{ x: 0.5, y: 1 }}
-            tracksViewChanges={false}
+            tracksViewChanges
           >
-            <View style={{ alignItems: 'center' }}>
+            <View style={{ alignItems: 'center', justifyContent: 'center' }}>
               <View style={{
-                backgroundColor: '#F5A623', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4,
-                borderWidth: 2, borderColor: '#ffffff',
+                backgroundColor: '#F5A623',
+                borderRadius: 20,
+                width: 36, height: 36,
+                alignItems: 'center', justifyContent: 'center',
+                borderWidth: 3, borderColor: '#ffffff',
                 shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-                shadowOpacity: 0.4, shadowRadius: 4, elevation: 8,
-                marginBottom: 4,
+                shadowOpacity: 0.5, shadowRadius: 6, elevation: 10,
               }}>
-                <Text style={{ color: '#07111F', fontSize: 12, fontWeight: '900' }}>? {pendingMarker.name}</Text>
+                <Text style={{ color: '#07111F', fontSize: 18, fontWeight: '900', lineHeight: 22 }}>?</Text>
               </View>
-              <View style={{ width: 0, height: 0, borderLeftWidth: 6, borderRightWidth: 6, borderTopWidth: 8, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5A623' }} />
             </View>
           </Marker>
         )}
@@ -222,6 +222,23 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
                 <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13 }}>✓ Added</Text>
               </View>
             )}
+          </View>
+        </View>
+      ) : null}
+
+      {pendingMarker && !selectedSpot ? (
+        <View style={{
+          position: 'absolute', bottom: 100, left: 20, right: 20,
+          backgroundColor: '#1a2a3a', borderRadius: 14,
+          padding: 14, borderWidth: 2, borderColor: '#F5A623',
+          flexDirection: 'row', alignItems: 'center', gap: 10,
+        }}>
+          <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: '#F5A623', alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#07111F', fontSize: 15, fontWeight: '900' }}>?</Text>
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ color: '#F5A623', fontSize: 11, fontWeight: '700', marginBottom: 1 }}>PENDING SPOT SUGGESTION</Text>
+            <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '900' }}>{pendingMarker.name}</Text>
           </View>
         </View>
       ) : null}
