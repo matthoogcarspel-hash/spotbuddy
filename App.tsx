@@ -1261,6 +1261,20 @@ function Avatar({ uri, size = 28, name }: { uri: string | null; size?: number; n
   return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: size / 2, backgroundColor: theme.card }} />;
 }
 
+function Flag({ code, size = 20 }: { code: string; size?: number }) {
+  if (Platform.OS === 'web') {
+    const w = Math.round(size * 2);
+    return (
+      <Image
+        source={{ uri: `https://flagcdn.com/w${w}/${code.toLowerCase()}.png` }}
+        style={{ width: Math.round(size * 1.35), height: size, borderRadius: 2 }}
+      />
+    );
+  }
+  const c = getCountry(code);
+  return c ? <Text style={{ fontSize: size }}>{c.flag}</Text> : null;
+}
+
 type SessionBarProps = {
   leftPercent: number;
   widthPercent: number;
@@ -3124,7 +3138,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, display_name, avatar_url, owner_uid, created_at, nationality, dm_push_enabled')
+        .select('id, display_name, avatar_url, owner_uid, created_at, nationality, skill_level, dm_push_enabled')
         .eq('owner_uid', authUser.id)
         .order('created_at', { ascending: true });
       
@@ -6171,7 +6185,7 @@ export default function App() {
                       <Text style={{ color: '#FFD166', fontSize: 14 }}>{'★'.repeat(viewingOtherProfile.skill_level)}</Text>
                     ) : null}
                   </View>
-                  {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <Text style={{ color: theme.textMuted, fontSize: 13, marginTop: 3 }}>{c.flag}  {c.name}</Text> : null; })() : null}
+                  {viewingOtherProfile.nationality ? (() => { const c = getCountry(viewingOtherProfile.nationality); return c ? <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3 }}><Flag code={c.code} size={14} /><Text style={{ color: theme.textMuted, fontSize: 13 }}>{c.name}</Text></View> : null; })() : null}
                   {viewingOtherProfile.skill_level ? (
                     <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>
                       {['', 'Beginner', 'Novice', 'Intermediate', 'Advanced', 'Expert / Pro'][viewingOtherProfile.skill_level]}
@@ -9977,9 +9991,9 @@ export default function App() {
             }}
           >
             <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Nationality</Text>
-            <Text style={{ color: theme.text, fontSize: 14 }}>
-              {(() => { const c = getCountry(profile.nationality); return c ? `${c.flag}  ${c.name}` : 'Not set'; })()}
-            </Text>
+            {(() => { const c = getCountry(profile.nationality); return c ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}><Flag code={c.code} size={14} /><Text style={{ color: theme.text, fontSize: 14 }}>{c.name}</Text></View>
+            ) : <Text style={{ color: theme.text, fontSize: 14 }}>Not set</Text>; })()}
           </Pressable>
 
           {showNationalityPicker ? (
@@ -10041,7 +10055,7 @@ export default function App() {
                         gap: 12,
                       }}
                     >
-                      <Text style={{ fontSize: 22 }}>{country.flag}</Text>
+                      <Flag code={country.code} size={20} />
                       <Text style={{ color: isSelected ? '#4DB8FF' : theme.text, fontSize: 14, fontWeight: isSelected ? '800' : '600', flex: 1 }}>
                         {country.name}
                       </Text>
