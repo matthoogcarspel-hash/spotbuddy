@@ -8810,26 +8810,6 @@ export default function App() {
                 );
               })}
 
-              {/* Message requests */}
-              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-                  <Text style={{ fontSize: 16 }}>✉️</Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Direct chat from non-buddies</Text>
-                  </View>
-                </View>
-                <View style={{ flexDirection: 'row', gap: 6 }}>
-                  {(['on', 'off'] as const).map((opt) => {
-                    const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
-                    return (
-                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              </View>
-
               {/* DMs toggle */}
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
@@ -8846,6 +8826,24 @@ export default function App() {
                         setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
                         await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
                       }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Direct chat from non-buddies */}
+              <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                  <Text style={{ fontSize: 16 }}>💬</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from non-buddies</Text>
+                </View>
+                <View style={{ flexDirection: 'row', gap: 6 }}>
+                  {(['on', 'off'] as const).map((opt) => {
+                    const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
+                    return (
+                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
                         <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                       </Pressable>
                     );
@@ -9189,6 +9187,22 @@ export default function App() {
                               setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
                               await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
                             }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
+                              <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                            </Pressable>
+                          );
+                        })}
+                      </View>
+                    </View>
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+                        <Text style={{ fontSize: 16 }}>💬</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from non-buddies</Text>
+                      </View>
+                      <View style={{ flexDirection: 'row', gap: 6 }}>
+                        {(['on', 'off'] as const).map((opt) => {
+                          const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
+                          return (
+                            <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
                               <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                             </Pressable>
                           );
