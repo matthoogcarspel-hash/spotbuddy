@@ -4675,8 +4675,9 @@ export default function App() {
   }, [showProfile, isAccountSwitcherVisible]);
 
   useEffect(() => {
-    if (!showProfile || !isAccountSwitcherVisible) return;
-    void (async () => {
+    if (!isAccountSwitcherVisible) return;
+
+    const fetchAll = async () => {
       try {
         const { data, error } = await supabase
           .from('pending_spots')
@@ -4702,8 +4703,29 @@ export default function App() {
       } finally {
         setPendingSpotsLoaded(true);
       }
-    })();
-  }, [showProfile, isAccountSwitcherVisible]);
+    };
+
+    void fetchAll();
+
+    const channel = supabase
+      .channel('pending_spots_admin')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'pending_spots' }, async (payload) => {
+        const r = payload.new as any;
+        if (r.status !== 'pending') return;
+        const { data: profiles } = await supabase.from('profiles').select('id, display_name').eq('id', r.submitted_by);
+        const submitterName = profiles?.[0]?.display_name ?? r.submitted_by;
+        setPendingSpots((prev) => [...prev, { id: r.id, name: r.name, latitude: r.latitude, longitude: r.longitude, submittedBy: r.submitted_by, submitterName }]);
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'pending_spots' }, (payload) => {
+        const r = payload.new as any;
+        if (r.status !== 'pending') {
+          setPendingSpots((prev) => prev.filter((s) => s.id !== r.id));
+        }
+      })
+      .subscribe();
+
+    return () => { void supabase.removeChannel(channel); };
+  }, [isAccountSwitcherVisible]);
 
   useEffect(() => {
     if (!activeAppUserId) return;
