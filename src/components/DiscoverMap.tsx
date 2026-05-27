@@ -213,17 +213,18 @@ export default function DiscoverMap({ center, flyToTarget, pendingMarker, spots,
 
       {pendingMarker && Platform.OS === 'web' && (
         <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, alignItems: 'center', justifyContent: 'center' }}>
-          <View style={{
-            backgroundColor: '#F5A623',
-            borderRadius: 20,
-            width: 44, height: 44,
-            alignItems: 'center', justifyContent: 'center',
-            borderWidth: 3, borderColor: '#ffffff',
-            shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-            shadowOpacity: 0.5, shadowRadius: 8, elevation: 10,
-            marginBottom: 8,
-          }}>
-            <Text style={{ color: '#07111F', fontSize: 22, fontWeight: '900' }}>?</Text>
+          <View style={{ alignItems: 'center', marginBottom: 0 }}>
+            <View style={{
+              backgroundColor: '#F5A623',
+              borderRadius: 10,
+              paddingHorizontal: 10, paddingVertical: 4,
+              marginBottom: 4,
+              borderWidth: 2, borderColor: '#fff',
+            }}>
+              <Text style={{ color: '#07111F', fontSize: 13, fontWeight: '900' }}>📍 {pendingMarker.name}</Text>
+            </View>
+            <View style={{ width: 0, height: 0, borderLeftWidth: 10, borderRightWidth: 10, borderTopWidth: 16, borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5A623' }} />
+            <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: '#F5A623' }} />
           </View>
         </View>
       )}
