@@ -8170,7 +8170,17 @@ export default function App() {
             onMapClick={(latitude, longitude) => setCoordinateReviewPoint({ latitude, longitude })}
           />
           {discoverMapCenter?.pendingName ? (
-            <View style={{ position: 'absolute', bottom: 110, left: 16, right: 16, zIndex: 9999, backgroundColor: '#1a2a3a', borderRadius: 14, padding: 14, borderWidth: 2, borderColor: '#F5A623', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+            <>
+              <View pointerEvents="none" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999, alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{ alignItems: 'center' }}>
+                  <View style={{ backgroundColor: '#F5A623', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, borderWidth: 2, borderColor: '#fff', marginBottom: 4 }}>
+                    <Text style={{ color: '#07111F', fontSize: 13, fontWeight: '900' }}>📍 {discoverMapCenter.pendingName}</Text>
+                  </View>
+                  <View style={{ width: 0, height: 0, borderLeftWidth: 12, borderRightWidth: 12, borderTopWidth: 18, borderStyle: 'solid', borderLeftColor: 'transparent', borderRightColor: 'transparent', borderTopColor: '#F5A623' }} />
+                  <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#F5A623', marginTop: 1 }} />
+                </View>
+              </View>
+              <View style={{ position: 'absolute', bottom: 110, left: 16, right: 16, zIndex: 9999, backgroundColor: '#1a2a3a', borderRadius: 14, padding: 14, borderWidth: 2, borderColor: '#F5A623', flexDirection: 'row', alignItems: 'center', gap: 10 }}>
               <View style={{ width: 30, height: 30, borderRadius: 15, backgroundColor: '#F5A623', alignItems: 'center', justifyContent: 'center' }}>
                 <Text style={{ color: '#07111F', fontSize: 16, fontWeight: '900' }}>?</Text>
               </View>
@@ -8186,6 +8196,7 @@ export default function App() {
                 <Text style={{ color: '#07111F', fontSize: 12, fontWeight: '900' }}>Maps ↗</Text>
               </Pressable>
             </View>
+            </>
           ) : null}
         </View>
 
