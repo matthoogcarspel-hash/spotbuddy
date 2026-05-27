@@ -1639,6 +1639,12 @@ const groupTimelineSessions = ({
       });
     } else {
       existing.sessions.push(entry);
+      if (timelineSession.state === 'live') {
+        existing.startMinutes = roundedStartMinutes;
+        existing.startTime = startTime;
+        existing.endMinutes = Math.max(existing.endMinutes, roundedEndMinutes);
+        existing.hasPlannedWindow = false;
+      }
     }
   }
 
