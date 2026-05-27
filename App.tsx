@@ -8815,8 +8815,7 @@ export default function App() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>✉️</Text>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Message requests</Text>
-                    <Text style={{ color: theme.textMuted, fontSize: 11 }}>Direct chats from non-buddies</Text>
+                    <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700' }}>Direct chat from non-buddies</Text>
                   </View>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
@@ -8835,7 +8834,7 @@ export default function App() {
               <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                   <Text style={{ fontSize: 16 }}>💬</Text>
-                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat</Text>
+                  <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from buddies</Text>
                 </View>
                 <View style={{ flexDirection: 'row', gap: 6 }}>
                   {(['on', 'off'] as const).map((opt) => {
@@ -9178,7 +9177,7 @@ export default function App() {
                     <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
                         <Text style={{ fontSize: 16 }}>💬</Text>
-                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat</Text>
+                        <Text style={{ color: theme.textSoft, fontSize: 13, fontWeight: '700', flex: 1 }}>Direct chat from buddies</Text>
                       </View>
                       <View style={{ flexDirection: 'row', gap: 6 }}>
                         {(['on', 'off'] as const).map((opt) => {
