@@ -8059,8 +8059,14 @@ export default function App() {
   };
 
   if (showDiscoverSpotsPage) {
+    const seenSpotNames = new Set<string>();
     const discoverSpots = spotDefinitions
-      .filter((s) => Number.isFinite(s.latitude) && Number.isFinite(s.longitude))
+      .filter((s) => {
+        if (!Number.isFinite(s.latitude) || !Number.isFinite(s.longitude)) return false;
+        if (seenSpotNames.has(s.spot)) return false;
+        seenSpotNames.add(s.spot);
+        return true;
+      })
       .map((s) => {
         const allSpotSessions = daySessionsBySpot[s.spot] ?? [];
         const spotSessions = allSpotSessions.filter((ss) => getCleanSessionStatus(ss) !== 'finished');
@@ -8079,8 +8085,10 @@ export default function App() {
         };
       });
 
+    const seenNames = new Set(discoverSpots.map((s) => s.name));
     for (const ps of pendingSpots) {
-      if (!discoverSpots.some((s) => s.name === ps.name)) {
+      if (!seenNames.has(ps.name)) {
+        seenNames.add(ps.name);
         discoverSpots.push({
           name: ps.name,
           latitude: ps.latitude,
