@@ -2540,6 +2540,7 @@ export default function App() {
   );
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
   const [showBuddies, setShowBuddies] = useState(false);
   const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
   const [showChat, setShowChat] = useState(false);
@@ -9807,6 +9808,65 @@ export default function App() {
     );
   }
 
+  if (showProfile && showGuide) {
+    const guidesections = [
+      {
+        title: 'Home screen',
+        body: 'Shows your spots and what\'s happening today.\n\n• Nearest spot — your closest kite spot with live wind and rider count. A Check in button appears when you\'re within 500m.\n• My Spots — your saved spots with wind, rider count, and quick check-in.\n• Planned session — if you have a session today it shows here.\n\nSwitch between Today and Tomorrow at the top.',
+      },
+      {
+        title: 'Spot page',
+        body: '• Check in — marks you as live. Needs to be within 500m of the spot.\n• Plan a session — set a time window so others can see you\'re going.\n• Timeline — shows all sessions for the day. Tap a bar to see details or join.\n• Join — you can join a session if you\'re a buddy of someone in the group.\n• Rate the spot — share wind speed, direction, water conditions, and crowd level.\n• Check out — marks your session as finished.',
+      },
+      {
+        title: 'Discover',
+        body: 'The map shows all spots as coloured dots — brighter means more activity.\n\n• Search a spot name. Use Show on map to fly to it, or Open → for the spot page.\n• Suggest a spot — stand at a new spot, tap Suggest a spot, enter a name and submit. It\'s reviewed before going live.',
+      },
+      {
+        title: 'Buddies',
+        body: 'Follow someone to send a buddy request. Once they follow back you\'re buddies.\n\nBuddy benefits: see each other\'s sessions and join each other\'s groups.\n\nTap any avatar on a session or spot page to view a profile, send a direct message, or send a buddy request.',
+      },
+      {
+        title: 'Chat',
+        body: '• Direct messages — tap a buddy\'s avatar anywhere to open a chat.\n• Group chat — when multiple riders are in the same session, a Group Chat button appears.\n• Broadcast — send a message to all your buddies at once from the chat screen.',
+      },
+      {
+        title: 'Notifications',
+        body: 'You get notified when:\n• A buddy checks in at one of your spots\n• Someone joins your session\n• A buddy request or acceptance\n• A direct message\n• A broadcast from a buddy\n\nToggle DM notifications in your profile settings.',
+      },
+      {
+        title: 'Profile',
+        body: '• Display name — visible to all riders.\n• Profile photo — tap to change.\n• Nationality — shown as a flag on your avatar.\n• Skill level — 1 (beginner) to 5 (pro), shown as dots on your avatar.\n• DM notifications — toggle push notifications for direct messages.',
+      },
+      {
+        title: 'Tips',
+        body: '• Add regular spots to My Spots from the spot page.\n• Wind data is live from Open-Meteo and updates automatically.\n• Session bar colours: green = live, blue = going, grey = maybe.\n• If you arrive earlier than planned, just check in — the bar adjusts.',
+      },
+    ];
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+          <Pressable onPress={() => setShowGuide(false)} hitSlop={12} style={{ marginRight: 12 }}>
+            <Ionicons name="arrow-back" size={22} color={theme.text} />
+          </Pressable>
+          <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800', flex: 1 }}>How it works</Text>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 24 }} showsVerticalScrollIndicator={false}>
+          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginBottom: 4 }}>SpotBuddy Guide</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 8 }}>SpotBuddy helps kitesurfers find out who's at the water, plan sessions, and connect with their kite crew.</Text>
+          {guidesections.map((section) => (
+            <View key={section.title} style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.border }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', marginBottom: 8 }}>{section.title}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 13, lineHeight: 20 }}>{section.body}</Text>
+            </View>
+          ))}
+          <View style={{ height: 20 }} />
+        </ScrollView>
+      </SafeAreaView>
+    );
+  }
+
   if (showProfile) {
     const handlePickProfileAvatar = async () => {
       setProfileEditError('');
@@ -10248,6 +10308,13 @@ export default function App() {
             style={{ marginTop: 2, borderRadius: 14, padding: 14, alignItems: 'center' }}
           >
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 13, fontWeight: '600' }}>Contact · {CONTACT_EMAIL}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setShowGuide(true)}
+            style={{ borderRadius: 14, padding: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>How it works</Text>
           </Pressable>
 
           <Pressable
