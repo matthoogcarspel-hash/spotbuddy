@@ -297,7 +297,7 @@ export async function joinSession(input: {
   // (bijv. bij buildCreatedAtForDayKey of wanneer de join de dag vóór wordt uitgevoerd)
   const { data: ownSessionsForDay, error: ownSessionsForDayError } = await supabase
     .from('sessions')
-    .select('id, user_id, spot_name, session_day, start_time, end_time, status, checked_out_at')
+    .select('id, user_id, spot_name, session_day, start_time, end_time, status, checked_out_at, intent, source_session_id, checked_in_at, created_at')
     .eq('user_id', sessionIdentity.user_id)
     .eq('session_day', sessionIdentity.day_key);
 
@@ -332,6 +332,8 @@ export async function joinSession(input: {
       return Math.max(start, joinStartMinutes) < Math.min(end, joinEndMinutes);
     })
     .map((session) => session.id);
+
+  const sessionsToRestore = (ownSessionsForDay ?? []).filter((s) => sessionsToDeleteIds.includes(s.id));
 
   if (sessionsToDeleteIds.length > 0) {
     const deleteResult = await supabase
@@ -403,6 +405,14 @@ export async function joinSession(input: {
     .single();
 
   if (writeResult.error) {
+    // Restore deleted sessions so the user doesn't lose their data
+    if (sessionsToRestore.length > 0) {
+      await supabase.from('sessions').insert(
+        sessionsToRestore.map(({ id, user_id, spot_name, session_day, start_time, end_time, status, intent, source_session_id, checked_in_at, checked_out_at, created_at }) => ({
+          id, user_id, spot_name, session_day, start_time, end_time, status, intent, source_session_id, checked_in_at, checked_out_at, created_at,
+        }))
+      );
+    }
     return withLoggedResult('SCHEMA_ALIGNMENT_JOIN_RESULT', { ok: false, reason: 'WRITE_FAILED', error: writeResult.error });
   }
 

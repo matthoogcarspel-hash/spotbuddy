@@ -51,6 +51,14 @@
         {
           "locationAlwaysAndWhenInUsePermission": "SpotBuddy uses your location to find nearby kite spots and auto check-out when you leave."
         }
+      ],
+      [
+        "@sentry/react-native/expo",
+        {
+          "url": "https://sentry.io/",
+          "project": "react-native",
+          "organization": "spotbuddy-rv"
+        }
       ]
     ]
   }

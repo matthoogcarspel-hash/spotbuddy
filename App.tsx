@@ -26,6 +26,26 @@ import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
 import { theme as appTheme } from './src/theme/theme';
 import { SpotSummaryCards as TargetSpotSummaryCards } from './components/SpotSummaryCards';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://027daa0beeb038f4751889f33984309b@o4511466267410432.ingest.de.sentry.io/4511466280779856',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 const fallbackSpots = spots;
 
@@ -492,6 +512,18 @@ const formatToHourMinute = (value: string | null | undefined) => {
     hour12: false,
   });
 };
+const formatChatTimestamp = (value: string | null | undefined): string => {
+  if (!value) return '';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  if (isToday) return time;
+  const date = d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${date} ${time}`;
+};
+
 const getLocalMinutesFromIso = (value: string | null | undefined) => {
   if (!value) {
     return null;
@@ -2469,7 +2501,7 @@ function SessionTimeline({
 }
 
 
-export default function App() {
+export default Sentry.wrap(function App() {
   const isNativePlatform = Platform.OS === 'ios' || Platform.OS === 'android';
   const isWebPlatform = Platform.OS === 'web';
   const [isPasswordResetRoute, setIsPasswordResetRoute] = useState(() => {
@@ -2541,6 +2573,9 @@ export default function App() {
   const [selectedSpot, setSelectedSpot] = useState<SpotName | null>(null);
   const [showProfile, setShowProfile] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const [showBuddies, setShowBuddies] = useState(false);
   const [buddiesTab, setBuddiesTab] = useState<'myBuddies' | 'find'>('myBuddies');
   const [showChat, setShowChat] = useState(false);
@@ -2629,6 +2664,7 @@ export default function App() {
   const chatMySessionsRef = useRef<any[]>([]);
   const expandedChatSpotRef = useRef<string | null>(null);
   const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
+  const profileCacheRef = useRef<Map<string, { display_name: string; avatar_url: string | null }>>(new Map());
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -2925,10 +2961,13 @@ export default function App() {
 
   useEffect(() => {
     if (!activeAppUserId) return;
-    const interval = setInterval(() => {
-      void refreshUnreadBuzzState();
-    }, 15000);
-    return () => clearInterval(interval);
+    const channel = supabase
+      .channel(`notifications-unread-${activeAppUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${activeAppUserId}` }, () => {
+        void refreshUnreadBuzzState();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
   }, [activeAppUserId]);
 
   useEffect(() => {
@@ -3094,6 +3133,26 @@ export default function App() {
 
     setIsPasswordResetRoute(false);
     await supabase.auth.signOut();
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!activeAppUserId) return;
+    setIsDeletingAccount(true);
+    try {
+      const { error } = await supabase.rpc('delete_my_account');
+      if (error) {
+        console.error('DELETE_ACCOUNT_ERROR', error);
+        Alert.alert('Error', 'Something went wrong. Please try again or contact us at ' + CONTACT_EMAIL);
+        setIsDeletingAccount(false);
+        return;
+      }
+      setShowDeleteConfirm(false);
+      resetFlow();
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('DELETE_ACCOUNT_ERROR', err);
+      setIsDeletingAccount(false);
+    }
   };
 
   const handlePasswordResetRequest = async (email: string) => {
@@ -4360,30 +4419,31 @@ export default function App() {
 
   const fetchSharedData = async ({ skipLoadingState = false }: { skipLoadingState?: boolean } = {}) => {
     const myVersion = ++fetchSharedDataVersionRef.current;
+    const dayKey = selectedDayKey;
     if (!skipLoadingState) {
       setLoadingData(true);
     }
     try {
-    
-    
-    
 
-    const dayBounds = getDayBoundsForDayKey(selectedDayKey);
+
+
+
+    const dayBounds = getDayBoundsForDayKey(dayKey);
     // Twee queries: sessies met expliciete session_day + sessies zonder session_day binnen created_at bounds
     const [sessionsWithDay, sessionsWithoutDay] = dayBounds
       ? await Promise.all([
-          supabase.from('sessions').select('*').eq('session_day', selectedDayKey).order('created_at', { ascending: true }),
+          supabase.from('sessions').select('*').eq('session_day', dayKey).order('created_at', { ascending: true }),
           supabase.from('sessions').select('*').is('session_day', null).gte('created_at', dayBounds.start).lt('created_at', dayBounds.endExclusive).order('created_at', { ascending: true }),
         ])
       : [{ data: [], error: { message: 'INVALID_DAY_KEY' } }, { data: [], error: null }];
     const sessionsData = [...(sessionsWithDay.data ?? []), ...(sessionsWithoutDay.data ?? [])];
-    const conversationResponse = selectedSpot && selectedDayKey
+    const conversationResponse = selectedSpot && dayKey
       ? await supabase
           .from('conversations')
           .select('id')
           .eq('type', 'spot')
           .eq('spot_name', selectedSpot)
-          .eq('session_day', selectedDayKey)
+          .eq('session_day', dayKey)
           .limit(1)
       : { data: [], error: null };
 
@@ -4423,7 +4483,12 @@ export default function App() {
         : Promise.resolve({ data: [] as any[], error: null }),
     ]);
     const profilesData = [...(profilesByIdData ?? []), ...(profilesByOwnerUidData ?? [])];
-    
+    for (const prof of profilesData) {
+      if (prof.id && prof.display_name) {
+        profileCacheRef.current.set(prof.id, { display_name: prof.display_name, avatar_url: prof.avatar_url ?? null });
+      }
+    }
+
     if (profilesByIdError || profilesByOwnerUidError) {
       console.error('Failed to load profiles for sessions:', profilesByIdError ?? profilesByOwnerUidError);
     }
@@ -4551,7 +4616,7 @@ export default function App() {
 
       for (const row of mergedMessages) {
         const spot = row.spot_name as SpotName;
-        const key = `${spot}-${selectedDayKey}`;
+        const key = `${spot}-${dayKey}`;
         if (!spotNames.includes(spot)) {
           continue;
         }
@@ -4568,6 +4633,10 @@ export default function App() {
         });
       }
 
+      if (myVersion !== fetchSharedDataVersionRef.current) {
+        if (!skipLoadingState) setLoadingData(false);
+        return;
+      }
       setMessagesBySpot(nextMessagesBySpot);
     } else {
       
@@ -5177,8 +5246,15 @@ export default function App() {
           if (matchedInFavorites) myConvIdsRef.current.add(convId);
         }
 
-        // Profiel ophalen voor de afzender
-        const { data: p } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+        // Profiel ophalen voor de afzender — cache om N+1 queries te vermijden
+        let p = profileCacheRef.current.get(row.user_id) ?? null;
+        if (!p) {
+          const { data: fetched } = await supabase.from('profiles').select('display_name, avatar_url').eq('id', row.user_id).maybeSingle();
+          if (fetched) {
+            p = { display_name: fetched.display_name, avatar_url: fetched.avatar_url ?? null };
+            profileCacheRef.current.set(row.user_id, p);
+          }
+        }
         const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
 
         // Spot naam: direct uit het bericht of via ref
@@ -6312,60 +6388,100 @@ export default function App() {
     if (isWebPlatform) return null;
 
     return (
-      <View
-        style={{
-          height: 88,
-          backgroundColor: theme.bg,
-          borderBottomWidth: 1,
-          borderBottomColor: 'rgba(255,255,255,0.08)',
-          flexDirection: 'row',
-          alignItems: 'center',
-        }}
-      >
-        <View style={{ width: 88, height: 88, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginLeft: 24 }}>
-          <Image
-            source={require('./assets/logo.png')}
-            resizeMode="contain"
-            style={{ width: 160, height: 160 }}
-          />
-        </View>
-        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4, overflow: 'hidden' }}>
-          <Image
-            source={require('./assets/wordmark.png')}
-            resizeMode="contain"
-            style={{ width: 440, height: 110, transform: [{ translateY: 20 }] }}
-          />
-        </View>
-        <Pressable
-          onPress={() => {
-            setIsNotificationInboxExpanded((prev) => {
-              if (!prev) void markAllBuzzAsRead();
-              return !prev;
-            });
-          }}
+      <>
+        <View
           style={{
-            width: 60,
             height: 88,
+            backgroundColor: theme.bg,
+            borderBottomWidth: isNotificationInboxExpanded ? 0 : 1,
+            borderBottomColor: 'rgba(255,255,255,0.08)',
+            flexDirection: 'row',
             alignItems: 'center',
-            justifyContent: 'center',
           }}
         >
-          <View style={{ position: 'relative' }}>
-            <Ionicons name="notifications-outline" size={26} color="#ffffff" />
-            {unreadCount > 0 ? (
-              <View style={{ position: 'absolute', top: -4, right: -6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
-                <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
-              </View>
-            ) : null}
+          <View style={{ width: 88, height: 88, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', marginLeft: 24 }}>
+            <Image
+              source={require('./assets/logo.png')}
+              resizeMode="contain"
+              style={{ width: 160, height: 160 }}
+            />
           </View>
-        </Pressable>
-        <Pressable
-          onPress={() => { goHomeFromNativeSwipe(); setShowProfile(true); }}
-          style={{ width: 60, height: 88, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
-        >
-          <Avatar uri={profile?.avatar_url ?? null} size={32} nationality={profile?.nationality} />
-        </Pressable>
-      </View>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 4, overflow: 'hidden' }}>
+            <Image
+              source={require('./assets/wordmark.png')}
+              resizeMode="contain"
+              style={{ width: 440, height: 110, transform: [{ translateY: 20 }] }}
+            />
+          </View>
+          <Pressable
+            onPress={() => {
+              setIsNotificationInboxExpanded((prev) => {
+                if (!prev) void markAllBuzzAsRead();
+                return !prev;
+              });
+            }}
+            style={{
+              width: 60,
+              height: 88,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <View style={{ position: 'relative' }}>
+              <Ionicons name={isNotificationInboxExpanded ? 'notifications' : 'notifications-outline'} size={26} color="#ffffff" />
+              {unreadCount > 0 && !isNotificationInboxExpanded ? (
+                <View style={{ position: 'absolute', top: -4, right: -6, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: theme.bg, fontSize: 10, fontWeight: '900' }}>{unreadCount > 99 ? '99+' : unreadCount}</Text>
+                </View>
+              ) : null}
+            </View>
+          </Pressable>
+          <Pressable
+            onPress={() => { goHomeFromNativeSwipe(); setShowProfile(true); }}
+            style={{ width: 60, height: 88, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
+          >
+            <Avatar uri={profile?.avatar_url ?? null} size={32} nationality={profile?.nationality} />
+          </Pressable>
+        </View>
+        {isNotificationInboxExpanded ? (
+          <View style={{ backgroundColor: theme.bg, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 14, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                <Ionicons name="close" size={16} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            {notificationRows.length === 0 ? (
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
+            ) : (
+              notificationRows.slice(0, 8).map((row) => {
+                const summaryText = getNotificationInboxSummary(row);
+                if (!summaryText) return null;
+                const timeAgo = row.created_at ? (() => {
+                  const diff = Date.now() - new Date(row.created_at).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })() : '';
+                return (
+                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                    </View>
+                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        ) : null}
+      </>
     );
   };
 
@@ -7098,11 +7214,14 @@ export default function App() {
     if (latestOpenSession?.status === 'Is er al') {
       if (normalizeSpotName(latestOpenSession.spot_name) === normalizeSpotName(canonicalSpot)) {
         // Stale check-in at same spot (e.g. auto-checkout missed) — checkout old session and create fresh check-in
-        await supabase
+        const staleCheckoutResult = await supabase
           .from('sessions')
           .update({ status: 'Uitchecken', checked_out_at: new Date().toISOString() })
           .eq('id', latestOpenSession.id)
           .eq('user_id', activeProfileId);
+        if (staleCheckoutResult.error) {
+          return { ok: false, reason: 'stale_checkout_failed', error: staleCheckoutResult.error };
+        }
         // Fall through to create new check-in below
       } else {
         return { ok: false, reason: `already_checked_in_other_spot:${latestOpenSession.spot_name}` };
@@ -7989,7 +8108,7 @@ export default function App() {
     if (found) { myConvIdsRef.current.add(found.id); return found.id; }
     const { data: created, error: insertError } = await supabase.from('conversations').insert({
       type: 'dm', participant_a_id: activeAppUserId, participant_b_id: otherUserId,
-    }).select('id').single();
+    }).select('id').maybeSingle();
     if (insertError) console.error('DM_CREATE_ERROR', insertError?.message);
     if (created?.id) myConvIdsRef.current.add(created.id);
     return created?.id ?? null;
@@ -8010,48 +8129,6 @@ export default function App() {
           {screen}
         </View>
         {renderNativeBottomNav()}
-        {/* Notification inbox overlay — bovenop elk scherm */}
-        {isNotificationInboxExpanded && (
-          <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
-            <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <View style={{ gap: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
-                <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={16} color={theme.textMuted} />
-                </Pressable>
-              </View>
-              {notificationRows.length === 0 ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
-              ) : (
-                notificationRows.slice(0, 8).map((row) => {
-                  const summaryText = getNotificationInboxSummary(row);
-                  if (!summaryText) return null;
-                  const timeAgo = row.created_at ? (() => {
-                    const diff = Date.now() - new Date(row.created_at).getTime();
-                    const mins = Math.floor(diff / 60000);
-                    if (mins < 60) return `${mins}m ago`;
-                    const hrs = Math.floor(mins / 60);
-                    if (hrs < 24) return `${hrs}h ago`;
-                    return `${Math.floor(hrs / 24)}d ago`;
-                  })() : '';
-                  return (
-                    <Pressable key={row.id} onPress={() => { setIsNotificationInboxExpanded(false); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
-                      </View>
-                      {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
-                    </Pressable>
-                  );
-                })
-              )}
-            </View>
-          </View>
-        )}
       </SafeAreaView>
     );
   };
@@ -8705,7 +8782,7 @@ export default function App() {
     const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean, showSenderName = true) =>
       messages.map((msg, index) => {
         const own = isOwn(msg.userId ?? msg.user_id);
-        const time = msg.createdAt ? formatToHourMinute(msg.createdAt) : '';
+        const time = msg.createdAt ? formatChatTimestamp(msg.createdAt) : '';
         const msgUserId = msg.userId ?? msg.user_id;
         const prev = index > 0 ? messages[index - 1] : null;
         const next = index < messages.length - 1 ? messages[index + 1] : null;
@@ -8871,7 +8948,7 @@ export default function App() {
         ) : (
 
         /* ── Lijst-modus (tabs + gesprekken) ── */
-        <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, paddingTop: isWebPlatform ? 20 : 0 }}>
+        (<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 28, paddingTop: isWebPlatform ? 20 : 0 }}>
           {/* Header */}
           {isWebPlatform ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
@@ -8894,7 +8971,6 @@ export default function App() {
               </Pressable>
             </View>
           )}
-
           {/* Messages Alert Settings panel — zelfde opmaak als spot alert settings */}
           {showMessagesAlertSettings && (
             <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
@@ -8970,7 +9046,6 @@ export default function App() {
               </View>
             </View>
           )}
-
           {/* Sub-tabs + Broadcast */}
           <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 20, alignSelf: 'flex-start' }}>
             {chatTabs.map((tab) => {
@@ -8997,7 +9072,6 @@ export default function App() {
               </Pressable>
             )}
           </View>
-
           {/* Spot chats */}
           {chatSubTab === 'spot' && (
             <View style={{ gap: 8 }}>
@@ -9053,7 +9127,6 @@ export default function App() {
               })()} {/* einde IIFE */}
             </View>
           )}
-
           {/* Session chats */}
           {chatSubTab === 'session' && (
             <View style={{ gap: 8 }}>
@@ -9101,7 +9174,6 @@ export default function App() {
               })()}
             </View>
           )}
-
           {/* DMs */}
           {chatSubTab === 'dm' && (
             <View style={{ gap: 8 }}>
@@ -9142,7 +9214,7 @@ export default function App() {
               })}
             </View>
           )}
-        </ScrollView>
+        </ScrollView>)
         )}
         </KeyboardAvoidingView>
       {renderOtherUserProfileModal()}
@@ -9214,7 +9286,7 @@ export default function App() {
           <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
             {isAnyConvOpen ? (
               /* Volledig-scherm chat */
-              <View style={{ flex: 1 }}>
+              (<View style={{ flex: 1 }}>
                 {/* Header */}
                 <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
                   <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
@@ -9258,10 +9330,10 @@ export default function App() {
                     </Pressable>
                   </View>
                 </View>
-              </View>
+              </View>)
             ) : (
               /* Lijst-modus */
-              <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
+              (<ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 100 }}>
                 <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 10 }}>
                   <Pressable onPress={() => setShowMessagesAlertSettings((v) => !v)} style={{ backgroundColor: theme.bgElevated, borderRadius: 999, borderWidth: 1, borderColor: theme.border, paddingHorizontal: 10, paddingVertical: 6, flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                     <Text style={{ color: theme.textSoft, fontSize: 12, fontWeight: '700' }}>Alert settings</Text>
@@ -9443,40 +9515,12 @@ export default function App() {
                     </Pressable>;
                   })}
                 </View>}
-              </ScrollView>
+              </ScrollView>)
             )}
           </KeyboardAvoidingView>
           {/* Bottom nav alleen in lijst-modus */}
           {!isAnyConvOpen && renderNativeBottomNav()}
           {renderOtherUserProfileModal()}
-          {isNotificationInboxExpanded && (
-            <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
-              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-              <View style={{ gap: 2 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                  <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
-                  <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
-                    <Ionicons name="close" size={16} color={theme.textMuted} />
-                  </Pressable>
-                </View>
-                {notificationRows.length === 0
-                  ? <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
-                  : notificationRows.slice(0, 8).map((row) => {
-                    const summaryText = getNotificationInboxSummary(row);
-                    if (!summaryText) return null;
-                    return (
-                      <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
-                        </View>
-                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700', flex: 1 }} numberOfLines={2}>{summaryText}</Text>
-                        {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
-                      </Pressable>
-                    );
-                  })}
-              </View>
-            </View>
-          )}
           {showBroadcastDm && (() => {
             const followingSet = new Set(followingUserIds);
             const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
@@ -9832,6 +9876,60 @@ export default function App() {
 
         </ScrollView>
       {renderOtherUserProfileModal()}
+      </SafeAreaView>
+    );
+  }
+
+  if (showProfile && showPrivacyPolicy) {
+    const privacySections = [
+      {
+        title: 'What we collect',
+        body: '• Account info: email address (via Supabase Auth)\n• Profile info: display name, profile photo, nationality, skill level\n• Session data: check-ins, planned sessions, spot ratings\n• Location: only when you use Check in or Suggest a spot — never stored continuously\n• Messages: direct messages and group chats within the app\n• Push notification token: to send you activity alerts',
+      },
+      {
+        title: 'How we use it',
+        body: 'Your data is used solely to operate SpotBuddy:\n• Show who is at a spot and when\n• Enable session planning and buddy connections\n• Send push notifications for buddy activity\n• Display your profile to other riders\n\nWe do not sell your data. We do not use it for advertising.',
+      },
+      {
+        title: 'Who can see your data',
+        body: '• Other SpotBuddy users can see your display name, profile photo, nationality, skill level, and sessions.\n• Direct messages are only visible to you and the recipient.\n• Your email address is never shown to other users.',
+      },
+      {
+        title: 'Data storage',
+        body: 'Your data is stored on Supabase (supabase.com), hosted in the EU. Supabase is GDPR-compliant. Wind data is fetched from Open-Meteo (open-meteo.com) and not stored per user.',
+      },
+      {
+        title: 'Your rights (GDPR)',
+        body: 'You have the right to:\n• Access your personal data\n• Correct inaccurate data (via your profile)\n• Delete your account and all associated data (via Profile → Delete account)\n• Object to processing\n• Lodge a complaint with the Dutch DPA (Autoriteit Persoonsgegevens)\n\nTo exercise any right, contact us at ' + CONTACT_EMAIL,
+      },
+      {
+        title: 'Data retention',
+        body: 'Your data is kept for as long as your account is active. When you delete your account, all personal data is permanently removed from our systems within 30 days.',
+      },
+      {
+        title: 'Contact',
+        body: 'SpotBuddy is operated by an individual developer based in the Netherlands.\n\nEmail: ' + CONTACT_EMAIL + '\n\nLast updated: May 2026',
+      },
+    ];
+
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: theme.border }}>
+          <Pressable onPress={() => setShowPrivacyPolicy(false)} hitSlop={12} style={{ marginRight: 12 }}>
+            <Ionicons name="arrow-back" size={22} color={theme.text} />
+          </Pressable>
+          <Text style={{ color: theme.text, fontSize: 17, fontWeight: '800', flex: 1 }}>Privacy Policy</Text>
+        </View>
+        <ScrollView contentContainerStyle={{ padding: 20, gap: 24 }} showsVerticalScrollIndicator={false}>
+          <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginBottom: 4 }}>Privacy Policy</Text>
+          <Text style={{ color: theme.textMuted, fontSize: 14, lineHeight: 20, marginBottom: 8 }}>SpotBuddy respects your privacy. Here is what data we collect and how we use it.</Text>
+          {privacySections.map((section) => (
+            <View key={section.title} style={{ backgroundColor: theme.card, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: theme.border }}>
+              <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', marginBottom: 8 }}>{section.title}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 14, lineHeight: 22 }}>{section.body}</Text>
+            </View>
+          ))}
+        </ScrollView>
       </SafeAreaView>
     );
   }
@@ -10346,11 +10444,49 @@ export default function App() {
           </Pressable>
 
           <Pressable
+            onPress={() => setShowPrivacyPolicy(true)}
+            style={{ borderRadius: 14, padding: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '600' }}>Privacy Policy</Text>
+          </Pressable>
+
+          <Pressable
             onPress={() => { resetFlow(); void supabase.auth.signOut(); }}
             style={{ borderRadius: 14, padding: 14, alignItems: 'center' }}
           >
             <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 14, fontWeight: '600' }}>Log out</Text>
           </Pressable>
+
+          <Pressable
+            onPress={() => setShowDeleteConfirm(true)}
+            style={{ borderRadius: 14, padding: 14, alignItems: 'center' }}
+          >
+            <Text style={{ color: '#FF4444', fontSize: 13, fontWeight: '600' }}>Delete account</Text>
+          </Pressable>
+
+          {showDeleteConfirm && (
+            <View style={{ backgroundColor: '#1a0a0a', borderRadius: 16, padding: 20, borderWidth: 1, borderColor: '#FF4444', marginTop: 8, gap: 12 }}>
+              <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: '800', textAlign: 'center' }}>Delete your account?</Text>
+              <Text style={{ color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 20, textAlign: 'center' }}>
+                This permanently deletes your profile, sessions, ratings, messages, and buddy connections. This cannot be undone.
+              </Text>
+              <Pressable
+                onPress={() => void handleDeleteAccount()}
+                disabled={isDeletingAccount}
+                style={{ backgroundColor: '#FF4444', borderRadius: 12, paddingVertical: 13, alignItems: 'center' }}
+              >
+                <Text style={{ color: '#ffffff', fontSize: 14, fontWeight: '900' }}>
+                  {isDeletingAccount ? 'Deleting...' : 'Yes, delete everything'}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => setShowDeleteConfirm(false)}
+                style={{ borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              >
+                <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 14, fontWeight: '600' }}>Cancel</Text>
+              </Pressable>
+            </View>
+          )}
         </View>
 
         </View>
@@ -10697,13 +10833,17 @@ const handleSave = async () => {
           formErrorMessage = getSessionPersistenceErrorMessage(persistenceError, 'Planning the session failed. Please try again.');
         }
         setFormError(formErrorMessage);
-        setSaveError({
-          message: persistenceError?.message,
-          details: persistenceError?.details,
-          hint: persistenceError?.hint,
-          code: persistenceError?.code,
-          response: { ...result, reason: mappedReason },
-        });
+        if (resultReason === 'WRITE_FAILED' || resultReason === 'UNKNOWN_ERROR') {
+          setSaveError({
+            message: persistenceError?.message,
+            details: persistenceError?.details,
+            hint: persistenceError?.hint,
+            code: persistenceError?.code,
+            response: { ...result, reason: mappedReason },
+          });
+        } else {
+          setSaveError(null);
+        }
         return;
       }
 
@@ -11293,7 +11433,7 @@ const handleSave = async () => {
             >
               {isWebPlatform ? (
                 /* Web: grid pickers */
-                <>
+                (<>
                   <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.7 }}>Start time</Text>
                   <View style={{ flexDirection: 'row', gap: 8, width: 420, maxWidth: '100%' }}>
                     <Pressable onPress={() => { setActivePicker((prev) => (prev === 'startHour' ? null : 'startHour')); setFormError(''); }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 14, borderWidth: 1, borderColor: activePicker === 'startHour' ? 'rgba(255,255,255,0.30)' : 'rgba(255,255,255,0.08)', paddingHorizontal: 12, paddingVertical: 9 }}>
@@ -11352,7 +11492,7 @@ const handleSave = async () => {
                       ))}
                     </View>
                   )}
-                </>
+                </>)
               ) : (
                 <View>
                   {/* Single unified wheel container */}
@@ -11680,11 +11820,10 @@ const handleSave = async () => {
         </ScrollView>
         {renderNativeBottomNav()}
         {renderOtherUserProfileModal()}
-
         {/* Summary popup — wie is er ingecheckt / going / maybe */}
         {summaryPopup ? (
-          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}>
-            <Pressable style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} onPress={() => setSummaryPopup(null)} />
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.6)' }}>
+            <Pressable style={{ flex: 1 }} onPress={() => setSummaryPopup(null)} />
             <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingBottom: 32, maxHeight: '70%' }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 20, paddingBottom: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
                 <Text style={{ color: summaryPopup.color, fontSize: 13, fontWeight: '900', flex: 1 }}>{summaryPopup.label} · {summaryPopup.helper}</Text>
@@ -11692,29 +11831,57 @@ const handleSave = async () => {
                   <Ionicons name="close" size={20} color={theme.textMuted} />
                 </Pressable>
               </View>
-              <ScrollView keyboardShouldPersistTaps="handled" style={{ flex: 1 }}>
+              <ScrollView keyboardShouldPersistTaps="handled">
                 {Array.from(new Map(summaryPopup.sessions.map((s) => [s.userId, s])).values()).map((session, i) => {
+                  const isMe = session.resolvedActorProfileId === activeProfile?.id || session.userId === activeProfile?.id;
                   let timeLabel: string | null = null;
                   if (summaryPopup.label === 'LIVE' && session.checkedInAt) {
                     timeLabel = `Checked in at ${formatToHourMinute(session.checkedInAt)}`;
-                  } else if (summaryPopup.label === 'GOING' && session.start) {
-                    timeLabel = `Going at ${session.start}`;
-                  } else if (summaryPopup.label === 'MAYBE' && session.start) {
-                    timeLabel = `Maybe going at ${session.start}`;
+                  } else if (session.start) {
+                    timeLabel = `${session.start} – ${session.end}`;
                   }
                   return (
                     <View key={session.userId ?? i} style={{ flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 20, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                      {session.userAvatarUrl ? (
-                        <Image source={{ uri: session.userAvatarUrl }} style={{ width: 44, height: 44, borderRadius: 22 }} />
-                      ) : (
-                        <View style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-                          <Ionicons name="person" size={20} color="rgba(255,255,255,0.4)" />
-                        </View>
-                      )}
+                      <Pressable onPress={() => { if (!isMe && session.userId) { setSummaryPopup(null); setViewingOtherUserId(session.userId); } }}>
+                        <Avatar uri={session.userAvatarUrl} size={44} nationality={session.userNationality} skillLevel={session.userSkillLevel} name={session.userName} />
+                      </Pressable>
                       <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{session.userName || 'Rider'}</Text>
+                        <Text style={{ color: isMe ? theme.primary : theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
+                          {isMe ? 'You' : (session.userName || 'Rider')}
+                        </Text>
                         {timeLabel ? <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '500', marginTop: 2 }}>{timeLabel}</Text> : null}
                       </View>
+                      {!isMe && session.userId ? (
+                        <View style={{ flexDirection: 'row', gap: 10, alignItems: 'center' }}>
+                          {followingUserIds.includes(session.userId) ? (
+                            <Ionicons name="people" size={18} color={theme.textMuted} />
+                          ) : outgoingFollowStatusesByUserId[session.userId] === 'pending' ? (
+                            <Ionicons name="time-outline" size={18} color={theme.textMuted} />
+                          ) : (
+                            <Pressable
+                              hitSlop={8}
+                              onPress={async () => { await handleFollowUser(session.userId!); }}
+                            >
+                              <Ionicons name="person-add-outline" size={18} color="#4DB8FF" />
+                            </Pressable>
+                          )}
+                          <Pressable
+                            hitSlop={8}
+                            onPress={async () => {
+                              const convId = await openDmWithUser(session.userId!);
+                              if (!convId) return;
+                              void loadDmMessages(convId);
+                              void loadDmConversationsRef.current?.();
+                              setSummaryPopup(null);
+                              setChatSubTab('dm');
+                              setExpandedDmId(convId);
+                              setShowChat(true);
+                            }}
+                          >
+                            <Ionicons name="chatbubble-outline" size={18} color={theme.textMuted} />
+                          </Pressable>
+                        </View>
+                      ) : null}
                     </View>
                   );
                 })}
@@ -11722,7 +11889,6 @@ const handleSave = async () => {
             </View>
           </View>
         ) : null}
-
         {/* Wrong launch location bottom sheet */}
         {showReportCoords && selectedSpot ? (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
@@ -11779,7 +11945,6 @@ const handleSave = async () => {
             </View>
           </View>
         ) : null}
-
         {/* Conditions rating overlay — getoond na check-in */}
         {showConditionsRating ? (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'flex-end' }}>
@@ -11853,36 +12018,6 @@ const handleSave = async () => {
                   <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Skip</Text>
                 </Pressable>
               </View>
-            </View>
-          </View>
-        ) : null}
-
-        {isNotificationInboxExpanded ? (
-          <View style={{ position: 'absolute', top: isWebPlatform ? 0 : 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 200, paddingHorizontal: 16, paddingTop: 12 }}>
-            <Pressable onPress={() => setIsNotificationInboxExpanded(false)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
-            <View style={{ gap: 2 }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
-                <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
-                  <Ionicons name="close" size={16} color={theme.textMuted} />
-                </Pressable>
-              </View>
-              {notificationRows.length === 0 ? (
-                <Text style={{ color: theme.textMuted, fontSize: 12 }}>No notifications yet.</Text>
-              ) : (
-                notificationRows.map((notificationRow) => (
-                  <View key={notificationRow.id} style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, paddingVertical: 8 }}>
-                    <Text numberOfLines={1} style={{ flex: 1, color: notificationRow.read === false ? theme.text : theme.textSoft, fontSize: 12, fontWeight: notificationRow.read === false ? '700' : '500' }}>
-                      {getNotificationInboxSummary(notificationRow)}
-                    </Text>
-                    {notificationRow.created_at ? (
-                      <Text style={{ color: theme.textMuted, fontSize: 10, fontWeight: '600' }}>
-                        {new Date(notificationRow.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </Text>
-                    ) : null}
-                  </View>
-                ))
-              )}
             </View>
           </View>
         ) : null}
@@ -12120,80 +12255,6 @@ const handleSave = async () => {
           </View>
         </View>
 
-        {isNotificationInboxExpanded ? (
-          <View
-            style={{
-              marginBottom: 14,
-              borderTopWidth: 1,
-              borderTopColor: 'rgba(255,255,255,0.06)',
-              paddingTop: 10,
-              gap: 2,
-            }}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <Text
-                style={{
-                  color: theme.textMuted,
-                  fontSize: 11,
-                  fontWeight: '800',
-                  textTransform: 'uppercase',
-                  letterSpacing: 0.6,
-                }}
-              >
-              Activity
-            </Text>
-              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
-                <Ionicons name="close" size={16} color={theme.textMuted} />
-              </Pressable>
-            </View>
-
-            {notificationRows.length === 0 ? (
-              <Text style={{ color: theme.textMuted, fontSize: 12 }}>
-                No notifications yet.
-              </Text>
-            ) : (
-              notificationRows.map((notificationRow) => (
-                <View
-                  key={notificationRow.id}
-                  style={{
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 12,
-                    paddingVertical: 8,
-                  }}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={{
-                      flex: 1,
-                      color: notificationRow.read === false ? theme.text : theme.textSoft,
-                      fontSize: 12,
-                      fontWeight: notificationRow.read === false ? '700' : '500',
-                    }}
-                  >
-                    {getNotificationInboxSummary(notificationRow)}
-                  </Text>
-
-                  {notificationRow.created_at ? (
-                    <Text
-                      style={{
-                        color: theme.textMuted,
-                        fontSize: 10,
-                        fontWeight: '600',
-                      }}
-                    >
-                      {new Date(notificationRow.created_at).toLocaleTimeString([], {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  ) : null}
-                </View>
-              ))
-            )}
-          </View>
-        ) : null}
 
         <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
           {([
@@ -12712,4 +12773,4 @@ const handleSave = async () => {
       {/* Plan session modal */}
     </SafeAreaView>
   );
-}
+});
