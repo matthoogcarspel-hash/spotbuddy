@@ -2694,7 +2694,7 @@ export default Sentry.wrap(function App() {
   const [showConditionsRating, setShowConditionsRating] = useState(false);
   const [planSessionBtnSize, setPlanSessionBtnSize] = useState<{ width: number; height: number } | null>(null);
   const [conditionsRatingSpot, setConditionsRatingSpot] = useState<SpotName | null>(null);
-  const [conditionsWindKnots, setConditionsWindKnots] = useState<number>(15);
+  const [conditionsWindKnots, setConditionsWindKnots] = useState<number | null>(null);
   const [conditionsCrowd, setConditionsCrowd] = useState<number | null>(null);
   const [conditionsWindDir, setConditionsWindDir] = useState<string | null>(null);
   const [conditionsWater, setConditionsWater] = useState<string | null>(null);
@@ -3655,7 +3655,8 @@ export default Sentry.wrap(function App() {
   const removeSelectedSpot = (spotName: SpotName) => {
     setHomeSpotsLimitMessage('');
     if (activeAppUserId) {
-      void supabase.from('spot_followers').delete().eq('user_id', activeAppUserId).eq('spot_name', spotName);
+      supabase.from('spot_followers').delete().eq('user_id', activeAppUserId).eq('spot_name', spotName)
+        .then(({ error }) => { if (error) console.error('SPOT_FOLLOWERS_DELETE_ERROR', error); });
     }
     setFavoriteSpots((previousFavoriteSpots) => {
       if (!previousFavoriteSpots.includes(spotName)) {
@@ -7545,6 +7546,7 @@ export default Sentry.wrap(function App() {
 
   const saveConditionsRating = async () => {
     const ratingUserId = activeProfile?.id ?? activeAppUserId;
+    const dayKey = selectedDayKey;
     if (!conditionsRatingSpot || !ratingUserId) {
       fireCheckinPush(pendingCheckinPush, []);
       setShowConditionsRating(false);
@@ -7552,7 +7554,7 @@ export default Sentry.wrap(function App() {
     }
     const { error: insertError } = await supabase.from('spot_ratings').insert({
       spot_name: conditionsRatingSpot,
-      session_day: selectedDayKey,
+      session_day: dayKey,
       user_id: ratingUserId,
       wind_knots: conditionsWindKnots,
       crowd_rating: conditionsCrowd,
@@ -7560,14 +7562,14 @@ export default Sentry.wrap(function App() {
       water_conditions: conditionsWater,
     });
     if (insertError) console.error('spot_ratings insert error:', insertError);
-    void fetchSpotRating(conditionsRatingSpot, selectedDayKey);
+    void fetchSpotRating(conditionsRatingSpot, dayKey);
     const parts: string[] = [];
     if (conditionsWindKnots != null) parts.push(`${conditionsWindKnots} kn`);
     if (conditionsWindDir) parts.push(conditionsWindDir);
     if (conditionsWater) parts.push(conditionsWater);
     fireCheckinPush(pendingCheckinPush, parts);
     setShowConditionsRating(false);
-    setConditionsWindKnots(15);
+    setConditionsWindKnots(null);
     setConditionsCrowd(null);
     setConditionsWindDir(null);
     setConditionsWater(null);
@@ -8120,7 +8122,8 @@ export default Sentry.wrap(function App() {
     for (const userId of broadcastSelectedIds) {
       const convId = await openDmWithUser(userId);
       if (!convId) continue;
-      await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
+      const { error: msgError } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
+      if (msgError) { console.error('BROADCAST_MSG_INSERT_ERROR', msgError); continue; }
       const { data: recipPref } = await supabase.from('profiles').select('dm_push_enabled').eq('id', userId).single();
       if (recipPref?.dm_push_enabled === false) continue;
       const actorName = activeProfile?.display_name?.trim() || 'Someone';
@@ -12094,11 +12097,11 @@ const handleSave = async () => {
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900', marginBottom: 8 }}>💨 Wind</Text>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                  <Pressable onPress={() => setConditionsWindKnots(Math.max(0, conditionsWindKnots - 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.max(0, (conditionsWindKnots ?? 16) - 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>−</Text>
                   </Pressable>
-                  <Text style={{ color: theme.text, fontSize: 28, fontWeight: '900', minWidth: 72, textAlign: 'center' }}>{conditionsWindKnots} kn</Text>
-                  <Pressable onPress={() => setConditionsWindKnots(Math.min(40, conditionsWindKnots + 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Text style={{ color: conditionsWindKnots != null ? theme.text : 'rgba(255,255,255,0.3)', fontSize: 28, fontWeight: '900', minWidth: 72, textAlign: 'center' }}>{conditionsWindKnots != null ? `${conditionsWindKnots} kn` : '-- kn'}</Text>
+                  <Pressable onPress={() => setConditionsWindKnots(Math.min(40, (conditionsWindKnots ?? 14) + 1))} style={{ width: 40, height: 40, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' }}>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '700' }}>+</Text>
                   </Pressable>
                 </View>
