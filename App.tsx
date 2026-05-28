@@ -11019,6 +11019,45 @@ const handleSave = async () => {
           ) : null}
         </View>
 
+        {isWebPlatform && isNotificationInboxExpanded ? (
+          <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: 14, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                <Ionicons name="close" size={16} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            {notificationRows.length === 0 ? (
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
+            ) : (
+              notificationRows.slice(0, 8).map((row) => {
+                const summaryText = getNotificationInboxSummary(row);
+                if (!summaryText) return null;
+                const timeAgo = row.created_at ? (() => {
+                  const diff = Date.now() - new Date(row.created_at).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })() : '';
+                return (
+                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                    </View>
+                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        ) : null}
+
         {!isSelectedSpotSaved && canAddSelectedSpotToMySpots ? (
           <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 8 }}>
             <Pressable
@@ -12328,6 +12367,44 @@ const handleSave = async () => {
           </View>
         </View>
 
+        {isNotificationInboxExpanded ? (
+          <View style={{ backgroundColor: theme.bgElevated ?? '#0f2035', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, marginBottom: 14, gap: 2 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6 }}>Activity</Text>
+              <Pressable onPress={() => setIsNotificationInboxExpanded(false)} hitSlop={8} style={{ padding: 4 }}>
+                <Ionicons name="close" size={16} color={theme.textMuted} />
+              </Pressable>
+            </View>
+            {notificationRows.length === 0 ? (
+              <Text style={{ color: theme.textMuted, fontSize: 12 }}>No recent activity</Text>
+            ) : (
+              notificationRows.slice(0, 8).map((row) => {
+                const summaryText = getNotificationInboxSummary(row);
+                if (!summaryText) return null;
+                const timeAgo = row.created_at ? (() => {
+                  const diff = Date.now() - new Date(row.created_at).getTime();
+                  const mins = Math.floor(diff / 60000);
+                  if (mins < 60) return `${mins}m ago`;
+                  const hrs = Math.floor(mins / 60);
+                  if (hrs < 24) return `${hrs}h ago`;
+                  return `${Math.floor(hrs / 24)}d ago`;
+                })() : '';
+                return (
+                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                    </View>
+                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
+                  </Pressable>
+                );
+              })
+            )}
+          </View>
+        ) : null}
 
         <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
           {([
