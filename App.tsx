@@ -7313,13 +7313,15 @@ export default Sentry.wrap(function App() {
     await deleteGhostSessionsForUser(activeProfileId);
 
     // Check for existing session today at this spot (e.g. after checkout) — update instead of insert to avoid unique constraint
-    const { data: existingTodaySession } = await supabase
+    const { data: existingTodaySession, error: existingTodaySessionError } = await supabase
       .from('sessions')
-      .select('id')
+      .select('id, spot_name, session_day, status, checked_out_at')
       .eq('user_id', activeProfileId)
       .eq('spot_name', canonicalSpot)
       .eq('session_day', activeDayKey)
       .maybeSingle();
+
+    console.error('RECHECKIN_DEBUG', { canonicalSpot, activeDayKey, existingTodaySession, existingTodaySessionError });
 
     if (existingTodaySession?.id) {
       const reuseResult = await supabase
@@ -7334,6 +7336,7 @@ export default Sentry.wrap(function App() {
         })
         .eq('id', existingTodaySession.id)
         .eq('user_id', activeProfileId);
+      console.error('RECHECKIN_REUSE', { error: reuseResult.error });
       if (reuseResult.error) {
         return { ok: false, reason: 'reuse_session_failed', error: reuseResult.error };
       }
