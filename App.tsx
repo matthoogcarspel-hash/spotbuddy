@@ -7206,12 +7206,10 @@ export default Sentry.wrap(function App() {
 
     const latestOpenSessionResponse = await getLatestOpenSession();
     if (latestOpenSessionResponse.error) {
-      console.error('CHECKIN_PATH', 'fetch_latest_open_session_failed', latestOpenSessionResponse.error);
       return { ok: false, reason: 'fetch_latest_open_session_failed', error: latestOpenSessionResponse.error };
     }
     const existingCheckedInSessionsForDayResponse = await getExistingActiveCheckedInSessionsForDay();
     if (existingCheckedInSessionsForDayResponse.error) {
-      console.error('CHECKIN_PATH', 'fetch_existing_sessions_failed', existingCheckedInSessionsForDayResponse.error);
       return { ok: false, reason: 'fetch_existing_checked_in_sessions_for_day_failed', error: existingCheckedInSessionsForDayResponse.error };
     }
     const existingCheckedInSessionsForDay = (
@@ -7233,15 +7231,18 @@ export default Sentry.wrap(function App() {
         const bCreatedMs = b.created_at ? new Date(b.created_at).getTime() : 0;
         return Math.max(bCheckedInMs, bCreatedMs) - Math.max(aCheckedInMs, aCreatedMs);
       })[0] ?? null;
-    console.error('CHECKIN_PATH', 'queries_done', { latestOpenSession: latestOpenSessionResponse.data, activeSession, canonicalSpot, activeDayKey });
     if (activeSession) {
       if (normalizeSpotName(activeSession.spot_name) === normalizeSpotName(canonicalSpot)) {
-        console.error('CHECKIN_PATH', 'early_return_active_session_same_spot');
-        await fetchSharedData();
-        return { ok: true, spot: canonicalSpot };
+        // Stale active session at same spot not visible in UI (session_day mismatch) — check it out and create a fresh check-in
+        await supabase
+          .from('sessions')
+          .update({ status: 'Uitchecken', checked_out_at: new Date().toISOString() })
+          .eq('id', activeSession.id)
+          .eq('user_id', activeProfileId);
+        // Fall through to create fresh check-in
+      } else {
+        return { ok: false, reason: `already_checked_in_other_spot:${activeSession.spot_name}` };
       }
-      console.error('CHECKIN_PATH', 'early_return_active_session_other_spot', activeSession.spot_name);
-      return { ok: false, reason: `already_checked_in_other_spot:${activeSession.spot_name}` };
     }
 
     const latestOpenSession = latestOpenSessionResponse.data;
@@ -7323,7 +7324,6 @@ export default Sentry.wrap(function App() {
       .eq('session_day', activeDayKey)
       .maybeSingle();
 
-    console.error('RECHECKIN_DEBUG', { canonicalSpot, activeDayKey, existingTodaySession, existingTodaySessionError });
 
     if (existingTodaySession?.id) {
       const reuseResult = await supabase
@@ -7338,7 +7338,6 @@ export default Sentry.wrap(function App() {
         })
         .eq('id', existingTodaySession.id)
         .eq('user_id', activeProfileId);
-      console.error('RECHECKIN_REUSE', { error: reuseResult.error });
       if (reuseResult.error) {
         return { ok: false, reason: 'reuse_session_failed', error: reuseResult.error };
       }
