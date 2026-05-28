@@ -2634,6 +2634,8 @@ export default Sentry.wrap(function App() {
   const [nationalitySearch, setNationalitySearch] = useState('');
   const [pendingSpots, setPendingSpots] = useState<{ id: string; name: string; latitude: number; longitude: number; submitterName: string; submittedBy: string }[]>([]);
   const [pendingSpotsLoaded, setPendingSpotsLoaded] = useState(false);
+  const [coordSuggestions, setCoordSuggestions] = useState<{ id: string; spotName: string; currentLat: number | null; currentLng: number | null; suggestedLat: number | null; suggestedLng: number | null; submitterName: string }[]>([]);
+  const [coordSuggestionsLoaded, setCoordSuggestionsLoaded] = useState(false);
   const [showAdminCreateProfile, setShowAdminCreateProfile] = useState(false);
   const [adminCreateNameInput, setAdminCreateNameInput] = useState('');
   const [adminCreateAvatarInputUri, setAdminCreateAvatarInputUri] = useState<string | null>(null);
@@ -4775,6 +4777,36 @@ export default Sentry.wrap(function App() {
     };
 
     void fetchAll();
+
+    const fetchCoordSuggestions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('spot_coordinate_suggestions')
+          .select('id, spot_name, submitted_by, current_latitude, current_longitude, suggested_latitude, suggested_longitude')
+          .order('created_at', { ascending: true });
+        if (error) console.error('COORD_SUGGESTIONS_FETCH_ERROR', error);
+        const rows = data ?? [];
+        const userIds = [...new Set(rows.map((r: any) => r.submitted_by).filter(Boolean))];
+        const { data: profiles } = userIds.length
+          ? await supabase.from('profiles').select('id, display_name').in('id', userIds)
+          : { data: [] };
+        const nameById: Record<string, string> = {};
+        for (const p of (profiles ?? [])) nameById[p.id] = p.display_name ?? p.id;
+        setCoordSuggestions(rows.map((r: any) => ({
+          id: r.id,
+          spotName: r.spot_name,
+          currentLat: r.current_latitude,
+          currentLng: r.current_longitude,
+          suggestedLat: r.suggested_latitude,
+          suggestedLng: r.suggested_longitude,
+          submitterName: nameById[r.submitted_by] ?? r.submitted_by,
+        })));
+      } finally {
+        setCoordSuggestionsLoaded(true);
+      }
+    };
+
+    void fetchCoordSuggestions();
 
     const channel = supabase
       .channel('pending_spots_admin')
@@ -10418,6 +10450,47 @@ export default Sentry.wrap(function App() {
                       onPress={async () => {
                         await supabase.from('pending_spots').delete().eq('id', ps.id);
                         setPendingSpots((prev) => prev.filter((s) => s.id !== ps.id));
+                      }}
+                      style={{ backgroundColor: '#8b1f38', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
+                    >
+                      <Text style={{ color: '#ffd7de', fontSize: 13, fontWeight: '800' }}>Reject</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {isAccountSwitcherVisible ? (
+            <View style={{ marginTop: 16, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14 }}>
+              <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700', marginBottom: 10 }}>
+                Coordinate suggestions {coordSuggestions.length > 0 ? `(${coordSuggestions.length})` : ''}
+              </Text>
+              {!coordSuggestionsLoaded ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>Loading…</Text>
+              ) : coordSuggestions.length === 0 ? (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>No coordinate suggestions.</Text>
+              ) : coordSuggestions.map((cs) => (
+                <View key={cs.id} style={{ marginBottom: 16, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '800', marginBottom: 2 }}>{cs.spotName}</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 2 }}>By: <Text style={{ color: '#4DB8FF' }}>{cs.submitterName}</Text></Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, marginBottom: 2 }}>Current: {cs.currentLat?.toFixed(5)}, {cs.currentLng?.toFixed(5)}</Text>
+                  <Text style={{ color: '#4DB8FF', fontSize: 12, marginBottom: 10 }}>Suggested: {cs.suggestedLat?.toFixed(5)}, {cs.suggestedLng?.toFixed(5)}</Text>
+                  <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
+                    <Pressable
+                      onPress={async () => {
+                        await supabase.from('spots').update({ latitude: cs.suggestedLat, longitude: cs.suggestedLng }).eq('name', cs.spotName);
+                        await supabase.from('spot_coordinate_suggestions').delete().eq('id', cs.id);
+                        setCoordSuggestions((prev) => prev.filter((s) => s.id !== cs.id));
+                      }}
+                      style={{ backgroundColor: '#00C896', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
+                    >
+                      <Text style={{ color: '#061421', fontSize: 13, fontWeight: '800' }}>Approve</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={async () => {
+                        await supabase.from('spot_coordinate_suggestions').delete().eq('id', cs.id);
+                        setCoordSuggestions((prev) => prev.filter((s) => s.id !== cs.id));
                       }}
                       style={{ backgroundColor: '#8b1f38', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 14 }}
                     >
