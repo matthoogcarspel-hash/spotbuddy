@@ -7312,6 +7312,35 @@ export default Sentry.wrap(function App() {
 
     await deleteGhostSessionsForUser(activeProfileId);
 
+    // Check for existing session today at this spot (e.g. after checkout) — update instead of insert to avoid unique constraint
+    const { data: existingTodaySession } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('user_id', activeProfileId)
+      .eq('spot_name', canonicalSpot)
+      .eq('session_day', activeDayKey)
+      .maybeSingle();
+
+    if (existingTodaySession?.id) {
+      const reuseResult = await supabase
+        .from('sessions')
+        .update({
+          status: 'Is er al',
+          intent: 'definitely',
+          checked_in_at: nowIso,
+          checked_out_at: null,
+          start_time: getNowLocalHourMinute(),
+          end_time: getQuickCheckInEndTime(),
+        })
+        .eq('id', existingTodaySession.id)
+        .eq('user_id', activeProfileId);
+      if (reuseResult.error) {
+        return { ok: false, reason: 'reuse_session_failed', error: reuseResult.error };
+      }
+      await fetchSharedData();
+      return { ok: true, spot: canonicalSpot };
+    }
+
     const insertPayload = {
       spot_name: canonicalSpot,
       user_id: activeProfileId,
@@ -7323,15 +7352,10 @@ export default Sentry.wrap(function App() {
       checked_out_at: null,
       session_day: activeDayKey,
     };
-    
-    
-    if (source === 'home_quick') {
-      
-    }
+
     const insertResult = await supabase.from('sessions').insert(insertPayload);
 
     if (insertResult.error) {
-      
       if (isUniqueConstraintError(insertResult.error)) {
         return { ok: false, reason: 'unique_constraint_live_session', error: insertResult.error };
       }
