@@ -13,3 +13,5 @@ dist/
 
 
 .env.local
+ios/sentry.properties
+android/sentry.properties
