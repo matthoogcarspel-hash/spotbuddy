@@ -8230,11 +8230,12 @@ export default Sentry.wrap(function App() {
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').eq('type', 'group').in('persistent_group_id', groupIds);
     const convMap = new Map((convRows ?? []).map((c) => [c.persistent_group_id, c.id]));
     const convIds = (convRows ?? []).map((c) => c.id);
-    let lastMsgMap = new Map<string, { text: string | null; at: string }>();
+    const lastMsgMap = new Map<string, { text: string | null; at: string }>();
     if (convIds.length) {
-      for (const convId of convIds) {
-        const { data: msgs } = await supabase.from('messages').select('text, created_at, conversation_id').eq('conversation_id', convId).order('created_at', { ascending: false }).limit(1);
-        if (msgs?.[0]) lastMsgMap.set(convId, { text: msgs[0].text, at: msgs[0].created_at });
+      const { data: allMsgs } = await supabase.from('messages').select('text, created_at, conversation_id').in('conversation_id', convIds).order('created_at', { ascending: false });
+      const seen = new Set<string>();
+      for (const m of (allMsgs ?? [])) {
+        if (!seen.has(m.conversation_id)) { seen.add(m.conversation_id); lastMsgMap.set(m.conversation_id, { text: m.text, at: m.created_at }); }
       }
     }
     const pendingMap = new Map<string, number>();
