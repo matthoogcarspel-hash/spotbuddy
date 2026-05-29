@@ -5447,6 +5447,10 @@ export default Sentry.wrap(function App() {
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
+    if (activeAppUserId) void loadMyPersistentGroups();
+  }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
     setHomeQuickCheckInError('');
   }, []);
 
