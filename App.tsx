@@ -6375,8 +6375,10 @@ export default Sentry.wrap(function App() {
                         setViewingOtherUserId(null);
                         setShowFullscreenAvatar(false);
                       }}
+                      style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}
                     >
-                      <Ionicons name="person-remove-outline" size={20} color={theme.textMuted} />
+                      <Ionicons name="person-remove-outline" size={16} color="#ff4d4d" />
+                      <Text style={{ color: '#ff4d4d', fontSize: 12, fontWeight: '700' }}>Remove buddy</Text>
                     </Pressable>
                   ) : null}
                   <Pressable onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}>
