@@ -9053,10 +9053,10 @@ export default Sentry.wrap(function App() {
               )}
             </ScrollView>
 
-            {/* Invoerbalk — pill style */}
-            <View style={{ paddingLeft: 16, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+            {/* Invoerbalk */}
+            <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
               {pendingMediaUri ? (
-                <View style={{ marginBottom: 8 }}>
+                <View style={{ marginBottom: 8, marginLeft: 44 }}>
                   <View style={{ position: 'relative', width: 72, height: 72 }}>
                     <Image source={{ uri: pendingMediaUri }} style={{ width: 72, height: 72, borderRadius: 10 }} resizeMode="cover" />
                     <Pressable onPress={() => setPendingMediaUri(null)} style={{ position: 'absolute', top: -6, right: -6, width: 20, height: 20, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.75)', alignItems: 'center', justifyContent: 'center' }}>
@@ -9065,27 +9065,30 @@ export default Sentry.wrap(function App() {
                   </View>
                 </View>
               ) : null}
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 6, paddingRight: 5, paddingVertical: 5 }}>
-                <Pressable onPress={handlePickChatMedia} style={{ padding: 8 }} disabled={isUploadingMedia}>
-                  <Ionicons name="image-outline" size={22} color={theme.textMuted} />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Pressable onPress={handlePickChatMedia} disabled={isUploadingMedia}
+                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="add" size={20} color={theme.textMuted} />
                 </Pressable>
-                <TextInput
-                  value={openInput}
-                  onChangeText={setOpenInput}
-                  onSubmitEditing={() => { void handleOpenSend(); }}
-                  onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
-                  blurOnSubmit={false}
-                  placeholder="Type a message…"
-                  placeholderTextColor={theme.textMuted}
-                  style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
-                />
-                <Pressable
-                  onPress={() => { void handleOpenSend(); }}
-                  disabled={!openInput.trim() && !pendingMediaUri || isUploadingMedia}
-                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: (openInput.trim() || pendingMediaUri) && !isUploadingMedia ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: (openInput.trim() || pendingMediaUri) && !isUploadingMedia ? 1 : 0.4 }}
-                >
-                  <Ionicons name={isUploadingMedia ? 'hourglass-outline' : 'arrow-up'} size={17} color="#ffffff" />
-                </Pressable>
+                <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
+                  <TextInput
+                    value={openInput}
+                    onChangeText={setOpenInput}
+                    onSubmitEditing={() => { void handleOpenSend(); }}
+                    onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
+                    blurOnSubmit={false}
+                    placeholder="Type a message…"
+                    placeholderTextColor={theme.textMuted}
+                    style={({ flex: 1, color: theme.text, paddingVertical: 7, paddingRight: 6, fontSize: 15, outlineStyle: 'none', boxShadow: 'none' } as any)}
+                  />
+                  <Pressable
+                    onPress={() => { void handleOpenSend(); }}
+                    disabled={!openInput.trim() && !pendingMediaUri || isUploadingMedia}
+                    style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: (openInput.trim() || pendingMediaUri) && !isUploadingMedia ? theme.primary : 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', opacity: (openInput.trim() || pendingMediaUri) && !isUploadingMedia ? 1 : 0.4 }}
+                  >
+                    <Ionicons name={isUploadingMedia ? 'hourglass-outline' : 'arrow-up'} size={17} color="#ffffff" />
+                  </Pressable>
+                </View>
               </View>
             </View>
           </View>
