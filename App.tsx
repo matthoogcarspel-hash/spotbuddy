@@ -8290,7 +8290,8 @@ export default Sentry.wrap(function App() {
     setCreateGroupSelectedIds([]);
     await loadMyPersistentGroups();
     const created = Array.isArray(data) ? data[0] : data;
-    if (created?.group_id) { setChatSubTab('group'); setExpandedPersistentGroupId(created.group_id); }
+    const newGroupId = created?.out_group_id ?? created?.group_id ?? null;
+    if (newGroupId) { setChatSubTab('group'); setExpandedPersistentGroupId(newGroupId); }
   };
 
   const nominateForGroup = async (groupId: string, nomineeId: string) => {
