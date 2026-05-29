@@ -8298,6 +8298,10 @@ export default Sentry.wrap(function App() {
     await loadMyPersistentGroups();
     if (newGroupId) {
       setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0 }, ...prev]);
+      if (memberIds.length > 0) {
+        const actorName = activeProfile?.display_name ?? 'Someone';
+        void sendPushToRecipients(memberIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
+      }
       setChatSubTab('group');
       setExpandedPersistentGroupId(newGroupId);
     }
@@ -9515,9 +9519,9 @@ export default Sentry.wrap(function App() {
           )}
           {chatSubTab === 'group' && (
             <View style={{ gap: 8 }}>
-              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: '#123868', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7, borderWidth: 1, borderColor: theme.primary }}>
-                <Ionicons name="add" size={16} color={theme.text} />
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>New group</Text>
+              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: '#00C896', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7 }}>
+                <Ionicons name="add" size={16} color="#000" />
+                <Text style={{ color: '#000', fontSize: 13, fontWeight: '800' }}>New group</Text>
               </Pressable>
               {myPersistentGroups.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 30, gap: 8 }}>
@@ -9569,8 +9573,8 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
-              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim() || isCreatingGroup} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: '#123868', borderWidth: 1, borderColor: createGroupName.trim() && !isCreatingGroup ? theme.primary : 'rgba(255,255,255,0.12)', opacity: createGroupName.trim() && !isCreatingGroup ? 1 : 0.4 }}>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>{isCreatingGroup ? '…' : 'Create'}</Text>
+              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim() || isCreatingGroup} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: createGroupName.trim() && !isCreatingGroup ? '#00C896' : 'rgba(255,255,255,0.08)', opacity: createGroupName.trim() && !isCreatingGroup ? 1 : 0.4 }}>
+                <Text style={{ color: createGroupName.trim() && !isCreatingGroup ? '#000' : theme.textMuted, fontSize: 13, fontWeight: '900' }}>{isCreatingGroup ? '…' : 'Create'}</Text>
               </Pressable>
             </View>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
