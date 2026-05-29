@@ -2585,6 +2585,7 @@ export default Sentry.wrap(function App() {
   const [followPromptSpot, setFollowPromptSpot] = useState<string | null>(null);
   const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
+  const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
@@ -5197,7 +5198,7 @@ export default Sentry.wrap(function App() {
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Profiel modal sluiten bij schermwissel
-  useEffect(() => { setViewingOtherUserId(null); }, [selectedSpot, showBuddies, showChat, showProfile, showYourSpotsPage, showDiscoverSpotsPage]);
+  useEffect(() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }, [selectedSpot, showBuddies, showChat, showProfile, showYourSpotsPage, showDiscoverSpotsPage]);
 
   useEffect(() => {
     if (selectedSpot && activeDay === 'today') {
@@ -6351,14 +6352,24 @@ export default Sentry.wrap(function App() {
     if (!viewingOtherUserId) return null;
     return (
       <Pressable
-        onPress={() => setViewingOtherUserId(null)}
+        onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 200, justifyContent: 'flex-end' }}
       >
+        {showFullscreenAvatar && viewingOtherProfile?.avatar_url ? (
+          <Pressable
+            onPress={() => setShowFullscreenAvatar(false)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
+          >
+            <Image source={{ uri: viewingOtherProfile.avatar_url }} style={{ width: 300, height: 300, borderRadius: 150 }} resizeMode="cover" />
+          </Pressable>
+        ) : null}
         <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
           {viewingOtherProfile ? (
             <>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16, marginBottom: 20 }}>
-                <Avatar uri={viewingOtherProfile.avatar_url} size={60} name={viewingOtherProfile.display_name} />
+                <Pressable onPress={() => { if (viewingOtherProfile.avatar_url) setShowFullscreenAvatar(true); }}>
+                  <Avatar uri={viewingOtherProfile.avatar_url} size={60} name={viewingOtherProfile.display_name} />
+                </Pressable>
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
                     <Text style={{ color: theme.text, fontSize: 20, fontWeight: '800' }}>{viewingOtherProfile.display_name}</Text>
@@ -6373,7 +6384,7 @@ export default Sentry.wrap(function App() {
                     </Text>
                   ) : null}
                 </View>
-                <Pressable onPress={() => setViewingOtherUserId(null)}>
+                <Pressable onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}>
                   <Ionicons name="close" size={22} color={theme.textMuted} />
                 </Pressable>
               </View>
