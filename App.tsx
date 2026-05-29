@@ -9066,9 +9066,8 @@ export default Sentry.wrap(function App() {
                 </View>
               ) : null}
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Pressable onPress={handlePickChatMedia} disabled={isUploadingMedia}
-                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="add" size={20} color={theme.textMuted} />
+                <Pressable onPress={handlePickChatMedia} disabled={isUploadingMedia} style={{ padding: 4 }}>
+                  <Ionicons name="add" size={26} color="#ffffff" />
                 </Pressable>
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                   <TextInput
