@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -8278,14 +8278,19 @@ export default Sentry.wrap(function App() {
     const name = createGroupName.trim();
     const userId = activeProfile?.id ?? activeAppUserId;
     if (!name || !userId) return;
-    const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: createGroupSelectedIds });
-    if (error) { console.error('CREATE_GROUP_ERROR', error); return; }
+    const memberIds = createGroupSelectedIds.length > 0 ? createGroupSelectedIds : [];
+    const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: memberIds });
+    if (error) {
+      console.error('CREATE_GROUP_ERROR', JSON.stringify(error));
+      Alert.alert('Error', error.message ?? 'Could not create group');
+      return;
+    }
     setShowCreateGroup(false);
     setCreateGroupName('');
     setCreateGroupSelectedIds([]);
     await loadMyPersistentGroups();
     const created = Array.isArray(data) ? data[0] : data;
-    if (created?.group_id) setExpandedPersistentGroupId(created.group_id);
+    if (created?.group_id) { setChatSubTab('group'); setExpandedPersistentGroupId(created.group_id); }
   };
 
   const nominateForGroup = async (groupId: string, nomineeId: string) => {
