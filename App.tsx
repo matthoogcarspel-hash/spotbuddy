@@ -6367,24 +6367,25 @@ export default Sentry.wrap(function App() {
                     </Text>
                   ) : null}
                 </View>
-                <Pressable onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}>
-                  <Ionicons name="close" size={22} color={theme.textMuted} />
-                </Pressable>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  {followingUserIds.includes(viewingOtherUserId) ? (
+                    <Pressable
+                      onPress={async () => {
+                        await handleUnfollowUser(viewingOtherUserId);
+                        setViewingOtherUserId(null);
+                        setShowFullscreenAvatar(false);
+                      }}
+                    >
+                      <Ionicons name="person-remove-outline" size={20} color={theme.textMuted} />
+                    </Pressable>
+                  ) : null}
+                  <Pressable onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}>
+                    <Ionicons name="close" size={22} color={theme.textMuted} />
+                  </Pressable>
+                </View>
               </View>
               <View style={{ gap: 10 }}>
-                {followingUserIds.includes(viewingOtherUserId) ? (
-                  <Pressable
-                    onPress={async () => {
-                      await handleUnfollowUser(viewingOtherUserId);
-                      setViewingOtherUserId(null);
-                      setShowFullscreenAvatar(false);
-                    }}
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
-                  >
-                    <Ionicons name="person-remove-outline" size={16} color={theme.textMuted} />
-                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Remove buddy</Text>
-                  </Pressable>
-                ) : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
+                {followingUserIds.includes(viewingOtherUserId) ? null : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
                     <Ionicons name="time-outline" size={16} color={theme.textMuted} />
                     <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Buddy request sent</Text>
