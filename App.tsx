@@ -2577,19 +2577,21 @@ export default Sentry.wrap(function App() {
   const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
-  const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm'>('spot');
+  const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
   const [activeChatDayKey, setActiveChatDayKey] = useState<string | null>(null);
   const [chatSpotMessages, setChatSpotMessages] = useState<Record<string, { conversationId: string | null; messages: any[]; loaded: boolean; dayKey?: string }>>({});
   // Één state voor welke chat open is — voorkomt conflicten tussen de drie types
-  const [openChatState, setOpenChatState] = useState<{ type: 'spot' | 'session' | 'dm'; id: string } | null>(null);
+  const [openChatState, setOpenChatState] = useState<{ type: 'spot' | 'session' | 'dm' | 'group'; id: string } | null>(null);
   const expandedChatSpot = openChatState?.type === 'spot' ? openChatState.id : null;
   const expandedChatSession = openChatState?.type === 'session' ? openChatState.id : null;
   const expandedDmId = openChatState?.type === 'dm' ? openChatState.id : null;
+  const expandedPersistentGroupId = openChatState?.type === 'group' ? openChatState.id : null;
   const setExpandedChatSpot = (v: string | null) => v ? setOpenChatState({ type: 'spot', id: v }) : setOpenChatState(null);
   const setExpandedChatSession = (v: string | null) => v ? setOpenChatState({ type: 'session', id: v }) : setOpenChatState(null);
   const setExpandedDmId = (v: string | null) => v ? setOpenChatState({ type: 'dm', id: v }) : setOpenChatState(null);
+  const setExpandedPersistentGroupId = (v: string | null) => v ? setOpenChatState({ type: 'group', id: v }) : setOpenChatState(null);
   const [spotChatInputInChat, setSpotChatInputInChat] = useState('');
   const [pendingMediaUri, setPendingMediaUri] = useState<string | null>(null);
   const [isUploadingMedia, setIsUploadingMedia] = useState(false);
@@ -2604,7 +2606,19 @@ export default Sentry.wrap(function App() {
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const chatUnreadCount = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal;
+  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number }>>([]);
+  const [persistentGroupMessages, setPersistentGroupMessages] = useState<Record<string, { messages: any[]; loaded: boolean }>>({});
+  const [persistentGroupInput, setPersistentGroupInput] = useState('');
+  const [unreadByPersistentGroup, setUnreadByPersistentGroup] = useState<Record<string, number>>({});
+  const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [createGroupName, setCreateGroupName] = useState('');
+  const [createGroupSelectedIds, setCreateGroupSelectedIds] = useState<string[]>([]);
+  const [showNominateModal, setShowNominateModal] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [nominateSearchQuery, setNominateSearchQuery] = useState('');
+  const [nominateSelectedUserId, setNominateSelectedUserId] = useState<string | null>(null);
+  const [nominateSearchResults, setNominateSearchResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([]);
+  const unreadPersistentGroupTotal = Object.values(unreadByPersistentGroup).reduce((a, b) => a + b, 0);
+  const chatUnreadCount = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal + unreadPersistentGroupTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
     spotChats: 'everyone' | 'buddies' | 'off';
     sessionChats: 'everyone' | 'buddies' | 'off';
@@ -2666,6 +2680,7 @@ export default Sentry.wrap(function App() {
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
+  const chatGroupScrollRef = useRef<ScrollView>(null);
   const [chatKeyboardHeight, setChatKeyboardHeight] = useState(0);
 
   const [showForm, setShowForm] = useState(false);
@@ -4861,6 +4876,9 @@ export default Sentry.wrap(function App() {
     }
     if (chatSubTab === 'session') {
       void loadMySessionsForChatTab();
+    }
+    if (chatSubTab === 'group') {
+      void loadMyPersistentGroups();
     }
     // DMs altijd laden als chat opent (niet alleen bij tab-switch)
     void loadDmConversationsRef.current?.();
@@ -8200,6 +8218,97 @@ export default Sentry.wrap(function App() {
     void loadDmConversationsRef.current?.();
   };
 
+  const loadMyPersistentGroups = async () => {
+    const userId = activeProfile?.id ?? activeAppUserId;
+    if (!userId) return;
+    const { data: memberships } = await supabase.from('group_members').select('group_id, role').eq('user_id', userId);
+    if (!memberships?.length) { setMyPersistentGroups([]); return; }
+    const groupIds = memberships.map((m) => m.group_id);
+    const roleMap = new Map(memberships.map((m) => [m.group_id, m.role as 'admin' | 'member']));
+    const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
+    const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').eq('type', 'group').in('persistent_group_id', groupIds);
+    const convMap = new Map((convRows ?? []).map((c) => [c.persistent_group_id, c.id]));
+    const convIds = (convRows ?? []).map((c) => c.id);
+    let lastMsgMap = new Map<string, { text: string | null; at: string }>();
+    if (convIds.length) {
+      for (const convId of convIds) {
+        const { data: msgs } = await supabase.from('messages').select('text, created_at, conversation_id').eq('conversation_id', convId).order('created_at', { ascending: false }).limit(1);
+        if (msgs?.[0]) lastMsgMap.set(convId, { text: msgs[0].text, at: msgs[0].created_at });
+      }
+    }
+    const pendingMap = new Map<string, number>();
+    if (roleMap.size) {
+      const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
+      if (adminGroupIds.length) {
+        const { data: reqs } = await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds);
+        for (const r of (reqs ?? [])) pendingMap.set(r.group_id, (pendingMap.get(r.group_id) ?? 0) + 1);
+      }
+    }
+    setMyPersistentGroups((groups ?? []).map((g) => {
+      const convId = convMap.get(g.id) ?? null;
+      const last = convId ? lastMsgMap.get(convId) : null;
+      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0 };
+    }));
+  };
+
+  const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const rows = msgs ?? [];
+    const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
+    const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
+    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null }));
+    setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: enriched, loaded: true } }));
+  };
+
+  const sendPersistentGroupMessage = async (groupId: string, convId: string, mediaUrl: string | null = null) => {
+    const text = persistentGroupInput.trim();
+    const senderId = activeProfile?.id ?? activeAppUserId ?? null;
+    if (!text && !mediaUrl || !senderId) return;
+    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
+    if (error) { console.error('GROUP_SEND_ERROR', error); return; }
+    setPersistentGroupInput('');
+    setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
+    const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
+    setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: [...(prev[groupId]?.messages ?? []), newMsg], loaded: true } }));
+    setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, lastMessage: text || null, lastMessageAt: new Date().toISOString() } : g));
+  };
+
+  const createPersistentGroup = async () => {
+    const name = createGroupName.trim();
+    const userId = activeProfile?.id ?? activeAppUserId;
+    if (!name || !userId) return;
+    const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: createGroupSelectedIds });
+    if (error) { console.error('CREATE_GROUP_ERROR', error); return; }
+    setShowCreateGroup(false);
+    setCreateGroupName('');
+    setCreateGroupSelectedIds([]);
+    await loadMyPersistentGroups();
+    const created = Array.isArray(data) ? data[0] : data;
+    if (created?.group_id) setExpandedPersistentGroupId(created.group_id);
+  };
+
+  const nominateForGroup = async (groupId: string, nomineeId: string) => {
+    const introducedBy = activeProfile?.id ?? activeAppUserId;
+    if (!introducedBy) return;
+    const { error } = await supabase.from('group_join_requests').insert({ group_id: groupId, nominee_id: nomineeId, introduced_by: introducedBy, status: 'pending' });
+    if (error) console.error('NOMINATE_ERROR', error);
+    setShowNominateModal(null);
+    setNominateSearchQuery('');
+    setNominateSelectedUserId(null);
+    setNominateSearchResults([]);
+  };
+
+  const resolveJoinRequest = async (requestId: string, accept: boolean) => {
+    if (accept) {
+      const { error } = await supabase.rpc('accept_group_join_request', { request_id: requestId });
+      if (error) { console.error('ACCEPT_JOIN_ERROR', error); return; }
+    } else {
+      await supabase.from('group_join_requests').update({ status: 'denied' }).eq('id', requestId);
+    }
+    await loadMyPersistentGroups();
+  };
+
   const openDmWithUser = async (otherUserId: string) => {
     if (!activeAppUserId || !otherUserId) {
       return null;
@@ -8889,6 +8998,7 @@ export default Sentry.wrap(function App() {
       { key: 'spot' as const, label: 'Spot', badge: spotUnreadTotal },
       { key: 'session' as const, label: 'Session', badge: unreadSessionTotal },
       { key: 'dm' as const, label: 'Direct', badge: unreadDmTotal },
+      { key: 'group' as const, label: 'Groups', badge: unreadPersistentGroupTotal },
     ];
 
     const chatNameColors = ['#5EF0D0', '#4DB8FF', '#FFB347', '#B8A0FF', '#7EE8A2', '#FF8C8C'];
@@ -8952,7 +9062,7 @@ export default Sentry.wrap(function App() {
     const openSpotConv = expandedChatSpot ? chatSpotMessages[expandedChatSpot] : null;
     const openSessionConv = expandedChatSession ? chatSessionMessages[expandedChatSession] : null;
     const openDmConv = expandedDmId ? dmConversations.find((d) => d.id === expandedDmId) : null;
-    const isAnyConvOpen = !!(expandedChatSpot || expandedChatSession || expandedDmId);
+    const isAnyConvOpen = !!(expandedChatSpot || expandedChatSession || expandedDmId || expandedPersistentGroupId);
 
     const openMessages: any[] = expandedChatSpot
       ? (openSpotConv?.messages ?? [])
@@ -8960,12 +9070,16 @@ export default Sentry.wrap(function App() {
       ? (openSessionConv?.messages ?? [])
       : expandedDmId
       ? (dmMessages[expandedDmId] ?? [])
+      : expandedPersistentGroupId
+      ? (persistentGroupMessages[expandedPersistentGroupId]?.messages ?? [])
       : [];
 
     const openConvName = expandedChatSpot
       ? spotNameFromChatKey(expandedChatSpot)
       : expandedChatSession
       ? (chatSessionMessages[expandedChatSession]?.spotName ?? 'Session chat')
+      : expandedPersistentGroupId
+      ? (myPersistentGroups.find((g) => g.id === expandedPersistentGroupId)?.name ?? 'Group')
       : openDmConv?.otherName ?? 'DM';
 
     const openConvSub = expandedChatSession
@@ -8982,13 +9096,15 @@ export default Sentry.wrap(function App() {
         })()
       : expandedChatSpot ? new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '';
 
-    const openScrollRef = expandedChatSpot ? chatSpotScrollRef : expandedChatSession ? chatSessionScrollRef : chatDmScrollRef;
+    const openScrollRef = expandedChatSpot ? chatSpotScrollRef : expandedChatSession ? chatSessionScrollRef : expandedPersistentGroupId ? chatGroupScrollRef : chatDmScrollRef;
 
-    const openInput = expandedChatSpot ? spotChatInputInChat : expandedChatSession ? sessionChatInput : dmInput;
+    const openInput = expandedChatSpot ? spotChatInputInChat : expandedChatSession ? sessionChatInput : expandedPersistentGroupId ? persistentGroupInput : dmInput;
     const setOpenInput = expandedChatSpot
       ? setSpotChatInputInChat
       : expandedChatSession
       ? setSessionChatInput
+      : expandedPersistentGroupId
+      ? setPersistentGroupInput
       : setDmInput;
 
     const handleOpenSend = async () => {
@@ -9009,6 +9125,10 @@ export default Sentry.wrap(function App() {
         const sessionDay = d?.sessionDay ?? getTodayLocalDateKey();
         void sendSessionMessageInChatTab(expandedChatSession, spotName, sessionDay, mediaUrl);
       }
+      else if (expandedPersistentGroupId) {
+        const grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+        if (grp?.conversationId) void sendPersistentGroupMessage(expandedPersistentGroupId, grp.conversationId, mediaUrl);
+      }
       else if (expandedDmId) void sendDmMessage(expandedDmId, mediaUrl);
     };
 
@@ -9016,6 +9136,7 @@ export default Sentry.wrap(function App() {
       setExpandedChatSpot(null);
       setExpandedChatSession(null);
       setExpandedDmId(null);
+      setExpandedPersistentGroupId(null);
     };
 
     const chatContent = (
@@ -9034,6 +9155,22 @@ export default Sentry.wrap(function App() {
                 <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
                 {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
               </View>
+              {expandedPersistentGroupId && (() => {
+                const grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+                if (!grp) return null;
+                return (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {grp.role === 'admin' && grp.pendingRequests > 0 && (
+                      <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
+                        <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
+                      </Pressable>
+                    )}
+                    <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
+                      <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
+                    </Pressable>
+                  </View>
+                );
+              })()}
             </View>
 
             {/* Berichten */}
@@ -9360,10 +9497,162 @@ export default Sentry.wrap(function App() {
               })}
             </View>
           )}
+          {chatSubTab === 'group' && (
+            <View style={{ gap: 8 }}>
+              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                <Ionicons name="add" size={18} color={theme.text} />
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>New group</Text>
+              </Pressable>
+              {myPersistentGroups.length === 0 && (
+                <View style={{ alignItems: 'center', paddingTop: 30, gap: 8 }}>
+                  <Text style={{ fontSize: 32 }}>👥</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No groups yet</Text>
+                  <Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Create a group to chat with your crew</Text>
+                </View>
+              )}
+              {myPersistentGroups.map((grp) => {
+                const grpUnread = unreadByPersistentGroup[grp.id] ?? 0;
+                return (
+                  <Pressable key={grp.id} onPress={() => {
+                    setExpandedPersistentGroupId(grp.id);
+                    setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
+                    if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
+                  }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{grp.name}</Text>
+                        {grp.pendingRequests > 0 && grp.role === 'admin' && (
+                          <View style={{ backgroundColor: '#FFB347', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}>
+                            <Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
+                          </View>
+                        )}
+                      </View>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                        {grp.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{grp.lastMessage}</Text> : <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet</Text>}
+                        {grpUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grpUnread}</Text></View>}
+                      </View>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
         </ScrollView>)
         )}
         </KeyboardAvoidingView>
       {renderOtherUserProfileModal()}
+      {showCreateGroup && (() => {
+        const allUsers = (Array.isArray(buddyUsers) ? buddyUsers : []);
+        return (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+              <Pressable onPress={() => setShowCreateGroup(false)} hitSlop={10} style={{ padding: 4 }}>
+                <Ionicons name="chevron-back" size={22} color={theme.text} />
+              </Pressable>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
+              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim()} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: createGroupName.trim() ? theme.primary : 'rgba(255,255,255,0.08)' }}>
+                <Text style={{ color: createGroupName.trim() ? '#000' : theme.textMuted, fontSize: 13, fontWeight: '900' }}>Create</Text>
+              </Pressable>
+            </View>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
+              <TextInput value={createGroupName} onChangeText={setCreateGroupName} placeholder="Group name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+            </View>
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+              <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>ADD MEMBERS (optional)</Text>
+              {allUsers.map((u) => {
+                const selected = createGroupSelectedIds.includes(u.id);
+                return (
+                  <Pressable key={u.id} onPress={() => setCreateGroupSelectedIds((prev) => selected ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <Avatar uri={u.avatar_url ?? null} size={44} skillLevel={u.skill_level} name={u.display_name} />
+                    <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{u.display_name}</Text>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                      {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        );
+      })()}
+      {showNominateModal && (() => {
+        const { groupId, groupName } = showNominateModal;
+        const grp = myPersistentGroups.find((g) => g.id === groupId);
+        const isAdmin = grp?.role === 'admin';
+        return (
+          <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+              <Pressable onPress={() => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); }} hitSlop={10} style={{ padding: 4 }}>
+                <Ionicons name="chevron-back" size={22} color={theme.text} />
+              </Pressable>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>{isAdmin ? `Add to ${groupName}` : `Suggest for ${groupName}`}</Text>
+            </View>
+            {isAdmin ? (
+              <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                {(() => {
+                  const [pendingReqs, setPendingReqs] = React.useState<Array<{ id: string; nominee: { id: string; display_name: string; avatar_url: string | null }; introduced_by: { display_name: string } }>>([]);
+                  React.useEffect(() => {
+                    supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', groupId).eq('status', 'pending').then(({ data }) => {
+                      setPendingReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } })));
+                    });
+                  }, []);
+                  if (!pendingReqs.length) return <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginTop: 40 }}>No pending requests</Text>;
+                  return pendingReqs.map((req) => (
+                    <View key={req.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <Avatar uri={req.nominee.avatar_url} size={44} name={req.nominee.display_name} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{req.nominee.display_name}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>Suggested by {req.introduced_by.display_name}</Text>
+                      </View>
+                      <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: theme.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}>
+                        <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>Accept</Text>
+                      </Pressable>
+                      <Pressable onPress={() => void resolveJoinRequest(req.id, false)} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Deny</Text>
+                      </Pressable>
+                    </View>
+                  ));
+                })()}
+              </ScrollView>
+            ) : (
+              <View style={{ flex: 1 }}>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                  <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
+                    setNominateSearchQuery(q);
+                    if (q.trim().length < 2) { setNominateSearchResults([]); return; }
+                    const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
+                    setNominateSearchResults(data ?? []);
+                  }} placeholder="Search by name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+                </View>
+                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                  {nominateSearchResults.map((u) => {
+                    const selected = nominateSelectedUserId === u.id;
+                    return (
+                      <Pressable key={u.id} onPress={() => setNominateSelectedUserId(selected ? null : u.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                        <Avatar uri={u.avatar_url} size={44} name={u.display_name} />
+                        <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                          {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+                {nominateSelectedUserId && (
+                  <View style={{ padding: 16 }}>
+                    <Pressable onPress={() => void nominateForGroup(groupId, nominateSelectedUserId)} style={{ backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
+                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '900' }}>Suggest to admin</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        );
+      })()}
       {showBroadcastDm && (() => {
         const followingSet = new Set(followingUserIds);
         const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
@@ -9442,6 +9731,22 @@ export default Sentry.wrap(function App() {
                     <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
                     {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
                   </View>
+                  {expandedPersistentGroupId && (() => {
+                    const grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+                    if (!grp) return null;
+                    return (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        {grp.role === 'admin' && grp.pendingRequests > 0 && (
+                          <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
+                            <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
+                          </Pressable>
+                        )}
+                        <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
+                          <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
+                        </Pressable>
+                      </View>
+                    );
+                  })()}
                 </View>
                 {/* Berichten */}
                 <ScrollView
@@ -9676,12 +9981,142 @@ export default Sentry.wrap(function App() {
                     </Pressable>;
                   })}
                 </View>}
+                {chatSubTab === 'group' && <View style={{ gap: 8 }}>
+                  <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                    <Ionicons name="add" size={18} color={theme.text} />
+                    <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>New group</Text>
+                  </Pressable>
+                  {myPersistentGroups.length === 0 && <View style={{ alignItems: 'center', paddingTop: 30, gap: 8 }}><Text style={{ fontSize: 32 }}>👥</Text><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No groups yet</Text><Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Create a group to chat with your crew</Text></View>}
+                  {myPersistentGroups.map((grp) => {
+                    const grpUnread = unreadByPersistentGroup[grp.id] ?? 0;
+                    return <Pressable key={grp.id} onPress={() => {
+                      setExpandedPersistentGroupId(grp.id);
+                      setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
+                      if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
+                    }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{grp.name}</Text>
+                          {grp.pendingRequests > 0 && grp.role === 'admin' && <View style={{ backgroundColor: '#FFB347', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grp.pendingRequests} req</Text></View>}
+                        </View>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                          {grp.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{grp.lastMessage}</Text> : <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet</Text>}
+                          {grpUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grpUnread}</Text></View>}
+                        </View>
+                      </View>
+                    </Pressable>;
+                  })}
+                </View>}
               </ScrollView>)
             )}
           </KeyboardAvoidingView>
           {/* Bottom nav alleen in lijst-modus */}
           {!isAnyConvOpen && renderNativeBottomNav()}
           {renderOtherUserProfileModal()}
+          {showCreateGroup && (() => {
+            const allUsers = (Array.isArray(buddyUsers) ? buddyUsers : []);
+            return (
+              <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+                  <Pressable onPress={() => setShowCreateGroup(false)} hitSlop={10} style={{ padding: 4 }}><Ionicons name="chevron-back" size={22} color={theme.text} /></Pressable>
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
+                  <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim()} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: createGroupName.trim() ? theme.primary : 'rgba(255,255,255,0.08)' }}>
+                    <Text style={{ color: createGroupName.trim() ? '#000' : theme.textMuted, fontSize: 13, fontWeight: '900' }}>Create</Text>
+                  </Pressable>
+                </View>
+                <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
+                  <TextInput value={createGroupName} onChangeText={setCreateGroupName} placeholder="Group name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+                </View>
+                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>ADD MEMBERS (optional)</Text>
+                  {allUsers.map((u) => {
+                    const selected = createGroupSelectedIds.includes(u.id);
+                    return (
+                      <Pressable key={u.id} onPress={() => setCreateGroupSelectedIds((prev) => selected ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                        <Avatar uri={u.avatar_url ?? null} size={44} skillLevel={u.skill_level} name={u.display_name} />
+                        <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }} numberOfLines={1}>{u.display_name}</Text>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                          {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            );
+          })()}
+          {showNominateModal && (() => {
+            const { groupId, groupName } = showNominateModal;
+            const grp = myPersistentGroups.find((g) => g.id === groupId);
+            const isAdmin = grp?.role === 'admin';
+            return (
+              <View style={{ position: 'absolute', top: 88, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
+                  <Pressable onPress={() => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); }} hitSlop={10} style={{ padding: 4 }}><Ionicons name="chevron-back" size={22} color={theme.text} /></Pressable>
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>{isAdmin ? `Add to ${groupName}` : `Suggest for ${groupName}`}</Text>
+                </View>
+                {isAdmin ? (
+                  <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                    {(() => {
+                      const [pendingReqs, setPendingReqsN] = React.useState<Array<{ id: string; nominee: { id: string; display_name: string; avatar_url: string | null }; introduced_by: { display_name: string } }>>([]);
+                      React.useEffect(() => {
+                        supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', groupId).eq('status', 'pending').then(({ data }) => {
+                          setPendingReqsN((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } })));
+                        });
+                      }, []);
+                      if (!pendingReqs.length) return <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginTop: 40 }}>No pending requests</Text>;
+                      return pendingReqs.map((req) => (
+                        <View key={req.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                          <Avatar uri={req.nominee.avatar_url} size={44} name={req.nominee.display_name} />
+                          <View style={{ flex: 1 }}>
+                            <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{req.nominee.display_name}</Text>
+                            <Text style={{ color: theme.textMuted, fontSize: 12 }}>Suggested by {req.introduced_by.display_name}</Text>
+                          </View>
+                          <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: theme.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}><Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>Accept</Text></Pressable>
+                          <Pressable onPress={() => void resolveJoinRequest(req.id, false)} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}><Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Deny</Text></Pressable>
+                        </View>
+                      ));
+                    })()}
+                  </ScrollView>
+                ) : (
+                  <View style={{ flex: 1 }}>
+                    <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                      <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
+                        setNominateSearchQuery(q);
+                        if (q.trim().length < 2) { setNominateSearchResults([]); return; }
+                        const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
+                        setNominateSearchResults(data ?? []);
+                      }} placeholder="Search by name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+                    </View>
+                    <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+                      {nominateSearchResults.map((u) => {
+                        const selected = nominateSelectedUserId === u.id;
+                        return (
+                          <Pressable key={u.id} onPress={() => setNominateSelectedUserId(selected ? null : u.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                            <Avatar uri={u.avatar_url} size={44} name={u.display_name} />
+                            <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
+                            <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                              {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                    {nominateSelectedUserId && (
+                      <View style={{ padding: 16 }}>
+                        <Pressable onPress={() => void nominateForGroup(groupId, nominateSelectedUserId)} style={{ backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
+                          <Text style={{ color: '#000', fontSize: 15, fontWeight: '900' }}>Suggest to admin</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })()}
           {showBroadcastDm && (() => {
             const followingSet = new Set(followingUserIds);
             const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id));
