@@ -1295,15 +1295,6 @@ function Avatar({ uri, size = 28, name }: { uri: string | null; size?: number; n
 }
 
 function Flag({ code, size = 20 }: { code: string; size?: number }) {
-  if (Platform.OS === 'web') {
-    const w = Math.round(size * 2);
-    return (
-      <Image
-        source={{ uri: `https://flagcdn.com/w${w}/${code.toLowerCase()}.png` }}
-        style={{ width: Math.round(size * 1.35), height: size, borderRadius: 2 }}
-      />
-    );
-  }
   const c = getCountry(code);
   return c ? <Text style={{ fontSize: size }}>{c.flag}</Text> : null;
 }
@@ -6382,10 +6373,17 @@ export default Sentry.wrap(function App() {
               </View>
               <View style={{ gap: 10 }}>
                 {followingUserIds.includes(viewingOtherUserId) ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 }}>
-                    <Ionicons name="people-outline" size={15} color={theme.textMuted} />
-                    <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>You're buddies</Text>
-                  </View>
+                  <Pressable
+                    onPress={async () => {
+                      await handleUnfollowUser(viewingOtherUserId);
+                      setViewingOtherUserId(null);
+                      setShowFullscreenAvatar(false);
+                    }}
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
+                  >
+                    <Ionicons name="person-remove-outline" size={16} color={theme.textMuted} />
+                    <Text style={{ color: theme.textMuted, fontSize: 14, fontWeight: '700' }}>Remove buddy</Text>
+                  </Pressable>
                 ) : outgoingFollowStatusesByUserId[viewingOtherUserId] === 'pending' ? (
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
                     <Ionicons name="time-outline" size={16} color={theme.textMuted} />
