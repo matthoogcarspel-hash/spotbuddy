@@ -8226,8 +8226,7 @@ export default Sentry.wrap(function App() {
     if (!memberships?.length) { setMyPersistentGroups([]); return; }
     const groupIds = memberships.map((m) => m.group_id);
     const roleMap = new Map(memberships.map((m) => [m.group_id, m.role as 'admin' | 'member']));
-    const { data: groups, error: gErr } = await supabase.from('groups').select('id, name').in('id', groupIds);
-    Alert.alert('Debug groups2', `groups=${groups?.length ?? 0} err=${gErr?.message ?? 'none'}`);
+    const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').eq('type', 'group').in('persistent_group_id', groupIds);
     const convMap = new Map((convRows ?? []).map((c) => [c.persistent_group_id, c.id]));
     const convIds = (convRows ?? []).map((c) => c.id);
