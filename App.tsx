@@ -8248,15 +8248,27 @@ export default Sentry.wrap(function App() {
     if (!memberships?.length) { setMyPersistentGroups([]); return; }
     const groupIds = memberships.map((m) => m.group_id);
     const roleMap = new Map(memberships.map((m) => [m.group_id, m.role as 'admin' | 'member']));
+    const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
 
-    const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
-    const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').eq('type', 'group').in('persistent_group_id', groupIds);
-    const convMap = new Map((convRows ?? []).map((c) => [c.persistent_group_id, c.id]));
-    const convIds = (convRows ?? []).map((c) => c.id);
+    // Round-trip 2: groups + conversations + requests parallel
+    const results = await Promise.allSettled([
+      supabase.from('groups').select('id, name, avatar_url').in('id', groupIds),
+      supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds),
+      adminGroupIds.length
+        ? supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)
+        : Promise.resolve({ data: [] as Array<{ group_id: string }> }),
+    ]);
+    const groups = results[0].status === 'fulfilled' ? (results[0].value as any).data : [];
+    const convRows = results[1].status === 'fulfilled' ? (results[1].value as any).data : [];
+    const reqs = results[2].status === 'fulfilled' ? (results[2].value as any).data : [];
 
+    const convMap = new Map((convRows ?? []).map((c: any) => [c.persistent_group_id, c.id]));
+    const convIds = (convRows ?? []).map((c: any) => c.id as string);
+
+    // Round-trip 3: last message per conversation
     const lastMsgMap = new Map<string, { text: string | null; at: string }>();
     if (convIds.length) {
-      const { data: allMsgs } = await supabase.from('messages').select('text, created_at, conversation_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(Math.max(convIds.length * 5, 50));
+      const { data: allMsgs } = await supabase.from('messages').select('text, created_at, conversation_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(convIds.length + 20);
       const seen = new Set<string>();
       for (const m of (allMsgs ?? [])) {
         if (!seen.has(m.conversation_id)) { seen.add(m.conversation_id); lastMsgMap.set(m.conversation_id, { text: m.text, at: m.created_at }); }
@@ -8264,11 +8276,7 @@ export default Sentry.wrap(function App() {
     }
 
     const pendingMap = new Map<string, number>();
-    const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
-    if (adminGroupIds.length) {
-      const { data: reqs } = await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds);
-      for (const r of (reqs ?? [])) pendingMap.set(r.group_id, (pendingMap.get(r.group_id) ?? 0) + 1);
-    }
+    for (const r of (reqs ?? [])) pendingMap.set((r as any).group_id, (pendingMap.get((r as any).group_id) ?? 0) + 1);
     setMyPersistentGroups((groups ?? []).map((g) => {
       const convId = convMap.get(g.id) ?? null;
       const last = convId ? lastMsgMap.get(convId) : null;
