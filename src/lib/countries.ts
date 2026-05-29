@@ -136,4 +136,4 @@ export const COUNTRIES: { code: string; flag: string; name: string }[] = [
 
 export const COUNTRY_MAP = new Map(COUNTRIES.map((c) => [c.code, c]));
 export const getCountry = (code: string | null | undefined) =>
-  code ? (COUNTRY_MAP.get(code) ?? null) : null;
+  code ? (COUNTRY_MAP.get(code.toUpperCase()) ?? null) : null;

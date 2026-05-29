@@ -6355,14 +6355,6 @@ export default Sentry.wrap(function App() {
         onPress={() => { setViewingOtherUserId(null); setShowFullscreenAvatar(false); }}
         style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.65)', zIndex: 200, justifyContent: 'flex-end' }}
       >
-        {showFullscreenAvatar && viewingOtherProfile?.avatar_url ? (
-          <Pressable
-            onPress={() => setShowFullscreenAvatar(false)}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}
-          >
-            <Image source={{ uri: viewingOtherProfile.avatar_url }} style={{ width: 300, height: 300, borderRadius: 150 }} resizeMode="cover" />
-          </Pressable>
-        ) : null}
         <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: '#0d1b2a', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
           {viewingOtherProfile ? (
             <>
@@ -6435,6 +6427,14 @@ export default Sentry.wrap(function App() {
             </View>
           )}
         </Pressable>
+        {showFullscreenAvatar && viewingOtherProfile?.avatar_url ? (
+          <Pressable
+            onPress={() => setShowFullscreenAvatar(false)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.92)', alignItems: 'center', justifyContent: 'center', zIndex: 300 }}
+          >
+            <Image source={{ uri: viewingOtherProfile.avatar_url }} style={{ width: 300, height: 300, borderRadius: 150 }} resizeMode="cover" />
+          </Pressable>
+        ) : null}
       </Pressable>
     );
   };
