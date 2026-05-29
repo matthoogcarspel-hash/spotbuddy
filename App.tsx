@@ -2611,6 +2611,7 @@ export default Sentry.wrap(function App() {
   const [persistentGroupInput, setPersistentGroupInput] = useState('');
   const [unreadByPersistentGroup, setUnreadByPersistentGroup] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
+  const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [createGroupName, setCreateGroupName] = useState('');
   const [createGroupSelectedIds, setCreateGroupSelectedIds] = useState<string[]>([]);
   const [showNominateModal, setShowNominateModal] = useState<{ groupId: string; groupName: string } | null>(null);
@@ -8275,14 +8276,17 @@ export default Sentry.wrap(function App() {
   };
 
   const createPersistentGroup = async () => {
+    if (isCreatingGroup) return;
     const name = createGroupName.trim();
     const userId = activeProfile?.id ?? activeAppUserId;
     if (!name || !userId) return;
+    setIsCreatingGroup(true);
     const memberIds = createGroupSelectedIds.length > 0 ? createGroupSelectedIds : [];
     const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: memberIds });
     if (error) {
       console.error('CREATE_GROUP_ERROR', JSON.stringify(error));
       Alert.alert('Error', error.message ?? 'Could not create group');
+      setIsCreatingGroup(false);
       return;
     }
     setShowCreateGroup(false);
@@ -8297,6 +8301,7 @@ export default Sentry.wrap(function App() {
       setChatSubTab('group');
       setExpandedPersistentGroupId(newGroupId);
     }
+    setIsCreatingGroup(false);
   };
 
   const nominateForGroup = async (groupId: string, nomineeId: string) => {
@@ -9564,8 +9569,8 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
-              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim()} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: '#123868', borderWidth: 1, borderColor: createGroupName.trim() ? theme.primary : 'rgba(255,255,255,0.12)', opacity: createGroupName.trim() ? 1 : 0.4 }}>
-                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>Create</Text>
+              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim() || isCreatingGroup} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: '#123868', borderWidth: 1, borderColor: createGroupName.trim() && !isCreatingGroup ? theme.primary : 'rgba(255,255,255,0.12)', opacity: createGroupName.trim() && !isCreatingGroup ? 1 : 0.4 }}>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>{isCreatingGroup ? '…' : 'Create'}</Text>
               </Pressable>
             </View>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
