@@ -5447,10 +5447,6 @@ export default Sentry.wrap(function App() {
   }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (activeAppUserId) void loadMyPersistentGroups();
-  }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
     setHomeQuickCheckInError('');
   }, []);
 
@@ -8287,6 +8283,9 @@ export default Sentry.wrap(function App() {
       return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null };
     }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
   };
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeAppUserId) void loadMyPersistentGroups(); }, [activeAppUserId]);
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
     const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
