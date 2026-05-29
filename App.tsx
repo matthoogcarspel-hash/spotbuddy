@@ -2629,6 +2629,7 @@ export default Sentry.wrap(function App() {
   }>({ spotChats: 'everyone', sessionChats: 'everyone', messageRequests: true });
   const [dmConversations, setDmConversations] = useState<{ id: string; otherUserId: string; otherName: string; otherAvatar: string | null; otherSkillLevel?: number | null; lastMessage: string | null; lastMessageAt: string | null }[]>([]);
   const loadDmConversationsRef = useRef<(() => Promise<void>) | null>(null);
+  const loadMyPersistentGroupsRef = useRef<(() => Promise<void>) | null>(null);
   const loadDmMessagesRef = useRef<((conversationId: string) => Promise<void>) | null>(null);
   const loadSessionChatForTabRef = useRef<((groupKey: string, spotName: string, sessionDay: string) => Promise<void>) | null>(null);
   const [dmMessages, setDmMessages] = useState<Record<string, any[]>>({});
@@ -2975,6 +2976,10 @@ export default Sentry.wrap(function App() {
   };
   useEffect(() => {
     void refreshUnreadBuzzState();
+  }, [activeAppUserId]);
+
+  useEffect(() => {
+    if (activeAppUserId) void loadMyPersistentGroupsRef.current?.();
   }, [activeAppUserId]);
 
   useEffect(() => {
@@ -4880,7 +4885,7 @@ export default Sentry.wrap(function App() {
     if (chatSubTab === 'session') {
       void loadMySessionsForChatTab();
     }
-    if (chatSubTab === 'group') void loadMyPersistentGroups();
+    if (chatSubTab === 'group') void loadMyPersistentGroupsRef.current?.();
     // DMs altijd laden als chat opent (niet alleen bij tab-switch)
     void loadDmConversationsRef.current?.();
   }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -8284,8 +8289,7 @@ export default Sentry.wrap(function App() {
     }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
   };
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activeAppUserId) void loadMyPersistentGroups(); }, [activeAppUserId]);
+  loadMyPersistentGroupsRef.current = loadMyPersistentGroups;
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
     const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
