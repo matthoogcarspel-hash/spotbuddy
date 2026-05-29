@@ -1890,7 +1890,7 @@ function SessionRow({
     : { allowed: false, reason: null };
   // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
   const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
-  const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup;
+  const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup && joinState.allowed;
   // "You're in" alleen tonen als je in een groep zit MET anderen (niet je eigen solo-sessie)
   const isJoinedGroup = isAlreadyInGroup && safeGroupSessions.some(e => e.item?.userId !== currentProfileId);
   const hostCleanStatus = getCleanSessionStatus(session);
@@ -2211,7 +2211,8 @@ function SessionTimeline({
                 const mGSessions = Array.isArray(group.sessions) ? group.sessions : [];
                 const mJoinTarget = mGSessions.find(e => e.item?.userId !== currentProfileId)?.item ?? null;
                 const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId);
-                const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn;
+                const mJoinState = mJoinTarget?.id ? (joinStateBySession[mJoinTarget.id] ?? { allowed: false, reason: null }) : { allowed: false, reason: null };
+                const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn && mJoinState.allowed;
                 const mJoinedGroup = mAlreadyIn && mGSessions.some(e => e.item?.userId !== currentProfileId);
 
                 const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
