@@ -24,6 +24,7 @@ import { Profile, SUPABASE_ANON_KEY, SUPABASE_URL, supabase } from './src/lib/su
 import { hasBlockedSpotbuddyName, hasRestrictedWord, normalizeEmail } from './src/lib/userValidation';
 import AuthScreen from './src/screens/AuthScreen';
 import NameSetupScreen from './src/screens/NameSetupScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
 import { theme as appTheme } from './src/theme/theme';
 import { SpotSummaryCards as TargetSpotSummaryCards } from './components/SpotSummaryCards';
 import * as Sentry from '@sentry/react-native';
@@ -2780,6 +2781,8 @@ export default Sentry.wrap(function App() {
   const autoCheckoutInFlightRef = useRef(false);
   const hasAutoCheckedOutRef = useRef(false);
   const hasSyncedSpotFollowersRef = useRef(false);
+  const isNewSignupRef = useRef(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const gpsWatcherRef = useRef<Location.LocationSubscription | null>(null);
   const gpsWatcherSessionIdRef = useRef<string | null>(null);
   const gpsWatcherStartTokenRef = useRef(0);
@@ -3017,6 +3020,13 @@ export default Sentry.wrap(function App() {
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
   }, [activeAppUserId]);
+
+  useEffect(() => {
+    if (profile && isNewSignupRef.current) {
+      isNewSignupRef.current = false;
+      setShowOnboarding(true);
+    }
+  }, [profile]);
   const getNotificationInboxSummary = (notificationRow: NotificationRow) => {
     const data = notificationRow.data;
     const actorName = (() => {
@@ -7830,6 +7840,7 @@ export default Sentry.wrap(function App() {
   if (!session) {
     return <AuthScreen
       onSignupSuccess={() => {
+        isNewSignupRef.current = true;
         void supabase.auth.getSession().then(({ data }) => {
           if (data.session) {
             void hydrateActiveProfile(data.session.user, 'signup_success');
@@ -7864,6 +7875,20 @@ export default Sentry.wrap(function App() {
       void AsyncStorage.setItem(getActiveProfileStorageKey(session.user.id), savedProfile.id);
     }} />;
   }
+
+  if (showOnboarding) {
+    return <OnboardingScreen
+      profile={profile}
+      onComplete={(selectedSpots) => {
+        if (selectedSpots.length > 0) {
+          setFavoriteSpots(selectedSpots);
+          void AsyncStorage.setItem(favoriteSpotsStorageKey, JSON.stringify(selectedSpots));
+        }
+        setShowOnboarding(false);
+      }}
+    />;
+  }
+
   const loadSpotChatForTab = async (spotName: string, dayKey?: string) => {
     const day = dayKey ?? getTodayLocalDateKey();
     const cKey = spotChatKey(spotName, day);
