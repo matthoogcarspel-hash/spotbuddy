@@ -8277,7 +8277,6 @@ export default Sentry.wrap(function App() {
   const createPersistentGroup = async () => {
     const name = createGroupName.trim();
     const userId = activeProfile?.id ?? activeAppUserId;
-    Alert.alert('Debug', `name="${name}" userId="${userId}"`);
     if (!name || !userId) return;
     const memberIds = createGroupSelectedIds.length > 0 ? createGroupSelectedIds : [];
     const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: memberIds });
@@ -8287,12 +8286,17 @@ export default Sentry.wrap(function App() {
       return;
     }
     setShowCreateGroup(false);
+    const created = Array.isArray(data) ? data[0] : data;
+    const newGroupId = created?.out_group_id ?? created?.group_id ?? null;
+    const groupName = name;
     setCreateGroupName('');
     setCreateGroupSelectedIds([]);
     await loadMyPersistentGroups();
-    const created = Array.isArray(data) ? data[0] : data;
-    const newGroupId = created?.out_group_id ?? created?.group_id ?? null;
-    if (newGroupId) { setChatSubTab('group'); setExpandedPersistentGroupId(newGroupId); }
+    if (newGroupId) {
+      setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0 }, ...prev]);
+      setChatSubTab('group');
+      setExpandedPersistentGroupId(newGroupId);
+    }
   };
 
   const nominateForGroup = async (groupId: string, nomineeId: string) => {
