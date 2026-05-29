@@ -2606,12 +2606,13 @@ export default Sentry.wrap(function App() {
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number }>>([]);
+  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number; avatar_url: string | null }>>([]);
   const [persistentGroupMessages, setPersistentGroupMessages] = useState<Record<string, { messages: any[]; loaded: boolean }>>({});
   const [persistentGroupInput, setPersistentGroupInput] = useState('');
   const [unreadByPersistentGroup, setUnreadByPersistentGroup] = useState<Record<string, number>>({});
   const [showCreateGroup, setShowCreateGroup] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [createGroupAvatarUri, setCreateGroupAvatarUri] = useState<string | null>(null);
   const [createGroupName, setCreateGroupName] = useState('');
   const [createGroupSelectedIds, setCreateGroupSelectedIds] = useState<string[]>([]);
   const [showNominateModal, setShowNominateModal] = useState<{ groupId: string; groupName: string } | null>(null);
@@ -4878,9 +4879,8 @@ export default Sentry.wrap(function App() {
     if (chatSubTab === 'session') {
       void loadMySessionsForChatTab();
     }
-    if (chatSubTab === 'group') {
-      void loadMyPersistentGroups();
-    }
+    // Groepen altijd laden als chat opent (zelfde als DMs)
+    void loadMyPersistentGroups();
     // DMs altijd laden als chat opent (niet alleen bij tab-switch)
     void loadDmConversationsRef.current?.();
   }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -8226,7 +8226,7 @@ export default Sentry.wrap(function App() {
     if (!memberships?.length) { setMyPersistentGroups([]); return; }
     const groupIds = memberships.map((m) => m.group_id);
     const roleMap = new Map(memberships.map((m) => [m.group_id, m.role as 'admin' | 'member']));
-    const { data: groups } = await supabase.from('groups').select('id, name').in('id', groupIds);
+    const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').eq('type', 'group').in('persistent_group_id', groupIds);
     const convMap = new Map((convRows ?? []).map((c) => [c.persistent_group_id, c.id]));
     const convIds = (convRows ?? []).map((c) => c.id);
@@ -8248,7 +8248,7 @@ export default Sentry.wrap(function App() {
     setMyPersistentGroups((groups ?? []).map((g) => {
       const convId = convMap.get(g.id) ?? null;
       const last = convId ? lastMsgMap.get(convId) : null;
-      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0 };
+      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null };
     }));
   };
 
@@ -8283,6 +8283,19 @@ export default Sentry.wrap(function App() {
     setIsCreatingGroup(true);
     const memberIds = createGroupSelectedIds.length > 0 ? createGroupSelectedIds : [];
     const { data, error } = await supabase.rpc('create_group_with_conversation', { group_name: name, initial_member_ids: memberIds });
+    if (!error && data) {
+      const created0 = Array.isArray(data) ? data[0] : data;
+      const gid = created0?.out_group_id ?? created0?.group_id;
+      if (gid && createGroupAvatarUri) {
+        const res = await fetch(createGroupAvatarUri);
+        const ab = await res.arrayBuffer();
+        const { data: upData } = await supabase.storage.from('avatars').upload(`group-${gid}/avatar.jpg`, ab, { upsert: true, contentType: 'image/jpeg' });
+        if (upData) {
+          const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`group-${gid}/avatar.jpg`);
+          if (urlData?.publicUrl) await supabase.from('groups').update({ avatar_url: `${urlData.publicUrl}?t=${Date.now()}` }).eq('id', gid);
+        }
+      }
+    }
     if (error) {
       console.error('CREATE_GROUP_ERROR', JSON.stringify(error));
       Alert.alert('Error', error.message ?? 'Could not create group');
@@ -8295,6 +8308,7 @@ export default Sentry.wrap(function App() {
     const groupName = name;
     setCreateGroupName('');
     setCreateGroupSelectedIds([]);
+    setCreateGroupAvatarUri(null);
     await loadMyPersistentGroups();
     if (newGroupId) {
       setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0 }, ...prev]);
@@ -9179,10 +9193,28 @@ export default Sentry.wrap(function App() {
                 const grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
                 if (!grp) return null;
                 return (
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                     {grp.role === 'admin' && grp.pendingRequests > 0 && (
                       <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
                         <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
+                      </Pressable>
+                    )}
+                    {grp.role === 'admin' && (
+                      <Pressable onPress={async () => {
+                        const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.8 });
+                        if (r.canceled || !r.assets[0]) return;
+                        const res = await fetch(r.assets[0].uri);
+                        const ab = await res.arrayBuffer();
+                        const path = `group-${grp.id}/avatar.jpg`;
+                        await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
+                        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+                        const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
+                        if (newUrl) {
+                          await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', grp.id);
+                          setMyPersistentGroups((prev) => prev.map((g) => g.id === grp.id ? { ...g, avatar_url: newUrl } : g));
+                        }
+                      }} style={{ padding: 4 }} hitSlop={8}>
+                        <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                       </Pressable>
                     )}
                     <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
@@ -9519,9 +9551,9 @@ export default Sentry.wrap(function App() {
           )}
           {chatSubTab === 'group' && (
             <View style={{ gap: 8 }}>
-              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: '#00C896', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7 }}>
-                <Ionicons name="add" size={16} color="#000" />
-                <Text style={{ color: '#000', fontSize: 13, fontWeight: '800' }}>New group</Text>
+              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: '#123868', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7, borderWidth: 1, borderColor: theme.primary }}>
+                <Ionicons name="add" size={16} color={theme.text} />
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>New group</Text>
               </Pressable>
               {myPersistentGroups.length === 0 && (
                 <View style={{ alignItems: 'center', paddingTop: 30, gap: 8 }}>
@@ -9573,12 +9605,15 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
-              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim() || isCreatingGroup} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: createGroupName.trim() && !isCreatingGroup ? '#00C896' : 'rgba(255,255,255,0.08)', opacity: createGroupName.trim() && !isCreatingGroup ? 1 : 0.4 }}>
-                <Text style={{ color: createGroupName.trim() && !isCreatingGroup ? '#000' : theme.textMuted, fontSize: 13, fontWeight: '900' }}>{isCreatingGroup ? '…' : 'Create'}</Text>
+              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim() || isCreatingGroup} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: '#123868', borderWidth: 1, borderColor: createGroupName.trim() && !isCreatingGroup ? theme.primary : 'rgba(255,255,255,0.12)', opacity: createGroupName.trim() && !isCreatingGroup ? 1 : 0.4 }}>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>{isCreatingGroup ? '…' : 'Create'}</Text>
               </Pressable>
             </View>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
-              <TextInput value={createGroupName} onChangeText={setCreateGroupName} placeholder="Group name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+            <View style={{ paddingHorizontal: 16, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+              <Pressable onPress={async () => { const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.8 }); if (!r.canceled && r.assets[0]) setCreateGroupAvatarUri(r.assets[0].uri); }} style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                {createGroupAvatarUri ? <Image source={{ uri: createGroupAvatarUri }} style={{ width: 60, height: 60, borderRadius: 30 }} /> : <Ionicons name="camera-outline" size={22} color={theme.textMuted} />}
+              </Pressable>
+              <TextInput value={createGroupName} onChangeText={setCreateGroupName} placeholder="Group name" placeholderTextColor={theme.textMuted} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
             </View>
             <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
               <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>ADD MEMBERS (optional)</Text>
@@ -9755,10 +9790,28 @@ export default Sentry.wrap(function App() {
                     const grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
                     if (!grp) return null;
                     return (
-                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                         {grp.role === 'admin' && grp.pendingRequests > 0 && (
                           <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
                             <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
+                          </Pressable>
+                        )}
+                        {grp.role === 'admin' && (
+                          <Pressable onPress={async () => {
+                            const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.8 });
+                            if (r.canceled || !r.assets[0]) return;
+                            const res = await fetch(r.assets[0].uri);
+                            const ab = await res.arrayBuffer();
+                            const path = `group-${grp.id}/avatar.jpg`;
+                            await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
+                            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+                            const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
+                            if (newUrl) {
+                              await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', grp.id);
+                              setMyPersistentGroups((prev) => prev.map((g) => g.id === grp.id ? { ...g, avatar_url: newUrl } : g));
+                            }
+                          }} style={{ padding: 4 }} hitSlop={8}>
+                            <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                           </Pressable>
                         )}
                         <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
@@ -10014,8 +10067,8 @@ export default Sentry.wrap(function App() {
                       setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
                       if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
                     }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                        <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />
+                      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {grp.avatar_url ? <Image source={{ uri: grp.avatar_url }} style={{ width: 46, height: 46 }} /> : <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />}
                       </View>
                       <View style={{ flex: 1 }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
