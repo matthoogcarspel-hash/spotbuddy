@@ -9505,8 +9505,8 @@ export default Sentry.wrap(function App() {
           )}
           {chatSubTab === 'group' && (
             <View style={{ gap: 8 }}>
-              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                <Ionicons name="add" size={18} color={theme.text} />
+              <Pressable onPress={() => { setCreateGroupName(''); setCreateGroupSelectedIds([]); setShowCreateGroup(true); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', marginBottom: 8, backgroundColor: '#123868', borderRadius: 999, paddingHorizontal: 16, paddingVertical: 7, borderWidth: 1, borderColor: theme.primary }}>
+                <Ionicons name="add" size={16} color={theme.text} />
                 <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>New group</Text>
               </Pressable>
               {myPersistentGroups.length === 0 && (
@@ -9559,8 +9559,8 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>New group</Text>
-              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim()} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 16, backgroundColor: createGroupName.trim() ? theme.primary : 'rgba(255,255,255,0.08)' }}>
-                <Text style={{ color: createGroupName.trim() ? '#000' : theme.textMuted, fontSize: 13, fontWeight: '900' }}>Create</Text>
+              <Pressable onPress={() => void createPersistentGroup()} disabled={!createGroupName.trim()} style={{ paddingHorizontal: 16, paddingVertical: 7, borderRadius: 999, backgroundColor: '#123868', borderWidth: 1, borderColor: createGroupName.trim() ? theme.primary : 'rgba(255,255,255,0.12)', opacity: createGroupName.trim() ? 1 : 0.4 }}>
+                <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>Create</Text>
               </Pressable>
             </View>
             <View style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' }}>
