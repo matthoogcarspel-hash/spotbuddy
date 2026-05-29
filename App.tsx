@@ -2619,6 +2619,7 @@ export default Sentry.wrap(function App() {
   const [nominateSearchQuery, setNominateSearchQuery] = useState('');
   const [nominateSelectedUserId, setNominateSelectedUserId] = useState<string | null>(null);
   const [nominateSearchResults, setNominateSearchResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([]);
+  const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
   const unreadPersistentGroupTotal = Object.values(unreadByPersistentGroup).reduce((a, b) => a + b, 0);
   const chatUnreadCount = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal + unreadPersistentGroupTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
@@ -7948,6 +7949,28 @@ export default Sentry.wrap(function App() {
     setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: convId, messages: enriched, loaded: true, dayKey: day } }));
   };
 
+  const uploadGroupAvatar = async (localUri: string, groupId: string): Promise<string | null> => {
+    try {
+      const res = await fetch(localUri);
+      if (!res.ok) return null;
+      const ab = await res.arrayBuffer();
+      const path = `group-${groupId}/avatar.jpg`;
+      await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
+      const { data } = supabase.storage.from('avatars').getPublicUrl(path);
+      return data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
+    } catch { return null; }
+  };
+
+  const pickAndUploadGroupAvatar = async (groupId: string) => {
+    const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (r.canceled || !r.assets[0]) return;
+    const newUrl = await uploadGroupAvatar(r.assets[0].uri, groupId);
+    if (newUrl) {
+      await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', groupId);
+      setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, avatar_url: newUrl } : g));
+    }
+  };
+
   const uploadChatMedia = async (localUri: string, userId: string): Promise<string | null> => {
     try {
       const response = await fetch(localUri);
@@ -8250,7 +8273,7 @@ export default Sentry.wrap(function App() {
       const convId = convMap.get(g.id) ?? null;
       const last = convId ? lastMsgMap.get(convId) : null;
       return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null };
-    }));
+    }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
   };
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
@@ -9187,7 +9210,30 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                {expandedPersistentGroupId && myPersistentGroups.find((g) => g.id === expandedPersistentGroupId)?.role === 'admin' ? (
+                  editingGroupName !== null ? (
+                    <TextInput
+                      value={editingGroupName}
+                      onChangeText={setEditingGroupName}
+                      autoFocus
+                      onBlur={async () => {
+                        const trimmed = editingGroupName.trim();
+                        if (trimmed && trimmed !== openConvName && expandedPersistentGroupId) {
+                          await supabase.from('groups').update({ name: trimmed }).eq('id', expandedPersistentGroupId);
+                          setMyPersistentGroups((prev) => prev.map((g) => g.id === expandedPersistentGroupId ? { ...g, name: trimmed } : g));
+                        }
+                        setEditingGroupName(null);
+                      }}
+                      style={({ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0, outlineStyle: 'none' } as any)}
+                    />
+                  ) : (
+                    <Pressable onPress={() => setEditingGroupName(openConvName)}>
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName} <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text>
+                    </Pressable>
+                  )
+                ) : (
+                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                )}
                 {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
               </View>
               {expandedPersistentGroupId && (() => {
@@ -9201,20 +9247,7 @@ export default Sentry.wrap(function App() {
                       </Pressable>
                     )}
                     {grp.role === 'admin' && (
-                      <Pressable onPress={async () => {
-                        const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.8 });
-                        if (r.canceled || !r.assets[0]) return;
-                        const res = await fetch(r.assets[0].uri);
-                        const ab = await res.arrayBuffer();
-                        const path = `group-${grp.id}/avatar.jpg`;
-                        await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
-                        const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-                        const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
-                        if (newUrl) {
-                          await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', grp.id);
-                          setMyPersistentGroups((prev) => prev.map((g) => g.id === grp.id ? { ...g, avatar_url: newUrl } : g));
-                        }
-                      }} style={{ padding: 4 }} hitSlop={8}>
+                      <Pressable onPress={() => void pickAndUploadGroupAvatar(grp.id)} style={{ padding: 4 }} hitSlop={8}>
                         <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                       </Pressable>
                     )}
@@ -9638,72 +9671,81 @@ export default Sentry.wrap(function App() {
         const { groupId, groupName } = showNominateModal;
         const grp = myPersistentGroups.find((g) => g.id === groupId);
         const isAdmin = grp?.role === 'admin';
+        const closeModal = () => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); };
         return (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
-              <Pressable onPress={() => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); }} hitSlop={10} style={{ padding: 4 }}>
+              <Pressable onPress={closeModal} hitSlop={10} style={{ padding: 4 }}>
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
-              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>{isAdmin ? `Add to ${groupName}` : `Suggest for ${groupName}`}</Text>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>{isAdmin ? `Members — ${groupName}` : `Suggest someone for ${groupName}`}</Text>
             </View>
-            {isAdmin ? (
-              <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-                {(() => {
-                  const [pendingReqs, setPendingReqs] = React.useState<Array<{ id: string; nominee: { id: string; display_name: string; avatar_url: string | null }; introduced_by: { display_name: string } }>>([]);
-                  React.useEffect(() => {
-                    supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', groupId).eq('status', 'pending').then(({ data }) => {
-                      setPendingReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } })));
-                    });
-                  }, []);
-                  if (!pendingReqs.length) return <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginTop: 40 }}>No pending requests</Text>;
-                  return pendingReqs.map((req) => (
-                    <View key={req.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                      <Avatar uri={req.nominee.avatar_url} size={44} name={req.nominee.display_name} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{req.nominee.display_name}</Text>
-                        <Text style={{ color: theme.textMuted, fontSize: 12 }}>Suggested by {req.introduced_by.display_name}</Text>
-                      </View>
-                      <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: theme.primary, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}>
-                        <Text style={{ color: '#000', fontSize: 13, fontWeight: '900' }}>Accept</Text>
-                      </Pressable>
-                      <Pressable onPress={() => void resolveJoinRequest(req.id, false)} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
-                        <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Deny</Text>
-                      </Pressable>
+            <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+              <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
+                setNominateSearchQuery(q);
+                if (q.trim().length < 2) { setNominateSearchResults([]); return; }
+                const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
+                setNominateSearchResults(data ?? []);
+              }} placeholder="Search by name…" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+            </View>
+            <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
+              {nominateSearchResults.map((u) => {
+                const selected = nominateSelectedUserId === u.id;
+                return (
+                  <Pressable key={u.id} onPress={() => setNominateSelectedUserId(selected ? null : u.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    <Avatar uri={u.avatar_url} size={44} name={u.display_name} />
+                    <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                      {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
                     </View>
-                  ));
-                })()}
-              </ScrollView>
-            ) : (
-              <View style={{ flex: 1 }}>
-                <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-                  <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
-                    setNominateSearchQuery(q);
-                    if (q.trim().length < 2) { setNominateSearchResults([]); return; }
-                    const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
-                    setNominateSearchResults(data ?? []);
-                  }} placeholder="Search by name" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
-                </View>
-                <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-                  {nominateSearchResults.map((u) => {
-                    const selected = nominateSelectedUserId === u.id;
-                    return (
-                      <Pressable key={u.id} onPress={() => setNominateSelectedUserId(selected ? null : u.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                        <Avatar uri={u.avatar_url} size={44} name={u.display_name} />
-                        <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
-                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                          {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                  </Pressable>
+                );
+              })}
+              {isAdmin && grp.pendingRequests > 0 && nominateSearchQuery.trim().length === 0 && (() => {
+                const [pendingReqs, setPendingReqs] = React.useState<Array<{ id: string; nominee: { id: string; display_name: string; avatar_url: string | null }; introduced_by: { display_name: string } }>>([]);
+                React.useEffect(() => {
+                  supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', groupId).eq('status', 'pending').then(({ data }) => {
+                    setPendingReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } })));
+                  });
+                }, []);
+                if (!pendingReqs.length) return null;
+                return (
+                  <View>
+                    <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>PENDING REQUESTS</Text>
+                    {pendingReqs.map((req) => (
+                      <View key={req.id} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                        <Avatar uri={req.nominee.avatar_url} size={44} name={req.nominee.display_name} />
+                        <View style={{ flex: 1 }}>
+                          <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{req.nominee.display_name}</Text>
+                          <Text style={{ color: theme.textMuted, fontSize: 12 }}>Suggested by {req.introduced_by.display_name}</Text>
                         </View>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-                {nominateSelectedUserId && (
-                  <View style={{ padding: 16 }}>
-                    <Pressable onPress={() => void nominateForGroup(groupId, nominateSelectedUserId)} style={{ backgroundColor: theme.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
-                      <Text style={{ color: '#000', fontSize: 15, fontWeight: '900' }}>Suggest to admin</Text>
-                    </Pressable>
+                        <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: '#123868', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6, borderWidth: 1, borderColor: theme.primary }}>
+                          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>Accept</Text>
+                        </Pressable>
+                        <Pressable onPress={() => void resolveJoinRequest(req.id, false)} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>Deny</Text>
+                        </Pressable>
+                      </View>
+                    ))}
                   </View>
-                )}
+                );
+              })()}
+            </ScrollView>
+            {nominateSelectedUserId && (
+              <View style={{ padding: 16 }}>
+                <Pressable onPress={async () => {
+                  if (isAdmin) {
+                    await supabase.from('group_members').insert({ group_id: groupId, user_id: nominateSelectedUserId, role: 'member' });
+                    const actorName = activeProfile?.display_name ?? 'Someone';
+                    void sendPushToRecipients([nominateSelectedUserId], `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
+                    await loadMyPersistentGroups();
+                    setNominateSelectedUserId(null); setNominateSearchQuery(''); setNominateSearchResults([]);
+                  } else {
+                    void nominateForGroup(groupId, nominateSelectedUserId);
+                  }
+                }} style={{ backgroundColor: '#123868', borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.primary }}>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>{isAdmin ? 'Add to group' : 'Suggest to admin'}</Text>
+                </Pressable>
               </View>
             )}
           </View>
@@ -9784,7 +9826,24 @@ export default Sentry.wrap(function App() {
                     <Ionicons name="chevron-back" size={22} color={theme.text} />
                   </Pressable>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                    {expandedPersistentGroupId && myPersistentGroups.find((g) => g.id === expandedPersistentGroupId)?.role === 'admin' ? (
+                      editingGroupName !== null ? (
+                        <TextInput value={editingGroupName} onChangeText={setEditingGroupName} autoFocus onBlur={async () => {
+                          const trimmed = editingGroupName.trim();
+                          if (trimmed && trimmed !== openConvName && expandedPersistentGroupId) {
+                            await supabase.from('groups').update({ name: trimmed }).eq('id', expandedPersistentGroupId);
+                            setMyPersistentGroups((prev) => prev.map((g) => g.id === expandedPersistentGroupId ? { ...g, name: trimmed } : g));
+                          }
+                          setEditingGroupName(null);
+                        }} style={{ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0 }} />
+                      ) : (
+                        <Pressable onPress={() => setEditingGroupName(openConvName)}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName} <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text>
+                        </Pressable>
+                      )
+                    ) : (
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                    )}
                     {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
                   </View>
                   {expandedPersistentGroupId && (() => {
@@ -9798,20 +9857,7 @@ export default Sentry.wrap(function App() {
                           </Pressable>
                         )}
                         {grp.role === 'admin' && (
-                          <Pressable onPress={async () => {
-                            const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1,1], quality: 0.8 });
-                            if (r.canceled || !r.assets[0]) return;
-                            const res = await fetch(r.assets[0].uri);
-                            const ab = await res.arrayBuffer();
-                            const path = `group-${grp.id}/avatar.jpg`;
-                            await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
-                            const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
-                            const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
-                            if (newUrl) {
-                              await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', grp.id);
-                              setMyPersistentGroups((prev) => prev.map((g) => g.id === grp.id ? { ...g, avatar_url: newUrl } : g));
-                            }
-                          }} style={{ padding: 4 }} hitSlop={8}>
+                          <Pressable onPress={() => void pickAndUploadGroupAvatar(grp.id)} style={{ padding: 4 }} hitSlop={8}>
                             <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                           </Pressable>
                         )}
