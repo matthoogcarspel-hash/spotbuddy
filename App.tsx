@@ -7967,16 +7967,12 @@ export default Sentry.wrap(function App() {
   };
 
   const openGroupMembersPopup = async (groupId: string) => {
-    const { data } = await supabase.rpc('get_group_members', { p_group_id: groupId });
-    if (data?.length) {
-      setGroupMembersPopup((data ?? []).map((m: any) => ({ id: m.user_id, display_name: m.display_name ?? 'Unknown', avatar_url: m.avatar_url ?? null, role: m.role })));
-    } else {
-      // Fallback: alleen eigen rij beschikbaar
-      const grp = myPersistentGroups.find((g) => g.id === groupId);
-      if (grp && activeProfile) {
-        setGroupMembersPopup([{ id: activeProfile.id, display_name: activeProfile.display_name ?? 'Me', avatar_url: activeProfile.avatar_url ?? null, role: grp.role }]);
-      }
-    }
+    const { data: members } = await supabase.from('group_members').select('user_id, role').in('group_id', [groupId]);
+    if (!members?.length) { setGroupMembersPopup([]); return; }
+    const userIds = members.map((m) => m.user_id);
+    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    setGroupMembersPopup(members.map((m) => ({ id: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, role: m.role })));
   };
 
   const pickAndUploadGroupAvatar = async (groupId: string) => {
@@ -8297,20 +8293,14 @@ export default Sentry.wrap(function App() {
     const pendingMap = new Map<string, number>();
     for (const r of (reqs ?? [])) pendingMap.set((r as any).group_id, (pendingMap.get((r as any).group_id) ?? 0) + 1);
 
-    // Haal alle leden op voor alle groepen in één query (eigen rijen via RLS)
-    const allMemberRows = memberships; // eigen rijen al bekend
-    // Haal ook andere leden op via RPC
+    // Haal alle leden op voor alle groepen — werkt nu via is_group_member() policy
     const membersByGroup = new Map<string, string[]>();
-    for (const m of (allMemberRows ?? [])) {
-      membersByGroup.set(m.group_id, [m.user_id]);
-    }
-    // Parallel: haal alle leden op voor alle groepen via de RPC
     if (groupIds.length) {
-      const { data: allMembers } = await supabase.rpc('get_all_group_members', { p_group_ids: groupIds });
+      const { data: allMembers } = await supabase.from('group_members').select('group_id, user_id').in('group_id', groupIds);
       for (const m of (allMembers ?? [])) {
-        const list = membersByGroup.get((m as any).group_id) ?? [];
-        if (!list.includes((m as any).user_id)) list.push((m as any).user_id);
-        membersByGroup.set((m as any).group_id, list);
+        const list = membersByGroup.get(m.group_id) ?? [];
+        if (!list.includes(m.user_id)) list.push(m.user_id);
+        membersByGroup.set(m.group_id, list);
       }
     }
 
