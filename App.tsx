@@ -8284,8 +8284,6 @@ export default Sentry.wrap(function App() {
 
     // Round-trip 2: alle queries sequentieel (betrouwbaar)
     const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
-    const avatarDebug = (groups ?? []).map((g: any) => `${g.name}:${g.avatar_url ? 'HAS' : 'NULL'}`).join(', ');
-    Alert.alert('Avatar debug', avatarDebug || 'no groups');
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds);
     const reqs = adminGroupIds.length
       ? (await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)).data ?? []
@@ -9729,6 +9727,7 @@ export default Sentry.wrap(function App() {
                         {grp.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{grp.lastMessage}</Text> : <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet</Text>}
                         {grpUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grpUnread}</Text></View>}
                       </View>
+                      <Text style={{ color: 'red', fontSize: 9 }}>{grp.avatar_url ? 'HAS_URL' : 'NO_URL'}</Text>
                     </View>
                   </Pressable>
                 );
