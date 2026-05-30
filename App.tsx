@@ -8284,6 +8284,8 @@ export default Sentry.wrap(function App() {
 
     // Round-trip 2: alle queries sequentieel (betrouwbaar)
     const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
+    const avatarDebug = (groups ?? []).map((g: any) => `${g.name}:${g.avatar_url ? 'HAS' : 'NULL'}`).join(', ');
+    Alert.alert('Avatar debug', avatarDebug || 'no groups');
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds);
     const reqs = adminGroupIds.length
       ? (await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)).data ?? []
