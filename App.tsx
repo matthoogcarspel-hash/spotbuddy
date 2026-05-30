@@ -10332,8 +10332,10 @@ export default Sentry.wrap(function App() {
                             { text: 'Cancel', style: 'cancel' },
                             { text: 'Confirm', style: 'destructive', onPress: async () => {
                               if (!expandedPersistentGroupId) return;
-                              await supabase.from('group_members').update({ role: 'member' }).eq('group_id', expandedPersistentGroupId).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                              // Eerst nieuwe admin promoveren (terwijl jij nog admin bent)
                               await supabase.from('group_members').update({ role: 'admin' }).eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
+                              // Dan jezelf demoten
+                              await supabase.from('group_members').update({ role: 'member' }).eq('group_id', expandedPersistentGroupId).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
                               await loadMyPersistentGroups();
                               setGroupMembersPopup(null);
                             }},
