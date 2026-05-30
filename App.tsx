@@ -9280,6 +9280,17 @@ export default Sentry.wrap(function App() {
               <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
+              {expandedPersistentGroupId && (() => {
+                const grpAvatar = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+                return (
+                  <Pressable onPress={() => grpAvatar?.role === 'admin' ? void pickAndUploadGroupAvatar(expandedPersistentGroupId) : void openGroupMembersPopup(expandedPersistentGroupId)}
+                    style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    {grpAvatar?.avatar_url
+                      ? <Image source={{ uri: grpAvatar.avatar_url }} style={{ width: 36, height: 36 }} />
+                      : <Ionicons name="people-outline" size={18} color="rgba(255,255,255,0.6)" />}
+                  </Pressable>
+                );
+              })()}
               <View style={{ flex: 1 }}>
                 {expandedPersistentGroupId && (() => {
                   const grpHdr = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
@@ -10017,6 +10028,17 @@ export default Sentry.wrap(function App() {
                   <Pressable onPress={handleOpenBack} hitSlop={10} style={{ padding: 4 }}>
                     <Ionicons name="chevron-back" size={22} color={theme.text} />
                   </Pressable>
+                  {expandedPersistentGroupId && (() => {
+                    const grpAvatar = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+                    return (
+                      <Pressable onPress={() => grpAvatar?.role === 'admin' ? void pickAndUploadGroupAvatar(expandedPersistentGroupId) : void openGroupMembersPopup(expandedPersistentGroupId)}
+                        style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {grpAvatar?.avatar_url
+                          ? <Image source={{ uri: grpAvatar.avatar_url }} style={{ width: 36, height: 36 }} />
+                          : <Ionicons name="people-outline" size={18} color="rgba(255,255,255,0.6)" />}
+                      </Pressable>
+                    );
+                  })()}
                   <View style={{ flex: 1 }}>
                     {expandedPersistentGroupId && myPersistentGroups.find((g) => g.id === expandedPersistentGroupId)?.role === 'admin' ? (
                       editingGroupName !== null ? (
