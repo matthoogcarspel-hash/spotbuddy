@@ -10308,13 +10308,44 @@ export default Sentry.wrap(function App() {
             <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
               <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
                 <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
-                {groupMembersPopup.map((m) => (
-                  <Pressable key={m.id} onPress={() => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                    <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
-                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
-                    {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
-                  </Pressable>
-                ))}
+                {groupMembersPopup.map((m) => {
+                  const grpForPopup = expandedPersistentGroupId ? myPersistentGroups.find((g) => g.id === expandedPersistentGroupId) : null;
+                  const iAmAdmin = grpForPopup?.role === 'admin';
+                  const isMe = m.id === (activeProfile?.id ?? activeAppUserId);
+                  return (
+                    <Pressable key={m.id} onPress={() => {
+                      if (iAmAdmin && !isMe && m.role !== 'admin') {
+                        Alert.alert(m.display_name, 'What do you want to do?', [
+                          { text: 'View profile', onPress: () => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); } },
+                          { text: 'Make admin', onPress: () => Alert.alert('Transfer admin', `Make ${m.display_name} admin? You'll become a regular member.`, [
+                            { text: 'Cancel', style: 'cancel' },
+                            { text: 'Confirm', style: 'destructive', onPress: async () => {
+                              if (!expandedPersistentGroupId) return;
+                              await supabase.from('group_members').update({ role: 'member' }).eq('group_id', expandedPersistentGroupId).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                              await supabase.from('group_members').update({ role: 'admin' }).eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
+                              await loadMyPersistentGroups();
+                              setGroupMembersPopup(null);
+                            }},
+                          ])},
+                          { text: 'Remove from group', style: 'destructive', onPress: async () => {
+                            if (!expandedPersistentGroupId) return;
+                            await supabase.from('group_members').delete().eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
+                            await loadMyPersistentGroups();
+                            setGroupMembersPopup((prev) => prev?.filter((x) => x.id !== m.id) ?? null);
+                          }},
+                          { text: 'Cancel', style: 'cancel' },
+                        ]);
+                      } else {
+                        setGroupMembersPopup(null); setViewingOtherUserId(m.id);
+                      }
+                    }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                      <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
+                      <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
+                      {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
+                      {iAmAdmin && !isMe && m.role !== 'admin' && <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />}
+                    </Pressable>
+                  );
+                })}
               </Pressable>
             </Pressable>
           )}
