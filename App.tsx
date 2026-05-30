@@ -7967,12 +7967,15 @@ export default Sentry.wrap(function App() {
   };
 
   const openGroupMembersPopup = async (groupId: string) => {
-    const { data: members } = await supabase.from('group_members').select('user_id, role').in('group_id', [groupId]);
-    if (!members?.length) { setGroupMembersPopup([]); return; }
-    const userIds = members.map((m) => m.user_id);
-    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+    // Gebruik memberIds al geladen in state — geen extra query nodig
+    const grp = myPersistentGroups.find((g) => g.id === groupId);
+    const ids = grp?.memberIds ?? [];
+    if (!ids.length) { setGroupMembersPopup([]); return; }
+    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', ids);
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    setGroupMembersPopup(members.map((m) => ({ id: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, role: m.role })));
+    const { data: memberRoles } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId);
+    const roleMap = new Map((memberRoles ?? []).map((m) => [m.user_id, m.role]));
+    setGroupMembersPopup(ids.map((id) => ({ id, display_name: pmap.get(id)?.display_name ?? 'Unknown', avatar_url: pmap.get(id)?.avatar_url ?? null, role: roleMap.get(id) ?? 'member' })));
   };
 
   const pickAndUploadGroupAvatar = async (groupId: string) => {
