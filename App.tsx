@@ -8322,6 +8322,12 @@ export default Sentry.wrap(function App() {
     const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: [...(prev[groupId]?.messages ?? []), newMsg], loaded: true } }));
     setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, lastMessage: text || null, lastMessageAt: new Date().toISOString() } : g));
+    // Push naar alle andere groepsleden
+    const grpName = myPersistentGroups.find((g) => g.id === groupId)?.name ?? 'Group';
+    const actorName = activeProfile?.display_name ?? 'Someone';
+    const { data: memberRows } = await supabase.from('group_members').select('user_id').eq('group_id', groupId);
+    const recipientIds = (memberRows ?? []).map((m) => m.user_id).filter((id) => id !== senderId);
+    if (recipientIds.length) void sendPushToRecipients(recipientIds, `${actorName} in ${grpName}`, text || '📷 Photo', { type: 'dm' });
   };
 
   const createPersistentGroup = async () => {
@@ -9787,7 +9793,7 @@ export default Sentry.wrap(function App() {
                   } else {
                     void nominateForGroup(groupId, nominateSelectedUserId);
                   }
-                }} style={{ backgroundColor: '#123868', borderRadius: 14, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: theme.primary }}>
+                }} style={{ backgroundColor: '#123868', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
                   <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>{isAdmin ? 'Add to group' : 'Suggest to admin'}</Text>
                 </Pressable>
               </View>
