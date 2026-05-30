@@ -2606,7 +2606,7 @@ export default Sentry.wrap(function App() {
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number; avatar_url: string | null }>>([]);
+  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number; avatar_url: string | null; memberIds: string[] }>>([]);
   const [persistentGroupMessages, setPersistentGroupMessages] = useState<Record<string, { messages: any[]; loaded: boolean }>>({});
   const [persistentGroupInput, setPersistentGroupInput] = useState('');
   const [unreadByPersistentGroup, setUnreadByPersistentGroup] = useState<Record<string, number>>({});
@@ -7968,7 +7968,15 @@ export default Sentry.wrap(function App() {
 
   const openGroupMembersPopup = async (groupId: string) => {
     const { data } = await supabase.rpc('get_group_members', { p_group_id: groupId });
-    setGroupMembersPopup((data ?? []).map((m: any) => ({ id: m.user_id, display_name: m.display_name ?? 'Unknown', avatar_url: m.avatar_url ?? null, role: m.role })));
+    if (data?.length) {
+      setGroupMembersPopup((data ?? []).map((m: any) => ({ id: m.user_id, display_name: m.display_name ?? 'Unknown', avatar_url: m.avatar_url ?? null, role: m.role })));
+    } else {
+      // Fallback: alleen eigen rij beschikbaar
+      const grp = myPersistentGroups.find((g) => g.id === groupId);
+      if (grp && activeProfile) {
+        setGroupMembersPopup([{ id: activeProfile.id, display_name: activeProfile.display_name ?? 'Me', avatar_url: activeProfile.avatar_url ?? null, role: grp.role }]);
+      }
+    }
   };
 
   const pickAndUploadGroupAvatar = async (groupId: string) => {
@@ -8288,10 +8296,28 @@ export default Sentry.wrap(function App() {
 
     const pendingMap = new Map<string, number>();
     for (const r of (reqs ?? [])) pendingMap.set((r as any).group_id, (pendingMap.get((r as any).group_id) ?? 0) + 1);
+
+    // Haal alle leden op voor alle groepen in één query (eigen rijen via RLS)
+    const allMemberRows = memberships; // eigen rijen al bekend
+    // Haal ook andere leden op via RPC
+    const membersByGroup = new Map<string, string[]>();
+    for (const m of (allMemberRows ?? [])) {
+      membersByGroup.set(m.group_id, [m.user_id]);
+    }
+    // Parallel: haal alle leden op voor alle groepen via de RPC
+    if (groupIds.length) {
+      const { data: allMembers } = await supabase.rpc('get_all_group_members', { p_group_ids: groupIds });
+      for (const m of (allMembers ?? [])) {
+        const list = membersByGroup.get((m as any).group_id) ?? [];
+        if (!list.includes((m as any).user_id)) list.push((m as any).user_id);
+        membersByGroup.set((m as any).group_id, list);
+      }
+    }
+
     setMyPersistentGroups((groups ?? []).map((g) => {
       const convId = convMap.get(g.id) ?? null;
       const last = convId ? lastMsgMap.get(convId) : null;
-      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null };
+      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null, memberIds: membersByGroup.get(g.id) ?? [] };
     }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
   };
 
@@ -8319,10 +8345,10 @@ export default Sentry.wrap(function App() {
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: [...(prev[groupId]?.messages ?? []), newMsg], loaded: true } }));
     setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, lastMessage: text || null, lastMessageAt: new Date().toISOString() } : g));
     // Push naar alle andere groepsleden
-    const grpName = myPersistentGroups.find((g) => g.id === groupId)?.name ?? 'Group';
+    const grp = myPersistentGroups.find((g) => g.id === groupId);
+    const grpName = grp?.name ?? 'Group';
     const actorName = activeProfile?.display_name ?? 'Someone';
-    const { data: memberRows } = await supabase.rpc('get_group_members', { p_group_id: groupId });
-    const recipientIds = (memberRows ?? []).map((m: any) => m.user_id).filter((id: string) => id !== senderId);
+    const recipientIds = (grp?.memberIds ?? []).filter((id) => id !== senderId);
     if (recipientIds.length) void sendPushToRecipients(recipientIds, `${actorName} in ${grpName}`, text || '📷 Photo', { type: 'dm' });
   };
 
@@ -8362,7 +8388,8 @@ export default Sentry.wrap(function App() {
     setCreateGroupAvatarUri(null);
     await loadMyPersistentGroups();
     if (newGroupId) {
-      setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0 }, ...prev]);
+      const myId = activeProfile?.id ?? activeAppUserId ?? '';
+      setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0, avatar_url: null, memberIds: [myId, ...memberIds] }, ...prev]);
       if (memberIds.length > 0) {
         const actorName = activeProfile?.display_name ?? 'Someone';
         void sendPushToRecipients(memberIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
