@@ -2606,7 +2606,7 @@ export default Sentry.wrap(function App() {
   // chatUnreadCount = computed: som van alle ongelezen (voor badge)
   const unreadSessionTotal = Object.values(unreadBySession).reduce((a, b) => a + b, 0);
   const unreadDmTotal = Object.values(unreadByDm).reduce((a, b) => a + b, 0);
-  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number; avatar_url: string | null; memberIds: string[] }>>([]);
+  const [myPersistentGroups, setMyPersistentGroups] = useState<Array<{ id: string; name: string; role: 'admin' | 'member'; conversationId: string | null; lastMessage: string | null; lastMessageAt: string | null; pendingRequests: number; avatar_url: string | null; memberIds: string[]; muted: boolean }>>([]);
   const [persistentGroupMessages, setPersistentGroupMessages] = useState<Record<string, { messages: any[]; loaded: boolean }>>({});
   const [persistentGroupInput, setPersistentGroupInput] = useState('');
   const [unreadByPersistentGroup, setUnreadByPersistentGroup] = useState<Record<string, number>>({});
@@ -8262,10 +8262,11 @@ export default Sentry.wrap(function App() {
   const loadMyPersistentGroups = async () => {
     const userId = activeProfile?.id ?? activeAppUserId;
     if (!userId) return;
-    const { data: memberships } = await supabase.from('group_members').select('group_id, role').eq('user_id', userId);
+    const { data: memberships } = await supabase.from('group_members').select('group_id, role, notifications_muted').eq('user_id', userId);
     if (!memberships?.length) { setMyPersistentGroups([]); return; }
     const groupIds = memberships.map((m) => m.group_id);
     const roleMap = new Map(memberships.map((m) => [m.group_id, m.role as 'admin' | 'member']));
+    const mutedMap = new Map(memberships.map((m) => [m.group_id, !!(m as any).notifications_muted]));
     const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
 
     // Round-trip 2: groups + conversations + requests parallel
@@ -8310,7 +8311,7 @@ export default Sentry.wrap(function App() {
     setMyPersistentGroups((groups ?? []).map((g) => {
       const convId = convMap.get(g.id) ?? null;
       const last = convId ? lastMsgMap.get(convId) : null;
-      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null, memberIds: membersByGroup.get(g.id) ?? [] };
+      return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null, memberIds: membersByGroup.get(g.id) ?? [], muted: mutedMap.get(g.id) ?? false };
     }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
   };
 
@@ -8341,7 +8342,10 @@ export default Sentry.wrap(function App() {
     const grp = myPersistentGroups.find((g) => g.id === groupId);
     const grpName = grp?.name ?? 'Group';
     const actorName = activeProfile?.display_name ?? 'Someone';
-    const recipientIds = (grp?.memberIds ?? []).filter((id) => id !== senderId);
+    // Haal gemute leden op en filter ze eruit
+    const { data: mutedRows } = await supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('notifications_muted', true);
+    const mutedIds = new Set((mutedRows ?? []).map((r) => r.user_id));
+    const recipientIds = (grp?.memberIds ?? []).filter((id) => id !== senderId && !mutedIds.has(id));
     if (recipientIds.length) void sendPushToRecipients(recipientIds, `${actorName} in ${grpName}`, text || '📷 Photo', { type: 'dm' });
   };
 
@@ -8382,7 +8386,7 @@ export default Sentry.wrap(function App() {
     await loadMyPersistentGroups();
     if (newGroupId) {
       const myId = activeProfile?.id ?? activeAppUserId ?? '';
-      setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0, avatar_url: null, memberIds: [myId, ...memberIds] }, ...prev]);
+      setMyPersistentGroups((prev) => prev.some((g) => g.id === newGroupId) ? prev : [{ id: newGroupId, name: groupName, role: 'admin', conversationId: created?.out_conversation_id ?? null, lastMessage: null, lastMessageAt: null, pendingRequests: 0, avatar_url: null, memberIds: [myId, ...memberIds], muted: false }, ...prev]);
       if (memberIds.length > 0) {
         const actorName = activeProfile?.display_name ?? 'Someone';
         void sendPushToRecipients(memberIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
@@ -9306,6 +9310,26 @@ export default Sentry.wrap(function App() {
                     <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
                       <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
                     </Pressable>
+                    <Pressable onPress={async () => {
+                      const newMuted = !grp.muted;
+                      await supabase.from('group_members').update({ notifications_muted: newMuted }).eq('group_id', grp.id).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                      setMyPersistentGroups((prev) => prev.map((g) => g.id === grp.id ? { ...g, muted: newMuted } : g));
+                    }} style={{ padding: 4 }} hitSlop={8}>
+                      <Ionicons name={grp.muted ? 'notifications-off-outline' : 'notifications-outline'} size={20} color={grp.muted ? theme.primary : theme.textMuted} />
+                    </Pressable>
+                    {grp.role !== 'admin' && (
+                      <Pressable onPress={() => Alert.alert('Leave group', `Leave "${grp.name}"?`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Leave', style: 'destructive', onPress: async () => {
+                          await supabase.from('group_members').delete().eq('group_id', grp.id).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                          setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
+                          setOpenChatState(null);
+                          setChatSubTab('group');
+                        }},
+                      ])} style={{ padding: 4 }} hitSlop={8}>
+                        <Ionicons name="exit-outline" size={20} color="#8b1f38" />
+                      </Pressable>
+                    )}
                   </View>
                 );
               })()}
