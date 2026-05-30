@@ -2620,6 +2620,7 @@ export default Sentry.wrap(function App() {
   const [nominateSelectedUserId, setNominateSelectedUserId] = useState<string | null>(null);
   const [nominateSearchResults, setNominateSearchResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([]);
   const [editingGroupName, setEditingGroupName] = useState<string | null>(null);
+  const [groupMembersPopup, setGroupMembersPopup] = useState<Array<{ id: string; display_name: string; avatar_url: string | null; role: string }> | null>(null);
   const unreadPersistentGroupTotal = Object.values(unreadByPersistentGroup).reduce((a, b) => a + b, 0);
   const chatUnreadCount = Object.values(spotsWithUnread).reduce((a, b) => a + b, 0) + unreadSessionTotal + unreadDmTotal + unreadPersistentGroupTotal;
   const [messagesAlertSettings, setMessagesAlertSettings] = useState<{
@@ -7965,6 +7966,15 @@ export default Sentry.wrap(function App() {
     } catch { return null; }
   };
 
+  const openGroupMembersPopup = async (groupId: string) => {
+    const { data: members } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId);
+    if (!members?.length) { setGroupMembersPopup([]); return; }
+    const userIds = members.map((m) => m.user_id);
+    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
+    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    setGroupMembersPopup(members.map((m) => ({ id: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, role: m.role })));
+  };
+
   const pickAndUploadGroupAvatar = async (groupId: string) => {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
     if (r.canceled || !r.assets[0]) return;
@@ -9232,30 +9242,28 @@ export default Sentry.wrap(function App() {
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
               <View style={{ flex: 1 }}>
-                {expandedPersistentGroupId && myPersistentGroups.find((g) => g.id === expandedPersistentGroupId)?.role === 'admin' ? (
-                  editingGroupName !== null ? (
-                    <TextInput
-                      value={editingGroupName}
-                      onChangeText={setEditingGroupName}
-                      autoFocus
-                      onBlur={async () => {
-                        const trimmed = editingGroupName.trim();
-                        if (trimmed && trimmed !== openConvName && expandedPersistentGroupId) {
-                          await supabase.from('groups').update({ name: trimmed }).eq('id', expandedPersistentGroupId);
-                          setMyPersistentGroups((prev) => prev.map((g) => g.id === expandedPersistentGroupId ? { ...g, name: trimmed } : g));
-                        }
-                        setEditingGroupName(null);
-                      }}
-                      style={({ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0, outlineStyle: 'none' } as any)}
-                    />
-                  ) : (
-                    <Pressable onPress={() => setEditingGroupName(openConvName)}>
-                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName} <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text>
+                {expandedPersistentGroupId && (() => {
+                  const grpHdr = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
+                  if (grpHdr?.role === 'admin' && editingGroupName !== null) return (
+                    <TextInput value={editingGroupName} onChangeText={setEditingGroupName} autoFocus onBlur={async () => {
+                      const trimmed = editingGroupName.trim();
+                      if (trimmed && trimmed !== openConvName && expandedPersistentGroupId) {
+                        await supabase.from('groups').update({ name: trimmed }).eq('id', expandedPersistentGroupId);
+                        setMyPersistentGroups((prev) => prev.map((g) => g.id === expandedPersistentGroupId ? { ...g, name: trimmed } : g));
+                      }
+                      setEditingGroupName(null);
+                    }} style={({ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0, outlineStyle: 'none' } as any)} />
+                  );
+                  return (
+                    <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)} onLongPress={() => grpHdr?.role === 'admin' ? setEditingGroupName(openConvName) : null}>
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
+                        {openConvName}{grpHdr?.role === 'admin' ? <Text> <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text> : null}
+                      </Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>Tap to see members</Text>
                     </Pressable>
-                  )
-                ) : (
-                  <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-                )}
+                  );
+                })()}
+                {!expandedPersistentGroupId && <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>}
                 {openConvSub ? <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>{openConvSub}</Text> : null}
               </View>
               {expandedPersistentGroupId && (() => {
@@ -9652,6 +9660,20 @@ export default Sentry.wrap(function App() {
         )}
         </KeyboardAvoidingView>
       {renderOtherUserProfileModal()}
+      {groupMembersPopup !== null && (
+        <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
+            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
+            {groupMembersPopup.map((m) => (
+              <Pressable key={m.id} onPress={() => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
+                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
+                {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      )}
       {showCreateGroup && (() => {
         const allUsers = (Array.isArray(buddyUsers) ? buddyUsers : []);
         return (
@@ -10158,6 +10180,20 @@ export default Sentry.wrap(function App() {
           {/* Bottom nav alleen in lijst-modus */}
           {!isAnyConvOpen && renderNativeBottomNav()}
           {renderOtherUserProfileModal()}
+          {groupMembersPopup !== null && (
+            <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
+              <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
+                <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
+                {groupMembersPopup.map((m) => (
+                  <Pressable key={m.id} onPress={() => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                    <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
+                    <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
+                    {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
+                  </Pressable>
+                ))}
+              </Pressable>
+            </Pressable>
+          )}
           {showCreateGroup && (() => {
             const allUsers = (Array.isArray(buddyUsers) ? buddyUsers : []);
             return (
