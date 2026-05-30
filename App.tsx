@@ -7995,7 +7995,9 @@ export default Sentry.wrap(function App() {
       if (!newUrl) { Alert.alert('URL error', 'Could not get public URL'); return; }
       const { error: dbErr } = await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', groupId);
       if (dbErr) { Alert.alert('DB error', dbErr.message); return; }
+      // Optimistic update + reload om lijst bij te werken
       setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, avatar_url: newUrl } : g));
+      void loadMyPersistentGroups();
     } catch (e: any) {
       Alert.alert('Exception', e?.message ?? String(e));
     }
