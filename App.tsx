@@ -7983,10 +7983,21 @@ export default Sentry.wrap(function App() {
   const pickAndUploadGroupAvatar = async (groupId: string) => {
     const r = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [1, 1], quality: 0.8 });
     if (r.canceled || !r.assets[0]) return;
-    const newUrl = await uploadGroupAvatar(r.assets[0].uri, groupId);
-    if (newUrl) {
-      await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', groupId);
+    const uri = r.assets[0].uri;
+    try {
+      const path = `group-${groupId}/avatar.jpg`;
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const { data: upData, error: upErr } = await supabase.storage.from('avatars').upload(path, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
+      if (upErr) { Alert.alert('Upload error', upErr.message); return; }
+      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
+      if (!newUrl) { Alert.alert('URL error', 'Could not get public URL'); return; }
+      const { error: dbErr } = await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', groupId);
+      if (dbErr) { Alert.alert('DB error', dbErr.message); return; }
       setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, avatar_url: newUrl } : g));
+    } catch (e: any) {
+      Alert.alert('Exception', e?.message ?? String(e));
     }
   };
 
