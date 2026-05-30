@@ -7985,12 +7985,12 @@ export default Sentry.wrap(function App() {
     if (r.canceled || !r.assets[0]) return;
     const uri = r.assets[0].uri;
     try {
-      const path = `group-${groupId}/avatar.jpg`;
+      const path = `group-avatars/${groupId}.jpg`;
       const response = await fetch(uri);
       const arrayBuffer = await response.arrayBuffer();
-      const { data: upData, error: upErr } = await supabase.storage.from('avatars').upload(path, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
+      const { error: upErr } = await supabase.storage.from('chat-media').upload(path, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
       if (upErr) { Alert.alert('Upload error', upErr.message); return; }
-      const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(path);
+      const { data: urlData } = supabase.storage.from('chat-media').getPublicUrl(path);
       const newUrl = urlData?.publicUrl ? `${urlData.publicUrl}?t=${Date.now()}` : null;
       if (!newUrl) { Alert.alert('URL error', 'Could not get public URL'); return; }
       const { error: dbErr } = await supabase.from('groups').update({ avatar_url: newUrl }).eq('id', groupId);
