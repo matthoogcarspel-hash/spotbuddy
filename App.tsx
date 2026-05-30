@@ -7967,12 +7967,8 @@ export default Sentry.wrap(function App() {
   };
 
   const openGroupMembersPopup = async (groupId: string) => {
-    const { data: members } = await supabase.from('group_members').select('user_id, role').eq('group_id', groupId);
-    if (!members?.length) { setGroupMembersPopup([]); return; }
-    const userIds = members.map((m) => m.user_id);
-    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds);
-    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    setGroupMembersPopup(members.map((m) => ({ id: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, role: m.role })));
+    const { data } = await supabase.rpc('get_group_members', { p_group_id: groupId });
+    setGroupMembersPopup((data ?? []).map((m: any) => ({ id: m.user_id, display_name: m.display_name ?? 'Unknown', avatar_url: m.avatar_url ?? null, role: m.role })));
   };
 
   const pickAndUploadGroupAvatar = async (groupId: string) => {
@@ -8325,8 +8321,8 @@ export default Sentry.wrap(function App() {
     // Push naar alle andere groepsleden
     const grpName = myPersistentGroups.find((g) => g.id === groupId)?.name ?? 'Group';
     const actorName = activeProfile?.display_name ?? 'Someone';
-    const { data: memberRows } = await supabase.from('group_members').select('user_id').eq('group_id', groupId);
-    const recipientIds = (memberRows ?? []).map((m) => m.user_id).filter((id) => id !== senderId);
+    const { data: memberRows } = await supabase.rpc('get_group_members', { p_group_id: groupId });
+    const recipientIds = (memberRows ?? []).map((m: any) => m.user_id).filter((id: string) => id !== senderId);
     if (recipientIds.length) void sendPushToRecipients(recipientIds, `${actorName} in ${grpName}`, text || '📷 Photo', { type: 'dm' });
   };
 
