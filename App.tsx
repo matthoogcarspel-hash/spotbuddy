@@ -8282,17 +8282,12 @@ export default Sentry.wrap(function App() {
     const mutedMap = new Map(memberships.map((m) => [m.group_id, !!(m as any).notifications_muted]));
     const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
 
-    // Round-trip 2: groups + conversations + requests parallel
-    const results = await Promise.allSettled([
-      supabase.from('groups').select('id, name, avatar_url').in('id', groupIds),
-      supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds),
-      adminGroupIds.length
-        ? supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)
-        : Promise.resolve({ data: [] as Array<{ group_id: string }> }),
-    ]);
-    const groups = results[0].status === 'fulfilled' ? (results[0].value as any).data : [];
-    const convRows = results[1].status === 'fulfilled' ? (results[1].value as any).data : [];
-    const reqs = results[2].status === 'fulfilled' ? (results[2].value as any).data : [];
+    // Round-trip 2: alle queries sequentieel (betrouwbaar)
+    const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
+    const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds);
+    const reqs = adminGroupIds.length
+      ? (await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)).data ?? []
+      : [];
 
     const convMap = new Map((convRows ?? []).map((c: any) => [c.persistent_group_id, c.id]));
     const convIds = (convRows ?? []).map((c: any) => c.id as string);
