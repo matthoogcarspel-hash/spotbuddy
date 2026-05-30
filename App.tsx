@@ -7957,14 +7957,14 @@ export default Sentry.wrap(function App() {
 
   const uploadGroupAvatar = async (localUri: string, groupId: string): Promise<string | null> => {
     try {
-      const res = await fetch(localUri);
-      if (!res.ok) return null;
-      const ab = await res.arrayBuffer();
       const path = `group-${groupId}/avatar.jpg`;
-      await supabase.storage.from('avatars').upload(path, ab, { upsert: true, contentType: 'image/jpeg' });
+      const formData = new FormData();
+      formData.append('file', { uri: localUri, name: 'avatar.jpg', type: 'image/jpeg' } as any);
+      const { error } = await supabase.storage.from('avatars').upload(path, formData, { upsert: true, contentType: 'image/jpeg' });
+      if (error) { console.error('GROUP_AVATAR_UPLOAD_ERROR', error); return null; }
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
       return data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
-    } catch { return null; }
+    } catch (e) { console.error('GROUP_AVATAR_EXCEPTION', e); return null; }
   };
 
   const openGroupMembersPopup = async (groupId: string) => {
@@ -7991,11 +7991,10 @@ export default Sentry.wrap(function App() {
 
   const uploadChatMedia = async (localUri: string, userId: string): Promise<string | null> => {
     try {
-      const response = await fetch(localUri);
-      if (!response.ok) return null;
-      const arrayBuffer = await response.arrayBuffer();
       const filePath = `${userId}/${Date.now()}.jpg`;
-      const { error } = await supabase.storage.from('chat-media').upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
+      const formData = new FormData();
+      formData.append('file', { uri: localUri, name: 'photo.jpg', type: 'image/jpeg' } as any);
+      const { error } = await supabase.storage.from('chat-media').upload(filePath, formData, { contentType: 'image/jpeg', upsert: false });
       if (error) { console.error('CHAT_MEDIA_UPLOAD_ERROR', error); return null; }
       const { data } = supabase.storage.from('chat-media').getPublicUrl(filePath);
       return data.publicUrl ?? null;
@@ -9318,7 +9317,19 @@ export default Sentry.wrap(function App() {
                     }} style={{ padding: 4 }} hitSlop={8}>
                       <Ionicons name={grp.muted ? 'notifications-off-outline' : 'notifications-outline'} size={20} color={grp.muted ? theme.primary : theme.textMuted} />
                     </Pressable>
-                    {grp.role !== 'admin' && (
+                    {grp.role === 'admin' ? (
+                      <Pressable onPress={() => Alert.alert('Delete group', `Delete "${grp.name}"? This cannot be undone.`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: async () => {
+                          await supabase.from('groups').delete().eq('id', grp.id);
+                          setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
+                          setOpenChatState(null);
+                          setChatSubTab('group');
+                        }},
+                      ])} style={{ padding: 4 }} hitSlop={8}>
+                        <Ionicons name="trash-outline" size={20} color="#8b1f38" />
+                      </Pressable>
+                    ) : (
                       <Pressable onPress={() => Alert.alert('Leave group', `Leave "${grp.name}"?`, [
                         { text: 'Cancel', style: 'cancel' },
                         { text: 'Leave', style: 'destructive', onPress: async () => {
