@@ -2616,6 +2616,7 @@ export default Sentry.wrap(function App() {
   const [createGroupName, setCreateGroupName] = useState('');
   const [createGroupSelectedIds, setCreateGroupSelectedIds] = useState<string[]>([]);
   const [showNominateModal, setShowNominateModal] = useState<{ groupId: string; groupName: string } | null>(null);
+  const [addBuddySelectedIds, setAddBuddySelectedIds] = useState<string[]>([]);
   const [nominateSearchQuery, setNominateSearchQuery] = useState('');
   const [nominateSelectedUserId, setNominateSelectedUserId] = useState<string | null>(null);
   const [nominateSearchResults, setNominateSearchResults] = useState<Array<{ id: string; display_name: string; avatar_url: string | null }>>([]);
@@ -9307,7 +9308,7 @@ export default Sentry.wrap(function App() {
                         <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                       </Pressable>
                     )}
-                    <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ padding: 4 }} hitSlop={8}>
+                    <Pressable onPress={() => { setAddBuddySelectedIds([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); }} style={{ padding: 4 }} hitSlop={8}>
                       <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
                     </Pressable>
                     <Pressable onPress={async () => {
@@ -9710,13 +9711,44 @@ export default Sentry.wrap(function App() {
         <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
           <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
-            {groupMembersPopup.map((m) => (
-              <Pressable key={m.id} onPress={() => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
-                <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
-                <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
-                {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
-              </Pressable>
-            ))}
+            {groupMembersPopup.map((m) => {
+              const grpForPopup = expandedPersistentGroupId ? myPersistentGroups.find((g) => g.id === expandedPersistentGroupId) : null;
+              const iAmAdmin = grpForPopup?.role === 'admin';
+              const isMe = m.id === (activeProfile?.id ?? activeAppUserId);
+              return (
+                <Pressable key={m.id} onPress={() => {
+                  if (iAmAdmin && !isMe && m.role !== 'admin') {
+                    Alert.alert(m.display_name, 'What do you want to do?', [
+                      { text: 'View profile', onPress: () => { setGroupMembersPopup(null); setViewingOtherUserId(m.id); } },
+                      { text: 'Make admin', onPress: () => Alert.alert('Transfer admin', `Make ${m.display_name} admin? You'll become a regular member.`, [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Confirm', style: 'destructive', onPress: async () => {
+                          if (!expandedPersistentGroupId) return;
+                          await supabase.from('group_members').update({ role: 'member' }).eq('group_id', expandedPersistentGroupId).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                          await supabase.from('group_members').update({ role: 'admin' }).eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
+                          await loadMyPersistentGroups();
+                          setGroupMembersPopup(null);
+                        }},
+                      ])},
+                      { text: 'Remove from group', style: 'destructive', onPress: async () => {
+                        if (!expandedPersistentGroupId) return;
+                        await supabase.from('group_members').delete().eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
+                        await loadMyPersistentGroups();
+                        setGroupMembersPopup((prev) => prev?.filter((x) => x.id !== m.id) ?? null);
+                      }},
+                      { text: 'Cancel', style: 'cancel' },
+                    ]);
+                  } else {
+                    setGroupMembersPopup(null); setViewingOtherUserId(m.id);
+                  }
+                }} style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+                  <Avatar uri={m.avatar_url} size={36} name={m.display_name} />
+                  <Text style={{ color: theme.text, fontSize: 14, fontWeight: '700', flex: 1 }}>{m.display_name}</Text>
+                  {m.role === 'admin' && <Text style={{ color: '#FFB347', fontSize: 11, fontWeight: '800' }}>admin</Text>}
+                  {iAmAdmin && !isMe && m.role !== 'admin' && <Ionicons name="ellipsis-horizontal" size={16} color={theme.textMuted} />}
+                </Pressable>
+              );
+            })}
           </Pressable>
         </Pressable>
       )}
@@ -9761,36 +9793,74 @@ export default Sentry.wrap(function App() {
         const { groupId, groupName } = showNominateModal;
         const grp = myPersistentGroups.find((g) => g.id === groupId);
         const isAdmin = grp?.role === 'admin';
-        const closeModal = () => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); };
+        const existingMemberIds = new Set(grp?.memberIds ?? []);
+        const closeModal = () => { setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); setAddBuddySelectedIds([]); };
+        const followingSet = new Set(followingUserIds);
+        const buddyList = (Array.isArray(buddyUsers) ? buddyUsers : []).filter((u) => followingSet.has(u.id) && !existingMemberIds.has(u.id));
         return (
           <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.bg, zIndex: 300, flex: 1 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)', gap: 10 }}>
               <Pressable onPress={closeModal} hitSlop={10} style={{ padding: 4 }}>
                 <Ionicons name="chevron-back" size={22} color={theme.text} />
               </Pressable>
-              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>{isAdmin ? `Members — ${groupName}` : `Suggest someone for ${groupName}`}</Text>
+              <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800', flex: 1 }}>
+                {isAdmin ? `Add to ${groupName}` : `Suggest buddies for ${groupName}`}
+              </Text>
+              {addBuddySelectedIds.length > 0 && (
+                <Text style={{ color: theme.textMuted, fontSize: 13 }}>{addBuddySelectedIds.length} selected</Text>
+              )}
             </View>
-            <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
-              <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
-                setNominateSearchQuery(q);
-                if (q.trim().length < 2) { setNominateSearchResults([]); return; }
-                const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
-                setNominateSearchResults(data ?? []);
-              }} placeholder="Search by name…" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
-            </View>
+
+            {/* Admin: zoekbalk + pending requests */}
+            {isAdmin && (
+              <View style={{ paddingHorizontal: 16, paddingVertical: 10 }}>
+                <TextInput value={nominateSearchQuery} onChangeText={async (q) => {
+                  setNominateSearchQuery(q);
+                  if (q.trim().length < 2) { setNominateSearchResults([]); return; }
+                  const { data } = await supabase.from('profiles').select('id, display_name, avatar_url').ilike('display_name', `%${q.trim()}%`).limit(20);
+                  setNominateSearchResults((data ?? []).filter((u) => !existingMemberIds.has(u.id)));
+                }} placeholder="Search by name…" placeholderTextColor={theme.textMuted} style={{ backgroundColor: 'rgba(255,255,255,0.07)', color: theme.text, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)' }} />
+              </View>
+            )}
+
             <ScrollView style={{ flex: 1 }} keyboardShouldPersistTaps="handled">
-              {nominateSearchResults.map((u) => {
-                const selected = nominateSelectedUserId === u.id;
+              {/* Admin zoekresultaten */}
+              {isAdmin && nominateSearchResults.map((u) => {
+                const sel = addBuddySelectedIds.includes(u.id);
                 return (
-                  <Pressable key={u.id} onPress={() => setNominateSelectedUserId(selected ? null : u.id)} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                  <Pressable key={u.id} onPress={() => setAddBuddySelectedIds((prev) => sel ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                     <Avatar uri={u.avatar_url} size={44} name={u.display_name} />
                     <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
-                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: selected ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: selected ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
-                      {selected && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                    <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: sel ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: sel ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                      {sel && <Ionicons name="checkmark" size={13} color={theme.bg} />}
                     </View>
                   </Pressable>
                 );
               })}
+
+              {/* Buddies lijst (voor iedereen, ook admin) */}
+              {nominateSearchQuery.trim().length === 0 && buddyList.length > 0 && (
+                <View>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', paddingHorizontal: 16, paddingTop: 14, paddingBottom: 8 }}>YOUR BUDDIES</Text>
+                  {buddyList.map((u) => {
+                    const sel = addBuddySelectedIds.includes(u.id);
+                    return (
+                      <Pressable key={u.id} onPress={() => setAddBuddySelectedIds((prev) => sel ? prev.filter((id) => id !== u.id) : [...prev, u.id])} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                        <Avatar uri={u.avatar_url ?? null} size={44} skillLevel={u.skill_level} name={u.display_name} />
+                        <Text style={{ flex: 1, color: theme.text, fontSize: 15, fontWeight: '700' }}>{u.display_name}</Text>
+                        <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: sel ? theme.primary : 'rgba(255,255,255,0.2)', backgroundColor: sel ? theme.primary : 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                          {sel && <Ionicons name="checkmark" size={13} color={theme.bg} />}
+                        </View>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+              {nominateSearchQuery.trim().length === 0 && buddyList.length === 0 && (
+                <Text style={{ color: theme.textMuted, fontSize: 14, textAlign: 'center', marginTop: 40 }}>All your buddies are already in this group</Text>
+              )}
+
+              {/* Admin: pending requests */}
               {isAdmin && grp.pendingRequests > 0 && nominateSearchQuery.trim().length === 0 && (() => {
                 const [pendingReqs, setPendingReqs] = React.useState<Array<{ id: string; nominee: { id: string; display_name: string; avatar_url: string | null }; introduced_by: { display_name: string } }>>([]);
                 React.useEffect(() => {
@@ -9809,7 +9879,7 @@ export default Sentry.wrap(function App() {
                           <Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>{req.nominee.display_name}</Text>
                           <Text style={{ color: theme.textMuted, fontSize: 12 }}>Suggested by {req.introduced_by.display_name}</Text>
                         </View>
-                        <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: '#123868', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6, borderWidth: 1, borderColor: theme.primary }}>
+                        <Pressable onPress={() => void resolveJoinRequest(req.id, true)} style={{ backgroundColor: '#123868', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '900' }}>Accept</Text>
                         </Pressable>
                         <Pressable onPress={() => void resolveJoinRequest(req.id, false)} style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 6 }}>
@@ -9821,20 +9891,28 @@ export default Sentry.wrap(function App() {
                 );
               })()}
             </ScrollView>
-            {nominateSelectedUserId && (
+
+            {addBuddySelectedIds.length > 0 && (
               <View style={{ padding: 16 }}>
                 <Pressable onPress={async () => {
+                  const actorName = activeProfile?.display_name ?? 'Someone';
                   if (isAdmin) {
-                    await supabase.from('group_members').insert({ group_id: groupId, user_id: nominateSelectedUserId, role: 'member' });
-                    const actorName = activeProfile?.display_name ?? 'Someone';
-                    void sendPushToRecipients([nominateSelectedUserId], `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
-                    await loadMyPersistentGroups();
-                    setNominateSelectedUserId(null); setNominateSearchQuery(''); setNominateSearchResults([]);
+                    for (const uid of addBuddySelectedIds) {
+                      await supabase.from('group_members').insert({ group_id: groupId, user_id: uid, role: 'member' });
+                    }
+                    void sendPushToRecipients(addBuddySelectedIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
                   } else {
-                    void nominateForGroup(groupId, nominateSelectedUserId);
+                    for (const uid of addBuddySelectedIds) {
+                      await supabase.from('group_join_requests').insert({ group_id: groupId, nominee_id: uid, introduced_by: activeProfile?.id ?? activeAppUserId ?? '', status: 'pending' });
+                    }
+                    Alert.alert('Sent!', `${addBuddySelectedIds.length} suggestion${addBuddySelectedIds.length > 1 ? 's' : ''} sent to the admin.`);
                   }
+                  await loadMyPersistentGroups();
+                  closeModal();
                 }} style={{ backgroundColor: '#123868', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
-                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>{isAdmin ? 'Add to group' : 'Suggest to admin'}</Text>
+                  <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>
+                    {isAdmin ? `Add ${addBuddySelectedIds.length} to group` : `Suggest ${addBuddySelectedIds.length} to admin`}
+                  </Text>
                 </Pressable>
               </View>
             )}
