@@ -7958,9 +7958,10 @@ export default Sentry.wrap(function App() {
   const uploadGroupAvatar = async (localUri: string, groupId: string): Promise<string | null> => {
     try {
       const path = `group-${groupId}/avatar.jpg`;
-      const formData = new FormData();
-      formData.append('file', { uri: localUri, name: 'avatar.jpg', type: 'image/jpeg' } as any);
-      const { error } = await supabase.storage.from('avatars').upload(path, formData, { upsert: true, contentType: 'image/jpeg' });
+      const response = await fetch(localUri);
+      if (!response.ok) return null;
+      const arrayBuffer = await response.arrayBuffer();
+      const { error } = await supabase.storage.from('avatars').upload(path, arrayBuffer, { upsert: true, contentType: 'image/jpeg' });
       if (error) { console.error('GROUP_AVATAR_UPLOAD_ERROR', error); return null; }
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);
       return data?.publicUrl ? `${data.publicUrl}?t=${Date.now()}` : null;
@@ -7992,9 +7993,10 @@ export default Sentry.wrap(function App() {
   const uploadChatMedia = async (localUri: string, userId: string): Promise<string | null> => {
     try {
       const filePath = `${userId}/${Date.now()}.jpg`;
-      const formData = new FormData();
-      formData.append('file', { uri: localUri, name: 'photo.jpg', type: 'image/jpeg' } as any);
-      const { error } = await supabase.storage.from('chat-media').upload(filePath, formData, { contentType: 'image/jpeg', upsert: false });
+      const response = await fetch(localUri);
+      if (!response.ok) return null;
+      const arrayBuffer = await response.arrayBuffer();
+      const { error } = await supabase.storage.from('chat-media').upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
       if (error) { console.error('CHAT_MEDIA_UPLOAD_ERROR', error); return null; }
       const { data } = supabase.storage.from('chat-media').getPublicUrl(filePath);
       return data.publicUrl ?? null;
@@ -10332,10 +10334,8 @@ export default Sentry.wrap(function App() {
                             { text: 'Cancel', style: 'cancel' },
                             { text: 'Confirm', style: 'destructive', onPress: async () => {
                               if (!expandedPersistentGroupId) return;
-                              // Eerst nieuwe admin promoveren (terwijl jij nog admin bent)
-                              await supabase.from('group_members').update({ role: 'admin' }).eq('group_id', expandedPersistentGroupId).eq('user_id', m.id);
-                              // Dan jezelf demoten
-                              await supabase.from('group_members').update({ role: 'member' }).eq('group_id', expandedPersistentGroupId).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                              const { error } = await supabase.rpc('transfer_group_admin', { p_group_id: expandedPersistentGroupId, p_new_admin_id: m.id });
+                              if (error) { Alert.alert('Error', error.message); return; }
                               await loadMyPersistentGroups();
                               setGroupMembersPopup(null);
                             }},
