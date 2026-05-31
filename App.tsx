@@ -8283,8 +8283,8 @@ export default Sentry.wrap(function App() {
     const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
 
     // Round-trip 2: alle queries sequentieel (betrouwbaar)
-    const { data: groups, error: gErr } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
-    Alert.alert('groups debug', `count=${groups?.length} err=${gErr?.message ?? 'none'} first=${JSON.stringify(groups?.[0])}`);
+    const { data: groups } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
+    Alert.alert('avatars', (groups ?? []).map((g: any) => `${g.name}: ${g.avatar_url ? 'Y' : 'N'}`).join('\n'));
     const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds);
     const reqs = adminGroupIds.length
       ? (await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)).data ?? []
