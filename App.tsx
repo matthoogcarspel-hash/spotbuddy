@@ -7939,6 +7939,22 @@ export default Sentry.wrap(function App() {
     />;
   }
 
+  const loadReactionsForMessages = async (messageIds: string[]) => {
+    if (!messageIds.length) return;
+    const { data } = await supabase.from('message_reactions').select('message_id, user_id, emoji').in('message_id', messageIds);
+    if (!data?.length) return;
+    setMessageReactions((prev) => {
+      const next = { ...prev };
+      for (const r of data) {
+        const list = next[r.message_id] ?? [];
+        if (!list.find((x) => x.userId === r.user_id && x.emoji === r.emoji)) {
+          next[r.message_id] = [...list, { emoji: r.emoji, userId: r.user_id }];
+        }
+      }
+      return next;
+    });
+  };
+
   const loadSpotChatForTab = async (spotName: string, dayKey?: string) => {
     const day = dayKey ?? getTodayLocalDateKey();
     const cKey = spotChatKey(spotName, day);
@@ -7960,6 +7976,7 @@ export default Sentry.wrap(function App() {
     }));
     myConvIdsRef.current.add(convId);
     setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: convId, messages: enriched, loaded: true, dayKey: day } }));
+    void loadReactionsForMessages(enriched.map((m) => m.id));
   };
 
   const uploadGroupAvatar = async (localUri: string, groupId: string): Promise<string | null> => {
@@ -8134,6 +8151,7 @@ export default Sentry.wrap(function App() {
       media_url: m.media_url ?? null, media_type: m.media_type ?? null,
     }));
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: enriched, loaded: true } }));
+    void loadReactionsForMessages(enriched.map((m) => m.id));
   };
   loadSessionChatForTabRef.current = loadSessionChatForTab;
 
@@ -8225,6 +8243,7 @@ export default Sentry.wrap(function App() {
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null }));
     setDmMessages((prev) => ({ ...prev, [conversationId]: enriched }));
+    void loadReactionsForMessages(enriched.map((m) => m.id));
   };
   loadDmMessagesRef.current = loadDmMessages;
 
@@ -8340,6 +8359,7 @@ export default Sentry.wrap(function App() {
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
     const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null }));
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: enriched, loaded: true } }));
+    void loadReactionsForMessages(enriched.map((m) => m.id));
   };
 
   const sendPersistentGroupMessage = async (groupId: string, convId: string, mediaUrl: string | null = null) => {
