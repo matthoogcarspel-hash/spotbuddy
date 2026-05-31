@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Alert, Animated, Image, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -2579,6 +2579,7 @@ export default Sentry.wrap(function App() {
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
+  const swipeAnimValues = useRef<Map<string, Animated.Value>>(new Map());
   const [emojiPickerMsg, setEmojiPickerMsg] = useState<{ id: string; own: boolean } | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, Array<{ emoji: string; userId: string }>>>({});
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
@@ -9180,13 +9181,24 @@ export default Sentry.wrap(function App() {
         const grouped: Record<string, number> = {};
         if (reactions?.length) for (const r of reactions) grouped[r.emoji] = (grouped[r.emoji] ?? 0) + 1;
 
+        if (!swipeAnimValues.current.has(msg.id)) swipeAnimValues.current.set(msg.id, new Animated.Value(0));
+        const swipeAnim = swipeAnimValues.current.get(msg.id)!;
+
         const replyPan = PanResponder.create({
           onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
-          onPanResponderRelease: (_, g) => { if (g.dx > 50) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); },
+          onPanResponderMove: (_, g) => { if (g.dx > 0) swipeAnim.setValue(Math.min(g.dx, 80)); },
+          onPanResponderRelease: (_, g) => {
+            if (g.dx > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
+            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true, tension: 120, friction: 8 }).start();
+          },
+          onPanResponderTerminate: () => {
+            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
+          },
         });
 
         return (
           <View key={msg.id} {...replyPan.panHandlers}>
+            <Animated.View style={{ transform: [{ translateX: swipeAnim }] }}>
             <View style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
@@ -9234,6 +9246,7 @@ export default Sentry.wrap(function App() {
                 ))}
               </View>
             )}
+            </Animated.View>
           </View>
         );
       });
