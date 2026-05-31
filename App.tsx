@@ -2578,6 +2578,8 @@ export default Sentry.wrap(function App() {
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
+  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
@@ -6470,15 +6472,6 @@ export default Sentry.wrap(function App() {
             <Image source={{ uri: viewingOtherProfile.avatar_url }} style={{ width: 300, height: 300, borderRadius: 150 }} resizeMode="cover" />
           </Pressable>
         ) : null}
-        {fullscreenImageUri ? (
-          <Pressable
-            onPress={() => setFullscreenImageUri(null)}
-            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
-          >
-            <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
-            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 16 }}>Tap to close</Text>
-          </Pressable>
-        ) : null}
       </Pressable>
     );
   };
@@ -9162,30 +9155,57 @@ export default Sentry.wrap(function App() {
         };
 
         return (
-          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}>
-            {/* Avatar: links, alleen op laatste bericht van reeks */}
-            {!own ? (
-              isLast ? (
-                <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}>
-                  <Avatar uri={msg.avatar_url} size={30} name={msg.display_name} />
-                </Pressable>
-              ) : (
-                <View style={{ width: 30 }} />
-              )
-            ) : null}
+          <View key={msg.id}>
+            {/* Emoji picker overlay */}
+            {emojiPickerMsgId === msg.id && (
+              <Pressable onPress={() => setEmojiPickerMsgId(null)} style={{ position: 'absolute', top: -48, left: own ? undefined : 40, right: own ? 8 : undefined, zIndex: 100 }}>
+                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(30,45,60,0.97)', borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                  {['❤️','😂','👍','🔥','😮','👎'].map((emoji) => (
+                    <Pressable key={emoji} onPress={async () => {
+                      setEmojiPickerMsgId(null);
+                      const uid = activeProfile?.id ?? activeAppUserId;
+                      if (!uid) return;
+                      await supabase.from('message_reactions').upsert({ message_id: msg.id, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                    }} style={{ padding: 4 }}>
+                      <Text style={{ fontSize: 22 }}>{emoji}</Text>
+                    </Pressable>
+                  ))}
+                </View>
+              </Pressable>
+            )}
+            <Pressable
+              onLongPress={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+              onPress={() => emojiPickerMsgId ? setEmojiPickerMsgId(null) : null}
+              style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
+            >
+              {/* Avatar: links, alleen op laatste bericht van reeks */}
+              {!own ? (
+                isLast ? (
+                  <Pressable onPress={() => msgUserId && setViewingOtherUserId(msgUserId)}>
+                    <Avatar uri={msg.avatar_url} size={30} name={msg.display_name} />
+                  </Pressable>
+                ) : (
+                  <View style={{ width: 30 }} />
+                )
+              ) : null}
 
-            <View style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}>
-              {!own && isFirst && showSenderName ? (
-                <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
-              ) : null}
-              {msg.media_url && msg.media_type === 'image' ? (
-                <Pressable onPress={() => setFullscreenImageUri(msg.media_url)}>
-                  <Image source={{ uri: msg.media_url }} style={{ width: 160, height: 160, borderRadius: 12 }} resizeMode="cover" />
-                </Pressable>
-              ) : null}
-              {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
-              {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
-            </View>
+              <Pressable
+                onLongPress={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+                onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
+                style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}
+              >
+                {!own && isFirst && showSenderName ? (
+                  <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
+                ) : null}
+                {msg.media_url && msg.media_type === 'image' ? (
+                  <Pressable onPress={() => setFullscreenImageUri(msg.media_url)}>
+                    <Image source={{ uri: msg.media_url }} style={{ width: 160, height: 160, borderRadius: 12 }} resizeMode="cover" />
+                  </Pressable>
+                ) : null}
+                {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
+                {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
+              </Pressable>
+            </Pressable>
           </View>
         );
       });
@@ -9250,6 +9270,8 @@ export default Sentry.wrap(function App() {
         setPendingMediaUri(null);
       }
       if (!openInput.trim() && !mediaUrl) return;
+      const currentReply = replyingTo;
+      setReplyingTo(null);
       if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot, mediaUrl);
       else if (expandedChatSession) {
         const d = chatSessionMessages[expandedChatSession];
@@ -9404,6 +9426,18 @@ export default Sentry.wrap(function App() {
 
             {/* Invoerbalk */}
             <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+              {replyingTo && (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6, marginLeft: 44, gap: 8 }}>
+                  <View style={{ width: 3, height: '100%', backgroundColor: theme.primary, borderRadius: 2 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>{replyingTo.display_name}</Text>
+                    <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{replyingTo.text ?? '📷 Photo'}</Text>
+                  </View>
+                  <Pressable onPress={() => setReplyingTo(null)} hitSlop={8}>
+                    <Ionicons name="close" size={16} color={theme.textMuted} />
+                  </Pressable>
+                </View>
+              )}
               {pendingMediaUri ? (
                 <View style={{ marginBottom: 8, marginLeft: 44 }}>
                   <View style={{ position: 'relative', width: 72, height: 72 }}>
@@ -10036,7 +10070,7 @@ export default Sentry.wrap(function App() {
                   {expandedPersistentGroupId && (() => {
                     const grpAvatar = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
                     return (
-                      <Pressable onPress={() => grpAvatar?.role === 'admin' ? void pickAndUploadGroupAvatar(expandedPersistentGroupId) : void openGroupMembersPopup(expandedPersistentGroupId)}
+                      <Pressable onPress={() => void openGroupMembersPopup(expandedPersistentGroupId)}
                         style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                         {grpAvatar?.avatar_url
                           ? <Image source={{ uri: grpAvatar.avatar_url }} style={{ width: 36, height: 36 }} />
@@ -10056,8 +10090,8 @@ export default Sentry.wrap(function App() {
                           setEditingGroupName(null);
                         }} style={{ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0 }} />
                       ) : (
-                        <Pressable onPress={() => setEditingGroupName(openConvName)}>
-                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName} <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text>
+                        <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)} onLongPress={() => setEditingGroupName(openConvName)}>
+                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
                         </Pressable>
                       )
                     ) : (
@@ -13882,6 +13916,12 @@ const handleSave = async () => {
       )}
 
       {/* Plan session modal */}
+      {fullscreenImageUri ? (
+        <Pressable onPress={() => setFullscreenImageUri(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
+          <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 }}>Tap to close</Text>
+        </Pressable>
+      ) : null}
     </SafeAreaView>
   );
 });
