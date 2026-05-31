@@ -8006,14 +8006,14 @@ export default Sentry.wrap(function App() {
     try {
       const filePath = `${userId}/${Date.now()}.jpg`;
       const response = await fetch(localUri);
-      if (!response.ok) { Alert.alert('Media error', `fetch failed: ${response.status}`); return null; }
+      if (!response.ok) return null;
       const arrayBuffer = await response.arrayBuffer();
       const { error } = await supabase.storage.from('chat-media').upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
-      if (error) { Alert.alert('Media upload error', error.message); return null; }
+      if (error) { console.error('CHAT_MEDIA_UPLOAD_ERROR', error); return null; }
       const { data } = supabase.storage.from('chat-media').getPublicUrl(filePath);
       return data.publicUrl ?? null;
-    } catch (e: any) {
-      Alert.alert('Media exception', e?.message ?? String(e));
+    } catch (e) {
+      console.error('CHAT_MEDIA_EXCEPTION', e);
       return null;
     }
   };
@@ -8341,7 +8341,7 @@ export default Sentry.wrap(function App() {
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !senderId) return;
     const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
-    if (error) { Alert.alert('GROUP_SEND_ERROR', `${error.message} | convId=${convId} | text=${text} | media=${mediaUrl}`); return; }
+    if (error) { console.error('GROUP_SEND_ERROR', error); return; }
     setPersistentGroupInput('');
     setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
