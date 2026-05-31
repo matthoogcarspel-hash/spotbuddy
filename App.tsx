@@ -9176,16 +9176,16 @@ export default Sentry.wrap(function App() {
           borderBottomRightRadius: own ? (isLast ? tail : 6) : br,
         };
 
-        let swipeStartX = 0;
-
         return (
-          <View
-            key={msg.id}
-            onTouchStart={(e) => { swipeStartX = e.nativeEvent.pageX; }}
-            onTouchEnd={(e) => { if (e.nativeEvent.pageX - swipeStartX > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); }}
-          >
+          <View key={msg.id}>
             <Pressable
-              onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
+              onLongPress={() => {
+                Alert.alert('', '', [
+                  { text: '↩ Reply', onPress: () => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }) },
+                  { text: '😊 React', onPress: () => setEmojiPickerMsg({ id: msg.id, own }) },
+                  { text: 'Cancel', style: 'cancel' },
+                ]);
+              }}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
             >
