@@ -2580,6 +2580,7 @@ export default Sentry.wrap(function App() {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
   const [emojiPickerMsg, setEmojiPickerMsg] = useState<{ id: string; own: boolean } | null>(null);
+  const [messageReactions, setMessageReactions] = useState<Record<string, Array<{ emoji: string; userId: string }>>>({});
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
@@ -9184,6 +9185,22 @@ export default Sentry.wrap(function App() {
                 {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
                 {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
+              {(() => {
+                const reactions = messageReactions[msg.id];
+                if (!reactions?.length) return null;
+                const grouped: Record<string, number> = {};
+                for (const r of reactions) grouped[r.emoji] = (grouped[r.emoji] ?? 0) + 1;
+                return (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, marginBottom: 2, alignSelf: own ? 'flex-end' : 'flex-start' }}>
+                    {Object.entries(grouped).map(([emoji, count]) => (
+                      <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3, gap: 3 }}>
+                        <Text style={{ fontSize: 14 }}>{emoji}</Text>
+                        {count > 1 && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{count}</Text>}
+                      </View>
+                    ))}
+                  </View>
+                );
+              })()}
             </Pressable>
           </View>
         );
@@ -10601,7 +10618,13 @@ export default Sentry.wrap(function App() {
                     setEmojiPickerMsg(null);
                     if (!uid || !msgId) return;
                     const { error: rxErr } = await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
-                    if (rxErr) Alert.alert('Reaction error', rxErr.message);
+                    if (rxErr) { Alert.alert('Reaction error', rxErr.message); return; }
+                    setMessageReactions((prev) => {
+                      const existing = prev[msgId] ?? [];
+                      const already = existing.find((r) => r.userId === uid && r.emoji === emoji);
+                      if (already) return prev;
+                      return { ...prev, [msgId]: [...existing, { emoji, userId: uid }] };
+                    });
                   }} style={{ padding: 8 }}>
                     <Text style={{ fontSize: 28 }}>{emoji}</Text>
                   </Pressable>
