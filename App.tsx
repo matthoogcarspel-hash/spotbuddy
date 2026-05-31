@@ -10604,6 +10604,15 @@ export default Sentry.wrap(function App() {
       );
     }
 
+    if (fullscreenImageUri) {
+      return (
+        <Pressable onPress={() => setFullscreenImageUri(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center' }}>
+          <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
+          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 }}>Tap to close</Text>
+        </Pressable>
+      );
+    }
+
     return chatContent;
   }
 
@@ -13912,12 +13921,6 @@ const handleSave = async () => {
       )}
 
       {/* Plan session modal */}
-      {fullscreenImageUri ? (
-        <Pressable onPress={() => setFullscreenImageUri(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
-          <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 }}>Tap to close</Text>
-        </Pressable>
-      ) : null}
     </SafeAreaView>
   );
 });
