@@ -9157,7 +9157,7 @@ export default Sentry.wrap(function App() {
         return (
           <View key={msg.id}>
             <Pressable
-              onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
+              onLongPress={() => { Alert.alert('long press', msg.id); setEmojiPickerMsg({ id: msg.id, own }); }}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
             >
