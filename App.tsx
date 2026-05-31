@@ -2577,6 +2577,7 @@ export default Sentry.wrap(function App() {
   const [viewingOtherUserId, setViewingOtherUserId] = useState<string | null>(null);
   const [viewingOtherProfile, setViewingOtherProfile] = useState<{ id: string; display_name: string; avatar_url: string | null; nationality?: string | null; skill_level?: number | null } | null>(null);
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
+  const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
@@ -6467,6 +6468,15 @@ export default Sentry.wrap(function App() {
             <Image source={{ uri: viewingOtherProfile.avatar_url }} style={{ width: 300, height: 300, borderRadius: 150 }} resizeMode="cover" />
           </Pressable>
         ) : null}
+        {fullscreenImageUri ? (
+          <Pressable
+            onPress={() => setFullscreenImageUri(null)}
+            style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.95)', alignItems: 'center', justifyContent: 'center', zIndex: 500 }}
+          >
+            <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '80%' }} resizeMode="contain" />
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 16 }}>Tap to close</Text>
+          </Pressable>
+        ) : null}
       </Pressable>
     );
   };
@@ -9167,7 +9177,9 @@ export default Sentry.wrap(function App() {
                 <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
               ) : null}
               {msg.media_url && msg.media_type === 'image' ? (
-                <Image source={{ uri: msg.media_url }} style={{ width: 220, height: 220, borderRadius: 14 }} resizeMode="cover" />
+                <Pressable onPress={() => setFullscreenImageUri(msg.media_url)}>
+                  <Image source={{ uri: msg.media_url }} style={{ width: 160, height: 160, borderRadius: 12 }} resizeMode="cover" />
+                </Pressable>
               ) : null}
               {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
               {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
