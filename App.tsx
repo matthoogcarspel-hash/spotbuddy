@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import DiscoverMap from './src/components/DiscoverMap';
 import * as Buzz from 'expo-notifications';
-import { Alert, Image, Keyboard, KeyboardAvoidingView, Linking, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
+import { Alert, Image, Keyboard, KeyboardAvoidingView, Linking, Modal, PanResponder, Platform, Pressable, RefreshControl, SafeAreaView, ScrollView, StatusBar, Text, TextInput, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Zap, Users, HelpCircle } from 'lucide-react-native';
 
@@ -10591,26 +10591,23 @@ export default Sentry.wrap(function App() {
               </View>
             );
           })()}
-          {emojiPickerMsg && (() => {
-            const EMOJIS = ['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'];
-            return (
-              <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999, alignItems: 'center', justifyContent: 'center' }}>
-                <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center', maxWidth: 300, zIndex: 1000 }}>
-                  {EMOJIS.map((emoji) => (
-                    <Pressable key={emoji} onPress={async () => {
-                      const uid = activeProfile?.id ?? activeAppUserId;
-                      const msgId = emojiPickerMsg.id;
-                      setEmojiPickerMsg(null);
-                      if (!uid) return;
-                      await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
-                    }} style={{ padding: 8 }}>
-                      <Text style={{ fontSize: 28 }}>{emoji}</Text>
-                    </Pressable>
-                  ))}
-                </Pressable>
-              </Pressable>
-            );
-          })()}
+          <Modal visible={!!emojiPickerMsg} transparent animationType="fade" onRequestClose={() => setEmojiPickerMsg(null)}>
+            <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <View style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center', maxWidth: 300 }}>
+                {['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'].map((emoji) => (
+                  <Pressable key={emoji} onPress={async () => {
+                    const uid = activeProfile?.id ?? activeAppUserId;
+                    const msgId = emojiPickerMsg?.id;
+                    setEmojiPickerMsg(null);
+                    if (!uid || !msgId) return;
+                    await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                  }} style={{ padding: 8 }}>
+                    <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Modal>
         </SafeAreaView>
       );
     }
