@@ -9301,9 +9301,7 @@ export default Sentry.wrap(function App() {
                   );
                   return (
                     <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)} onLongPress={() => grpHdr?.role === 'admin' ? setEditingGroupName(openConvName) : null}>
-                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>
-                        {openConvName}{grpHdr?.role === 'admin' ? <Text> <Ionicons name="pencil-outline" size={13} color={theme.textMuted} /></Text> : null}
-                      </Text>
+                      <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
                       <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>Tap to see members</Text>
                     </Pressable>
                   );
