@@ -9177,10 +9177,10 @@ export default Sentry.wrap(function App() {
         };
 
         return (
-          <View key={msg.id}>
+          <View key={msg.id} style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
-              style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
+              style={{ flex: 1, flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
             >
               {/* Avatar: links, alleen op laatste bericht van reeks */}
@@ -9215,13 +9215,6 @@ export default Sentry.wrap(function App() {
                 {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
                   {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
-              <Pressable
-                onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
-                hitSlop={12}
-                style={{ alignSelf: 'center', padding: 6, opacity: 0.4 }}
-              >
-                <Ionicons name="return-down-back-outline" size={18} color="#ffffff" />
-              </Pressable>
             </Pressable>
             {(() => {
               const reactions = messageReactions[msg.id];
@@ -9239,6 +9232,13 @@ export default Sentry.wrap(function App() {
                 </View>
               );
             })()}
+            <Pressable
+              onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
+              hitSlop={16}
+              style={{ paddingHorizontal: 6, paddingVertical: 8, opacity: 0.35 }}
+            >
+              <Ionicons name="return-down-back-outline" size={18} color="#ffffff" />
+            </Pressable>
           </View>
         );
       });
