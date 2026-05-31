@@ -9180,8 +9180,13 @@ export default Sentry.wrap(function App() {
         const grouped: Record<string, number> = {};
         if (reactions?.length) for (const r of reactions) grouped[r.emoji] = (grouped[r.emoji] ?? 0) + 1;
 
+        const replyPan = PanResponder.create({
+          onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
+          onPanResponderRelease: (_, g) => { if (g.dx > 50) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); },
+        });
+
         return (
-          <View key={msg.id}>
+          <View key={msg.id} {...replyPan.panHandlers}>
             <View style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
@@ -9218,15 +9223,6 @@ export default Sentry.wrap(function App() {
                   {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
             </Pressable>
-            {isLast && (
-              <Pressable
-                onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
-                hitSlop={16}
-                style={{ paddingHorizontal: 4, paddingVertical: 4, opacity: 0.25 }}
-              >
-                <Ionicons name="return-down-back-outline" size={16} color="#ffffff" />
-              </Pressable>
-            )}
             </View>
             {Object.keys(grouped).length > 0 && (
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: -4, marginBottom: 4, paddingHorizontal: own ? 16 : 46, justifyContent: own ? 'flex-end' : 'flex-start' }}>
