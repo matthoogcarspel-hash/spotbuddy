@@ -3514,6 +3514,8 @@ export default Sentry.wrap(function App() {
           return;
         }
 
+        // Verwijder alle oude tokens voor dit profiel + platform zodat er maar 1 actief is
+        await supabase.from('push_tokens').delete().eq('profile_id', activeAppUserId).eq('platform', Platform.OS).neq('expo_push_token', token.data);
         const { error: pushTokenSaveError } = await supabase
           .from('push_tokens')
           .upsert(
