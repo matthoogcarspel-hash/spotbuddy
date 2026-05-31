@@ -9176,15 +9176,14 @@ export default Sentry.wrap(function App() {
           borderBottomRightRadius: own ? (isLast ? tail : 6) : br,
         };
 
-        const swipePan = PanResponder.create({
-          onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dy) < 15,
-          onPanResponderRelease: (_, g) => {
-            if (g.dx > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
-          },
-        });
+        let swipeStartX = 0;
 
         return (
-          <View key={msg.id} {...swipePan.panHandlers}>
+          <View
+            key={msg.id}
+            onTouchStart={(e) => { swipeStartX = e.nativeEvent.pageX; }}
+            onTouchEnd={(e) => { if (e.nativeEvent.pageX - swipeStartX > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); }}
+          >
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
