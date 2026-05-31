@@ -10050,6 +10050,14 @@ export default Sentry.wrap(function App() {
 
     // Native: eigen shell renderen zodat KAV direct onder de topbar zit
     if (!isWebPlatform) {
+      if (fullscreenImageUri) {
+        return (
+          <Pressable onPress={() => setFullscreenImageUri(null)} style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+            <Image source={{ uri: fullscreenImageUri }} style={{ width: '100%', height: '85%' }} resizeMode="contain" />
+            <Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 12 }}>Tap to close</Text>
+          </Pressable>
+        );
+      }
       return (
         <SafeAreaView style={{ flex: 1, backgroundColor: theme.bg }} onTouchStart={handleNativeSwipeStart} onTouchEnd={handleNativeSwipeEnd}>
           <StatusBar barStyle="light-content" backgroundColor={theme.bg} />
