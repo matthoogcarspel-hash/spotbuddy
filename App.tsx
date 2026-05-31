@@ -8069,7 +8069,7 @@ export default Sentry.wrap(function App() {
     if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
     setSpotChatInputInChat('');
     setTimeout(() => chatSpotScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: `${convId}-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
+    const newMsg = { id: `${convId}-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setChatSpotMessages((prev) => ({ ...prev, [chatKey]: { conversationId: convId, messages: [...(prev[chatKey]?.messages ?? []), newMsg], loaded: true } }));
     // Push naar spot-volgers via SECURITY DEFINER RPC (bypast RLS op spot_followers)
     if (activeProfile?.id) {
@@ -8176,7 +8176,7 @@ export default Sentry.wrap(function App() {
     if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
     setSessionChatInput('');
     setTimeout(() => chatSessionScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: inserted?.id ?? `${convId}-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
+    const newMsg = { id: inserted?.id ?? `${convId}-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setChatSessionMessages((prev) => ({ ...prev, [groupKey]: { ...prev[groupKey], conversationId: convId, messages: [...(prev[groupKey]?.messages ?? []), newMsg], loaded: true } }));
     supabase.rpc('create_chat_notification', {
       actor_profile_id: senderId,
@@ -8256,7 +8256,7 @@ export default Sentry.wrap(function App() {
     if (error) { console.error('DM_SEND_ERROR', error); setSessionActionError(`DM send failed: ${error.message}`); return; }
     setDmInput('');
     setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
+    const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
     // Push notificatie naar de andere deelnemer — haal otherUserId op uit DB (betrouwbaarder dan state)
@@ -8371,7 +8371,7 @@ export default Sentry.wrap(function App() {
     if (error) { console.error('GROUP_SEND_ERROR', error); return; }
     setPersistentGroupInput('');
     setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
+    const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: [...(prev[groupId]?.messages ?? []), newMsg], loaded: true } }));
     setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, lastMessage: text || null, lastMessageAt: new Date().toISOString() } : g));
     // Push naar alle andere groepsleden
