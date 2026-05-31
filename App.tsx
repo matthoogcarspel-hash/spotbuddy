@@ -9185,15 +9185,13 @@ export default Sentry.wrap(function App() {
         const swipeAnim = swipeAnimValues.current.get(msg.id)!;
 
         const replyPan = PanResponder.create({
-          onMoveShouldSetPanResponderCapture: (_, g) => Math.abs(g.dx) > 8 && Math.abs(g.dx) > Math.abs(g.dy) * 2,
-          onPanResponderMove: (_, g) => { if (g.dx > 0) swipeAnim.setValue(Math.min(g.dx, 80)); },
+          onMoveShouldSetPanResponderCapture: (_, g) => g.dx > 6 && Math.abs(g.dy) < 10,
+          onPanResponderMove: (_, g) => { swipeAnim.setValue(Math.max(0, Math.min(g.dx * 0.6, 70))); },
           onPanResponderRelease: (_, g) => {
-            if (g.dx > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
-            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true, tension: 120, friction: 8 }).start();
+            if (g.dx > 55) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
+            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true, tension: 200, friction: 12 }).start();
           },
-          onPanResponderTerminate: () => {
-            Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true }).start();
-          },
+          onPanResponderTerminate: () => { Animated.spring(swipeAnim, { toValue: 0, useNativeDriver: true, tension: 200, friction: 12 }).start(); },
         });
 
         return (
