@@ -10595,13 +10595,7 @@ export default Sentry.wrap(function App() {
             <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
               <View style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center', maxWidth: 300 }}>
                 {['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'].map((emoji) => (
-                  <Pressable key={emoji} onPress={async () => {
-                    const uid = activeProfile?.id ?? activeAppUserId;
-                    const msgId = emojiPickerMsg?.id;
-                    setEmojiPickerMsg(null);
-                    if (!uid || !msgId) return;
-                    await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
-                  }} style={{ padding: 8 }}>
+                  <Pressable key={emoji} onPress={() => Alert.alert('emoji', emoji)} style={{ padding: 8 }}>
                     <Text style={{ fontSize: 28 }}>{emoji}</Text>
                   </Pressable>
                 ))}
