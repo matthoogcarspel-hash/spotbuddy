@@ -9189,11 +9189,7 @@ export default Sentry.wrap(function App() {
                 )
               ) : null}
 
-              <Pressable
-                onLongPress={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
-                onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
-                style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}
-              >
+              <View style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}>
                 {!own && isFirst && showSenderName ? (
                   <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
                 ) : null}
@@ -9204,7 +9200,7 @@ export default Sentry.wrap(function App() {
                 ) : null}
                 {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
                 {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
-              </Pressable>
+              </View>
             </Pressable>
           </View>
         );
