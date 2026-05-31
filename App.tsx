@@ -9177,19 +9177,18 @@ export default Sentry.wrap(function App() {
         };
 
         const swipePan = PanResponder.create({
-          onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dy) < 20,
+          onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 12 && Math.abs(g.dy) < 15,
           onPanResponderRelease: (_, g) => {
-            if (g.dx > 50) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
+            if (g.dx > 60) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
           },
         });
 
         return (
-          <View key={msg.id}>
+          <View key={msg.id} {...swipePan.panHandlers}>
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
-              {...swipePan.panHandlers}
             >
               {/* Avatar: links, alleen op laatste bericht van reeks */}
               {!own ? (
