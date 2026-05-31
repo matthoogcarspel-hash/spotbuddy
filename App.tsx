@@ -10033,27 +10033,6 @@ export default Sentry.wrap(function App() {
 
     // Native: eigen shell renderen zodat KAV direct onder de topbar zit
     if (!isWebPlatform) {
-      if (emojiPickerMsg) {
-        const EMOJIS = ['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'];
-        return (
-          <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
-            <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 280 }}>
-                {EMOJIS.map((emoji) => (
-                  <Pressable key={emoji} onPress={async () => {
-                    setEmojiPickerMsg(null);
-                    const uid = activeProfile?.id ?? activeAppUserId;
-                    if (!uid || !emojiPickerMsg) return;
-                    await supabase.from('message_reactions').upsert({ message_id: emojiPickerMsg.id, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
-                  }} style={{ padding: 6 }}>
-                    <Text style={{ fontSize: 28 }}>{emoji}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </Pressable>
-          </Pressable>
-        );
-      }
       if (fullscreenImageUri) {
         return (
           <Pressable onPress={() => setFullscreenImageUri(null)} style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
@@ -10609,6 +10588,27 @@ export default Sentry.wrap(function App() {
                     );
                   })}
                 </ScrollView>
+              </View>
+            );
+          })()}
+          {emojiPickerMsg && (() => {
+            const EMOJIS = ['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'];
+            return (
+              <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', zIndex: 999 }} pointerEvents="box-none">
+                <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }} />
+                <View style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', flexDirection: 'row', flexWrap: 'wrap', gap: 4, justifyContent: 'center', maxWidth: 300 }}>
+                  {EMOJIS.map((emoji) => (
+                    <Pressable key={emoji} onPress={async () => {
+                      const uid = activeProfile?.id ?? activeAppUserId;
+                      const msgId = emojiPickerMsg.id;
+                      setEmojiPickerMsg(null);
+                      if (!uid) return;
+                      await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                    }} style={{ padding: 8 }}>
+                      <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
             );
           })()}
