@@ -2579,7 +2579,7 @@ export default Sentry.wrap(function App() {
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
-  const [emojiPickerMsgId, setEmojiPickerMsgId] = useState<string | null>(null);
+  const [emojiPickerMsg, setEmojiPickerMsg] = useState<{ id: string; own: boolean } | null>(null);
   const [chatSubTab, setChatSubTab] = useState<'spot' | 'session' | 'dm' | 'group'>('spot');
   const [dmSearchQuery, setDmSearchQuery] = useState('');
   const [activeChatSpot, setActiveChatSpot] = useState<string | null>(null);
@@ -9156,25 +9156,8 @@ export default Sentry.wrap(function App() {
 
         return (
           <View key={msg.id}>
-            {/* Emoji picker overlay */}
-            {emojiPickerMsgId === msg.id && (
-              <Pressable onPress={() => setEmojiPickerMsgId(null)} style={{ position: 'absolute', top: -48, left: own ? undefined : 40, right: own ? 8 : undefined, zIndex: 100 }}>
-                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(30,45,60,0.97)', borderRadius: 24, paddingHorizontal: 8, paddingVertical: 6, gap: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
-                  {['❤️','😂','👍','🔥','😮','👎'].map((emoji) => (
-                    <Pressable key={emoji} onPress={async () => {
-                      setEmojiPickerMsgId(null);
-                      const uid = activeProfile?.id ?? activeAppUserId;
-                      if (!uid) return;
-                      await supabase.from('message_reactions').upsert({ message_id: msg.id, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
-                    }} style={{ padding: 4 }}>
-                      <Text style={{ fontSize: 22 }}>{emoji}</Text>
-                    </Pressable>
-                  ))}
-                </View>
-              </Pressable>
-            )}
             <Pressable
-              onLongPress={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
+              onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
             >
@@ -10050,6 +10033,27 @@ export default Sentry.wrap(function App() {
 
     // Native: eigen shell renderen zodat KAV direct onder de topbar zit
     if (!isWebPlatform) {
+      if (emojiPickerMsg) {
+        const EMOJIS = ['❤️','😂','👍','🔥','😮','🤙','🏄','💨','🌊','👎'];
+        return (
+          <Pressable onPress={() => setEmojiPickerMsg(null)} style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' }}>
+            <Pressable onPress={(e) => e.stopPropagation()} style={{ backgroundColor: 'rgba(18,36,56,0.98)', borderRadius: 24, paddingHorizontal: 12, paddingVertical: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, justifyContent: 'center', maxWidth: 280 }}>
+                {EMOJIS.map((emoji) => (
+                  <Pressable key={emoji} onPress={async () => {
+                    setEmojiPickerMsg(null);
+                    const uid = activeProfile?.id ?? activeAppUserId;
+                    if (!uid || !emojiPickerMsg) return;
+                    await supabase.from('message_reactions').upsert({ message_id: emojiPickerMsg.id, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                  }} style={{ padding: 6 }}>
+                    <Text style={{ fontSize: 28 }}>{emoji}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </Pressable>
+          </Pressable>
+        );
+      }
       if (fullscreenImageUri) {
         return (
           <Pressable onPress={() => setFullscreenImageUri(null)} style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
