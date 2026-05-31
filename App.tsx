@@ -9233,7 +9233,7 @@ export default Sentry.wrap(function App() {
               );
             })()}
             <Pressable
-              onPress={() => { Alert.alert('reply'); setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); }}
+              onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
               hitSlop={16}
               style={{ paddingHorizontal: 6, paddingVertical: 8, opacity: 0.35 }}
             >
@@ -10180,6 +10180,18 @@ export default Sentry.wrap(function App() {
                 </ScrollView>
                 {/* Invoerbalk */}
                 <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+                  {replyingTo && (
+                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6, marginLeft: 44, gap: 8 }}>
+                      <View style={{ width: 3, height: '100%', backgroundColor: theme.primary, borderRadius: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: theme.primary, fontSize: 11, fontWeight: '800' }}>{replyingTo.display_name}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 12 }} numberOfLines={1}>{replyingTo.text ?? '📷 Photo'}</Text>
+                      </View>
+                      <Pressable onPress={() => setReplyingTo(null)} hitSlop={8}>
+                        <Ionicons name="close" size={16} color={theme.textMuted} />
+                      </Pressable>
+                    </View>
+                  )}
                   {pendingMediaUri ? (
                     <View style={{ marginBottom: 8, marginLeft: 44 }}>
                       <View style={{ position: 'relative', width: 72, height: 72 }}>
