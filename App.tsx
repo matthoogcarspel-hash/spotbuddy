@@ -9233,7 +9233,7 @@ export default Sentry.wrap(function App() {
               );
             })()}
             <Pressable
-              onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
+              onPress={() => { Alert.alert('reply'); setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }); }}
               hitSlop={16}
               style={{ paddingHorizontal: 6, paddingVertical: 8, opacity: 0.35 }}
             >
