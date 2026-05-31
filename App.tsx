@@ -9183,25 +9183,25 @@ export default Sentry.wrap(function App() {
                   </Pressable>
                 ) : null}
                 {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
-                {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
+                  {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
-              {(() => {
-                const reactions = messageReactions[msg.id];
-                if (!reactions?.length) return null;
-                const grouped: Record<string, number> = {};
-                for (const r of reactions) grouped[r.emoji] = (grouped[r.emoji] ?? 0) + 1;
-                return (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 4, marginBottom: 2, alignSelf: own ? 'flex-end' : 'flex-start' }}>
-                    {Object.entries(grouped).map(([emoji, count]) => (
-                      <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.12)', borderRadius: 12, paddingHorizontal: 7, paddingVertical: 3, gap: 3 }}>
-                        <Text style={{ fontSize: 14 }}>{emoji}</Text>
-                        {count > 1 && <Text style={{ color: theme.textSoft, fontSize: 11, fontWeight: '700' }}>{count}</Text>}
-                      </View>
-                    ))}
-                  </View>
-                );
-              })()}
             </Pressable>
+            {(() => {
+              const reactions = messageReactions[msg.id];
+              if (!reactions?.length) return null;
+              const grouped: Record<string, number> = {};
+              for (const r of reactions) grouped[r.emoji] = (grouped[r.emoji] ?? 0) + 1;
+              return (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, marginTop: -8, marginBottom: 4, paddingHorizontal: own ? 8 : 38, alignSelf: 'stretch', justifyContent: own ? 'flex-end' : 'flex-start' }}>
+                  {Object.entries(grouped).map(([emoji, count]) => (
+                    <View key={emoji} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(30,46,60,0.95)', borderRadius: 10, paddingHorizontal: 6, paddingVertical: 2, gap: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}>
+                      <Text style={{ fontSize: 13 }}>{emoji}</Text>
+                      {count > 1 && <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 11, fontWeight: '700' }}>{count}</Text>}
+                    </View>
+                  ))}
+                </View>
+              );
+            })()}
           </View>
         );
       });
