@@ -8006,14 +8006,14 @@ export default Sentry.wrap(function App() {
     try {
       const filePath = `${userId}/${Date.now()}.jpg`;
       const response = await fetch(localUri);
-      if (!response.ok) return null;
+      if (!response.ok) { Alert.alert('Media error', `fetch failed: ${response.status}`); return null; }
       const arrayBuffer = await response.arrayBuffer();
       const { error } = await supabase.storage.from('chat-media').upload(filePath, arrayBuffer, { contentType: 'image/jpeg', upsert: false });
-      if (error) { console.error('CHAT_MEDIA_UPLOAD_ERROR', error); return null; }
+      if (error) { Alert.alert('Media upload error', error.message); return null; }
       const { data } = supabase.storage.from('chat-media').getPublicUrl(filePath);
       return data.publicUrl ?? null;
-    } catch (e) {
-      console.error('CHAT_MEDIA_UPLOAD_EXCEPTION', e);
+    } catch (e: any) {
+      Alert.alert('Media exception', e?.message ?? String(e));
       return null;
     }
   };
@@ -9279,7 +9279,7 @@ export default Sentry.wrap(function App() {
               {expandedPersistentGroupId && (() => {
                 const grpAvatar = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
                 return (
-                  <Pressable onPress={() => grpAvatar?.role === 'admin' ? void pickAndUploadGroupAvatar(expandedPersistentGroupId) : void openGroupMembersPopup(expandedPersistentGroupId)}
+                  <Pressable onPress={() => void openGroupMembersPopup(expandedPersistentGroupId)}
                     style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     {grpAvatar?.avatar_url
                       ? <Image source={{ uri: grpAvatar.avatar_url }} style={{ width: 36, height: 36 }} />
@@ -9303,7 +9303,6 @@ export default Sentry.wrap(function App() {
                   return (
                     <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)} onLongPress={() => grpHdr?.role === 'admin' ? setEditingGroupName(openConvName) : null}>
                       <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 11, marginTop: 1 }}>Tap to see members</Text>
                     </Pressable>
                   );
                 })()}
