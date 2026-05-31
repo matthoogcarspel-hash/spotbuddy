@@ -10600,7 +10600,8 @@ export default Sentry.wrap(function App() {
                     const msgId = emojiPickerMsg?.id;
                     setEmojiPickerMsg(null);
                     if (!uid || !msgId) return;
-                    await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                    const { error: rxErr } = await supabase.from('message_reactions').upsert({ message_id: msgId, user_id: uid, emoji }, { onConflict: 'message_id,user_id,emoji' });
+                    if (rxErr) Alert.alert('Reaction error', rxErr.message);
                   }} style={{ padding: 8 }}>
                     <Text style={{ fontSize: 28 }}>{emoji}</Text>
                   </Pressable>
