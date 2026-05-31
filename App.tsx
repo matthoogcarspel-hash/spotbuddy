@@ -7964,7 +7964,7 @@ export default Sentry.wrap(function App() {
       setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
       return;
     }
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8048,7 +8048,8 @@ export default Sentry.wrap(function App() {
     if (!result.canceled && result.assets[0]) setPendingMediaUri(result.assets[0].uri);
   };
 
-  const sendSpotMessageInChatTab = async (chatKey: string, mediaUrl: string | null = null) => {
+  type ReplyMeta = { reply_to_id?: string; reply_to_text?: string | null; reply_to_name?: string };
+  const sendSpotMessageInChatTab = async (chatKey: string, mediaUrl: string | null = null, replyMeta: ReplyMeta = {}) => {
     const text = spotChatInputInChat.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     const spotName = spotNameFromChatKey(chatKey);
@@ -8064,7 +8065,7 @@ export default Sentry.wrap(function App() {
       }
     }
     if (!convId) return;
-    const { error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, spot_name: spotName, session_day: day, conversation_id: convId, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null });
+    const { error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, spot_name: spotName, session_day: day, conversation_id: convId, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta });
     if (error) { console.error('CHAT_TAB_SPOT_SEND_ERROR', error); return; }
     setSpotChatInputInChat('');
     setTimeout(() => chatSpotScrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -8139,7 +8140,7 @@ export default Sentry.wrap(function App() {
     }
     myConvIdsRef.current.add(convId);
     sessionConvIdsRef.current.add(convId); // markeer als sessie convId
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8155,7 +8156,7 @@ export default Sentry.wrap(function App() {
   };
   loadSessionChatForTabRef.current = loadSessionChatForTab;
 
-  const sendSessionMessageInChatTab = async (groupKey: string, spotName: string, sessionDay: string, mediaUrl: string | null = null) => {
+  const sendSessionMessageInChatTab = async (groupKey: string, spotName: string, sessionDay: string, mediaUrl: string | null = null, replyMeta: ReplyMeta = {}) => {
     const text = sessionChatInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !groupKey || !senderId) return;
@@ -8171,7 +8172,7 @@ export default Sentry.wrap(function App() {
       if (convId) { myConvIdsRef.current.add(convId); sessionConvIdsRef.current.add(convId); }
     }
     if (!convId) return;
-    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
+    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, spot_name: spotName, session_day: sessionDay, conversation_id: convId, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
     if (error) { console.error('CHAT_TAB_SESSION_SEND_ERROR', error); return; }
     setSessionChatInput('');
     setTimeout(() => chatSessionScrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -8236,22 +8237,22 @@ export default Sentry.wrap(function App() {
   fetchSharedDataRef.current = () => fetchSharedData({ skipLoadingState: true });
 
   const loadDmMessages = async (conversationId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', conversationId).order('created_at', { ascending: true });
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null }));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null }));
     setDmMessages((prev) => ({ ...prev, [conversationId]: enriched }));
     void loadReactionsForMessages(enriched.map((m) => m.id));
   };
   loadDmMessagesRef.current = loadDmMessages;
 
-  const sendDmMessage = async (conversationId: string, mediaUrl: string | null = null) => {
+  const sendDmMessage = async (conversationId: string, mediaUrl: string | null = null, replyMeta: ReplyMeta = {}) => {
     const text = dmInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !conversationId || !senderId) return;
-    const { data: dmInserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
+    const { data: dmInserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
     if (error) { console.error('DM_SEND_ERROR', error); setSessionActionError(`DM send failed: ${error.message}`); return; }
     setDmInput('');
     setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -8352,21 +8353,21 @@ export default Sentry.wrap(function App() {
   loadMyPersistentGroupsRef.current = loadMyPersistentGroups;
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null }));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null }));
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: enriched, loaded: true } }));
     void loadReactionsForMessages(enriched.map((m) => m.id));
   };
 
-  const sendPersistentGroupMessage = async (groupId: string, convId: string, mediaUrl: string | null = null) => {
+  const sendPersistentGroupMessage = async (groupId: string, convId: string, mediaUrl: string | null = null, replyMeta: ReplyMeta = {}) => {
     const text = persistentGroupInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !senderId) return;
-    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
+    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
     if (error) { console.error('GROUP_SEND_ERROR', error); return; }
     setPersistentGroupInput('');
     setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
@@ -9175,12 +9176,20 @@ export default Sentry.wrap(function App() {
           borderBottomRightRadius: own ? (isLast ? tail : 6) : br,
         };
 
+        const swipePan = PanResponder.create({
+          onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 10 && Math.abs(g.dy) < 20,
+          onPanResponderRelease: (_, g) => {
+            if (g.dx > 50) setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url });
+          },
+        });
+
         return (
           <View key={msg.id}>
             <Pressable
               onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
+              {...swipePan.panHandlers}
             >
               {/* Avatar: links, alleen op laatste bericht van reeks */}
               {!own ? (
@@ -9196,6 +9205,15 @@ export default Sentry.wrap(function App() {
               <View style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}>
                 {!own && isFirst && showSenderName ? (
                   <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
+                ) : null}
+                {msg.reply_to_name ? (
+                  <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 8, marginBottom: 4, overflow: 'hidden' }}>
+                    <View style={{ width: 3, backgroundColor: own ? 'rgba(255,255,255,0.5)' : theme.primary }} />
+                    <View style={{ paddingHorizontal: 8, paddingVertical: 4, flex: 1 }}>
+                      <Text style={{ color: own ? 'rgba(255,255,255,0.7)' : theme.primary, fontSize: 11, fontWeight: '800' }}>{msg.reply_to_name}</Text>
+                      <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 12 }} numberOfLines={1}>{msg.reply_to_text ?? '📷 Photo'}</Text>
+                    </View>
+                  </View>
                 ) : null}
                 {msg.media_url && msg.media_type === 'image' ? (
                   <Pressable onPress={() => setFullscreenImageUri(msg.media_url)}>
@@ -9288,12 +9306,13 @@ export default Sentry.wrap(function App() {
       if (!openInput.trim() && !mediaUrl) return;
       const currentReply = replyingTo;
       setReplyingTo(null);
-      if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot, mediaUrl);
+      const replyMeta = currentReply ? { reply_to_id: currentReply.id, reply_to_text: currentReply.text ?? null, reply_to_name: currentReply.display_name } : {};
+      if (expandedChatSpot) void sendSpotMessageInChatTab(expandedChatSpot, mediaUrl, replyMeta);
       else if (expandedChatSession) {
         const d = chatSessionMessages[expandedChatSession];
         const spotName = d?.spotName ?? openConvName;
         const sessionDay = d?.sessionDay ?? getTodayLocalDateKey();
-        void sendSessionMessageInChatTab(expandedChatSession, spotName, sessionDay, mediaUrl);
+        void sendSessionMessageInChatTab(expandedChatSession, spotName, sessionDay, mediaUrl, replyMeta);
       }
       else if (expandedPersistentGroupId) {
         let grp = myPersistentGroups.find((g) => g.id === expandedPersistentGroupId);
@@ -9304,9 +9323,9 @@ export default Sentry.wrap(function App() {
             grp = { ...grp, conversationId: conv.id };
           }
         }
-        if (grp?.conversationId) void sendPersistentGroupMessage(expandedPersistentGroupId, grp.conversationId, mediaUrl);
+        if (grp?.conversationId) void sendPersistentGroupMessage(expandedPersistentGroupId, grp.conversationId, mediaUrl, replyMeta);
       }
-      else if (expandedDmId) void sendDmMessage(expandedDmId, mediaUrl);
+      else if (expandedDmId) void sendDmMessage(expandedDmId, mediaUrl, replyMeta);
     };
 
     const handleOpenBack = () => {
