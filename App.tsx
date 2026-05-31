@@ -9180,7 +9180,7 @@ export default Sentry.wrap(function App() {
           <View key={msg.id}>
             <Pressable
               onLongPress={() => {
-                Alert.alert('', '', [
+                Alert.alert('Message', undefined, [
                   { text: '↩ Reply', onPress: () => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }) },
                   { text: '😊 React', onPress: () => setEmojiPickerMsg({ id: msg.id, own }) },
                   { text: 'Cancel', style: 'cancel' },
