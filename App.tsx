@@ -9198,13 +9198,6 @@ export default Sentry.wrap(function App() {
                 {!own && isFirst && showSenderName ? (
                   <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
                 ) : null}
-                <Pressable
-                  onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
-                  style={{ position: 'absolute', top: '50%', [own ? 'left' : 'right']: -28, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginTop: -11 }}
-                  hitSlop={8}
-                >
-                  <Ionicons name="return-down-back-outline" size={13} color="rgba(255,255,255,0.35)" />
-                </Pressable>
                 {msg.reply_to_name ? (
                   <View style={{ flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.15)', borderRadius: 8, marginBottom: 4, overflow: 'hidden' }}>
                     <View style={{ width: 3, backgroundColor: own ? 'rgba(255,255,255,0.5)' : theme.primary }} />
@@ -9222,6 +9215,13 @@ export default Sentry.wrap(function App() {
                 {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
                   {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
+              <Pressable
+                onPress={() => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url })}
+                hitSlop={12}
+                style={{ alignSelf: 'center', padding: 6, opacity: 0.4 }}
+              >
+                <Ionicons name="return-down-back-outline" size={18} color="#ffffff" />
+              </Pressable>
             </Pressable>
             {(() => {
               const reactions = messageReactions[msg.id];
