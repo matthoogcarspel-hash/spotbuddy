@@ -9175,8 +9175,8 @@ export default Sentry.wrap(function App() {
             )}
             <Pressable
               onLongPress={() => setEmojiPickerMsgId(emojiPickerMsgId === msg.id ? null : msg.id)}
-              onPress={() => emojiPickerMsgId ? setEmojiPickerMsgId(null) : null}
               style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
+              delayLongPress={400}
             >
               {/* Avatar: links, alleen op laatste bericht van reeks */}
               {!own ? (
