@@ -8341,7 +8341,7 @@ export default Sentry.wrap(function App() {
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !senderId) return;
     const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null }).select('id').single();
-    if (error) { console.error('GROUP_SEND_ERROR', error); return; }
+    if (error) { Alert.alert('GROUP_SEND_ERROR', `${error.message} | convId=${convId} | text=${text} | media=${mediaUrl}`); return; }
     setPersistentGroupInput('');
     setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
     const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null };
