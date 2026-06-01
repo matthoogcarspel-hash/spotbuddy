@@ -8550,7 +8550,8 @@ export default Sentry.wrap(function App() {
   };
 
   const loadPendingJoinRequests = async (groupId: string) => {
-    const { data: reqs } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by').eq('group_id', groupId).eq('status', 'pending');
+    const { data: reqs, error: reqErr } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by').eq('group_id', groupId).eq('status', 'pending');
+    Alert.alert('debug reqs', `count=${reqs?.length ?? 0} err=${reqErr?.message ?? 'none'} groupId=${groupId.slice(0,8)}`);
     if (!reqs?.length) { setPendingJoinReqs([]); return; }
     const allIds = [...new Set([...reqs.map((r) => r.nominee_id), ...reqs.map((r) => r.introduced_by)])].filter(Boolean);
     const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', allIds);
