@@ -8549,6 +8549,19 @@ export default Sentry.wrap(function App() {
     setIsCreatingGroup(false);
   };
 
+  const loadPendingJoinRequests = async (groupId: string) => {
+    const { data: reqs } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by').eq('group_id', groupId).eq('status', 'pending');
+    if (!reqs?.length) { setPendingJoinReqs([]); return; }
+    const allIds = [...new Set([...reqs.map((r) => r.nominee_id), ...reqs.map((r) => r.introduced_by)])].filter(Boolean);
+    const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', allIds);
+    const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
+    setPendingJoinReqs(reqs.map((r) => ({
+      id: r.id,
+      nominee: pmap.get(r.nominee_id) ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null },
+      introduced_by: { display_name: pmap.get(r.introduced_by)?.display_name ?? 'Someone' },
+    })));
+  };
+
   const nominateForGroup = async (groupId: string, nomineeId: string) => {
     const introducedBy = activeProfile?.id ?? activeAppUserId;
     if (!introducedBy) return;
@@ -9663,10 +9676,7 @@ export default Sentry.wrap(function App() {
                     <Pressable onPress={async () => {
                       setAddBuddySelectedIds([]); setPendingJoinReqs([]);
                       setShowNominateModal({ groupId: grp.id, groupName: grp.name });
-                      if (grp.role === 'admin' && grp.pendingRequests > 0) {
-                        const { data } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', grp.id).eq('status', 'pending');
-                        setPendingJoinReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } })));
-                      }
+                      if (grp.role === 'admin') void loadPendingJoinRequests(grp.id);
                     }} style={{ padding: 4 }} hitSlop={8}>
                       <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
                     </Pressable>
@@ -10413,7 +10423,7 @@ export default Sentry.wrap(function App() {
                     return (
                       <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center' }}>
                         {grp.role === 'admin' && grp.pendingRequests > 0 && (
-                          <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); const { data } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', grp.id).eq('status', 'pending'); setPendingJoinReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } }))); }} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
+                          <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); void loadPendingJoinRequests(grp.id); }} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
                             <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
                           </Pressable>
                         )}
@@ -10422,7 +10432,7 @@ export default Sentry.wrap(function App() {
                             <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                           </Pressable>
                         )}
-                        <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); if (grp.role === 'admin') { const { data } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', grp.id).eq('status', 'pending'); setPendingJoinReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } }))); } }} style={{ padding: 4 }} hitSlop={8}>
+                        <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); if (grp.role === 'admin') { void loadPendingJoinRequests(grp.id); } }} style={{ padding: 4 }} hitSlop={8}>
                           <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
                         </Pressable>
                         <Pressable onPress={async () => {
