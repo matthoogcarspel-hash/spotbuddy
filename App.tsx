@@ -9358,7 +9358,13 @@ export default Sentry.wrap(function App() {
                           const senderId = activeProfile?.id ?? activeAppUserId;
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
-                          if (senderId && convId) await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `✓ Accepted! See you at ${p.spotName}: ${p.startTime}${p.endTime ? ` – ${p.endTime}` : ''} 🏄`, created_at: new Date().toISOString() });
+                          if (senderId && convId) {
+                            const confirmText = `✓ Accepted! See you at ${p.spotName}: ${p.startTime}${p.endTime ? ` – ${p.endTime}` : ''} 🏄`;
+                            const { data: inserted } = await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: confirmText, created_at: new Date().toISOString() }).select('id').single();
+                            const confirmMsg = { id: inserted?.id ?? `confirm-${Date.now()}`, text: confirmText, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: null, media_type: null, reply_to_id: null, reply_to_text: null, reply_to_name: null, subtype: null, payload: null };
+                            setDmMessages((prev) => ({ ...prev, [convId]: [...(prev[convId] ?? []), confirmMsg] }));
+                            setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 100);
+                          }
                           void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `See you at ${p.spotName}!`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>✓ Accept</Text>
