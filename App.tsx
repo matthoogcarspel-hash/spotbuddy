@@ -9291,7 +9291,13 @@ export default Sentry.wrap(function App() {
                   { text: '😊 React', onPress: () => setEmojiPickerMsg({ id: msg.id, own }) },
                   { text: '↩ Reply', onPress: () => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }) },
                 ];
-                if (msg.text) options.push({ text: '📋 Copy', onPress: () => { import('expo-clipboard').then((m) => m.setStringAsync(msg.text ?? '')); } });
+                if (msg.text) options.push({ text: '📋 Copy', onPress: () => {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard) {
+                    void navigator.clipboard.writeText(msg.text ?? '');
+                  } else {
+                    Alert.alert('Copied', msg.text ?? '');
+                  }
+                } });
                 if (own) options.push({ text: '🗑️ Delete', style: 'destructive', onPress: async () => {
                   await supabase.from('messages').delete().eq('id', msg.id);
                   setDmMessages((prev) => {
