@@ -9349,15 +9349,11 @@ export default Sentry.wrap(function App() {
                     {!own && (
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         <Pressable onPress={async () => {
-                          Alert.alert('accept tapped');
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
-                          const senderId = activeProfile?.id ?? activeAppUserId;
-                          if (!senderId || !p?.sessionId || !p?.requesterId) { Alert.alert('Error', `Missing data: sessionId=${p?.sessionId} requesterId=${p?.requesterId}`); return; }
-                          const { data: origSession, error: fetchErr } = await supabase.from('sessions').select('*').eq('id', p.sessionId).single();
-                          if (fetchErr || !origSession) { Alert.alert('Fetch error', fetchErr?.message ?? 'Session not found'); return; }
-                          const { error: insertErr } = await supabase.from('sessions').insert({ user_id: p.requesterId, spot_name: origSession.spot_name, session_day: origSession.session_day, status: 'Ik ga', group_id: origSession.group_id, start_time: origSession.start_time, end_time: origSession.end_time });
-                          if (insertErr) { Alert.alert('Insert error', insertErr.message); return; }
+                          if (!p?.sessionId || !p?.requesterId) return;
+                          const { error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
+                          if (error) { Alert.alert('Error', error.message); return; }
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
                           void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `See you at ${p.spotName}!`, { type: 'dm', conversationId: convId });
