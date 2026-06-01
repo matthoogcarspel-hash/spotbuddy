@@ -9672,27 +9672,23 @@ export default Sentry.wrap(function App() {
                       <Ionicons name={grp.muted ? 'notifications-off-outline' : 'notifications-outline'} size={20} color={grp.muted ? theme.primary : theme.textMuted} />
                     </Pressable>
                     {grp.role === 'admin' ? (
-                      <Pressable onPress={() => Alert.alert('Delete group', `Delete "${grp.name}"? This cannot be undone.`, [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Delete', style: 'destructive', onPress: async () => {
-                          await supabase.from('groups').delete().eq('id', grp.id);
-                          setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
-                          setOpenChatState(null);
-                          setChatSubTab('group');
-                        }},
-                      ])} style={{ padding: 4 }} hitSlop={8}>
+                      <Pressable onPress={async () => {
+                        const ok = typeof window !== 'undefined' ? window.confirm(`Delete "${grp.name}"? This cannot be undone.`) : true;
+                        if (!ok) return;
+                        await supabase.from('groups').delete().eq('id', grp.id);
+                        setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
+                        setOpenChatState(null); setChatSubTab('group');
+                      }} style={{ padding: 4 }} hitSlop={8}>
                         <Ionicons name="trash-outline" size={20} color="#8b1f38" />
                       </Pressable>
                     ) : (
-                      <Pressable onPress={() => Alert.alert('Leave group', `Leave "${grp.name}"?`, [
-                        { text: 'Cancel', style: 'cancel' },
-                        { text: 'Leave', style: 'destructive', onPress: async () => {
-                          await supabase.from('group_members').delete().eq('group_id', grp.id).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
-                          setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
-                          setOpenChatState(null);
-                          setChatSubTab('group');
-                        }},
-                      ])} style={{ padding: 4 }} hitSlop={8}>
+                      <Pressable onPress={async () => {
+                        const ok = typeof window !== 'undefined' ? window.confirm(`Leave "${grp.name}"?`) : true;
+                        if (!ok) return;
+                        await supabase.from('group_members').delete().eq('group_id', grp.id).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                        setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
+                        setOpenChatState(null); setChatSubTab('group');
+                      }} style={{ padding: 4 }} hitSlop={8}>
                         <Ionicons name="exit-outline" size={20} color="#8b1f38" />
                       </Pressable>
                     )}
