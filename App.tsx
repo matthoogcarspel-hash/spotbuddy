@@ -2597,6 +2597,7 @@ export default Sentry.wrap(function App() {
   const [showFullscreenAvatar, setShowFullscreenAvatar] = useState(false);
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const swipeAnimValues = useRef<Map<string, Animated.Value>>(new Map());
   const [emojiPickerMsg, setEmojiPickerMsg] = useState<{ id: string; own: boolean } | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, Array<{ emoji: string; userId: string }>>>({});
@@ -9217,6 +9218,17 @@ export default Sentry.wrap(function App() {
       return chatNameColors[Math.abs(h) % chatNameColors.length];
     };
 
+    const getDateLabel = (dateStr: string): string => {
+      const d = new Date(dateStr);
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterday = new Date(today.getTime() - 86400000);
+      const msgDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      if (msgDay.getTime() === today.getTime()) return 'Today';
+      if (msgDay.getTime() === yesterday.getTime()) return 'Yesterday';
+      return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+    };
+
     const renderChatMessages = (messages: any[], isOwn: (userId: string) => boolean, showSenderName = true) =>
       messages.map((msg, index) => {
         const own = isOwn(msg.userId ?? msg.user_id);
@@ -9226,6 +9238,11 @@ export default Sentry.wrap(function App() {
         const next = index < messages.length - 1 ? messages[index + 1] : null;
         const sameAsPrev = prev && (prev.userId ?? prev.user_id) === msgUserId;
         const sameAsNext = next && (next.userId ?? next.user_id) === msgUserId;
+
+        // Datum-scheider
+        const prevDate = prev?.createdAt ? new Date(prev.createdAt).toDateString() : null;
+        const thisDate = msg.createdAt ? new Date(msg.createdAt).toDateString() : null;
+        const showDateSeparator = thisDate && thisDate !== prevDate;
         const isFirst = !sameAsPrev;
         const isLast = !sameAsNext;
         const nameColor = chatColorForUser(msgUserId ?? '');
@@ -9259,10 +9276,48 @@ export default Sentry.wrap(function App() {
 
         return (
           <View key={msg.id} {...replyPan.panHandlers}>
+            {showDateSeparator && msg.createdAt && (
+              <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                <View style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 12, paddingHorizontal: 12, paddingVertical: 4 }}>
+                  <Text style={{ color: 'rgba(255,255,255,0.5)', fontSize: 11, fontWeight: '700' }}>{getDateLabel(msg.createdAt)}</Text>
+                </View>
+              </View>
+            )}
             <Animated.View style={{ transform: [{ translateX: swipeAnim }] }}>
             <View style={{ flexDirection: own ? 'row-reverse' : 'row', alignItems: 'center' }}>
             <Pressable
-              onLongPress={() => setEmojiPickerMsg({ id: msg.id, own })}
+              onLongPress={() => {
+                const options: Array<{ text: string; onPress?: () => void; style?: 'cancel' | 'destructive' }> = [
+                  { text: '😊 React', onPress: () => setEmojiPickerMsg({ id: msg.id, own }) },
+                  { text: '↩ Reply', onPress: () => setReplyingTo({ id: msg.id, text: msg.text, display_name: msg.display_name, media_url: msg.media_url }) },
+                ];
+                if (msg.text) options.push({ text: '📋 Copy', onPress: () => { import('expo-clipboard').then((m) => m.setStringAsync(msg.text ?? '')); } });
+                if (own) options.push({ text: '🗑️ Delete', style: 'destructive', onPress: async () => {
+                  await supabase.from('messages').delete().eq('id', msg.id);
+                  setDmMessages((prev) => {
+                    const updated: Record<string, any[]> = {};
+                    for (const [k, v] of Object.entries(prev)) updated[k] = v.filter((m) => m.id !== msg.id);
+                    return updated;
+                  });
+                  setPersistentGroupMessages((prev) => {
+                    const updated: Record<string, any> = {};
+                    for (const [k, v] of Object.entries(prev)) updated[k] = { ...v, messages: v.messages.filter((m: any) => m.id !== msg.id) };
+                    return updated;
+                  });
+                  setChatSpotMessages((prev) => {
+                    const updated: Record<string, any> = {};
+                    for (const [k, v] of Object.entries(prev)) updated[k] = { ...v, messages: v.messages.filter((m: any) => m.id !== msg.id) };
+                    return updated;
+                  });
+                  setChatSessionMessages((prev) => {
+                    const updated: Record<string, any> = {};
+                    for (const [k, v] of Object.entries(prev)) updated[k] = { ...v, messages: v.messages.filter((m: any) => m.id !== msg.id) };
+                    return updated;
+                  });
+                }});
+                options.push({ text: 'Cancel', style: 'cancel' });
+                Alert.alert('', '', options);
+              }}
               style={{ flex: 1, flexDirection: own ? 'row-reverse' : 'row', alignItems: 'flex-end', marginBottom: isLast ? 6 : 2, gap: 8, paddingHorizontal: 8 }}
               delayLongPress={400}
             >
@@ -10277,7 +10332,13 @@ export default Sentry.wrap(function App() {
                   contentContainerStyle={{ padding: 16, paddingBottom: 8 }}
                   keyboardDismissMode="on-drag"
                   keyboardShouldPersistTaps="handled"
-                  onContentSizeChange={() => openScrollRef.current?.scrollToEnd({ animated: false })}
+                  onScroll={(e) => {
+                    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+                    const distanceFromBottom = contentSize.height - contentOffset.y - layoutMeasurement.height;
+                    setShowScrollToBottom(distanceFromBottom > 100);
+                  }}
+                  scrollEventThrottle={100}
+                  onContentSizeChange={() => { if (!showScrollToBottom) openScrollRef.current?.scrollToEnd({ animated: false }); }}
                   onLayout={() => openScrollRef.current?.scrollToEnd({ animated: false })}
                 >
                   {!openMessages.length
@@ -10285,6 +10346,11 @@ export default Sentry.wrap(function App() {
                     : renderChatMessages(openMessages, (uid) => uid === (activeProfile?.id ?? activeAppUserId), !expandedDmId)
                   }
                 </ScrollView>
+                {showScrollToBottom && (
+                  <Pressable onPress={() => { openScrollRef.current?.scrollToEnd({ animated: true }); setShowScrollToBottom(false); }} style={{ position: 'absolute', bottom: 80, right: 16, width: 36, height: 36, borderRadius: 18, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 4 }}>
+                    <Ionicons name="chevron-down" size={20} color="#000" />
+                  </Pressable>
+                )}
                 {/* Invoerbalk */}
                 <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
                   {replyingTo && (
