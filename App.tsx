@@ -14052,11 +14052,10 @@ const handleSave = async () => {
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
               style={({ pressed }) => ({
-                backgroundColor: 'transparent',
+                backgroundColor: theme.card,
                 borderRadius: homeSpotCardRadius,
                 padding: homeSpotCardPadding,
                 marginBottom: 18,
-                borderWidth: 0,
                 opacity: pressed ? 0.88 : 1,
               })}
             >
