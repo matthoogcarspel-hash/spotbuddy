@@ -2285,7 +2285,7 @@ function SessionTimeline({
 
                       {/* JOIN knop naast Chat knop */}
                       {mCanRequestJoin ? (
-                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Pressable onPress={(event) => { event.stopPropagation(); Alert.alert('btn', `fn=${typeof onRequestJoinSession}`); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
                           <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
                         </Pressable>
                       ) : mCanJoin ? (
