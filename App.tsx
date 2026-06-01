@@ -9343,8 +9343,8 @@ export default Sentry.wrap(function App() {
                   <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
                 ) : null}
                 {msg.subtype === 'join_request' && msg.payload ? (
-                  <View style={{ backgroundColor: 'rgba(77,184,255,0.1)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.3)', marginBottom: 4 }}>
-                    <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '800', marginBottom: 2 }}>🏄 Join Request</Text>
+                  <View style={{ marginBottom: 4 }}>
+                    <Text style={{ color: '#ffffff', fontSize: 12, fontWeight: '800', marginBottom: 4 }}>🏄 Join Request</Text>
                     <Text style={{ color: theme.text, fontSize: 13, marginBottom: 8 }}>{msg.text}</Text>
                     {!own && (
                       <View style={{ flexDirection: 'row', gap: 8 }}>
