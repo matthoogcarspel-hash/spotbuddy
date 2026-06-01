@@ -4288,7 +4288,8 @@ export default Sentry.wrap(function App() {
 
     const { data, error } = await supabase
       .from('spots')
-      .select('*');
+      .select('*')
+      .limit(2000);
 
     if (error) {
       console.error('Failed to load spots, falling back to local spots:', error);
@@ -4928,7 +4929,7 @@ export default Sentry.wrap(function App() {
     if (chatSubTab === 'group') void loadMyPersistentGroupsRef.current?.();
     // DMs altijd laden als chat opent (niet alleen bij tab-switch)
     void loadDmConversationsRef.current?.();
-  }, [showChat, chatSubTab, activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [showChat, chatSubTab, activeAppUserId, favoriteSpots]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (activeChatSpot && showChat) {
@@ -8351,15 +8352,17 @@ export default Sentry.wrap(function App() {
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text || !senderId || broadcastSelectedIds.length === 0) return;
     setBroadcastSending(true);
+    // Batch: haal push prefs op in één query
+    const { data: prefRows } = await supabase.from('profiles').select('id, dm_push_enabled').in('id', broadcastSelectedIds);
+    const prefMap = new Map((prefRows ?? []).map((p) => [p.id, p.dm_push_enabled]));
+    const actorName = activeProfile?.display_name?.trim() || 'Someone';
     for (const userId of broadcastSelectedIds) {
+      if (prefMap.get(userId) === false) continue;
       const convId = await openDmWithUser(userId);
       if (!convId) continue;
       const { error: msgError } = await supabase.from('messages').insert({ user_id: senderId, text, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString() });
       if (msgError) { console.error('BROADCAST_MSG_INSERT_ERROR', msgError); continue; }
-      const { data: recipPref } = await supabase.from('profiles').select('dm_push_enabled').eq('id', userId).single();
-      if (recipPref?.dm_push_enabled === false) continue;
-      const actorName = activeProfile?.display_name?.trim() || 'Someone';
-      await sendPushToRecipients([userId], actorName, text, { type: 'dm', conversationId: convId });
+      void sendPushToRecipients([userId], actorName, text, { type: 'dm', conversationId: convId });
     }
     setBroadcastSending(false);
     setBroadcastMessage('');
@@ -10224,14 +10227,11 @@ export default Sentry.wrap(function App() {
                 <Pressable onPress={async () => {
                   const actorName = activeProfile?.display_name ?? 'Someone';
                   if (isAdmin) {
-                    for (const uid of addBuddySelectedIds) {
-                      await supabase.from('group_members').insert({ group_id: groupId, user_id: uid, role: 'member' });
-                    }
+                    await supabase.from('group_members').insert(addBuddySelectedIds.map((uid) => ({ group_id: groupId, user_id: uid, role: 'member' })));
                     void sendPushToRecipients(addBuddySelectedIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
                   } else {
-                    for (const uid of addBuddySelectedIds) {
-                      await supabase.from('group_join_requests').insert({ group_id: groupId, nominee_id: uid, introduced_by: activeProfile?.id ?? activeAppUserId ?? '', status: 'pending' });
-                    }
+                    const introducedBy = activeProfile?.id ?? activeAppUserId ?? '';
+                    await supabase.from('group_join_requests').insert(addBuddySelectedIds.map((uid) => ({ group_id: groupId, nominee_id: uid, introduced_by: introducedBy, status: 'pending' })));
                     Alert.alert('Sent!', `${addBuddySelectedIds.length} suggestion${addBuddySelectedIds.length > 1 ? 's' : ''} sent to the admin.`);
                   }
                   await loadMyPersistentGroups();
