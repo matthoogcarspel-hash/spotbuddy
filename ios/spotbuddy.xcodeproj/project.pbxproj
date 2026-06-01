@@ -9,14 +9,53 @@
 /* Begin PBXBuildFile section */
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
+		63BB51202FC8804A008AE39F /* WidgetKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63BB511F2FC88049008AE39F /* WidgetKit.framework */; };
+		63BB51222FC8804A008AE39F /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 63BB51212FC8804A008AE39F /* SwiftUI.framework */; };
+		63BB51252FC8804A008AE39F /* SpotBuddyWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BB51242FC8804A008AE39F /* SpotBuddyWidgetBundle.swift */; };
+		63BB51272FC8804A008AE39F /* SpotBuddyWidgetLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BB51262FC8804A008AE39F /* SpotBuddyWidgetLiveActivity.swift */; };
+		63BB51292FC8804A008AE39F /* SpotBuddyWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63BB51282FC8804A008AE39F /* SpotBuddyWidget.swift */; };
+		63BB512B2FC88054008AE39F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 63BB512A2FC88054008AE39F /* Assets.xcassets */; };
+		63BB512F2FC88054008AE39F /* SpotBuddyWidgetExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 63BB511E2FC88049008AE39F /* SpotBuddyWidgetExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		63BB512D2FC88054008AE39F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 83CBB9F71A601CBA00E9B192 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 63BB511D2FC88049008AE39F;
+			remoteInfo = SpotBuddyWidgetExtension;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		63BB51302FC88054008AE39F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				63BB512F2FC88054008AE39F /* SpotBuddyWidgetExtension.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		13B07F961A680F5B00A75B9A /* spotbuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = spotbuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = spotbuddy/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = spotbuddy/Info.plist; sourceTree = "<group>"; };
+		63BB511E2FC88049008AE39F /* SpotBuddyWidgetExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpotBuddyWidgetExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		63BB511F2FC88049008AE39F /* WidgetKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WidgetKit.framework; path = System/Library/Frameworks/WidgetKit.framework; sourceTree = SDKROOT; };
+		63BB51212FC8804A008AE39F /* SwiftUI.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
+		63BB51242FC8804A008AE39F /* SpotBuddyWidgetBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotBuddyWidgetBundle.swift; sourceTree = "<group>"; };
+		63BB51262FC8804A008AE39F /* SpotBuddyWidgetLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotBuddyWidgetLiveActivity.swift; sourceTree = "<group>"; };
+		63BB51282FC8804A008AE39F /* SpotBuddyWidget.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpotBuddyWidget.swift; sourceTree = "<group>"; };
+		63BB512A2FC88054008AE39F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		63BB512C2FC88054008AE39F /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = spotbuddy/SplashScreen.storyboard; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
@@ -29,6 +68,15 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63BB511B2FC88049008AE39F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63BB51222FC8804A008AE39F /* SwiftUI.framework in Frameworks */,
+				63BB51202FC8804A008AE39F /* WidgetKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -52,8 +100,22 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
+				63BB511F2FC88049008AE39F /* WidgetKit.framework */,
+				63BB51212FC8804A008AE39F /* SwiftUI.framework */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		63BB51232FC8804A008AE39F /* SpotBuddyWidget */ = {
+			isa = PBXGroup;
+			children = (
+				63BB51242FC8804A008AE39F /* SpotBuddyWidgetBundle.swift */,
+				63BB51262FC8804A008AE39F /* SpotBuddyWidgetLiveActivity.swift */,
+				63BB51282FC8804A008AE39F /* SpotBuddyWidget.swift */,
+				63BB512A2FC88054008AE39F /* Assets.xcassets */,
+				63BB512C2FC88054008AE39F /* Info.plist */,
+			);
+			path = SpotBuddyWidget;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -68,6 +130,7 @@
 			children = (
 				13B07FAE1A68108700A75B9A /* spotbuddy */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
+				63BB51232FC8804A008AE39F /* SpotBuddyWidget */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
 			);
@@ -80,6 +143,7 @@
 			isa = PBXGroup;
 			children = (
 				13B07F961A680F5B00A75B9A /* spotbuddy.app */,
+				63BB511E2FC88049008AE39F /* SpotBuddyWidgetExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -107,15 +171,34 @@
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
 				D9BEEAFA19D740CE96797F92 /* Upload Debug Symbols to Sentry */,
+				63BB51302FC88054008AE39F /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				63BB512E2FC88054008AE39F /* PBXTargetDependency */,
 			);
 			name = spotbuddy;
 			productName = spotbuddy;
 			productReference = 13B07F961A680F5B00A75B9A /* spotbuddy.app */;
 			productType = "com.apple.product-type.application";
+		};
+		63BB511D2FC88049008AE39F /* SpotBuddyWidgetExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 63BB51332FC88054008AE39F /* Build configuration list for PBXNativeTarget "SpotBuddyWidgetExtension" */;
+			buildPhases = (
+				63BB511A2FC88049008AE39F /* Sources */,
+				63BB511B2FC88049008AE39F /* Frameworks */,
+				63BB511C2FC88049008AE39F /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SpotBuddyWidgetExtension;
+			productName = SpotBuddyWidgetExtension;
+			productReference = 63BB511E2FC88049008AE39F /* SpotBuddyWidgetExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -123,10 +206,14 @@
 		83CBB9F71A601CBA00E9B192 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				LastSwiftUpdateCheck = 1420;
 				LastUpgradeCheck = 1130;
 				TargetAttributes = {
 					13B07F861A680F5B00A75B9A = {
 						LastSwiftMigration = 1250;
+					};
+					63BB511D2FC88049008AE39F = {
+						CreatedOnToolsVersion = 14.2;
 					};
 				};
 			};
@@ -144,6 +231,7 @@
 			projectRoot = "";
 			targets = (
 				13B07F861A680F5B00A75B9A /* spotbuddy */,
+				63BB511D2FC88049008AE39F /* SpotBuddyWidgetExtension */,
 			);
 		};
 /* End PBXProject section */
@@ -156,6 +244,14 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		63BB511C2FC88049008AE39F /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63BB512B2FC88054008AE39F /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -226,12 +322,12 @@
 			buildActionMask = 2147483647;
 			files = (
 			);
-			runOnlyForDeploymentPostprocessing = 0;
-			name = "Upload Debug Symbols to Sentry";
 			inputPaths = (
 			);
+			name = "Upload Debug Symbols to Sentry";
 			outputPaths = (
 			);
+			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "/bin/sh ../node_modules/@sentry/react-native/scripts/sentry-xcode-debug-files.sh";
 		};
@@ -246,14 +342,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		63BB511A2FC88049008AE39F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				63BB51252FC8804A008AE39F /* SpotBuddyWidgetBundle.swift in Sources */,
+				63BB51272FC8804A008AE39F /* SpotBuddyWidgetLiveActivity.swift in Sources */,
+				63BB51292FC8804A008AE39F /* SpotBuddyWidget.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		63BB512E2FC88054008AE39F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 63BB511D2FC88049008AE39F /* SpotBuddyWidgetExtension */;
+			targetProxy = 63BB512D2FC88054008AE39F /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = spotbuddy/spotbuddy.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
@@ -272,22 +388,23 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.spotbuddy";
-				PRODUCT_NAME = "spotbuddy";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.spotbuddy;
+				PRODUCT_NAME = spotbuddy;
 				SWIFT_OBJC_BRIDGING_HEADER = "spotbuddy/spotbuddy-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
-				TARGETED_DEVICE_FAMILY = "1";
-				CODE_SIGN_ENTITLEMENTS = spotbuddy/spotbuddy.entitlements;
 			};
 			name = Debug;
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_ENTITLEMENTS = spotbuddy/spotbuddy.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				INFOPLIST_FILE = spotbuddy/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.1;
@@ -301,13 +418,94 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.anonymous.spotbuddy";
-				PRODUCT_NAME = "spotbuddy";
+				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.spotbuddy;
+				PRODUCT_NAME = spotbuddy;
 				SWIFT_OBJC_BRIDGING_HEADER = "spotbuddy/spotbuddy-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = 1;
 				VERSIONING_SYSTEM = "apple-generic";
-				TARGETED_DEVICE_FAMILY = "1";
-				CODE_SIGN_ENTITLEMENTS = spotbuddy/spotbuddy.entitlements;
+			};
+			name = Release;
+		};
+		63BB51312FC88054008AE39F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = 3WK59AS6D4;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpotBuddyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpotBuddyWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = nl.spotbuddy.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		63BB51322FC88054008AE39F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_WIDGET_BACKGROUND_COLOR_NAME = WidgetBackground;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_STYLE = Automatic;
+				COPY_PHASE_STRIP = NO;
+				CURRENT_PROJECT_VERSION = 1;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				DEVELOPMENT_TEAM = 3WK59AS6D4;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = SpotBuddyWidget/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = SpotBuddyWidget;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = nl.spotbuddy.app.widget;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SKIP_INSTALL = YES;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};
@@ -430,6 +628,15 @@
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
 				13B07F951A680F5B00A75B9A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		63BB51332FC88054008AE39F /* Build configuration list for PBXNativeTarget "SpotBuddyWidgetExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				63BB51312FC88054008AE39F /* Debug */,
+				63BB51322FC88054008AE39F /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
