@@ -13832,41 +13832,29 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.cardStrong, borderRadius: 999, padding: 2, borderWidth: 1, borderColor: theme.border }}>
-            {([
-              { key: 'today' as const, label: 'Today' },
-              { key: 'tomorrow' as const, label: 'Tomorrow' },
-            ]).map((option) => {
-              const isActive = activeDay === option.key;
-              return (
-                <Pressable
-                  key={`home-day-${option.key}`}
-                  onPress={() => setActiveDay(option.key)}
-                  style={{ backgroundColor: isActive ? theme.bgElevated : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 13 }}
-                >
-                  <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Pressable
-            onPress={() => {
-              const next = !isDarkMode;
-              setIsDarkMode(next);
-              void AsyncStorage.setItem(themeModeStorageKey, next ? 'dark' : 'light');
-            }}
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.cardStrong, borderRadius: 999, padding: 2, paddingHorizontal: 4, borderWidth: 1, borderColor: theme.border, gap: 2 }}
-          >
-            {(['dark', 'light'] as const).map((mode) => {
-              const isActive = (mode === 'dark') === isDarkMode;
-              return (
-                <View key={mode} style={{ backgroundColor: isActive ? theme.bgElevated : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
-                  <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
-                </View>
-              );
-            })}
-          </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 0, marginBottom: 14 }}>
+          {([
+            { key: 'today' as const, label: 'Today' },
+            { key: 'tomorrow' as const, label: 'Tomorrow' },
+          ]).map((option) => {
+            const isActive = activeDay === option.key;
+            return (
+              <Pressable key={`home-day-${option.key}`} onPress={() => setActiveDay(option.key)} style={{ paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center' }}>
+                <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 13, fontWeight: isActive ? '900' : '600' }}>{option.label}</Text>
+                {isActive && <View style={{ height: 2, width: '80%', backgroundColor: theme.primary, borderRadius: 1, marginTop: 2 }} />}
+              </Pressable>
+            );
+          })}
+          <View style={{ width: 1, height: 16, backgroundColor: theme.border, marginHorizontal: 6 }} />
+          {(['dark', 'light'] as const).map((mode) => {
+            const isActive = (mode === 'dark') === isDarkMode;
+            return (
+              <Pressable key={mode} onPress={() => { const next = mode === 'light'; setIsDarkMode(!next); void AsyncStorage.setItem(themeModeStorageKey, next ? 'light' : 'dark'); }} style={{ paddingVertical: 4, paddingHorizontal: 10, alignItems: 'center' }}>
+                <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 13, fontWeight: isActive ? '900' : '600' }}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
+                {isActive && <View style={{ height: 2, width: '80%', backgroundColor: theme.primary, borderRadius: 1, marginTop: 2 }} />}
+              </Pressable>
+            );
+          })}
         </View>
 
         <View style={{ marginBottom: 18 }}>
