@@ -12945,6 +12945,7 @@ const handleSave = async () => {
             }}
             onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
+              Alert.alert('debug', `sessionId=${sessionId?.slice(0,8)} organizer=${organizerId?.slice(0,8)} requester=${requesterId?.slice(0,8)}`);
               if (!requesterId || !organizerId) return;
               const { error } = await supabase.from('session_join_requests').insert({ session_id: sessionId, session_day: sessionDay, spot_name: spotName, requester_id: requesterId, organizer_id: organizerId });
               if (error) { Alert.alert('Error', error.message); return; }
