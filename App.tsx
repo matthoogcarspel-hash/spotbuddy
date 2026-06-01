@@ -10016,7 +10016,7 @@ export default Sentry.wrap(function App() {
                 const dmUnread = unreadByDm[dm.id] ?? 0;
                 const lastTs = dm.lastMessageAt ? formatToHourMinute(dm.lastMessageAt) : '';
                 return (
-                  <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                  <Pressable key={dm.id} onPress={() => { setExpandedChatSpot(null); setExpandedChatSession(null); setExpandedDmId(dm.id); setUnreadByDm((p) => ({ ...p, [dm.id]: 0 })); void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                     <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}>
                       <Avatar uri={dm.otherAvatar} size={50} skillLevel={dm.otherSkillLevel} name={dm.otherName} />
                     </Pressable>
@@ -10675,7 +10675,7 @@ export default Sentry.wrap(function App() {
                   {dmConversations.filter(dm => !dmSearchQuery.trim() || dm.otherName?.toLowerCase().includes(dmSearchQuery.toLowerCase())).map((dm) => {
                     const dmUnread = unreadByDm[dm.id] ?? 0;
                     const lastTs = dm.lastMessageAt ? formatToHourMinute(dm.lastMessageAt) : '';
-                    return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); if (!dmMessages[dm.id]) void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                    return <Pressable key={dm.id} onPress={() => { setExpandedDmId(dm.id); setUnreadByDm(p => ({ ...p, [dm.id]: 0 })); void loadDmMessages(dm.id); }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                       <Pressable onPress={(e) => { e.stopPropagation(); setViewingOtherUserId(dm.otherUserId); }}>
                         <Avatar uri={dm.otherAvatar} size={50} skillLevel={dm.otherSkillLevel} name={dm.otherName} />
                       </Pressable>
@@ -13190,7 +13190,7 @@ const handleSave = async () => {
               });
               if (error) { Alert.alert('Error', error.message); return; }
               void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'dm', conversationId: convId });
-              Alert.alert('Request sent!', 'The organizer will be notified via DM.');
+              // Navigeer direct naar DM — geen popup
               // Open de DM
               setShowChat(true);
               setChatSubTab('dm');
