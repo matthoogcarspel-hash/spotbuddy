@@ -334,7 +334,7 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
   { label: 'Maybe', value: 'maybe' },
   { label: 'Definitely', value: 'definitely' },
 ];
-const theme = {
+const darkTheme = {
   bg: '#07111F',
   bgElevated: '#121B29',
   card: '#162133',
@@ -348,6 +348,22 @@ const theme = {
   live: '#5EF0D0',
   warm: '#F2C94C',
 };
+const lightTheme = {
+  bg: '#F0F4F8',
+  bgElevated: '#FFFFFF',
+  card: '#FFFFFF',
+  cardStrong: '#E8EEF5',
+  border: '#C5D3E0',
+  text: '#0A1929',
+  textSoft: '#1E3A52',
+  textMuted: '#4A6070',
+  primary: '#0077AA',
+  primaryPressed: '#005C88',
+  live: '#00957A',
+  warm: '#D4A017',
+};
+// theme wordt dynamisch in de component via isDarkMode state
+const theme = darkTheme; // fallback voor buiten de component
 const formatTimePart = (value: number) => String(value).padStart(2, '0');
 // Spot chat sleutels zijn dag-bewust: "SpotName|||2026-05-18"
 const spotChatKey = (spotName: string, dayKey: string) => `${spotName}|||${dayKey}`;
@@ -358,6 +374,7 @@ const defaultSpotNotificationPreferences: SpotNotificationPreferences = spotNoti
   return accumulator;
 }, {} as SpotNotificationPreferences);
 const favoriteSpotsStorageKey = 'spotbuddy_favorite_spots_v1';
+const themeModeStorageKey = 'spotbuddy_theme_mode_v1';
 const spotOrderModeStorageKey = 'spotbuddy_spot_order_mode_v1';
 const spotManualOrderStorageKey = 'spotbuddy_spot_manual_order_v1';
 const activeProfileStorageKeyPrefix = 'spotbuddy_active_profile_id_v1';
@@ -2844,6 +2861,13 @@ export default Sentry.wrap(function App() {
   const [buddiesError, setBuddiesError] = useState('');
   const [timelineFilter, setTimelineFilter] = useState<TimelineFilter>('everyone');
   const [activeDay, setActiveDay] = useState<ActiveDay>('today');
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  const theme = isDarkMode ? darkTheme : lightTheme;
+
+  // Laad opgeslagen thema bij start
+  useEffect(() => {
+    AsyncStorage.getItem(themeModeStorageKey).then((v) => { if (v === 'light') setIsDarkMode(false); });
+  }, []);
   const [selectedTimelineSessionId, setSelectedTimelineSessionId] = useState<string | null>(null);
   const authUser = session?.user ?? null;
   const authenticatedUserId = authUser?.id ?? null;
@@ -13808,29 +13832,41 @@ const handleSave = async () => {
           </View>
         ) : null}
 
-        <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, marginBottom: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
-          {([
-            { key: 'today' as const, label: 'Today' },
-            { key: 'tomorrow' as const, label: 'Tomorrow' },
-          ]).map((option) => {
-            const isActive = activeDay === option.key;
-            return (
-              <Pressable
-                key={`home-day-${option.key}`}
-                onPress={() => setActiveDay(option.key)}
-                style={{
-  backgroundColor: isActive ? '#202833' : 'transparent',
-  borderRadius: 999,
-  paddingVertical: 6,
-  paddingHorizontal: 13,
-  marginRight: 0,
-  opacity: 1
-}}
-              >
-                <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
-              </Pressable>
-            );
-          })}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: isDarkMode ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.06)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' }}>
+            {([
+              { key: 'today' as const, label: 'Today' },
+              { key: 'tomorrow' as const, label: 'Tomorrow' },
+            ]).map((option) => {
+              const isActive = activeDay === option.key;
+              return (
+                <Pressable
+                  key={`home-day-${option.key}`}
+                  onPress={() => setActiveDay(option.key)}
+                  style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#FFFFFF') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 13 }}
+                >
+                  <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Pressable
+            onPress={() => {
+              const next = !isDarkMode;
+              setIsDarkMode(next);
+              void AsyncStorage.setItem(themeModeStorageKey, next ? 'dark' : 'light');
+            }}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.06)', borderRadius: 999, padding: 2, paddingHorizontal: 4, borderWidth: 1, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)', gap: 2 }}
+          >
+            {(['dark', 'light'] as const).map((mode) => {
+              const isActive = (mode === 'dark') === isDarkMode;
+              return (
+                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#FFFFFF') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 }}>
+                  <Text style={{ fontSize: 12 }}>{mode === 'dark' ? '🌙' : '☀️'}</Text>
+                </View>
+              );
+            })}
+          </Pressable>
         </View>
 
         <View style={{ marginBottom: 18 }}>
