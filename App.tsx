@@ -14056,6 +14056,8 @@ const handleSave = async () => {
                 borderRadius: homeSpotCardRadius,
                 padding: homeSpotCardPadding,
                 marginBottom: 18,
+                borderWidth: isDarkMode ? 1 : 0,
+                borderColor: 'rgba(255,255,255,0.07)',
                 opacity: pressed ? 0.88 : 1,
               })}
             >
