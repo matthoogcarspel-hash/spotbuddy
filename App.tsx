@@ -2131,6 +2131,7 @@ function SessionTimeline({
   activeDay,
   onSelectSession,
   onJoinSession,
+  onRequestJoinSession,
   onOpenGroupChat,
   activeGroupChatKey,
   onClearSelection,
