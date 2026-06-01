@@ -5325,7 +5325,7 @@ export default Sentry.wrap(function App() {
     const channel = supabase.channel(`global-messages-${activeAppUserId}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         _setDbgEventCount(n => n + 1); // telt elk raw event
-        const row = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string };
+        const row = payload.new as { id?: string; user_id?: string; conversation_id?: string; text?: string; created_at?: string; media_url?: string; media_type?: string; reply_to_id?: string; reply_to_text?: string; reply_to_name?: string; subtype?: string; payload?: any };
         if (!row?.id || !row.user_id) return;
 
         const convId = row.conversation_id ?? '';
@@ -5353,7 +5353,7 @@ export default Sentry.wrap(function App() {
             profileCacheRef.current.set(row.user_id, p);
           }
         }
-        const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null };
+        const newMsg = { id: row.id, text: row.text ?? '', createdAt: row.created_at ?? new Date().toISOString(), userId: row.user_id, display_name: p?.display_name ?? 'Unknown', avatar_url: p?.avatar_url ?? null, media_url: row.media_url ?? null, media_type: row.media_type ?? null, reply_to_id: row.reply_to_id ?? null, reply_to_text: row.reply_to_text ?? null, reply_to_name: row.reply_to_name ?? null, subtype: row.subtype ?? null, payload: row.payload ?? null };
 
         // Spot naam: direct uit het bericht of via ref
         // favoriteSpotsRef.current gebruiken (NIET favoriteSpots — stale closure!)
