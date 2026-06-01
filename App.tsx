@@ -9350,27 +9350,27 @@ export default Sentry.wrap(function App() {
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         <Pressable onPress={async () => {
                           const p = msg.payload as any;
+                          const convId = expandedDmId ?? '';
                           const { error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
-                          if (error) { Alert.alert('Error', error.message); return; }
-                          void sendDmMessage(expandedDmId ?? '', undefined, { reply_to_id: msg.id, reply_to_text: 'Join Request', reply_to_name: p.requesterName });
-                          // Update bericht zodat knoppen verdwijnen
-                          setDmMessages((prev) => {
-                            const convId = expandedDmId ?? '';
-                            return { ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) };
-                          });
+                          if (error) { Alert.alert('Error accepting', error.message); return; }
+                          // Stuur bevestigingsbericht
+                          const senderId = activeProfile?.id ?? activeAppUserId;
+                          if (senderId && convId) {
+                            await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `✓ Accepted! ${p.requesterName} can join your session at ${p.spotName}`, created_at: new Date().toISOString() });
+                          }
+                          // Update kaartje
+                          setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
-                          void sendPushToRecipients([p.requesterId], 'Request accepted!', `You can join the session at ${p.spotName}`, { type: 'dm', conversationId: expandedDmId });
+                          void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `You can join the session at ${p.spotName}`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>✓ Accept</Text>
                         </Pressable>
                         <Pressable onPress={async () => {
                           const p = msg.payload as any;
+                          const convId = expandedDmId ?? '';
                           await supabase.from('messages').update({ subtype: 'join_denied' }).eq('id', msg.id);
-                          setDmMessages((prev) => {
-                            const convId = expandedDmId ?? '';
-                            return { ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_denied' } : m) };
-                          });
-                          void sendPushToRecipients([p.requesterId], 'Request declined', `Your request to join at ${p.spotName} was declined`, { type: 'dm', conversationId: expandedDmId });
+                          setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_denied' } : m) }));
+                          void sendPushToRecipients([p.requesterId], 'Request declined', `Your request for ${p.spotName} was not accepted`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>✗ Decline</Text>
                         </Pressable>
