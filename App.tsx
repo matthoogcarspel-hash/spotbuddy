@@ -2695,6 +2695,7 @@ export default Sentry.wrap(function App() {
   const activeProfileIdRef = useRef<string | null>(null);
   const fetchSharedDataVersionRef = useRef(0);
   const fetchSharedDataRef = useRef<(() => Promise<void>) | null>(null);
+  const fetchBuddiesDataRef = useRef<(() => Promise<void>) | null>(null);
   const showChatRef = useRef(false);
   const chatSubTabRef = useRef<string>('spot');
   const expandedChatSessionRef2 = useRef<string | null>(null);
@@ -4173,6 +4174,8 @@ export default Sentry.wrap(function App() {
     await fetchBuddiesData();
   };
 
+  fetchBuddiesDataRef.current = fetchBuddiesData;
+
   const mapSessionStatus = (status: string): SessionStatus => {
     if (status === 'Ik ben geweest' || status === 'finished') {
       return 'Uitchecken';
@@ -5491,7 +5494,7 @@ export default Sentry.wrap(function App() {
     const channel = supabase
       .channel(`user-follows-${activeAppUserId}`)
       .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'user_follows', filter: `following_id=eq.${activeAppUserId}` }, () => {
-        void fetchBuddiesData();
+        void fetchBuddiesDataRef.current?.();
       })
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
