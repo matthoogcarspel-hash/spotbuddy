@@ -9352,8 +9352,9 @@ export default Sentry.wrap(function App() {
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
                           if (!p?.sessionId || !p?.requesterId) return;
-                          const { error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
-                          if (error) { Alert.alert('Error', error.message); return; }
+                          const { data: rpcResult, error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
+                          if (error) { Alert.alert('RPC Error', error.message); return; }
+                          if (rpcResult !== 'ok') { Alert.alert('Result', String(rpcResult)); return; }
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
                           void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `See you at ${p.spotName}!`, { type: 'dm', conversationId: convId });
