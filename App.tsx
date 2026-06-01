@@ -9806,8 +9806,8 @@ export default Sentry.wrap(function App() {
                       {(['everyone', 'buddies', 'off'] as const).map((opt) => {
                         const selected = currentValue === opt;
                         return (
-                          <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                            <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
+                          <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}>
+                            <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text>
                           </Pressable>
                         );
                       })}
@@ -9831,8 +9831,8 @@ export default Sentry.wrap(function App() {
                         const newVal = opt === 'on';
                         setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
                         await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
-                      }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      }} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}>
+                        <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                       </Pressable>
                     );
                   })}
@@ -9849,8 +9849,8 @@ export default Sentry.wrap(function App() {
                   {(['on', 'off'] as const).map((opt) => {
                     const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
                     return (
-                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                        <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                      <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}>
+                        <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                       </Pressable>
                     );
                   })}
@@ -10507,7 +10507,7 @@ export default Sentry.wrap(function App() {
                         <View style={{ flexDirection: 'row', gap: 6 }}>
                           {(['everyone', 'buddies', 'off'] as const).map((opt) => {
                             const selected = messagesAlertSettings[key] === opt;
-                            return <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}><Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text></Pressable>;
+                            return <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, [key]: opt }))} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}><Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'off' ? 'Off' : opt === 'buddies' ? 'Buddies' : 'Everyone'}</Text></Pressable>;
                           })}
                         </View>
                       </View>
@@ -10527,8 +10527,8 @@ export default Sentry.wrap(function App() {
                               const newVal = opt === 'on';
                               setProfile((prev) => prev ? { ...prev, dm_push_enabled: newVal } : prev);
                               await supabase.from('profiles').update({ dm_push_enabled: newVal }).eq('id', activeProfile?.id ?? '');
-                            }} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                              <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                            }} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}>
+                              <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                             </Pressable>
                           );
                         })}
@@ -10543,8 +10543,8 @@ export default Sentry.wrap(function App() {
                         {(['on', 'off'] as const).map((opt) => {
                           const selected = (opt === 'on') === messagesAlertSettings.messageRequests;
                           return (
-                            <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)' }}>
-                              <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
+                            <Pressable key={opt} onPress={() => setMessagesAlertSettings((prev) => ({ ...prev, messageRequests: opt === 'on' }))} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' as const, borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}>
+                              <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>{opt === 'on' ? 'On' : 'Off'}</Text>
                             </Pressable>
                           );
                         })}
@@ -12594,16 +12594,9 @@ const handleSave = async () => {
                               const ok = await saveSpotNotificationPreferences(nextPreferences, preference.key);
                               if (!ok) setSpotNotificationPreferences(spotNotificationPreferences);
                             }}
-                            style={{
-                              paddingHorizontal: 10,
-                              paddingVertical: 6,
-                              borderRadius: 8,
-                              backgroundColor: selected ? 'rgba(255,255,255,0.10)' : 'rgba(255,255,255,0.04)',
-                              borderWidth: 1,
-                              borderColor: selected ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.07)',
-                            }}
+                            style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center', borderBottomWidth: selected ? 2 : 0, borderBottomColor: theme.primary }}
                           >
-                            <Text style={{ color: selected ? theme.textSoft : theme.textMuted, fontSize: 11, fontWeight: '700' }}>
+                            <Text style={{ color: selected ? theme.text : theme.textMuted, fontSize: 12, fontWeight: selected ? '800' : '600' }}>
                               {option.label}
                             </Text>
                           </Pressable>
