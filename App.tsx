@@ -2598,6 +2598,9 @@ export default Sentry.wrap(function App() {
   const [fullscreenImageUri, setFullscreenImageUri] = useState<string | null>(null);
   const [replyingTo, setReplyingTo] = useState<{ id: string; text: string | null; display_name: string; media_url?: string | null } | null>(null);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [typingUsers, setTypingUsers] = useState<string[]>([]); // display names
+  const typingChannelRef = useRef<any>(null);
+  const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const swipeAnimValues = useRef<Map<string, Animated.Value>>(new Map());
   const [emojiPickerMsg, setEmojiPickerMsg] = useState<{ id: string; own: boolean } | null>(null);
   const [messageReactions, setMessageReactions] = useState<Record<string, Array<{ emoji: string; userId: string }>>>({});
@@ -9456,6 +9459,41 @@ export default Sentry.wrap(function App() {
 
     const openScrollRef = expandedChatSpot ? chatSpotScrollRef : expandedChatSession ? chatSessionScrollRef : expandedPersistentGroupId ? chatGroupScrollRef : chatDmScrollRef;
 
+    // Typing indicator: channel ID gebaseerd op open conversatie
+    const typingConvId = expandedDmId ?? expandedPersistentGroupId ?? expandedChatSession ?? expandedChatSpot ?? null;
+    const myName = activeProfile?.display_name ?? 'Someone';
+    const myId = activeProfile?.id ?? activeAppUserId ?? '';
+
+    const broadcastTyping = () => {
+      if (!typingConvId || !myId) return;
+      if (!typingChannelRef.current || typingChannelRef.current._channelId !== `typing-${typingConvId}`) {
+        if (typingChannelRef.current) void supabase.removeChannel(typingChannelRef.current);
+        const ch = supabase.channel(`typing-${typingConvId}`);
+        ch.on('presence', { event: 'sync' }, () => {
+          const state = ch.presenceState<{ name: string; userId: string }>();
+          const others = Object.values(state).flat().filter((u) => u.userId !== myId).map((u) => u.name);
+          setTypingUsers(others);
+        }).subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') await ch.track({ name: myName, userId: myId });
+        });
+        typingChannelRef.current = ch;
+        typingChannelRef.current._channelId = `typing-${typingConvId}`;
+      } else {
+        void typingChannelRef.current.track({ name: myName, userId: myId });
+      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => {
+        void typingChannelRef.current?.untrack();
+        setTypingUsers([]);
+      }, 3000);
+    };
+
+    const stopTyping = () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      void typingChannelRef.current?.untrack();
+      setTypingUsers([]);
+    };
+
     const openInput = expandedChatSpot ? spotChatInputInChat : expandedChatSession ? sessionChatInput : expandedPersistentGroupId ? persistentGroupInput : dmInput;
     const setOpenInput = expandedChatSpot
       ? setSpotChatInputInChat
@@ -9475,6 +9513,7 @@ export default Sentry.wrap(function App() {
         setIsUploadingMedia(false);
         setPendingMediaUri(null);
       }
+      stopTyping();
       if (!openInput.trim() && !mediaUrl) return;
       const currentReply = replyingTo;
       setReplyingTo(null);
@@ -9633,6 +9672,13 @@ export default Sentry.wrap(function App() {
 
             {/* Invoerbalk */}
             <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
+              {typingUsers.length > 0 && (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontStyle: 'italic' }}>
+                    {typingUsers.length === 1 ? `${typingUsers[0]} is typing…` : `${typingUsers.join(', ')} are typing…`}
+                  </Text>
+                </View>
+              )}
               {replyingTo && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6, marginLeft: 44, gap: 8 }}>
                   <View style={{ width: 3, height: '100%', backgroundColor: theme.primary, borderRadius: 2 }} />
@@ -9662,7 +9708,7 @@ export default Sentry.wrap(function App() {
                 <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                   <TextInput
                     value={openInput}
-                    onChangeText={setOpenInput}
+                    onChangeText={(t) => { setOpenInput(t); if (t) broadcastTyping(); }}
                     onSubmitEditing={() => { void handleOpenSend(); }}
                     onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
                     blurOnSubmit={false}
@@ -10364,7 +10410,14 @@ export default Sentry.wrap(function App() {
                 )}
                 {/* Invoerbalk */}
                 <View style={{ paddingLeft: 12, paddingRight: 16, paddingTop: 8, paddingBottom: 12, backgroundColor: theme.bg, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.08)' }}>
-                  {replyingTo && (
+                  {typingUsers.length > 0 && (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 4 }}>
+                  <Text style={{ color: theme.textMuted, fontSize: 12, fontStyle: 'italic' }}>
+                    {typingUsers.length === 1 ? `${typingUsers[0]} is typing…` : `${typingUsers.join(', ')} are typing…`}
+                  </Text>
+                </View>
+              )}
+              {replyingTo && (
                     <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 6, marginLeft: 44, gap: 8 }}>
                       <View style={{ width: 3, height: '100%', backgroundColor: theme.primary, borderRadius: 2 }} />
                       <View style={{ flex: 1 }}>
@@ -10393,7 +10446,7 @@ export default Sentry.wrap(function App() {
                     <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingLeft: 14, paddingRight: 5, paddingVertical: 5 }}>
                       <TextInput
                         value={openInput}
-                        onChangeText={setOpenInput}
+                        onChangeText={(t) => { setOpenInput(t); if (t) broadcastTyping(); }}
                         onSubmitEditing={() => { void handleOpenSend(); }}
                         onFocus={() => setTimeout(() => openScrollRef.current?.scrollToEnd({ animated: true }), 300)}
                         blurOnSubmit={false}
