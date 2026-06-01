@@ -3003,7 +3003,9 @@ export default Sentry.wrap(function App() {
       return;
     }
 
-    setUnreadCount(count ?? 0);
+    const newCount = count ?? 0;
+    setUnreadCount(newCount);
+    if (Platform.OS !== 'web') void Buzz.setBadgeCountAsync(newCount);
   };
   useEffect(() => {
     void refreshUnreadBuzzState();
@@ -3045,6 +3047,7 @@ export default Sentry.wrap(function App() {
       title,
       body,
       data,
+      badge: 1,
     }).then(({ error }) => {
       if (error) console.error('PUSH_RPC_ERROR', error);
     });
