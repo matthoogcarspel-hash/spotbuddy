@@ -336,9 +336,9 @@ const sessionIntentOptions: { label: string; value: SessionIntent }[] = [
 ];
 const darkTheme = {
   bg: '#07111F',
-  bgElevated: '#121B29',
-  card: '#162133',
-  cardStrong: '#1E2B3F',
+  bgElevated: '#0F1A28',
+  card: '#071421',
+  cardStrong: '#121E2E',
   border: '#2F4058',
   text: '#FFFFFF',
   textSoft: '#D6E2F0',
@@ -14052,7 +14052,7 @@ const handleSave = async () => {
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
               style={({ pressed }) => ({
-                backgroundColor: isDarkMode ? '#071421' : theme.card,
+                backgroundColor: theme.card,
                 borderRadius: homeSpotCardRadius,
                 padding: homeSpotCardPadding,
                 marginBottom: 18,
