@@ -349,14 +349,14 @@ const darkTheme = {
   warm: '#F2C94C',
 };
 const lightTheme = {
-  bg: '#0F2035',
-  bgElevated: '#1A2E44',
-  card: '#1E3350',
-  cardStrong: '#253D5E',
-  border: '#3A5472',
+  bg: '#1A3050',
+  bgElevated: '#243D60',
+  card: '#2A4870',
+  cardStrong: '#305580',
+  border: '#4A6E9A',
   text: '#FFFFFF',
-  textSoft: '#E2EDF8',
-  textMuted: '#C0D0E0',
+  textSoft: '#E8F2FF',
+  textMuted: '#AABDD4',
   primary: '#2FD4FF',
   primaryPressed: '#1AB6E0',
   live: '#5EF0D0',
@@ -12642,8 +12642,8 @@ const handleSave = async () => {
                   minHeight: 84,
                   borderRadius: 16,
                   borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.075)',
-                  backgroundColor: 'rgba(8,24,39,0.52)',
+                  borderColor: isDarkMode ? 'rgba(255,255,255,0.075)' : 'rgba(255,255,255,0.12)',
+                  backgroundColor: theme.card,
                   padding: 10,
                   justifyContent: 'space-between',
                 }}
@@ -13861,7 +13861,7 @@ const handleSave = async () => {
             {(['dark', 'light'] as const).map((mode) => {
               const isActive = (mode === 'dark') === isDarkMode;
               return (
-                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#1E3350') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
+                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#2A4870') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
                   <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
                 </View>
               );
