@@ -8,7 +8,7 @@ import type { Profile } from '../lib/supabase';
 const BG = '#071421';
 const CARD = 'rgba(255,255,255,0.05)';
 const BORDER = 'rgba(255,255,255,0.08)';
-const MUTED = 'rgba(255,255,255,0.35)';
+const MUTED = 'rgba(255,255,255,0.65)';
 const ACCENT = '#00C896';
 
 type Props = {
@@ -117,7 +117,7 @@ export default function OnboardingScreen({ profile, onComplete }: Props) {
                   }}>
                     {isSelected ? <Text style={{ color: BG, fontSize: 12, fontWeight: '900' }}>✓</Text> : null}
                   </View>
-                  <Text style={{ color: isSelected ? '#ffffff' : 'rgba(255,255,255,0.7)', fontSize: 15, fontWeight: isSelected ? '800' : '500', flex: 1 }}>
+                  <Text style={{ color: '#ffffff', fontSize: 15, fontWeight: isSelected ? '800' : '500', flex: 1 }}>
                     {s.spot}
                   </Text>
                 </Pressable>
