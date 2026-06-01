@@ -9905,8 +9905,8 @@ export default Sentry.wrap(function App() {
                     setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
                     if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
                   }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                    <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />
+                    <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                      {grp.avatar_url ? <Image source={{ uri: grp.avatar_url }} style={{ width: 46, height: 46 }} /> : <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />}
                     </View>
                     <View style={{ flex: 1 }}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
