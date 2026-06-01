@@ -1831,6 +1831,7 @@ type SessionRowProps = {
   nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
   onJoin: (request: SessionJoinRequest) => void;
+  onRequestJoin?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string }) => void;
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onAvatarPress?: (userId: string) => void;
@@ -1851,6 +1852,7 @@ function SessionRow({
   nearOverlapWithPrevious,
   onSelect,
   onJoin,
+  onRequestJoin,
   onOpenGroupChat,
   activeGroupChatKey,
   onAvatarPress,
@@ -1882,6 +1884,7 @@ function SessionRow({
   // Geen JOIN als gebruiker al een sessie heeft in dezelfde groep (ongeacht hoe hij er in zit)
   const isAlreadyInGroup = safeGroupSessions.some(entry => entry.item?.userId === currentProfileId);
   const canJoinGroup = Boolean(joinTarget) && !isAlreadyInGroup && joinState.allowed;
+  const canRequestJoin = Boolean(joinTarget) && !isAlreadyInGroup && !joinState.allowed && joinState.reason === 'NOT_BUDDY';
   // "You're in" alleen tonen als je in een groep zit MET anderen (niet je eigen solo-sessie)
   const isJoinedGroup = isAlreadyInGroup && safeGroupSessions.some(e => e.item?.userId !== currentProfileId);
   const hostCleanStatus = getCleanSessionStatus(session);
@@ -1980,7 +1983,14 @@ function SessionRow({
         </View>
 
         {/* Rechts: Join knop of Group Chat knop */}
-        {canJoinGroup ? (
+        {canRequestJoin ? (
+          <Pressable
+            onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: joinTarget.spotName ?? '', organizerId: joinTarget.userId ?? '' }); }}
+            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 10, paddingVertical: 5 }}
+          >
+            <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
+          </Pressable>
+        ) : canJoinGroup ? (
           <View
             style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)', paddingHorizontal: 10, paddingVertical: 5 }}
             {...({ onClick: (e: any) => { e.stopPropagation(); if (!joinTarget) return; onJoin({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, sessionStatus: joinTarget.status ?? null, normalizedStart: group.startTime, normalizedEnd: group.endTime }); } } as any)}
@@ -2092,6 +2102,7 @@ type SessionTimelineProps = {
   activeDay: 'today' | 'tomorrow';
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (request: SessionJoinRequest) => void;
+  onRequestJoinSession?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string }) => void;
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onClearSelection: () => void;
@@ -2470,6 +2481,7 @@ function SessionTimeline({
                       isSelected={selectedTimelineSessionId === group.key}
                       onSelect={onSelectSession}
                       onJoin={onJoinSession}
+                      onRequestJoin={onRequestJoinSession}
                       onOpenGroupChat={onOpenGroupChat}
                       activeGroupChatKey={activeGroupChatKey}
                       onAvatarPress={onAvatarPress}
@@ -12848,6 +12860,15 @@ const handleSave = async () => {
             onClearSelection={() => setSelectedTimelineSessionId(null)}
             onJoinSession={(joinRequest) => {
               void joinSession(joinRequest);
+            }}
+            onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId }) => {
+              const requesterId = activeProfile?.id ?? activeAppUserId;
+              if (!requesterId || !organizerId) return;
+              const { error } = await supabase.from('session_join_requests').insert({ session_id: sessionId, session_day: sessionDay, spot_name: spotName, requester_id: requesterId, organizer_id: organizerId });
+              if (error) { Alert.alert('Error', error.message); return; }
+              const requesterName = activeProfile?.display_name ?? 'Someone';
+              void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'join_request', sessionId, sessionDay, spotName });
+              Alert.alert('Request sent!', 'The organizer will be notified.');
             }}
             onOpenGroupChat={(groupKey) => {
               // Navigate naar Messages tab > Session chats en open direct die groepschat
