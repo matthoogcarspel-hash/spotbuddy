@@ -398,7 +398,7 @@ const getIsoDateFromLocalDateKey = (localDateKey: string) => {
   isoDate.setHours(12, 0, 0, 0);
   return isoDate.toISOString();
 };
-const quickCheckInEndMinutes = 21 * 60;
+const quickCheckInEndMinutes = 23 * 60;
 const getQuickCheckInWindowError = (currentMinutes: number) => {
   if (currentMinutes < timelineStartMinutes) {
     return 'You can only check in from 07:00';
@@ -1023,7 +1023,7 @@ const getSessionDisplayState = (
   return label;
 };
 const timelineStartMinutes = 7 * 60;
-const planningEndMinutes = 22 * 60;
+const planningEndMinutes = 23 * 60;
 const timelineEndMinutes = planningEndMinutes;
 const planningMinuteStep = minuteOptions[1] - minuteOptions[0];
 const latestPlanningStartMinutes = planningEndMinutes - planningMinuteStep;
