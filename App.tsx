@@ -9785,7 +9785,7 @@ export default Sentry.wrap(function App() {
           )}
           {/* Messages Alert Settings panel — zelfde opmaak als spot alert settings */}
           {showMessagesAlertSettings && (
-            <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
+            <View style={{ borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card, overflow: 'hidden', marginBottom: 16 }}>
               <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                 <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
                 <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Choose who can send you alerts per chat type.</Text>
@@ -10070,7 +10070,7 @@ export default Sentry.wrap(function App() {
       {renderOtherUserProfileModal()}
       {groupMembersPopup !== null && (
         <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
+          <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: theme.bgElevated, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
             <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
             {groupMembersPopup.map((m) => {
               const grpForPopup = expandedPersistentGroupId ? myPersistentGroups.find((g) => g.id === expandedPersistentGroupId) : null;
@@ -10493,7 +10493,7 @@ export default Sentry.wrap(function App() {
                   </Pressable>
                 </View>
                 {showMessagesAlertSettings && (
-                  <View style={{ borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', backgroundColor: 'rgba(8,24,39,0.82)', overflow: 'hidden', marginBottom: 16 }}>
+                  <View style={{ borderRadius: 16, borderWidth: 1, borderColor: theme.border, backgroundColor: theme.card, overflow: 'hidden', marginBottom: 16 }}>
                     <View style={{ paddingHorizontal: 16, paddingTop: 14, paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
                       <Text style={{ color: theme.text, fontSize: 14, fontWeight: '800' }}>Alert settings</Text>
                       <Text style={{ color: theme.textMuted, fontSize: 12, marginTop: 2 }}>Notifications are off by default. Choose who can send you alerts per chat type.</Text>
@@ -10715,7 +10715,7 @@ export default Sentry.wrap(function App() {
           {renderOtherUserProfileModal()}
           {groupMembersPopup !== null && (
             <Pressable onPress={() => setGroupMembersPopup(null)} style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 400 }}>
-              <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: 'rgba(8,24,39,0.97)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
+              <Pressable onPress={(e) => e.stopPropagation()} style={{ position: 'absolute', top: 64, left: 16, right: 16, backgroundColor: theme.bgElevated, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', padding: 16, zIndex: 401 }}>
                 <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700', marginBottom: 12 }}>MEMBERS ({groupMembersPopup.length})</Text>
                 {groupMembersPopup.map((m) => {
                   const grpForPopup = expandedPersistentGroupId ? myPersistentGroups.find((g) => g.id === expandedPersistentGroupId) : null;
@@ -11648,7 +11648,7 @@ export default Sentry.wrap(function App() {
 
           {showNationalityPicker ? (
             <View style={{
-              backgroundColor: 'rgba(8,24,39,0.95)',
+              backgroundColor: theme.bgElevated,
               borderRadius: 14,
               borderWidth: 1,
               borderColor: 'rgba(255,255,255,0.08)',
@@ -12544,7 +12544,7 @@ const handleSave = async () => {
                 borderRadius: 16,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.07)',
-                backgroundColor: 'rgba(8,24,39,0.82)',
+                backgroundColor: theme.card,
                 overflow: 'hidden',
               }}
             >
@@ -12908,7 +12908,7 @@ const handleSave = async () => {
                 marginTop: 8,
                 maxWidth: 640,
                 alignSelf: 'flex-start',
-                backgroundColor: 'rgba(8,24,39,0.52)',
+                backgroundColor: theme.card,
                 borderWidth: 1,
                 borderColor: 'rgba(255,255,255,0.06)',
                 borderRadius: 18,
