@@ -3087,12 +3087,10 @@ export default Sentry.wrap(function App() {
       .eq('user_id', activeAppUserId)
       .eq('read', false);
 
-    if (error) {
-      console.error('Failed to mark notifications as read', error);
-      return;
-    }
-
-    await refreshUnreadBuzzState();
+    if (error) { console.error('Failed to mark notifications as read', error); return; }
+    // Direct set — geen extra SELECT query nodig
+    setUnreadCount(0);
+    setNotificationRows((prev) => prev.map((r) => ({ ...r, read: true })));
   };
   useEffect(() => {
     activeProfileIdRef.current = activeAppUserId;
@@ -3574,11 +3572,10 @@ export default Sentry.wrap(function App() {
           return;
         }
 
-        // Verwijder alle oude tokens voor dit profiel + platform zodat er maar 1 actief is
-        await supabase.from('push_tokens').delete().eq('profile_id', activeAppUserId).eq('platform', Platform.OS).neq('expo_push_token', token.data);
-        const { error: pushTokenSaveError } = await supabase
-          .from('push_tokens')
-          .upsert(
+        // Parallel: verwijder oude tokens én sla nieuwe op tegelijk
+        const [, { error: pushTokenSaveError }] = await Promise.all([
+          supabase.from('push_tokens').delete().eq('profile_id', activeAppUserId).eq('platform', Platform.OS).neq('expo_push_token', token.data),
+          supabase.from('push_tokens').upsert(
             {
               profile_id: activeAppUserId,
               expo_push_token: token.data,
@@ -3586,7 +3583,8 @@ export default Sentry.wrap(function App() {
               updated_at: new Date().toISOString(),
             },
             { onConflict: 'profile_id,expo_push_token' }
-          );
+          ),
+        ]);
 
         if (pushTokenSaveError) {
           console.error('PUSH_TOKEN_SAVE_ERROR', pushTokenSaveError);
@@ -3636,12 +3634,7 @@ export default Sentry.wrap(function App() {
         const loadedManualOrderRaw = Array.isArray(parsedManualOrder)
           ? (Array.isArray(parsedManualOrder) ? parsedManualOrder : []).filter((value): value is SpotName => typeof value === 'string')
           : [];
-        const dedupedManualOrder: SpotName[] = [];
-        for (const spotName of loadedManualOrderRaw) {
-          if (!dedupedManualOrder.includes(spotName)) {
-            dedupedManualOrder.push(spotName);
-          }
-        }
+        const dedupedManualOrder: SpotName[] = Array.from(new Set(loadedManualOrderRaw));
         const normalizedManualOrder = (Array.isArray(dedupedManualOrder) ? dedupedManualOrder : []).filter((spotName) => loadedFavoriteSpots.includes(spotName));
         for (const spotName of loadedFavoriteSpots) {
           if (!normalizedManualOrder.includes(spotName)) {
@@ -3909,27 +3902,14 @@ export default Sentry.wrap(function App() {
     setBuddiesError('');
     
 
-    const [usersResponse, followsResponse, incomingRequestsResponse, incomingAcceptedResponse] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('id, display_name, avatar_url, skill_level')
-        .neq('id', activeProfileId)
-        .order('display_name', { ascending: true }),
-      supabase
-        .from('user_follows')
-        .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('follower_id', activeProfileId),
-      supabase
-        .from('user_follows')
-        .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', activeProfileId)
-        .eq('status', 'pending'),
-      supabase
-        .from('user_follows')
-        .select('id, follower_id, following_id, status, created_at, responded_at')
-        .eq('following_id', activeProfileId)
-        .eq('status', 'accepted'),
+    // Combineer de twee incoming-follow queries in één
+    const [usersResponse, followsResponse, incomingCombinedResponse] = await Promise.all([
+      supabase.from('profiles').select('id, display_name, avatar_url, skill_level').neq('id', activeProfileId).order('display_name', { ascending: true }).limit(500),
+      supabase.from('user_follows').select('id, follower_id, following_id, status, created_at, responded_at').eq('follower_id', activeProfileId),
+      supabase.from('user_follows').select('id, follower_id, following_id, status, created_at, responded_at').eq('following_id', activeProfileId).in('status', ['pending', 'accepted']),
     ]);
+    const incomingRequestsResponse = { data: (incomingCombinedResponse.data ?? []).filter((r) => r.status === 'pending'), error: incomingCombinedResponse.error };
+    const incomingAcceptedResponse = { data: (incomingCombinedResponse.data ?? []).filter((r) => r.status === 'accepted'), error: null };
 
     if (usersResponse.error) {
       console.error('BUDDIES_USERS_LOAD_ERROR', usersResponse.error);
@@ -4999,8 +4979,12 @@ export default Sentry.wrap(function App() {
       const buddyRelations = data ?? [];
       
       // Buddy = wederzijds: alleen IDs die in BEIDE richtingen voorkomen
-      const iFollow = new Set(buddyRelations.filter((r) => r.follower_id === activeAppUserId).map((r) => r.following_id).filter(Boolean));
-      const followMe = new Set(buddyRelations.filter((r) => r.following_id === activeAppUserId).map((r) => r.follower_id).filter(Boolean));
+      const iFollow = new Set<string>();
+      const followMe = new Set<string>();
+      for (const r of buddyRelations) {
+        if (r.follower_id === activeAppUserId && r.following_id) iFollow.add(r.following_id);
+        if (r.following_id === activeAppUserId && r.follower_id) followMe.add(r.follower_id);
+      }
       const mutualIds = [...iFollow].filter((id) => followMe.has(id) && id !== activeAppUserId);
 
       setFollowingUserIds(mutualIds);
@@ -8081,7 +8065,7 @@ export default Sentry.wrap(function App() {
       setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
       return;
     }
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true }).limit(200);
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8257,7 +8241,7 @@ export default Sentry.wrap(function App() {
     }
     myConvIdsRef.current.add(convId);
     sessionConvIdsRef.current.add(convId); // markeer als sessie convId
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true }).limit(200);
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8354,7 +8338,7 @@ export default Sentry.wrap(function App() {
   fetchSharedDataRef.current = () => fetchSharedData({ skipLoadingState: true });
 
   const loadDmMessages = async (conversationId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', conversationId).order('created_at', { ascending: true }).limit(200);
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8479,7 +8463,7 @@ export default Sentry.wrap(function App() {
   loadMyPersistentGroupsRef.current = loadMyPersistentGroups;
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true }).limit(200);
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
