@@ -2285,7 +2285,7 @@ function SessionTimeline({
 
                       {/* JOIN knop naast Chat knop */}
                       {mCanRequestJoin ? (
-                        <Pressable onPress={(event) => { event.stopPropagation(); Alert.alert('btn', `fn=${typeof onRequestJoinSession}`); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
                           <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
                         </Pressable>
                       ) : mCanJoin ? (
@@ -12945,7 +12945,6 @@ const handleSave = async () => {
             }}
             onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
-              Alert.alert('debug', `sessionId=${sessionId?.slice(0,8)} organizer=${organizerId?.slice(0,8)} requester=${requesterId?.slice(0,8)}`);
               if (!requesterId || !organizerId) return;
               const { error } = await supabase.from('session_join_requests').insert({ session_id: sessionId, session_day: sessionDay, spot_name: spotName, requester_id: requesterId, organizer_id: organizerId });
               if (error) { Alert.alert('Error', error.message); return; }
