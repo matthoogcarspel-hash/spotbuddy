@@ -3923,9 +3923,12 @@ export default Sentry.wrap(function App() {
       const acceptedFollowingUserIds = (followsResponse.data ?? [])
         .filter((item) => item.status === 'accepted')
         .map((item) => item.following_id);
-      
-      
-      setFollowingUserIds(acceptedFollowingUserIds);
+
+      // Buddy = wederzijds: alleen mensen die jou ook terug volgen
+      const incomingAcceptedIds = new Set((incomingAcceptedResponse.data ?? []).map((r: any) => r.follower_id));
+      const mutualFollowingUserIds = acceptedFollowingUserIds.filter((id) => incomingAcceptedIds.has(id));
+
+      setFollowingUserIds(mutualFollowingUserIds);
 
       const loadedBuddyUsers = ((usersResponse.data ?? []) as BuddyUser[]);
       const usersById = loadedBuddyUsers.reduce<Record<string, BuddyUser>>((acc, userItem) => {
