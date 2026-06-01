@@ -8031,7 +8031,7 @@ export default Sentry.wrap(function App() {
       setChatSpotMessages((prev) => ({ ...prev, [cKey]: { conversationId: null, messages: [], loaded: true, dayKey: day } }));
       return;
     }
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8207,7 +8207,7 @@ export default Sentry.wrap(function App() {
     }
     myConvIdsRef.current.add(convId);
     sessionConvIdsRef.current.add(convId); // markeer als sessie convId
-    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const msgResponse = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgResponse.data ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const profilesResponse = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
@@ -8304,12 +8304,12 @@ export default Sentry.wrap(function App() {
   fetchSharedDataRef.current = () => fetchSharedData({ skipLoadingState: true });
 
   const loadDmMessages = async (conversationId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', conversationId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', conversationId).order('created_at', { ascending: true });
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null }));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null, subtype: (m as any).subtype ?? null, payload: (m as any).payload ?? null }));
     setDmMessages((prev) => ({ ...prev, [conversationId]: enriched }));
     void loadReactionsForMessages(enriched.map((m) => m.id));
   };
@@ -8420,12 +8420,12 @@ export default Sentry.wrap(function App() {
   loadMyPersistentGroupsRef.current = loadMyPersistentGroups;
 
   const loadPersistentGroupMessages = async (groupId: string, convId: string) => {
-    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name').eq('conversation_id', convId).order('created_at', { ascending: true });
+    const { data: msgs } = await supabase.from('messages').select('id, user_id, text, created_at, media_url, media_type, reply_to_id, reply_to_text, reply_to_name, subtype, payload').eq('conversation_id', convId).order('created_at', { ascending: true });
     const rows = msgs ?? [];
     const userIds = [...new Set(rows.map((m) => m.user_id).filter(Boolean))];
     const { data: profiles } = userIds.length ? await supabase.from('profiles').select('id, display_name, avatar_url').in('id', userIds) : { data: [] };
     const pmap = new Map((profiles ?? []).map((p) => [p.id, p]));
-    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null }));
+    const enriched = rows.map((m) => ({ id: m.id, text: m.text, createdAt: m.created_at, userId: m.user_id, display_name: pmap.get(m.user_id)?.display_name ?? 'Unknown', avatar_url: pmap.get(m.user_id)?.avatar_url ?? null, media_url: m.media_url ?? null, media_type: m.media_type ?? null, reply_to_id: (m as any).reply_to_id ?? null, reply_to_text: (m as any).reply_to_text ?? null, reply_to_name: (m as any).reply_to_name ?? null, subtype: (m as any).subtype ?? null, payload: (m as any).payload ?? null }));
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: enriched, loaded: true } }));
     void loadReactionsForMessages(enriched.map((m) => m.id));
   };
@@ -9283,6 +9283,44 @@ export default Sentry.wrap(function App() {
               <View style={{ maxWidth: '78%', backgroundColor: msg.media_url && !msg.text ? 'transparent' : own ? 'rgba(255,255,255,0.11)' : 'rgba(255,255,255,0.07)', ...bubbleRadius, paddingHorizontal: msg.media_url && !msg.text ? 0 : 12, paddingVertical: msg.media_url && !msg.text ? 0 : 7, overflow: 'hidden' }}>
                 {!own && isFirst && showSenderName ? (
                   <Text style={{ color: nameColor, fontSize: 12, fontWeight: '800', marginBottom: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingTop: msg.media_url ? 7 : 0 }}>{msg.display_name}</Text>
+                ) : null}
+                {msg.subtype === 'join_request' && msg.payload ? (
+                  <View style={{ backgroundColor: 'rgba(77,184,255,0.1)', borderRadius: 10, padding: 10, borderWidth: 1, borderColor: 'rgba(77,184,255,0.3)', marginBottom: 4 }}>
+                    <Text style={{ color: '#4DB8FF', fontSize: 12, fontWeight: '800', marginBottom: 2 }}>🏄 Join Request</Text>
+                    <Text style={{ color: theme.text, fontSize: 13, marginBottom: 8 }}>{msg.text}</Text>
+                    {!own && (
+                      <View style={{ flexDirection: 'row', gap: 8 }}>
+                        <Pressable onPress={async () => {
+                          const p = msg.payload as any;
+                          const { error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
+                          if (error) { Alert.alert('Error', error.message); return; }
+                          void sendDmMessage(expandedDmId ?? '', undefined, { reply_to_id: msg.id, reply_to_text: 'Join Request', reply_to_name: p.requesterName });
+                          // Update bericht zodat knoppen verdwijnen
+                          setDmMessages((prev) => {
+                            const convId = expandedDmId ?? '';
+                            return { ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) };
+                          });
+                          await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
+                          void sendPushToRecipients([p.requesterId], 'Request accepted!', `You can join the session at ${p.spotName}`, { type: 'dm', conversationId: expandedDmId });
+                        }} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
+                          <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>✓ Accept</Text>
+                        </Pressable>
+                        <Pressable onPress={async () => {
+                          const p = msg.payload as any;
+                          await supabase.from('messages').update({ subtype: 'join_denied' }).eq('id', msg.id);
+                          setDmMessages((prev) => {
+                            const convId = expandedDmId ?? '';
+                            return { ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_denied' } : m) };
+                          });
+                          void sendPushToRecipients([p.requesterId], 'Request declined', `Your request to join at ${p.spotName} was declined`, { type: 'dm', conversationId: expandedDmId });
+                        }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
+                          <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>✗ Decline</Text>
+                        </Pressable>
+                      </View>
+                    )}
+                    {msg.subtype === 'join_accepted' && <Text style={{ color: '#00C896', fontSize: 12, fontWeight: '700' }}>✓ Accepted</Text>}
+                    {msg.subtype === 'join_denied' && <Text style={{ color: theme.textMuted, fontSize: 12 }}>Declined</Text>}
+                  </View>
                 ) : null}
                 {msg.reply_to_name ? (
                   <View style={{ backgroundColor: 'rgba(0,0,0,0.2)', borderRadius: 8, marginBottom: 6, paddingHorizontal: 8, paddingVertical: 5, borderLeftWidth: 3, borderLeftColor: theme.primary }}>
@@ -12946,11 +12984,26 @@ const handleSave = async () => {
             onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
               if (!requesterId || !organizerId) return;
-              const { error } = await supabase.from('session_join_requests').insert({ session_id: sessionId, session_day: sessionDay, spot_name: spotName, requester_id: requesterId, organizer_id: organizerId });
-              if (error) { Alert.alert('Error', error.message); return; }
+              // Open of maak DM met de organizer
+              const convId = await openDmWithUser(organizerId);
+              if (!convId) { Alert.alert('Error', 'Could not open DM'); return; }
               const requesterName = activeProfile?.display_name ?? 'Someone';
-              void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'join_request', sessionId, sessionDay, spotName, requesterId: requesterId });
-              Alert.alert('Request sent!', 'The organizer will be notified.');
+              // Stuur join_request bericht
+              const { error } = await supabase.from('messages').insert({
+                user_id: requesterId,
+                conversation_id: convId,
+                text: `${requesterName} wants to join your session at ${spotName}`,
+                subtype: 'join_request',
+                payload: { sessionId, sessionDay, spotName, requesterId, requesterName },
+                created_at: new Date().toISOString(),
+              });
+              if (error) { Alert.alert('Error', error.message); return; }
+              void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'dm', conversationId: convId });
+              Alert.alert('Request sent!', 'The organizer will be notified via DM.');
+              // Open de DM
+              setShowChat(true);
+              setChatSubTab('dm');
+              setExpandedDmId(convId);
             }}
             onOpenGroupChat={(groupKey) => {
               // Navigate naar Messages tab > Session chats en open direct die groepschat
