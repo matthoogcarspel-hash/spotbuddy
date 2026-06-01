@@ -1986,9 +1986,9 @@ function SessionRow({
         {canRequestJoin ? (
           <Pressable
             onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: joinTarget.spotName ?? '', organizerId: joinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }}
-            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 10, paddingVertical: 5 }}
+            style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: '#123868', paddingHorizontal: 10, paddingVertical: 5 }}
           >
-            <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
+            <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
           </Pressable>
         ) : canJoinGroup ? (
           <View
@@ -2285,8 +2285,8 @@ function SessionTimeline({
 
                       {/* JOIN knop naast Chat knop */}
                       {mCanRequestJoin ? (
-                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
-                          <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
+                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }} style={{ borderRadius: 999, backgroundColor: '#123868', paddingHorizontal: 12, paddingVertical: 6 }}>
+                          <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
                         </Pressable>
                       ) : mCanJoin ? (
                         <Pressable
@@ -9333,7 +9333,7 @@ export default Sentry.wrap(function App() {
                     <Image source={{ uri: msg.media_url }} style={{ width: 160, height: 160, borderRadius: 12 }} resizeMode="cover" />
                   </Pressable>
                 ) : null}
-                {msg.text ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
+                {msg.text && !msg.subtype ? <Text style={{ color: '#ffffff', fontSize: 15, lineHeight: 21, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{msg.text}</Text> : null}
                   {time ? <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, textAlign: 'right', marginTop: 2, paddingHorizontal: msg.media_url ? 12 : 0, paddingBottom: msg.media_url ? 4 : 0 }}>{time}</Text> : null}
               </View>
             </Pressable>
