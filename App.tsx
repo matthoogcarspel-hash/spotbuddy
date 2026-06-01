@@ -349,14 +349,14 @@ const darkTheme = {
   warm: '#F2C94C',
 };
 const lightTheme = {
-  bg: '#1A2533',
-  bgElevated: '#1F2E3E',
-  card: '#222F3E',
-  cardStrong: '#2A3A4E',
-  border: '#3A4E62',
+  bg: '#253545',
+  bgElevated: '#2C3E50',
+  card: '#304558',
+  cardStrong: '#385068',
+  border: '#4A6278',
   text: '#FFFFFF',
-  textSoft: '#E0EAF4',
-  textMuted: '#8FA3B8',
+  textSoft: '#E4EDF6',
+  textMuted: '#95AABF',
   primary: '#2FD4FF',
   primaryPressed: '#1AB6E0',
   live: '#5EF0D0',
@@ -6754,9 +6754,9 @@ export default Sentry.wrap(function App() {
             <Ionicons
               name={item.isActive ? item.iconActive : item.icon}
               size={26}
-              color={item.isActive ? '#ffffff' : 'rgba(255,255,255,0.45)'}
+              color={item.isActive ? '#ffffff' : isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.65)'}
             />
-            <Text style={{ color: item.isActive ? '#ffffff' : 'rgba(255,255,255,0.45)', fontSize: 10, fontWeight: item.isActive ? '700' : '500', marginTop: 3 }}>
+            <Text style={{ color: item.isActive ? '#ffffff' : isDarkMode ? 'rgba(255,255,255,0.45)' : 'rgba(255,255,255,0.65)', fontSize: 10, fontWeight: item.isActive ? '700' : '500', marginTop: 3 }}>
               {item.label}
             </Text>
             {item.badge ? (
