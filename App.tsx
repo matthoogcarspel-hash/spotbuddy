@@ -5413,8 +5413,23 @@ export default Sentry.wrap(function App() {
         // Fix: app→web session chat werkt ook als web de spot niet volgt
         if (!isKnownSessionConv) {
           const { data: typeRow } = await supabase.from('conversations')
-            .select('type, spot_name').eq('id', convId).maybeSingle();
-          if (typeRow?.type === 'group') {
+            .select('type, spot_name, persistent_group_id').eq('id', convId).maybeSingle();
+          if (typeRow?.type === 'group' && (typeRow as any)?.persistent_group_id) {
+            // Persistent group chat
+            const pgId = (typeRow as any).persistent_group_id as string;
+            const grp = myPersistentGroups.find((g) => g.conversationId === convId);
+            if (grp) {
+              setPersistentGroupMessages((prev) => {
+                const existing = prev[pgId] ?? { messages: [], loaded: false };
+                if (existing.messages.some((m: any) => m.id === row.id)) return prev;
+                return { ...prev, [pgId]: { ...existing, messages: [...existing.messages, newMsg] } };
+              });
+              setMyPersistentGroups((prev) => prev.map((g) => g.id === pgId ? { ...g, lastMessage: row.text ?? null, lastMessageAt: row.created_at ?? new Date().toISOString() } : g));
+              const isOwn = row.user_id === (activeProfile?.id ?? activeAppUserId);
+              if (!isOwn) setUnreadByPersistentGroup((prev) => ({ ...prev, [pgId]: (prev[pgId] ?? 0) + 1 }));
+            }
+            return;
+          } else if (typeRow?.type === 'group') {
             // Sessie chat — altijd doorsturen ook zonder spotName
             sessionConvIdsRef.current.add(convId);
             // Vul matchedSpotName in als we hem niet hadden
@@ -8441,11 +8456,14 @@ export default Sentry.wrap(function App() {
       }
     }
 
-    setMyPersistentGroups((groupRows ?? []).map((g) => {
+    const groupItems = (groupRows ?? []).map((g) => {
       const convId = convMap.get(g.id) ?? null;
+      // Voeg group convIds toe aan myConvIdsRef zodat realtime berichten worden opgepikt
+      if (convId) myConvIdsRef.current.add(convId);
       const last = convId ? lastMsgMap.get(convId) : null;
       return { id: g.id, name: g.name, role: roleMap.get(g.id) ?? 'member', conversationId: convId, lastMessage: last?.text ?? null, lastMessageAt: last?.at ?? null, pendingRequests: pendingMap.get(g.id) ?? 0, avatar_url: (g as any).avatar_url ?? null, memberIds: membersByGroup.get(g.id) ?? [], muted: mutedMap.get(g.id) ?? false };
-    }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1));
+    }).sort((a, b) => (b.lastMessageAt ?? b.id) > (a.lastMessageAt ?? a.id) ? 1 : -1);
+    setMyPersistentGroups(groupItems);
   };
 
   loadMyPersistentGroupsRef.current = loadMyPersistentGroups;
@@ -10686,25 +10704,57 @@ export default Sentry.wrap(function App() {
                   {myPersistentGroups.length === 0 && <View style={{ alignItems: 'center', paddingTop: 30, gap: 8 }}><Text style={{ fontSize: 32 }}>👥</Text><Text style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>No groups yet</Text><Text style={{ color: theme.textMuted, fontSize: 13, textAlign: 'center' }}>Create a group to chat with your crew</Text></View>}
                   {myPersistentGroups.map((grp) => {
                     const grpUnread = unreadByPersistentGroup[grp.id] ?? 0;
-                    return <Pressable key={grp.id} onPress={() => {
-                      setExpandedPersistentGroupId(grp.id);
-                      setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
-                      if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
-                    }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
-                      <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                        {grp.avatar_url ? <Image source={{ uri: grp.avatar_url }} style={{ width: 46, height: 46 }} /> : <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />}
-                      </View>
-                      <View style={{ flex: 1 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
-                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{grp.name}</Text>
-                          {grp.pendingRequests > 0 && grp.role === 'admin' && <View style={{ backgroundColor: '#FFB347', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grp.pendingRequests} req</Text></View>}
+                    const swipeX = new Animated.Value(0);
+                    const deleteAction = async () => {
+                      if (grp.role === 'admin') {
+                        await supabase.from('groups').delete().eq('id', grp.id);
+                      } else {
+                        await supabase.from('group_members').delete().eq('group_id', grp.id).eq('user_id', activeProfile?.id ?? activeAppUserId ?? '');
+                      }
+                      setMyPersistentGroups((prev) => prev.filter((g) => g.id !== grp.id));
+                    };
+                    const swipePan = PanResponder.create({
+                      onMoveShouldSetPanResponderCapture: (_, g) => g.dx < -8 && Math.abs(g.dy) < 15,
+                      onPanResponderMove: (_, g) => { if (g.dx < 0) swipeX.setValue(Math.max(g.dx, -80)); },
+                      onPanResponderRelease: (_, g) => {
+                        if (g.dx < -60) {
+                          Animated.spring(swipeX, { toValue: -80, useNativeDriver: true }).start();
+                        } else {
+                          Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
+                        }
+                      },
+                    });
+                    return (
+                      <View key={grp.id} style={{ position: 'relative', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+                        <View style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 80, backgroundColor: '#8b1f38', alignItems: 'center', justifyContent: 'center' }}>
+                          <Pressable onPress={deleteAction} style={{ flex: 1, width: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                            <Ionicons name={grp.role === 'admin' ? 'trash-outline' : 'exit-outline'} size={22} color="#fff" />
+                          </Pressable>
                         </View>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                          {grp.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{grp.lastMessage}</Text> : <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet</Text>}
-                          {grpUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grpUnread}</Text></View>}
-                        </View>
+                        <Animated.View style={{ transform: [{ translateX: swipeX }] }} {...swipePan.panHandlers}>
+                          <Pressable onPress={() => {
+                            Animated.spring(swipeX, { toValue: 0, useNativeDriver: true }).start();
+                            setExpandedPersistentGroupId(grp.id);
+                            setUnreadByPersistentGroup((p) => ({ ...p, [grp.id]: 0 }));
+                            if (!persistentGroupMessages[grp.id]?.loaded && grp.conversationId) void loadPersistentGroupMessages(grp.id, grp.conversationId);
+                          }} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, gap: 14, backgroundColor: theme.bg }}>
+                            <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                              {grp.avatar_url ? <Image source={{ uri: grp.avatar_url }} style={{ width: 46, height: 46 }} /> : <Ionicons name="people-outline" size={22} color="rgba(255,255,255,0.6)" />}
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 3 }}>
+                                <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{grp.name}</Text>
+                                {grp.pendingRequests > 0 && grp.role === 'admin' && <View style={{ backgroundColor: '#FFB347', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grp.pendingRequests} req</Text></View>}
+                              </View>
+                              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                                {grp.lastMessage ? <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 13, flex: 1 }} numberOfLines={1}>{grp.lastMessage}</Text> : <Text style={{ color: theme.textMuted, fontSize: 13 }}>No messages yet</Text>}
+                                {grpUnread > 0 && <View style={{ minWidth: 20, height: 20, borderRadius: 10, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, marginLeft: 8 }}><Text style={{ color: '#000', fontSize: 11, fontWeight: '900' }}>{grpUnread}</Text></View>}
+                              </View>
+                            </View>
+                          </Pressable>
+                        </Animated.View>
                       </View>
-                    </Pressable>;
+                    );
                   })}
                 </View>}
               </ScrollView>)
