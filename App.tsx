@@ -3079,6 +3079,11 @@ export default Sentry.wrap(function App() {
     })();
     const spotName = data && typeof data === 'object' && typeof data.spot_name === 'string' ? data.spot_name.trim() : null;
 
+    if (notificationRow.type === 'join_request') {
+      return spotName
+        ? `${actorName} wants to join your session at ${spotName}`
+        : `${actorName} wants to join your session`;
+    }
     if (notificationRow.type === 'session_joined') {
       return spotName
         ? `${actorName} joined your session at ${spotName}`
@@ -6572,16 +6577,44 @@ export default Sentry.wrap(function App() {
                   return `${Math.floor(hrs / 24)}d ago`;
                 })() : '';
                 return (
-                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                  <View key={row.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                      </View>
+                      {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
-                    </View>
-                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
-                  </Pressable>
+                    {row.type === 'join_request' && (() => {
+                      const d = row.data as any;
+                      const requesterId = d?.requesterId ?? d?.requester_id ?? null;
+                      const sessionId = d?.sessionId ?? null;
+                      if (!requesterId || !sessionId) return null;
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginLeft: 42 }}>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'accepted' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            const actorId = activeProfile?.id ?? activeAppUserId;
+                            if (actorId) void sendPushToRecipients([requesterId], 'Request accepted!', `You can now join the session.`, { type: 'dm' });
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: '#123868', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Accept</Text>
+                          </Pressable>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'denied' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Deny</Text>
+                          </Pressable>
+                        </View>
+                      );
+                    })()}
+                  </View>
                 );
               })
             )}
@@ -12142,16 +12175,44 @@ const handleSave = async () => {
                   return `${Math.floor(hrs / 24)}d ago`;
                 })() : '';
                 return (
-                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                  <View key={row.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                      </View>
+                      {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
-                    </View>
-                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
-                  </Pressable>
+                    {row.type === 'join_request' && (() => {
+                      const d = row.data as any;
+                      const requesterId = d?.requesterId ?? d?.requester_id ?? null;
+                      const sessionId = d?.sessionId ?? null;
+                      if (!requesterId || !sessionId) return null;
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginLeft: 42 }}>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'accepted' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            const actorId = activeProfile?.id ?? activeAppUserId;
+                            if (actorId) void sendPushToRecipients([requesterId], 'Request accepted!', `You can now join the session.`, { type: 'dm' });
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: '#123868', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Accept</Text>
+                          </Pressable>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'denied' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Deny</Text>
+                          </Pressable>
+                        </View>
+                      );
+                    })()}
+                  </View>
                 );
               })
             )}
@@ -12867,7 +12928,7 @@ const handleSave = async () => {
               const { error } = await supabase.from('session_join_requests').insert({ session_id: sessionId, session_day: sessionDay, spot_name: spotName, requester_id: requesterId, organizer_id: organizerId });
               if (error) { Alert.alert('Error', error.message); return; }
               const requesterName = activeProfile?.display_name ?? 'Someone';
-              void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'join_request', sessionId, sessionDay, spotName });
+              void sendPushToRecipients([organizerId], `${requesterName} wants to join`, `Can I join your session at ${spotName}?`, { type: 'join_request', sessionId, sessionDay, spotName, requesterId: requesterId });
               Alert.alert('Request sent!', 'The organizer will be notified.');
             }}
             onOpenGroupChat={(groupKey) => {
@@ -13499,16 +13560,44 @@ const handleSave = async () => {
                   return `${Math.floor(hrs / 24)}d ago`;
                 })() : '';
                 return (
-                  <Pressable key={row.id} onPress={() => setIsNotificationInboxExpanded(false)} style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
-                    <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                  <View key={row.id} style={{ paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                      <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name={row.read ? 'notifications-outline' : 'notifications'} size={16} color={row.read ? theme.textMuted : theme.primary} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
+                        <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
+                      </View>
+                      {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
                     </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ color: row.read ? theme.textSoft : theme.text, fontSize: 13, fontWeight: row.read ? '400' : '700' }} numberOfLines={2}>{summaryText}</Text>
-                      <Text style={{ color: theme.textMuted, fontSize: 11 }}>{timeAgo}</Text>
-                    </View>
-                    {!row.read && <View style={{ width: 7, height: 7, borderRadius: 999, backgroundColor: theme.primary }} />}
-                  </Pressable>
+                    {row.type === 'join_request' && (() => {
+                      const d = row.data as any;
+                      const requesterId = d?.requesterId ?? d?.requester_id ?? null;
+                      const sessionId = d?.sessionId ?? null;
+                      if (!requesterId || !sessionId) return null;
+                      return (
+                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8, marginLeft: 42 }}>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'accepted' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            const actorId = activeProfile?.id ?? activeAppUserId;
+                            if (actorId) void sendPushToRecipients([requesterId], 'Request accepted!', `You can now join the session.`, { type: 'dm' });
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: '#123868', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.text, fontSize: 12, fontWeight: '800' }}>Accept</Text>
+                          </Pressable>
+                          <Pressable onPress={async () => {
+                            await supabase.from('session_join_requests').update({ status: 'denied' }).eq('session_id', sessionId).eq('requester_id', requesterId);
+                            await supabase.from('notifications').update({ read: true }).eq('id', row.id);
+                            setNotificationRows((prev) => prev.filter((r) => r.id !== row.id));
+                          }} style={{ backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 6 }}>
+                            <Text style={{ color: theme.textMuted, fontSize: 12, fontWeight: '700' }}>Deny</Text>
+                          </Pressable>
+                        </View>
+                      );
+                    })()}
+                  </View>
                 );
               })
             )}
