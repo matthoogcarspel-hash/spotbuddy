@@ -12980,6 +12980,7 @@ const handleSave = async () => {
             }}
             onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId, startTime, endTime }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
+              Alert.alert('debug', `organizer=${organizerId?.slice(0,8) ?? 'EMPTY'} spot=${spotName}`);
               if (!requesterId || !organizerId) return;
               const convId = await openDmWithUser(organizerId);
               if (!convId) { Alert.alert('Error', 'Could not open DM'); return; }
