@@ -10949,13 +10949,19 @@ export default Sentry.wrap(function App() {
                     <Pressable onPress={async () => {
                       const actorName = activeProfile?.display_name ?? 'Someone';
                       if (isAdmin) {
-                        for (const uid of addBuddySelectedIds) await supabase.from('group_members').insert({ group_id: groupId, user_id: uid, role: 'member' });
-                        void sendPushToRecipients(addBuddySelectedIds, `${actorName} added you to a group`, `You've been added to "${groupName}"`, { type: 'dm' });
+                        // Batch insert — één query ipv loop
+                        await supabase.from('group_members').insert(addBuddySelectedIds.map((uid) => ({ group_id: groupId, user_id: uid, role: 'member' })));
+                        void sendPushToRecipients(addBuddySelectedIds, `${actorName} added you to "${groupName}"`, `You're now part of the group 🎉`, { type: 'dm' });
                       } else {
-                        for (const uid of addBuddySelectedIds) await supabase.from('group_join_requests').insert({ group_id: groupId, nominee_id: uid, introduced_by: activeProfile?.id ?? activeAppUserId ?? '', status: 'pending' });
-                        Alert.alert('Sent!', `${addBuddySelectedIds.length} suggestion${addBuddySelectedIds.length > 1 ? 's' : ''} sent to the admin.`);
+                        const introducedBy = activeProfile?.id ?? activeAppUserId ?? '';
+                        await supabase.from('group_join_requests').insert(addBuddySelectedIds.map((uid) => ({ group_id: groupId, nominee_id: uid, introduced_by: introducedBy, status: 'pending' })));
+                        // Push naar admin
+                        const { data: adminRows } = await supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin');
+                        const adminId = adminRows?.[0]?.user_id;
+                        if (adminId) void sendPushToRecipients([adminId], `${actorName} suggested ${addBuddySelectedIds.length} member${addBuddySelectedIds.length > 1 ? 's' : ''}`, `Open "${groupName}" to review`, { type: 'dm' });
                       }
-                      await loadMyPersistentGroups();
+                      // Niet wachten op reload — sluit modal meteen
+                      void loadMyPersistentGroups();
                       setShowNominateModal(null); setNominateSearchQuery(''); setNominateSelectedUserId(null); setNominateSearchResults([]); setAddBuddySelectedIds([]); setPendingJoinReqs([]);
                     }} style={{ backgroundColor: '#123868', borderRadius: 14, paddingVertical: 14, alignItems: 'center' }}>
                       <Text style={{ color: theme.text, fontSize: 15, fontWeight: '900' }}>{isAdmin ? `Add ${addBuddySelectedIds.length} to group` : `Suggest ${addBuddySelectedIds.length} to admin`}</Text>
