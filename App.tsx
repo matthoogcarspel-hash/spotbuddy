@@ -9349,6 +9349,7 @@ export default Sentry.wrap(function App() {
                     {!own && (
                       <View style={{ flexDirection: 'row', gap: 8 }}>
                         <Pressable onPress={async () => {
+                          Alert.alert('accept tapped');
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
                           const senderId = activeProfile?.id ?? activeAppUserId;
