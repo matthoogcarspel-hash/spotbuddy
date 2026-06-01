@@ -4075,11 +4075,11 @@ export default Sentry.wrap(function App() {
       return nextValue;
     });
 
+    // Verwijder beide richtingen zodat het wederzijds is
     const { error } = await supabase
       .from('user_follows')
       .delete()
-      .eq('follower_id', activeAppUserId)
-      .eq('following_id', userIdToUnfollow);
+      .or(`and(follower_id.eq.${activeAppUserId},following_id.eq.${userIdToUnfollow}),and(follower_id.eq.${userIdToUnfollow},following_id.eq.${activeAppUserId})`);
 
     if (error) {
       console.error('BUDDIES_UNFOLLOW_ERROR', error);
