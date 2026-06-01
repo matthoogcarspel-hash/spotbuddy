@@ -1831,7 +1831,7 @@ type SessionRowProps = {
   nearOverlapWithPrevious: boolean;
   onSelect: (groupKey: string) => void;
   onJoin: (request: SessionJoinRequest) => void;
-  onRequestJoin?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string }) => void;
+  onRequestJoin?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string; startTime?: string; endTime?: string | null }) => void;
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onAvatarPress?: (userId: string) => void;
@@ -1985,7 +1985,7 @@ function SessionRow({
         {/* Rechts: Join knop of Group Chat knop */}
         {canRequestJoin ? (
           <Pressable
-            onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: joinTarget.spotName ?? '', organizerId: joinTarget.userId ?? '' }); }}
+            onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: joinTarget.spotName ?? '', organizerId: joinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }}
             style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 10, paddingVertical: 5 }}
           >
             <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
@@ -2102,7 +2102,7 @@ type SessionTimelineProps = {
   activeDay: 'today' | 'tomorrow';
   onSelectSession: (sessionId: string) => void;
   onJoinSession: (request: SessionJoinRequest) => void;
-  onRequestJoinSession?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string }) => void;
+  onRequestJoinSession?: (req: { sessionId: string; sessionDay: string; spotName: string; organizerId: string; startTime?: string; endTime?: string | null }) => void;
   onOpenGroupChat: (groupKey: string) => void;
   activeGroupChatKey: string | null;
   onClearSelection: () => void;
@@ -2285,7 +2285,7 @@ function SessionTimeline({
 
                       {/* JOIN knop naast Chat knop */}
                       {mCanRequestJoin ? (
-                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
                           <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
                         </Pressable>
                       ) : mCanJoin ? (
@@ -12981,20 +12981,20 @@ const handleSave = async () => {
             onJoinSession={(joinRequest) => {
               void joinSession(joinRequest);
             }}
-            onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId }) => {
+            onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId, startTime, endTime }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
               if (!requesterId || !organizerId) return;
-              // Open of maak DM met de organizer
               const convId = await openDmWithUser(organizerId);
               if (!convId) { Alert.alert('Error', 'Could not open DM'); return; }
               const requesterName = activeProfile?.display_name ?? 'Someone';
-              // Stuur join_request bericht
+              const timeStr = startTime ? (endTime ? `${startTime} – ${endTime}` : startTime) : '';
+              const msgText = `Hi, can I join your session at ${spotName}${timeStr ? ` (${timeStr})` : ''}?`;
               const { error } = await supabase.from('messages').insert({
                 user_id: requesterId,
                 conversation_id: convId,
-                text: `${requesterName} wants to join your session at ${spotName}`,
+                text: msgText,
                 subtype: 'join_request',
-                payload: { sessionId, sessionDay, spotName, requesterId, requesterName },
+                payload: { sessionId, sessionDay, spotName, requesterId, requesterName, startTime, endTime },
                 created_at: new Date().toISOString(),
               });
               if (error) { Alert.alert('Error', error.message); return; }
