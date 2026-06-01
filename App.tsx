@@ -8550,8 +8550,7 @@ export default Sentry.wrap(function App() {
   };
 
   const loadPendingJoinRequests = async (groupId: string) => {
-    const { data: reqs, error: reqErr } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by').eq('group_id', groupId).eq('status', 'pending');
-    Alert.alert('debug reqs', `count=${reqs?.length ?? 0} err=${reqErr?.message ?? 'none'} groupId=${groupId.slice(0,8)}`);
+    const { data: reqs } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by').eq('group_id', groupId).eq('status', 'pending');
     if (!reqs?.length) { setPendingJoinReqs([]); return; }
     const allIds = [...new Set([...reqs.map((r) => r.nominee_id), ...reqs.map((r) => r.introduced_by)])].filter(Boolean);
     const { data: profiles } = await supabase.from('profiles').select('id, display_name, avatar_url').in('id', allIds);
@@ -9665,7 +9664,7 @@ export default Sentry.wrap(function App() {
                 return (
                   <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
                     {grp.role === 'admin' && grp.pendingRequests > 0 && (
-                      <Pressable onPress={() => setShowNominateModal({ groupId: grp.id, groupName: grp.name })} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
+                      <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); void loadPendingJoinRequests(grp.id); }} style={{ backgroundColor: '#FFB347', borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5 }}>
                         <Text style={{ color: '#000', fontSize: 12, fontWeight: '900' }}>{grp.pendingRequests} req</Text>
                       </Pressable>
                     )}
