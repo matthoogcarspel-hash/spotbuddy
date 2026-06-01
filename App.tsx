@@ -4965,15 +4965,12 @@ export default Sentry.wrap(function App() {
 
       const buddyRelations = data ?? [];
       
-      const buddyProfileIds = Array.from(
-        new Set(
-          buddyRelations
-            .map((item) => (item.follower_id === activeAppUserId ? item.following_id : item.follower_id))
-            .filter((id): id is string => Boolean(id && id !== activeAppUserId)),
-        ),
-      );
-      
-      setFollowingUserIds(buddyProfileIds);
+      // Buddy = wederzijds: alleen IDs die in BEIDE richtingen voorkomen
+      const iFollow = new Set(buddyRelations.filter((r) => r.follower_id === activeAppUserId).map((r) => r.following_id).filter(Boolean));
+      const followMe = new Set(buddyRelations.filter((r) => r.following_id === activeAppUserId).map((r) => r.follower_id).filter(Boolean));
+      const mutualIds = [...iFollow].filter((id) => followMe.has(id) && id !== activeAppUserId);
+
+      setFollowingUserIds(mutualIds);
     })();
   }, [activeAppUserId, activeProfile?.id]);
 
