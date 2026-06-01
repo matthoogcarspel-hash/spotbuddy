@@ -9859,28 +9859,23 @@ export default Sentry.wrap(function App() {
             </View>
           )}
           {/* Sub-tabs + Broadcast */}
-          <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 20, alignSelf: 'flex-start' }}>
+          <View style={{ flexDirection: 'row', marginBottom: 20, alignItems: 'center' }}>
             {chatTabs.map((tab) => {
               const active = chatSubTab === tab.key;
               return (
-                <Pressable
-                  key={tab.key}
-                  onPress={() => setChatSubTab(tab.key)}
-                  style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}
-                >
-                  <Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>
-                  {tab.badge > 0 && (
-                    <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#4DB8FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}>
-                      <Text style={{ color: '#fff', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text>
-                    </View>
-                  )}
+                <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center', flexDirection: 'column' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Text style={{ color: active ? theme.text : theme.textMuted, fontSize: 13, fontWeight: active ? '900' : '600' }}>{tab.label}</Text>
+                    {tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}
+                  </View>
+                  {active && <View style={{ height: 2, width: '80%', backgroundColor: theme.primary, borderRadius: 1, marginTop: 2 }} />}
                 </Pressable>
               );
             })}
             {followingUserIds.length > 0 && (
-              <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                 <Ionicons name="megaphone-outline" size={13} color={theme.textMuted} />
-                <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '800' }}>Broadcast</Text>
+                <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>Broadcast</Text>
               </Pressable>
             )}
           </View>
@@ -10557,12 +10552,23 @@ export default Sentry.wrap(function App() {
                     </View>
                   </View>
                 )}
-                <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 3, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', marginBottom: 16, alignSelf: 'flex-start' }}>
-                  {chatTabs.map((tab) => { const active = chatSubTab === tab.key; return <Pressable key={tab.key} onPress={() => { setChatSubTab(tab.key); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, backgroundColor: active ? '#202833' : 'transparent', flexDirection: 'row', alignItems: 'center', gap: 5 }}><Text style={{ color: active ? '#ffffff' : theme.textMuted, fontSize: 13, fontWeight: '800' }}>{tab.label}</Text>{tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}</Pressable>; })}
+                <View style={{ flexDirection: 'row', marginBottom: 16, alignItems: 'center' }}>
+                  {chatTabs.map((tab) => {
+                    const active = chatSubTab === tab.key;
+                    return (
+                      <Pressable key={tab.key} onPress={() => setChatSubTab(tab.key)} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <Text style={{ color: active ? theme.text : theme.textMuted, fontSize: 13, fontWeight: active ? '900' : '600' }}>{tab.label}</Text>
+                          {tab.badge > 0 && <View style={{ minWidth: 16, height: 16, borderRadius: 8, backgroundColor: theme.primary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 }}><Text style={{ color: '#000', fontSize: 9, fontWeight: '900' }}>{tab.badge}</Text></View>}
+                        </View>
+                        {active && <View style={{ height: 2, width: '80%', backgroundColor: theme.primary, borderRadius: 1, marginTop: 2 }} />}
+                      </Pressable>
+                    );
+                  })}
                   {followingUserIds.length > 0 && (
-                    <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999, flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                    <Pressable onPress={() => { setBroadcastSelectedIds(followingUserIds); setShowBroadcastDm(true); }} style={{ paddingHorizontal: 10, paddingVertical: 4, flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                       <Ionicons name="megaphone-outline" size={13} color={theme.textMuted} />
-                      <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '800' }}>Broadcast</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '600' }}>Broadcast</Text>
                     </Pressable>
                   )}
                 </View>
