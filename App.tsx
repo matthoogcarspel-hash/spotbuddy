@@ -4076,10 +4076,8 @@ export default Sentry.wrap(function App() {
     });
 
     // Verwijder beide richtingen zodat het wederzijds is
-    const { error } = await supabase
-      .from('user_follows')
-      .delete()
-      .or(`and(follower_id.eq.${activeAppUserId},following_id.eq.${userIdToUnfollow}),and(follower_id.eq.${userIdToUnfollow},following_id.eq.${activeAppUserId})`);
+    await supabase.from('user_follows').delete().eq('follower_id', activeAppUserId).eq('following_id', userIdToUnfollow);
+    const { error } = await supabase.from('user_follows').delete().eq('follower_id', userIdToUnfollow).eq('following_id', activeAppUserId);
 
     if (error) {
       console.error('BUDDIES_UNFOLLOW_ERROR', error);
@@ -5487,6 +5485,18 @@ export default Sentry.wrap(function App() {
   useEffect(() => {
     setHomeQuickCheckInError('');
   }, []);
+
+  // Realtime: herlaad buddies als iemand ons verwijdert
+  useEffect(() => {
+    if (!activeAppUserId) return;
+    const channel = supabase
+      .channel(`user-follows-${activeAppUserId}`)
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'user_follows', filter: `following_id=eq.${activeAppUserId}` }, () => {
+        void fetchBuddiesData();
+      })
+      .subscribe();
+    return () => { void supabase.removeChannel(channel); };
+  }, [activeAppUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!selectedSpot) {
