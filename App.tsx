@@ -4075,9 +4075,8 @@ export default Sentry.wrap(function App() {
       return nextValue;
     });
 
-    // Verwijder beide richtingen zodat het wederzijds is
-    await supabase.from('user_follows').delete().eq('follower_id', activeAppUserId).eq('following_id', userIdToUnfollow);
-    const { error } = await supabase.from('user_follows').delete().eq('follower_id', userIdToUnfollow).eq('following_id', activeAppUserId);
+    // Verwijder beide richtingen via SECURITY DEFINER (bypast RLS)
+    const { error } = await supabase.rpc('mutual_unfollow', { other_user_id: userIdToUnfollow });
 
     if (error) {
       console.error('BUDDIES_UNFOLLOW_ERROR', error);
