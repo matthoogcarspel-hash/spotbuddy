@@ -13833,7 +13833,7 @@ const handleSave = async () => {
         ) : null}
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: isDarkMode ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.06)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)' }}>
+          <View style={{ flexDirection: 'row', alignSelf: 'flex-start', backgroundColor: theme.cardStrong, borderRadius: 999, padding: 2, borderWidth: 1, borderColor: theme.border }}>
             {([
               { key: 'today' as const, label: 'Today' },
               { key: 'tomorrow' as const, label: 'Tomorrow' },
@@ -13843,7 +13843,7 @@ const handleSave = async () => {
                 <Pressable
                   key={`home-day-${option.key}`}
                   onPress={() => setActiveDay(option.key)}
-                  style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#FFFFFF') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 13 }}
+                  style={{ backgroundColor: isActive ? theme.bgElevated : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 13 }}
                 >
                   <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
                 </Pressable>
@@ -13856,12 +13856,12 @@ const handleSave = async () => {
               setIsDarkMode(next);
               void AsyncStorage.setItem(themeModeStorageKey, next ? 'dark' : 'light');
             }}
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: isDarkMode ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.06)', borderRadius: 999, padding: 2, paddingHorizontal: 4, borderWidth: 1, borderColor: isDarkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.08)', gap: 2 }}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: theme.cardStrong, borderRadius: 999, padding: 2, paddingHorizontal: 4, borderWidth: 1, borderColor: theme.border, gap: 2 }}
           >
             {(['dark', 'light'] as const).map((mode) => {
               const isActive = (mode === 'dark') === isDarkMode;
               return (
-                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#2A4870') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
+                <View key={mode} style={{ backgroundColor: isActive ? theme.bgElevated : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
                   <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
                 </View>
               );
@@ -13963,8 +13963,8 @@ const handleSave = async () => {
           };
           return (
             <View style={{ marginBottom: 18 }}>
-              <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>{activeDay === 'today' ? "Today's top spots" : "Tomorrow's top spots"}</Text>
-              <Text style={{ color: '#ffffff', fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} {total === 1 ? 'rider' : 'riders'}</Text>
+              <Text style={{ color: theme.textMuted, fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 2 }}>{activeDay === 'today' ? "Today's top spots" : "Tomorrow's top spots"}</Text>
+              <Text style={{ color: theme.text, fontSize: 22, fontWeight: '900', marginBottom: 14 }}>{total} {total === 1 ? 'rider' : 'riders'}</Text>
 
               <View style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 16 }}>
                 {mockSpots.map((spot) => {
@@ -13975,8 +13975,8 @@ const handleSave = async () => {
                       <View style={{ alignItems: 'center', justifyContent: 'flex-end', height: BAR_MAX_H }}>
                         <View style={{ width: BAR_W, height: barH, borderRadius: 4, backgroundColor: color }} />
                       </View>
-                      <Text style={{ color: '#ffffff', fontSize: 10, fontWeight: '800', textAlign: 'center' }}>{spot.name}</Text>
-                      <Text style={{ color: 'rgba(255,255,255,0.35)', fontSize: 9 }}>{spot.count} riders</Text>
+                      <Text style={{ color: theme.text, fontSize: 10, fontWeight: '800', textAlign: 'center' }}>{spot.name}</Text>
+                      <Text style={{ color: theme.textMuted, fontSize: 9 }}>{spot.count} riders</Text>
                     </Pressable>
                   );
                 })}
