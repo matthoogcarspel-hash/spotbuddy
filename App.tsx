@@ -1985,7 +1985,7 @@ function SessionRow({
         {/* Rechts: Join knop of Group Chat knop */}
         {canRequestJoin ? (
           <Pressable
-            onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: (joinTarget as any).spot_name ?? (joinTarget as any).spotName ?? '', organizerId: joinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }}
+            onPress={(e) => { (e as any).stopPropagation?.(); if (!joinTarget) return; void onRequestJoin?.({ sessionId: joinTarget.id, sessionDay: joinTarget.sessionDay, spotName: joinTarget.spot ?? '', organizerId: joinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }}
             style={{ marginLeft: 'auto', zIndex: 2, borderRadius: 999, backgroundColor: '#123868', paddingHorizontal: 10, paddingVertical: 5 }}
           >
             <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
@@ -2285,7 +2285,7 @@ function SessionTimeline({
 
                       {/* JOIN knop naast Chat knop */}
                       {mCanRequestJoin ? (
-                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: (mJoinTarget as any).spot_name ?? (mJoinTarget as any).spotName ?? selectedSpot ?? '', organizerId: mJoinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }} style={{ borderRadius: 999, backgroundColor: '#123868', paddingHorizontal: 12, paddingVertical: 6 }}>
+                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spot ?? selectedSpot ?? '', organizerId: mJoinTarget.userId ?? '', startTime: group.startTime, endTime: group.hasPlannedWindow ? group.endTime : null }); }} style={{ borderRadius: 999, backgroundColor: '#123868', paddingHorizontal: 12, paddingVertical: 6 }}>
                           <Text style={{ color: theme.text, fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
                         </Pressable>
                       ) : mCanJoin ? (
@@ -12980,7 +12980,6 @@ const handleSave = async () => {
             }}
             onRequestJoinSession={async ({ sessionId, sessionDay, spotName, organizerId, startTime, endTime }) => {
               const requesterId = activeProfile?.id ?? activeAppUserId;
-              Alert.alert('debug', `organizer=${organizerId?.slice(0,8) ?? 'EMPTY'} spot=${spotName}`);
               if (!requesterId || !organizerId) return;
               const convId = await openDmWithUser(organizerId);
               if (!convId) { Alert.alert('Error', 'Could not open DM'); return; }
