@@ -8553,7 +8553,13 @@ export default Sentry.wrap(function App() {
     const introducedBy = activeProfile?.id ?? activeAppUserId;
     if (!introducedBy) return;
     const { error } = await supabase.from('group_join_requests').insert({ group_id: groupId, nominee_id: nomineeId, introduced_by: introducedBy, status: 'pending' });
-    if (error) console.error('NOMINATE_ERROR', error);
+    if (error) { console.error('NOMINATE_ERROR', error); return; }
+    // Push naar admin
+    const grp = myPersistentGroups.find((g) => g.id === groupId);
+    const adminIds = grp?.memberIds ?? [];
+    const { data: adminRows } = await supabase.from('group_members').select('user_id').eq('group_id', groupId).eq('role', 'admin');
+    const adminId = adminRows?.[0]?.user_id;
+    if (adminId) void sendPushToRecipients([adminId], `${activeProfile?.display_name ?? 'Someone'} suggested a member`, `Open the group to review`, { type: 'dm' });
     setShowNominateModal(null);
     setNominateSearchQuery('');
     setNominateSelectedUserId(null);
@@ -10387,9 +10393,14 @@ export default Sentry.wrap(function App() {
                           setEditingGroupName(null);
                         }} style={{ flex: 1, color: theme.text, fontSize: 16, fontWeight: '800', padding: 0 }} />
                       ) : (
-                        <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)} onLongPress={() => setEditingGroupName(openConvName)}>
-                          <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
-                        </Pressable>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                          <Pressable onPress={() => expandedPersistentGroupId && void openGroupMembersPopup(expandedPersistentGroupId)}>
+                            <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
+                          </Pressable>
+                          <Pressable onPress={() => setEditingGroupName(openConvName)} hitSlop={8}>
+                            <Ionicons name="pencil-outline" size={14} color={theme.textMuted} />
+                          </Pressable>
+                        </View>
                       )
                     ) : (
                       <Text style={{ color: theme.text, fontSize: 16, fontWeight: '800' }} numberOfLines={1}>{openConvName}</Text>
@@ -10411,7 +10422,7 @@ export default Sentry.wrap(function App() {
                             <Ionicons name="camera-outline" size={20} color={theme.textMuted} />
                           </Pressable>
                         )}
-                        <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); if (grp.role === 'admin' && grp.pendingRequests > 0) { const { data } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', grp.id).eq('status', 'pending'); setPendingJoinReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } }))); } }} style={{ padding: 4 }} hitSlop={8}>
+                        <Pressable onPress={async () => { setAddBuddySelectedIds([]); setPendingJoinReqs([]); setShowNominateModal({ groupId: grp.id, groupName: grp.name }); if (grp.role === 'admin') { const { data } = await supabase.from('group_join_requests').select('id, nominee_id, introduced_by, profiles!group_join_requests_nominee_id_fkey(id, display_name, avatar_url), introducedByProfile:profiles!group_join_requests_introduced_by_fkey(display_name)').eq('group_id', grp.id).eq('status', 'pending'); setPendingJoinReqs((data ?? []).map((r: any) => ({ id: r.id, nominee: r.profiles ?? { id: r.nominee_id, display_name: 'Unknown', avatar_url: null }, introduced_by: r.introducedByProfile ?? { display_name: 'Someone' } }))); } }} style={{ padding: 4 }} hitSlop={8}>
                           <Ionicons name="person-add-outline" size={20} color={theme.textMuted} />
                         </Pressable>
                         <Pressable onPress={async () => {
