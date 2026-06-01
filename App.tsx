@@ -2729,6 +2729,7 @@ export default Sentry.wrap(function App() {
   const expandedChatSpotRef = useRef<string | null>(null);
   const sessionConvIdsRef = useRef<Set<string>>(new Set()); // convIds die tot sessie chats horen
   const profileCacheRef = useRef<Map<string, { display_name: string; avatar_url: string | null }>>(new Map());
+  const convTypeCacheRef = useRef<Map<string, { type: string; spot_name?: string | null; persistent_group_id?: string | null }>>(new Map());
   const chatSpotScrollRef = useRef<ScrollView>(null);
   const chatSessionScrollRef = useRef<ScrollView>(null);
   const chatDmScrollRef = useRef<ScrollView>(null);
@@ -5412,8 +5413,13 @@ export default Sentry.wrap(function App() {
         // Type-check altijd uitvoeren — ook als matchedSpotName null is (spot niet gevolgd)
         // Fix: app→web session chat werkt ook als web de spot niet volgt
         if (!isKnownSessionConv) {
-          const { data: typeRow } = await supabase.from('conversations')
-            .select('type, spot_name, persistent_group_id').eq('id', convId).maybeSingle();
+          // Gebruik cache om DB round-trip te vermijden
+          let typeRow = convTypeCacheRef.current.get(convId) ?? null;
+          if (!typeRow) {
+            const { data } = await supabase.from('conversations').select('type, spot_name, persistent_group_id').eq('id', convId).maybeSingle();
+            typeRow = data;
+            if (data) convTypeCacheRef.current.set(convId, data);
+          }
           if (typeRow?.type === 'group' && (typeRow as any)?.persistent_group_id) {
             // Persistent group chat
             const pgId = (typeRow as any).persistent_group_id as string;
@@ -8363,13 +8369,17 @@ export default Sentry.wrap(function App() {
     const text = dmInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !conversationId || !senderId) return;
-    const { data: dmInserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
-    if (error) { console.error('DM_SEND_ERROR', error); setSessionActionError(`DM send failed: ${error.message}`); return; }
+    // Optimistic: toon bericht direct
+    const tempId = `dm-${Date.now()}`;
+    const newMsg = { id: tempId, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null, subtype: null, payload: null };
     setDmInput('');
-    setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: dmInserted?.id ?? `dm-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setDmMessages((prev) => ({ ...prev, [conversationId]: [...(prev[conversationId] ?? []), newMsg] }));
     setDmConversations((prev) => prev.map((c) => c.id === conversationId ? { ...c, lastMessage: text, lastMessageAt: new Date().toISOString() } : c));
+    setTimeout(() => chatDmScrollRef.current?.scrollToEnd({ animated: true }), 30);
+    // DB insert op achtergrond
+    const { data: dmInserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: conversationId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
+    if (error) { console.error('DM_SEND_ERROR', error); setSessionActionError(`DM send failed: ${error.message}`); return; }
+    if (dmInserted?.id) setDmMessages((prev) => ({ ...prev, [conversationId]: (prev[conversationId] ?? []).map((m) => m.id === tempId ? { ...m, id: dmInserted.id } : m) }));
     // Push notificatie naar de andere deelnemer — haal otherUserId op uit DB (betrouwbaarder dan state)
     void (async () => {
       const { data: convData, error: convError } = await supabase
@@ -8483,13 +8493,18 @@ export default Sentry.wrap(function App() {
     const text = persistentGroupInput.trim();
     const senderId = activeProfile?.id ?? activeAppUserId ?? null;
     if (!text && !mediaUrl || !senderId) return;
-    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
-    if (error) { console.error('GROUP_SEND_ERROR', error); return; }
+    // Optimistic: toon bericht direct zonder op DB te wachten
+    const tempId = `grp-${Date.now()}`;
+    const newMsg = { id: tempId, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setPersistentGroupInput('');
-    setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 50);
-    const newMsg = { id: inserted?.id ?? `grp-${Date.now()}`, text: text || null, createdAt: new Date().toISOString(), userId: senderId, display_name: activeProfile?.display_name ?? 'You', avatar_url: activeProfile?.avatar_url ?? null, media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, reply_to_id: replyMeta.reply_to_id ?? null, reply_to_text: replyMeta.reply_to_text ?? null, reply_to_name: replyMeta.reply_to_name ?? null };
     setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { messages: [...(prev[groupId]?.messages ?? []), newMsg], loaded: true } }));
     setMyPersistentGroups((prev) => prev.map((g) => g.id === groupId ? { ...g, lastMessage: text || null, lastMessageAt: new Date().toISOString() } : g));
+    setTimeout(() => chatGroupScrollRef.current?.scrollToEnd({ animated: true }), 30);
+    // DB insert op achtergrond
+    const { data: inserted, error } = await supabase.from('messages').insert({ user_id: senderId, text: text || null, conversation_id: convId, spot_name: null, session_day: null, created_at: new Date().toISOString(), media_url: mediaUrl ?? null, media_type: mediaUrl ? 'image' : null, ...replyMeta }).select('id').single();
+    if (error) { console.error('GROUP_SEND_ERROR', error); return; }
+    // Update temp ID met echte ID (voor dedup in realtime)
+    if (inserted?.id) setPersistentGroupMessages((prev) => ({ ...prev, [groupId]: { ...prev[groupId], messages: (prev[groupId]?.messages ?? []).map((m) => m.id === tempId ? { ...m, id: inserted.id } : m) } }));
     // Push naar alle andere groepsleden
     const grp = myPersistentGroups.find((g) => g.id === groupId);
     const grpName = grp?.name ?? 'Group';
