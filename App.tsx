@@ -9351,25 +9351,36 @@ export default Sentry.wrap(function App() {
                         <Pressable onPress={async () => {
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
-                          const { error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
-                          if (error) { Alert.alert('Error accepting', error.message); return; }
-                          // Stuur bevestigingsbericht
                           const senderId = activeProfile?.id ?? activeAppUserId;
-                          if (senderId && convId) {
-                            await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `✓ Accepted! ${p.requesterName} can join your session at ${p.spotName}`, created_at: new Date().toISOString() });
-                          }
-                          // Update kaartje
+                          if (!senderId) return;
+                          // Haal de originele sessie op en maak een kopie voor de aanvrager
+                          const { data: origSession, error: fetchErr } = await supabase.from('sessions').select('*').eq('id', p.sessionId).single();
+                          if (fetchErr || !origSession) { Alert.alert('Error', fetchErr?.message ?? 'Session not found'); return; }
+                          const { error: insertErr } = await supabase.from('sessions').insert({
+                            user_id: p.requesterId,
+                            spot_name: origSession.spot_name,
+                            session_day: origSession.session_day,
+                            status: 'Ik ga',
+                            group_id: origSession.group_id,
+                            start_time: origSession.start_time,
+                            end_time: origSession.end_time,
+                          });
+                          if (insertErr) { Alert.alert('Error joining', insertErr.message); return; }
+                          // Bevestigingsbericht
+                          await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `✓ Accepted! See you at ${p.spotName} 🏄`, created_at: new Date().toISOString() });
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
-                          void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `You can join the session at ${p.spotName}`, { type: 'dm', conversationId: convId });
+                          void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `See you at ${p.spotName}!`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>✓ Accept</Text>
                         </Pressable>
                         <Pressable onPress={async () => {
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
+                          const senderId = activeProfile?.id ?? activeAppUserId;
                           await supabase.from('messages').update({ subtype: 'join_denied' }).eq('id', msg.id);
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_denied' } : m) }));
+                          if (senderId && convId) await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `Sorry, not this time 🤙`, created_at: new Date().toISOString() });
                           void sendPushToRecipients([p.requesterId], 'Request declined', `Your request for ${p.spotName} was not accepted`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.textMuted, fontSize: 13, fontWeight: '700' }}>✗ Decline</Text>
