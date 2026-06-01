@@ -351,9 +351,9 @@ const darkTheme = {
 const lightTheme = {
   bg: '#1A3050',
   bgElevated: '#243D60',
-  card: '#2A4870',
-  cardStrong: '#305580',
-  border: '#4A6E9A',
+  card: '#32598A',
+  cardStrong: '#3D6BA0',
+  border: '#5278B0',
   text: '#FFFFFF',
   textSoft: '#E8F2FF',
   textMuted: '#AABDD4',
@@ -14052,12 +14052,12 @@ const handleSave = async () => {
               key={spot.name}
               onPress={() => setSelectedSpot(spot.name)}
               style={({ pressed }) => ({
-                backgroundColor: '#071421',
+                backgroundColor: isDarkMode ? '#071421' : theme.card,
                 borderRadius: homeSpotCardRadius,
                 padding: homeSpotCardPadding,
                 marginBottom: 18,
                 borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.07)',
+                borderColor: isDarkMode ? 'rgba(255,255,255,0.07)' : theme.border,
                 opacity: pressed ? 0.88 : 1,
               })}
             >
