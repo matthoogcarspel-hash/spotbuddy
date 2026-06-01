@@ -12985,7 +12985,7 @@ const handleSave = async () => {
               if (!convId) { Alert.alert('Error', 'Could not open DM'); return; }
               const requesterName = activeProfile?.display_name ?? 'Someone';
               const timeStr = startTime ? (endTime ? `${startTime} – ${endTime}` : startTime) : '';
-              const msgText = `Hi, can I join your session at ${spotName}${timeStr ? ` (${timeStr})` : ''}?`;
+              const msgText = `Hi, can I join your session at ${spotName}${timeStr ? `: ${timeStr}` : ''}?`;
               const { error } = await supabase.from('messages').insert({
                 user_id: requesterId,
                 conversation_id: convId,
