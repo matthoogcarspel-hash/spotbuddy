@@ -9352,13 +9352,13 @@ export default Sentry.wrap(function App() {
                           const p = msg.payload as any;
                           const convId = expandedDmId ?? '';
                           if (!p?.sessionId || !p?.requesterId) return;
-                          console.log('ACCEPT payload:', JSON.stringify(p));
                           const { data: rpcResult, error } = await supabase.rpc('accept_session_join_request', { p_session_id: p.sessionId, p_session_day: p.sessionDay, p_requester_id: p.requesterId });
-                          console.log('ACCEPT result:', rpcResult, 'error:', error?.message);
-                          if (error) { console.error('RPC error:', error); return; }
+                          if (error) { console.error('Accept RPC error:', error); return; }
                           if (typeof rpcResult === 'string' && rpcResult.startsWith('error')) { console.error('RPC returned error:', rpcResult); return; }
+                          const senderId = activeProfile?.id ?? activeAppUserId;
                           setDmMessages((prev) => ({ ...prev, [convId]: (prev[convId] ?? []).map((m) => m.id === msg.id ? { ...m, subtype: 'join_accepted' } : m) }));
                           await supabase.from('messages').update({ subtype: 'join_accepted' }).eq('id', msg.id);
+                          if (senderId && convId) await supabase.from('messages').insert({ user_id: senderId, conversation_id: convId, text: `✓ Accepted! See you at ${p.spotName}: ${p.startTime}${p.endTime ? ` – ${p.endTime}` : ''} 🏄`, created_at: new Date().toISOString() });
                           void sendPushToRecipients([p.requesterId], 'Request accepted! 🏄', `See you at ${p.spotName}!`, { type: 'dm', conversationId: convId });
                         }} style={{ flex: 1, backgroundColor: '#123868', borderRadius: 8, paddingVertical: 8, alignItems: 'center' }}>
                           <Text style={{ color: theme.text, fontSize: 13, fontWeight: '800' }}>✓ Accept</Text>
