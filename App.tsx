@@ -13067,24 +13067,16 @@ const handleSave = async () => {
         <View style={{ backgroundColor: 'transparent', padding: 0, marginBottom: isWebPlatform ? 14 : 18 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
             
-            <View style={{ flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.045)', borderRadius: 999, padding: 2, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               {([
                 { key: 'everyone' as const, label: 'Everyone' },
                 { key: 'buddies' as const, label: 'Buddies' },
               ]).map((option) => {
                 const isActive = timelineFilter === option.key;
                 return (
-                  <Pressable
-                    key={option.key}
-                    onPress={() => setTimelineFilter(option.key)}
-                    style={{
-                      paddingHorizontal: 10,
-                      paddingVertical: 5,
-                      borderRadius: 999,
-                      backgroundColor: isActive ? '#202833' : 'transparent',
-                    }}
-                  >
-                    <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{option.label}</Text>
+                  <Pressable key={option.key} onPress={() => setTimelineFilter(option.key)} style={{ paddingHorizontal: 10, paddingVertical: 4, alignItems: 'center' }}>
+                    <Text style={{ color: isActive ? theme.text : theme.textMuted, fontSize: 12, fontWeight: isActive ? '900' : '600' }}>{option.label}</Text>
+                    {isActive && <View style={{ height: 2, width: '80%', backgroundColor: theme.primary, borderRadius: 1, marginTop: 2 }} />}
                   </Pressable>
                 );
               })}
