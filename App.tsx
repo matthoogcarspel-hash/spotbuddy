@@ -2216,6 +2216,7 @@ function SessionTimeline({
                 const mAlreadyIn = mGSessions.some(e => e.item?.userId === currentProfileId);
                 const mJoinState = mJoinTarget?.id ? (joinStateBySession[mJoinTarget.id] ?? { allowed: false, reason: null }) : { allowed: false, reason: null };
                 const mCanJoin = Boolean(mJoinTarget) && !mAlreadyIn && mJoinState.allowed;
+                const mCanRequestJoin = Boolean(mJoinTarget) && !mAlreadyIn && !mJoinState.allowed && mJoinState.reason === 'NOT_BUDDY';
                 const mJoinedGroup = mAlreadyIn && mGSessions.some(e => e.item?.userId !== currentProfileId);
 
                 const clampedStartMinutes = clamp(group.startMinutes, timelineWindowStartMinutes, timelineWindowEndMinutes);
@@ -2283,7 +2284,11 @@ function SessionTimeline({
                       ) : null}
 
                       {/* JOIN knop naast Chat knop */}
-                      {mCanJoin ? (
+                      {mCanRequestJoin ? (
+                        <Pressable onPress={(event) => { event.stopPropagation(); if (!mJoinTarget) return; void onRequestJoinSession?.({ sessionId: mJoinTarget.id, sessionDay: mJoinTarget.sessionDay, spotName: mJoinTarget.spotName ?? '', organizerId: mJoinTarget.userId ?? '' }); }} style={{ borderRadius: 999, backgroundColor: 'rgba(77,184,255,0.12)', borderWidth: 1, borderColor: 'rgba(77,184,255,0.4)', paddingHorizontal: 12, paddingVertical: 6 }}>
+                          <Text style={{ color: '#4DB8FF', fontSize: 11, fontWeight: '800' }}>Can I Join?</Text>
+                        </Pressable>
+                      ) : mCanJoin ? (
                         <Pressable
                           onPress={(event) => {
                             event.stopPropagation();
