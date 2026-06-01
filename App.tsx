@@ -349,18 +349,18 @@ const darkTheme = {
   warm: '#F2C94C',
 };
 const lightTheme = {
-  bg: '#F0F4F8',
-  bgElevated: '#FFFFFF',
-  card: '#FFFFFF',
-  cardStrong: '#E8EEF5',
-  border: '#C5D3E0',
-  text: '#0A1929',
-  textSoft: '#1E3A52',
-  textMuted: '#4A6070',
-  primary: '#0077AA',
-  primaryPressed: '#005C88',
-  live: '#00957A',
-  warm: '#D4A017',
+  bg: '#0F2035',
+  bgElevated: '#1A2E44',
+  card: '#1E3350',
+  cardStrong: '#253D5E',
+  border: '#3A5472',
+  text: '#FFFFFF',
+  textSoft: '#E2EDF8',
+  textMuted: '#C0D0E0',
+  primary: '#2FD4FF',
+  primaryPressed: '#1AB6E0',
+  live: '#5EF0D0',
+  warm: '#F2C94C',
 };
 // theme wordt dynamisch in de component via isDarkMode state
 const theme = darkTheme; // fallback voor buiten de component
@@ -13861,8 +13861,8 @@ const handleSave = async () => {
             {(['dark', 'light'] as const).map((mode) => {
               const isActive = (mode === 'dark') === isDarkMode;
               return (
-                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#FFFFFF') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 10 }}>
-                  <Text style={{ fontSize: 12 }}>{mode === 'dark' ? '🌙' : '☀️'}</Text>
+                <View key={mode} style={{ backgroundColor: isActive ? (isDarkMode ? '#202833' : '#1E3350') : 'transparent', borderRadius: 999, paddingVertical: 6, paddingHorizontal: 12 }}>
+                  <Text style={{ color: isActive ? '#ffffff' : theme.textMuted, fontSize: 12, fontWeight: '800' }}>{mode === 'dark' ? 'Dark' : 'Light'}</Text>
                 </View>
               );
             })}
