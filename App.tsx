@@ -8416,37 +8416,41 @@ export default Sentry.wrap(function App() {
     const mutedMap = new Map(memberships.map((m) => [m.group_id, !!(m as any).notifications_muted]));
     const adminGroupIds = [...roleMap.entries()].filter(([, r]) => r === 'admin').map(([id]) => id);
 
-    // Round-trip 2: alle queries sequentieel (betrouwbaar)
-    const { data: groupRows } = await supabase.from('groups').select('id, name, avatar_url').in('id', groupIds);
-    const { data: convRows } = await supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds);
-    const reqs = adminGroupIds.length
-      ? (await supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)).data ?? []
-      : [];
+    // Round-trip 2: groups + conversations + join_requests + members PARALLEL
+    const [groupsRes, convsRes, reqsRes, membersRes] = await Promise.allSettled([
+      supabase.from('groups').select('id, name, avatar_url').in('id', groupIds),
+      supabase.from('conversations').select('id, persistent_group_id').in('persistent_group_id', groupIds),
+      adminGroupIds.length
+        ? supabase.from('group_join_requests').select('group_id').eq('status', 'pending').in('group_id', adminGroupIds)
+        : Promise.resolve({ data: [] }),
+      supabase.from('group_members').select('group_id, user_id').in('group_id', groupIds),
+    ]);
+
+    const groupRows = groupsRes.status === 'fulfilled' ? (groupsRes.value as any).data : [];
+    const convRows = convsRes.status === 'fulfilled' ? (convsRes.value as any).data : [];
+    const reqs = reqsRes.status === 'fulfilled' ? (reqsRes.value as any).data ?? [] : [];
+    const allMembers = membersRes.status === 'fulfilled' ? (membersRes.value as any).data ?? [] : [];
 
     const convMap = new Map((convRows ?? []).map((c: any) => [c.persistent_group_id, c.id]));
     const convIds = (convRows ?? []).map((c: any) => c.id as string);
 
-    // Round-trip 3: last message per conversation
+    const pendingMap = new Map<string, number>();
+    for (const r of (reqs ?? [])) pendingMap.set((r as any).group_id, (pendingMap.get((r as any).group_id) ?? 0) + 1);
+
+    const membersByGroup = new Map<string, string[]>();
+    for (const m of allMembers) {
+      const list = membersByGroup.get(m.group_id) ?? [];
+      if (!list.includes(m.user_id)) list.push(m.user_id);
+      membersByGroup.set(m.group_id, list);
+    }
+
+    // Round-trip 3: last message per conversation (needs convIds)
     const lastMsgMap = new Map<string, { text: string | null; at: string }>();
     if (convIds.length) {
       const { data: allMsgs } = await supabase.from('messages').select('text, created_at, conversation_id').in('conversation_id', convIds).order('created_at', { ascending: false }).limit(convIds.length + 20);
       const seen = new Set<string>();
       for (const m of (allMsgs ?? [])) {
         if (!seen.has(m.conversation_id)) { seen.add(m.conversation_id); lastMsgMap.set(m.conversation_id, { text: m.text, at: m.created_at }); }
-      }
-    }
-
-    const pendingMap = new Map<string, number>();
-    for (const r of (reqs ?? [])) pendingMap.set((r as any).group_id, (pendingMap.get((r as any).group_id) ?? 0) + 1);
-
-    // Haal alle leden op voor alle groepen — werkt nu via is_group_member() policy
-    const membersByGroup = new Map<string, string[]>();
-    if (groupIds.length) {
-      const { data: allMembers } = await supabase.from('group_members').select('group_id, user_id').in('group_id', groupIds);
-      for (const m of (allMembers ?? [])) {
-        const list = membersByGroup.get(m.group_id) ?? [];
-        if (!list.includes(m.user_id)) list.push(m.user_id);
-        membersByGroup.set(m.group_id, list);
       }
     }
 
