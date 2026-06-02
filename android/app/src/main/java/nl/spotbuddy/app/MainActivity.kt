@@ -1,4 +1,4 @@
-package com.anonymous.spotbuddy
+package nl.spotbuddy.app
 
 import android.os.Build
 import android.os.Bundle
