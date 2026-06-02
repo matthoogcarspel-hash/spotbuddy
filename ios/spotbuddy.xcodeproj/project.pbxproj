@@ -388,7 +388,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.spotbuddy;
+				PRODUCT_BUNDLE_IDENTIFIER = nl.spotbuddy.app;
 				PRODUCT_NAME = spotbuddy;
 				SWIFT_OBJC_BRIDGING_HEADER = "spotbuddy/spotbuddy-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -418,7 +418,7 @@
 					"-ObjC",
 					"-lc++",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.anonymous.spotbuddy;
+				PRODUCT_BUNDLE_IDENTIFIER = nl.spotbuddy.app;
 				PRODUCT_NAME = spotbuddy;
 				SWIFT_OBJC_BRIDGING_HEADER = "spotbuddy/spotbuddy-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
