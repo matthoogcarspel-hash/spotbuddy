@@ -15,7 +15,7 @@ export const spots = [
   { spot: 'Slufter Maasvlakte', latitude: 51.9191, longitude: 3.9882, country: 'NL' },
   { spot: 'Oostvoorne', latitude: 51.9140, longitude: 4.0250, country: 'NL' },
   { spot: 'Langebaan', latitude: -33.0660, longitude: 18.0350, country: 'ZA' },
-  { spot: 'Dakhla Lagoon', latitude: 23.8680, longitude: -15.8950, country: 'MA' },
+  { spot: 'Dakhla Lagoon', latitude: 23.6680, longitude: -15.9400, country: 'MA' },
   { spot: 'Sotavento Fuerteventura', latitude: 28.1006, longitude: -14.2713, country: 'ES' },
   { spot: 'Cabarete', latitude: 19.7630, longitude: -70.4380, country: 'DO' },
   { spot: 'Cumbuco', latitude: -3.6216, longitude: -38.7408, country: 'BR' },
